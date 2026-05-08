@@ -71,6 +71,8 @@ function makeSuccessResponse(text: string) {
 describe('useSDK', () => {
   beforeEach(() => {
     vi.stubEnv('VITE_ANTHROPIC_API_KEY', 'sk-ant-test')
+    // Disable mock mode so tests exercise real SDK paths, not the demo fallback
+    vi.stubEnv('VITE_MOCK_MODE', '')
     mockCreate.mockReset()
     // Reset singleton so each test gets a fresh client instance
     _resetClientForTest()
@@ -192,5 +194,79 @@ describe('useSDK', () => {
     expect(userMsg).toContain('Stakes: StakesValue')
     expect(userMsg).toContain('Ends: EndsValue')
     expect(userMsg).toContain('Means: MeansValue')
+  })
+
+  // ── VATester gap tests ────────────────────────────────────────────────────────
+
+  it('sets error and returns null when VITE_ANTHROPIC_API_KEY is not set', async () => {
+    // Spec: S.EvoStep2.PipelineHandler — missing API key must produce a clear error
+    // Coverage: line 23 — getClient() throw path when apiKey is falsy
+    vi.stubEnv('VITE_ANTHROPIC_API_KEY', '')
+    _resetClientForTest()
+    const { translate, error } = useSDK()
+
+    const result = await translate('S', 'E', 'M')
+
+    expect(result).toBeNull()
+    expect(error.value).toMatch(/VITE_ANTHROPIC_API_KEY/)
+  })
+
+  it('sets error and returns null when LLM response is missing required arrays', async () => {
+    // Spec: S.EvoStep2.PipelineHandler — malformed JSON object (not arrays) must fail validation
+    // Coverage: line 55 — parseSpecBlock branch: missing functions/values/solutions arrays
+    const malformed = JSON.stringify({ notFunctions: [], notValues: [], notSolutions: [] })
+    mockCreate.mockResolvedValueOnce(makeSuccessResponse(malformed))
+    const { translate, error } = useSDK()
+
+    const result = await translate('S', 'E', 'M')
+
+    expect(result).toBeNull()
+    expect(error.value).toMatch(/missing required arrays/)
+  })
+
+  it('sets error and returns null when spec has no V entries', async () => {
+    // Spec: V.EvoStep2.TranslationExitGate — spec must have ≥1 V entry
+    // Coverage: line 61 — empty values array
+    const noV = JSON.stringify({
+      functions: [{ id: 'F.X', type: 'Function', level: 'Product', description: 'd', successCriteria: 'c', functionOfValue: 'V.X' }],
+      values: [],
+      solutions: [{ id: 'S.X', type: 'Solution', level: 'Product', description: 'd', impact: 'x', function: 'F.X' }],
+    })
+    mockCreate.mockResolvedValueOnce(makeSuccessResponse(noV))
+    const { translate, error } = useSDK()
+
+    const result = await translate('S', 'E', 'M')
+
+    expect(result).toBeNull()
+    expect(error.value).toMatch(/no V/)
+  })
+
+  it('sets error and returns null when spec has no S entries', async () => {
+    // Spec: V.EvoStep2.TranslationExitGate — spec must have ≥1 S entry
+    // Coverage: line 64 — empty solutions array
+    const noS = JSON.stringify({
+      functions: [{ id: 'F.X', type: 'Function', level: 'Product', description: 'd', successCriteria: 'c', functionOfValue: 'V.X' }],
+      values: [{ id: 'V.X', type: 'Value', level: 'Product', description: 'd', scale: 's', meter: 'm', status: 'pre', tolerable: '60%', goal: '80%', valueOfFunction: 'F.X' }],
+      solutions: [],
+    })
+    mockCreate.mockResolvedValueOnce(makeSuccessResponse(noS))
+    const { translate, error } = useSDK()
+
+    const result = await translate('S', 'E', 'M')
+
+    expect(result).toBeNull()
+    expect(error.value).toMatch(/no S/)
+  })
+
+  it('sets error and returns null when LLM response contains no text block', async () => {
+    // Spec: S.EvoStep2.PipelineHandler — non-text response must produce a clear error
+    // Coverage: line 136 — response.content has no text-type block
+    mockCreate.mockResolvedValueOnce({ content: [{ type: 'tool_use', id: 'tu1', name: 'fn', input: {} }], usage: {} })
+    const { translate, error } = useSDK()
+
+    const result = await translate('S', 'E', 'M')
+
+    expect(result).toBeNull()
+    expect(error.value).toMatch(/no text block/)
   })
 })

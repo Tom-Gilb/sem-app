@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 110" width="340" height="110">
+
+  <!--
+    SEM Brand Mark — "The Archer"
+    Stakeholder (person) fires the Means (arrow) at the Ends (bullseye)
+    S ──────────────────→ E
+    Planguage → arrow = impacts; bullseye = measurable goal; person = the stake
+  -->
+
+  <!-- Background -->
+  <rect width="340" height="110" rx="18" fill="#1B2B3C"/>
+
+  <!-- ═══════════════ S — Stakeholder / Person (x=48) ═══════════════ -->
+  <g transform="translate(48,52)" fill="#FFFFFF">
+    <!-- head -->
+    <circle cy="-16" r="12"/>
+    <!-- bust / shoulders -->
+    <path d="M-19,14 C-19,2 -10,-1 0,-1 C10,-1 19,2 19,14 Z"/>
+  </g>
+
+  <!-- column label -->
+  <text x="48" y="98" text-anchor="middle" font-family="system-ui,sans-serif"
+        font-size="10" font-weight="600" letter-spacing="1" fill="#FFFFFF" opacity="0.45">S</text>
+
+  <!-- ═══════════════ M — Means / Arrow in flight (centre) ═══════════════ -->
+  <!-- shaft -->
+  <line x1="84" y1="52" x2="240" y2="52"
+        stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- arrowhead -->
+  <polyline points="229,42 241,52 229,62"
+            fill="none" stroke="#FFFFFF" stroke-width="3.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- subtle flight feathers at tail -->
+  <polyline points="84,52 92,44" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+  <polyline points="84,52 92,60" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+
+  <!-- column label -->
+  <text x="164" y="98" text-anchor="middle" font-family="system-ui,sans-serif"
+        font-size="10" font-weight="600" letter-spacing="1" fill="#FFFFFF" opacity="0.45">M</text>
+
+  <!-- ═══════════════ E — Ends / Bullseye target (x=290) ═══════════════ -->
+  <g transform="translate(290,52)" fill="none" stroke="#FFFFFF">
+    <circle r="28" stroke-width="2.5"/>
+    <circle r="17" stroke-width="2.5"/>
+    <circle r="7"  stroke-width="2.5"/>
+    <!-- centre dot — the goal hit -->
+    <circle r="3" fill="#FFFFFF" stroke="none"/>
+  </g>
+
+  <!-- column label -->
+  <text x="290" y="98" text-anchor="middle" font-family="system-ui,sans-serif"
+        font-size="10" font-weight="600" letter-spacing="1" fill="#FFFFFF" opacity="0.45">E</text>
+
+</svg>
