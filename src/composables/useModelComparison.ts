@@ -278,7 +278,7 @@ export function updateVDTScore(
 
 const _slots          = ref<ComparisonSlot[]>([])
 const _mode           = ref<'differences' | 'vdt'>('differences')
-const _activeCriteria = ref<DiffCriterion[]>(['types', 'text'])
+const _activeCriteria = ref<DiffCriterion[]>(['types'])
 const _criteriaModel  = ref<PlanModel | null>(null)
 const _vdtResult      = ref<VDTResult | null>(null)
 const _vdtLoading     = ref(false)
@@ -308,14 +308,13 @@ export function setComparisonMode(mode: 'differences' | 'vdt'): void {
   _mode.value = mode
 }
 
-export function toggleDiffCriterion(key: DiffCriterion): void {
-  if (_activeCriteria.value.includes(key)) {
-    if (_activeCriteria.value.length > 1) {
-      _activeCriteria.value = _activeCriteria.value.filter((k) => k !== key)
-    }
-  } else {
-    _activeCriteria.value = [..._activeCriteria.value, key]
-  }
+/**
+ * Select exactly one diff criterion. Clicking the already-selected criterion is
+ * a no-op (there must always be exactly one active). Clicking any other criterion
+ * switches to it immediately — radio-button semantics, one view at a time.
+ */
+export function selectDiffCriterion(key: DiffCriterion): void {
+  _activeCriteria.value = [key]
 }
 
 /** Designate a loaded model as the Criteria Model for VDT mode. */
@@ -355,8 +354,9 @@ export async function runAutoScore(): Promise<void> {
     }
 
     const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
-    if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY not set')
-    const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, timeout: 90_000 })
+    const isLocal = !!(import.meta.env.VITE_OLLAMA_MODEL || import.meta.env.VITE_OLLAMA_BASE_URL)
+    if (!apiKey && !isLocal) throw new Error('VITE_ANTHROPIC_API_KEY not set')
+    const client = new Anthropic({ apiKey: apiKey ?? 'local', dangerouslyAllowBrowser: true, timeout: 90_000 })
 
     const criteriaLines = _criteriaModel.value.spec.values
       .map((v) => `${v.id}: ${v.description} | Scale: ${v.scale} | Goal: ${v.goal ?? ''} | Tolerable: ${v.tolerable ?? ''}`)
@@ -425,7 +425,7 @@ Return ONLY valid JSON — no prose, no code fences:
 export function clearComparison(): void {
   _slots.value = []
   _mode.value = 'differences'
-  _activeCriteria.value = ['types', 'text']
+  _activeCriteria.value = ['types']
   _criteriaModel.value = null
   _vdtResult.value = null
   _vdtLoading.value = false
@@ -453,7 +453,7 @@ export function useModelComparison() {
     addComparisonSlot,
     removeComparisonSlot,
     setComparisonMode,
-    toggleDiffCriterion,
+    selectDiffCriterion,
     setCriteriaModelForVDT,
     updateVDTCell,
     runAutoScore,

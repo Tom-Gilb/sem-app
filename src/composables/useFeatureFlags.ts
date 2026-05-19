@@ -13,8 +13,7 @@ export interface FeatureFlag {
 
 export function toKebab(name: string): string {
   return name
-    .replace(/^F\./, '')                     // strip F. prefix
-    .replace(/([a-z])([A-Z])/g, '$1-$2')    // camelCase → kebab
+    .replace(/([a-z])([A-Z])/g, '$1-$2')    // camelCase → kebab (legacy compat)
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
     .replace(/\s+/g, '-')
     .replace(/[^a-zA-Z0-9-]/g, '')

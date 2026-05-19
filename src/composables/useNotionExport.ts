@@ -25,8 +25,8 @@ export function useNotionExport() {
       lines.push('')
       for (const f of spec.functions) {
         lines.push(`**${f.id}** ${f.description}`)
-        if (f.successCriteria) {
-          lines.push(`> Success: ${f.successCriteria}`)
+        if (f.presenceTest || f.successCriteria) {
+          lines.push(`> Presence: ${f.presenceTest || f.successCriteria}`)
         }
         lines.push('')
       }

@@ -2,6 +2,7 @@
 // Feature #120 — Spec as Press Release Generator
 import { ref } from 'vue'
 import type { SpecBlock } from '../types/spec'
+import { ollamaChat } from '../lib/ollamaChat'
 
 export interface PressRelease {
   headline: string    // ≤80 chars
@@ -14,8 +15,8 @@ function buildMockRelease(blocks: SpecBlock[]): PressRelease {
   const allF = blocks.flatMap(b => b.functions)
   const allV = blocks.flatMap(b => b.values)
 
-  const firstFName = allF[0]?.id?.replace(/^F\./, '') ?? 'Solution'
-  const firstVName = allV[0]?.id?.replace(/^V\./, '') ?? 'Value'
+  const firstFName = allF[0]?.id ?? 'Solution'
+  const firstVName = allV[0]?.id ?? 'Value'
   const firstFDesc = (allF[0]?.description ?? 'our capability').slice(0, 40)
   const firstVGoal = allV[0]?.goal ?? ''
   const goalPhrase = firstVGoal.trim() ? firstVGoal.trim() : 'significant improvement'
@@ -43,7 +44,7 @@ export function usePressRelease(blocks: SpecBlock[], apiKey: string) {
   async function generate(): Promise<void> {
     generating.value = true
 
-    const isMock = !apiKey || import.meta.env.VITE_MOCK_MODE === 'true'
+    const isMock = (!apiKey && !import.meta.env.VITE_OLLAMA_MODEL) || import.meta.env.VITE_MOCK_MODE === 'true'
 
     if (isMock) {
       release.value = buildMockRelease(blocks)
@@ -75,27 +76,7 @@ Return ONLY valid JSON with these fields:
 
 JSON only, no other text.`
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5',
-          max_tokens: 512,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`API error ${response.status}`)
-      }
-
-      const data = await response.json()
-      const text: string = data.content?.[0]?.text ?? ''
+      const text = await ollamaChat({ max_tokens: 512, messages: [{ role: 'user', content: prompt }] })
       const jsonMatch = text.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         release.value = JSON.parse(jsonMatch[0]) as PressRelease

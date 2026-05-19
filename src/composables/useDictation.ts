@@ -18,10 +18,10 @@
 //                 Same as field mode but targets a Ref<string> rather than a
 //                 DOM element. Used by components that manage their own state.
 //
-// Startup: attempts to start on mount; if the browser hasn't received a user
-// gesture yet (first load, no mic permission), retries automatically on the
-// first pointer/key interaction so the wake listener comes up as soon as
-// possible without manual intervention.
+// Startup: if the user previously had the mic ON (localStorage STORAGE_KEY),
+// onMounted waits 1 s for App.vue's _warmMicPermission() to cache the OS grant,
+// then calls ensureRunning() automatically.  On Safari/browsers that still block
+// it, onerror 'not-allowed' sets micBlocked gracefully — user clicks mic button.
 
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
@@ -827,16 +827,6 @@ export function useDictation(commands: Record<string, () => void>) {
   onMounted(() => {
     injectVoiceCSS()
 
-    ensureRunning()
-
-    const retryOnInteraction = () => {
-      if (!startedOnce) ensureRunning()
-      document.removeEventListener('pointerdown', retryOnInteraction)
-      document.removeEventListener('keydown',     retryOnInteraction)
-    }
-    document.addEventListener('pointerdown', retryOnInteraction, { once: true })
-    document.addEventListener('keydown',     retryOnInteraction, { once: true })
-
     try {
       if (localStorage.getItem(STORAGE_KEY) === 'true') active.value = true
     } catch { /* ignore */ }
@@ -850,6 +840,17 @@ export function useDictation(commands: Record<string, () => void>) {
     // If a text field was already focused before listeners registered
     // (e.g. SEMEntryForm auto-focuses its textarea on mount), activate it now.
     activateCurrentField()
+
+    // Auto-resume: if the user had the mic ON in their last session, restart
+    // the wake listener automatically.  A 1 s delay lets App.vue's
+    // _warmMicPermission() finish caching the OS grant so SpeechRecognition
+    // can start silently without a permission dialog.
+    // If the browser still blocks it (Safari first-load, mic denied, etc.),
+    // r.onerror fires 'not-allowed' → micBlocked = true → user sees the
+    // blocked indicator on the DictateButton and can click to retry.
+    if (active.value) {
+      setTimeout(() => { ensureRunning() }, 1000)
+    }
   })
 
   onUnmounted(() => {

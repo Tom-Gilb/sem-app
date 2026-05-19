@@ -34,7 +34,7 @@ function deriveWordCount(entry: DashboardEntry): number {
   let total = 0
   for (const f of spec.functions) {
     total += wordCount(f.description)
-    total += wordCount(f.successCriteria)
+    total += wordCount(f.presenceTest || f.successCriteria || '')
   }
   for (const v of spec.values) {
     total += wordCount(v.description)

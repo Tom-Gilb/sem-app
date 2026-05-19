@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Planguage Spec Type Glyphs — 8 Types · v7 · Function=Green · Resource=Dark Green · Task=→O→*</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      min-height: 100vh;
+      padding: 48px 32px;
+    }
+    h1 { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; color: #64748b; margin-bottom: 28px; line-height: 1.6; max-width: 680px; }
+
+    /* ── Color palette reasoning ── */
+    .palette-box {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+      max-width: 760px;
+    }
+    .palette-box h2 { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #475569; margin-bottom: 14px; }
+    .palette-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .swatch {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: #334155;
+    }
+    .swatch-dot { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
+    .palette-note { font-size: 11.5px; color: #64748b; line-height: 1.6; margin-top: 10px; }
+    .mono-note {
+      font-size: 11.5px; color: #475569; margin-top: 12px; line-height: 1.6;
+      border-top: 1px solid #f1f5f9; padding-top: 12px;
+    }
+    .mono-note strong { color: #1e293b; }
+
+    /* ── Section labels ── */
+    .section-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.09em;
+      text-transform: uppercase; color: #94a3b8;
+      margin-top: 40px; margin-bottom: 16px;
+    }
+
+    /* ── Icon grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+      max-width: 1100px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 22px 20px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .label { font-size: 15px; font-weight: 700; color: #0f172a; }
+    .key-badge {
+      font-family: "SF Mono", "Fira Code", "Courier New", monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #475569;
+      border-radius: 5px;
+      padding: 2px 8px;
+    }
+    .desc { font-size: 11.5px; color: #64748b; text-align: center; line-height: 1.55; max-width: 180px; }
+    .divider { width: 100%; height: 1px; background: #f1f5f9; }
+
+    /* ── Variant panels (mono + color side by side) ── */
+    .variant-row { display: flex; gap: 10px; align-items: flex-end; }
+    .variant { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .chip-mono {
+      background: #fff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .chip-color {
+      background: #0f172a;
+      border: 1.5px solid #1e293b;
+      border-radius: 10px;
+      padding: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .chip-label {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.07em;
+      text-transform: uppercase; color: #94a3b8;
+    }
+
+    /* ── 16px row ── */
+    .px16-row { display: flex; gap: 8px; align-items: center; }
+    .px16-mono { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 5px; display:flex;align-items:center; }
+    .px16-color { background: #1e293b; border: 1px solid #334155; border-radius: 4px; padding: 3px 5px; display:flex;align-items:center; }
+    .px16-sep { font-size: 10px; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+
+<h1>Planguage Spec Type Glyphs</h1>
+<p class="subtitle">
+  v7 · 2026-05-16 · Function=Green · Resource=Dark Green · Task=→O→* · Tom Gilb + Kai Gilb + Claudian · 8 types · Mono-first design. Every glyph works in a single colour — black, white, or anything with sufficient contrast against its background.
+  Colour is layered on top as a secondary signal; it never creates meaning that the shape does not already carry.
+  v7 change: Task keyed icon →O→* ratified (Tom Gilb 2026-05-16). Replaces [v]. →O→* is compositionally precise: dashed →=effort in · O=process · →=output · *=sub-level (not Level of Concern). [v] was a pun; →O→* is a grammar.
+</p>
+
+<!-- ══ SPEC TYPE COLOUR SCHEME — ratified ══ -->
+<div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 28px; margin-bottom:44px; max-width:820px;">
+  <div style="font-size:11px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:#94a3b8; margin-bottom:18px;">
+    Spec Type Colour Scheme v7 — Function=Green · Resource=Dark Green · Task=→O→* (2026-05-16)
+  </div>
+
+  <!-- Type tiles -->
+  <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:24px;">
+
+    <div style="border-radius:10px; overflow:hidden; width:170px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:#7c3aed; padding:12px 14px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.7); text-transform:uppercase; margin-bottom:4px;">Value</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.5px;">Violet</div>
+        <div style="font-family:monospace; font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">#7c3aed</div>
+      </div>
+      <div style="background:#f5f3ff; padding:10px 14px;">
+        <div style="font-size:11.5px; color:#5b21b6; line-height:1.5;">Royal · worth · benefit. Kai: "royal, let's make him happy." Keyed icon: 0--*--></div>
+      </div>
+    </div>
+
+    <div style="border-radius:10px; overflow:hidden; width:170px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:#dc2626; padding:12px 14px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.7); text-transform:uppercase; margin-bottom:4px;">Constraint</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.5px;">Red</div>
+        <div style="font-family:monospace; font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">#dc2626</div>
+      </div>
+      <div style="background:#fef2f2; padding:10px 14px;">
+        <div style="font-size:11.5px; color:#991b1b; line-height:1.5;">Danger · hard limit · non-negotiable. Universal "stop / must not exceed." Keyed: [→O→]</div>
+      </div>
+    </div>
+
+    <div style="border-radius:10px; overflow:hidden; width:170px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:#2563eb; padding:12px 14px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.7); text-transform:uppercase; margin-bottom:4px;">Stakeholder</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.5px;">Blue</div>
+        <div style="font-family:monospace; font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">#2563eb</div>
+      </div>
+      <div style="background:#eff6ff; padding:10px 14px;">
+        <div style="font-size:11.5px; color:#1e40af; line-height:1.5;">Person · authority · trust · inanimate too (data, laws, systems). Blue = people-centric. Keyed: ←¶→ (value received · identity + human profile · resources given)</div>
+      </div>
+    </div>
+
+    <div style="border-radius:10px; overflow:hidden; width:170px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:#ca8a04; padding:12px 14px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.7); text-transform:uppercase; margin-bottom:4px;">Evo Step</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.5px;">Yellow</div>
+        <div style="font-family:monospace; font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">#ca8a04  (dark amber)</div>
+      </div>
+      <div style="background:#fefce8; padding:10px 14px;">
+        <div style="font-size:11.5px; color:#713f12; line-height:1.5;">Process step · increment · time. Dark amber. Keyed: &lt;&nbsp;-&gt;+-&gt; (past · planning gap · value · accumulation · value)</div>
+      </div>
+    </div>
+
+    <div style="border-radius:10px; overflow:hidden; width:170px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:#374151; padding:12px 14px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.7); text-transform:uppercase; margin-bottom:4px;">Task</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.5px;">Near-black</div>
+        <div style="font-family:monospace; font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">#374151</div>
+      </div>
+      <div style="background:#f9fafb; padding:10px 14px;">
+        <div style="font-size:11.5px; color:#374151; line-height:1.5;">Neutral work. No semantic colour load — "boring" by design. Black-and-white feel. Keyed: →O→* (effort in · process · sub-level output)</div>
+      </div>
+    </div>
+
+    <!-- Function — v6: restored to Green (Kai: "good to go") -->
+    <div style="border-radius:10px; overflow:hidden; width:170px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:#16a34a; padding:12px 14px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.7); text-transform:uppercase; margin-bottom:4px;">Function</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.5px;">Green</div>
+        <div style="font-family:monospace; font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">#16a34a</div>
+      </div>
+      <div style="background:#f0fdf4; padding:10px 14px;">
+        <div style="font-size:11.5px; color:#166534; line-height:1.5;">Good to go · capability active. Kai: "good to go." Green = system capability present and working. Keyed: →O→</div>
+      </div>
+    </div>
+
+    <!-- Resource — v6: Dark Green #166534 (Kai: "green for money" · distinct from function green by luminance) -->
+    <div style="border-radius:10px; overflow:hidden; width:170px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:#166534; padding:12px 14px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.7); text-transform:uppercase; margin-bottom:4px;">Resource</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.5px;">Dark Green</div>
+        <div style="font-family:monospace; font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">#166534</div>
+      </div>
+      <div style="background:#f0fdf4; padding:10px 14px;">
+        <div style="font-size:11.5px; color:#14532d; line-height:1.5;">Money · budget · input cost. Kai: "green for money." Dark green — distinct from function #16a34a by luminance. →O = left half of →O→. Consumed, not delivered.</div>
+      </div>
+    </div>
+
+    <div style="border-radius:10px; overflow:hidden; width:170px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:#ea580c; padding:12px 14px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.7); text-transform:uppercase; margin-bottom:4px;">Solution</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.5px;">Orange</div>
+        <div style="font-family:monospace; font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">#ea580c</div>
+      </div>
+      <div style="background:#fff7ed; padding:10px 14px;">
+        <div style="font-size:11.5px; color:#9a3412; line-height:1.5;">Creative design means. Warm and distinct. Not red (not a danger) not green (not a value). Keyed: [✳]→</div>
+      </div>
+    </div>
+
+  </div><!-- /tiles -->
+
+  <!-- Colour rationale: Evo Step amber -->
+  <div style="display:flex; gap:10px; margin-bottom:4px; align-items:center;">
+    <div style="background:#ca8a04; border-radius:6px; padding:5px 12px; font-size:13px; font-weight:700; color:#fff;">EVO STEP</div>
+    <div style="background:#facc15; border-radius:6px; padding:5px 12px; font-size:13px; font-weight:700; color:#78350f;">● dot accent</div>
+    <div style="font-size:11.5px; color:#64748b;">Badge = dark amber (white text ~4.3:1, WCAG AA). Bright yellow reserved for payload dots inside the glyph. Both yellows present — right roles.</div>
+  </div>
+</div><!-- /scheme -->
+
+<!-- ── Ratified colour system ── -->
+<div class="palette-box">
+  <h2>Colour system v7 — 8 types · Function=Green · Resource=Dark Green · Task=→O→* · 2026-05-16 (Tom Gilb + Kai Gilb + Claudian)</h2>
+  <div class="palette-row">
+    <div class="swatch"><div class="swatch-dot" style="background:#7c3aed"></div> Violet #7c3aed — <strong>Value</strong>. Royal · worth · benefit. Kai: "royal, let's make him happy."</div>
+  </div>
+  <div class="palette-row">
+    <div class="swatch"><div class="swatch-dot" style="background:#16a34a"></div> Green #16a34a — <strong>Function</strong>. Good to go · capability active. Kai: "good to go."</div>
+  </div>
+  <div class="palette-row">
+    <div class="swatch"><div class="swatch-dot" style="background:#ea580c"></div> Orange #ea580c — <strong>Solution</strong>. Creative means. Warm; not danger-red, not royal-violet.</div>
+  </div>
+  <div class="palette-row">
+    <div class="swatch"><div class="swatch-dot" style="background:#dc2626"></div> Red #dc2626 — <strong>Constraint</strong>. Danger · hard limit · must-not-exceed. Universal stop signal.</div>
+  </div>
+  <div class="palette-row">
+    <div class="swatch"><div class="swatch-dot" style="background:#ca8a04"></div> Dark amber #ca8a04 — <strong>Evo Step</strong>. Process · time · increment. White text contrast ~4.3:1 (WCAG AA). Bright yellow #facc15 as glyph dot accent.</div>
+  </div>
+  <div class="palette-row">
+    <div class="swatch"><div class="swatch-dot" style="background:#374151"></div> Slate #374151 — <strong>Task</strong>. Neutral work. Deliberately "boring" — no semantic colour load. Keyed: →O→* (effort in · process · sub-level output · not Level of Concern).</div>
+  </div>
+  <div class="palette-row">
+    <div class="swatch"><div class="swatch-dot" style="background:#2563eb"></div> Blue #2563eb — <strong>Stakeholder</strong>. Person · authority · trust — and inanimate entities (data, laws, systems). Keyed: ←¶→ (bilateral exchange: value ← identity ¶ resources →). People-centric blue.</div>
+  </div>
+  <div class="palette-row">
+    <div class="swatch"><div class="swatch-dot" style="background:#166534"></div> Dark Green #166534 — <strong>Resource</strong>. Money · budget · input cost. Kai: "green for money." Keyed: →O (left half of →O→).</div>
+  </div>
+  <p class="palette-note">
+    Red and green are used freely for status signals (good / bad, pass / fail) — they are not avoided. Tom confirmed: "red/green ARE useful signals." Colour rationale v6 (2026-05-16): Value=Violet ("royal" — Kai), Function=Green #16a34a ("good to go" — Kai), Resource=Dark Green #166534 ("green for money" — Kai). All three are Kai's original suggestions, all honoured in v6. Two greens are kept distinct by luminance: bright #16a34a (43% lightness) = "go, active"; dark #166534 (25% lightness) = "money, cost." What is avoided is using only red vs green to distinguish two spec-type icons pairwise. Semantic distinctions in composite glyphs (Function, Value, Constraint) are carried by stroke weight and dash pattern first; colour is additive on top. v7 (2026-05-16): Task keyed icon changed from [v] to →O→*. →O→* is compositionally precise and slots into the functional grammar family (→O→=Function, →O=Resource, [→O→]=Constraint, →O→*=Task). [v] was a checkbox pun; →O→* is a grammar.
+  </p>
+  <p class="mono-note">
+    <strong>Mono grammar (works in any single colour — black, white, or otherwise):</strong>
+    DASHED stroke = resource / cost (consumed, entering the system).
+    SOLID stroke = value output (produced, leaving the system).
+    BOLD stroke weight = constraint bracket (hard outer bound).
+    MEDIUM stroke weight = solution bracket (acceptable constraint — context, not primary subject).
+    FILLED DOT = data point / value level instance (the * symbol made geometric).
+    LEFT CHEVRON &lt; = past / already-delivered anchor.
+    HALF FUNCTION (→O, no right arrow) = Resource — cost goes in, nothing comes out of this entry.
+    ASTERISK (*) AT OUTPUT TIP = Task — output is sub-level, inside the system, not at the Level of Concern. Contrast with ✳ in Value (= confirmed measurement at Level of Concern). →O→* = same functional grammar as →O→ (Function) but terminated with * rather than value delivery.
+  </p>
+</div>
+
+<p class="section-label">Eight spec type glyphs — left: mono · right: colour</p>
+
+<div class="grid">
+
+  <!-- ══════════════ TASK ══════════════ -->
+  <!--
+    Keyed icon: →O→*   (Tom Gilb, ratified 2026-05-16 · v7)
+
+    READING:
+      → (dashed)  = effort / resource going INTO the task (consumed by work)
+      O           = the task process — the work being done
+      → (solid)   = output produced by the task
+      *           = sub-level marker — this output is at sub-system level,
+                    NOT at the Level of Concern (which requires the full Evo Step + Measure).
+                    Contrast: ✳ in Value glyph = confirmed measurement at Level of Concern.
+                    Task * is smaller, simpler — it feeds UPWARD into the Evo Step.
+
+    Functional grammar family:
+      →O→     = Function  (full capability, system-level output)
+      →O      = Resource  (effort/cost in, nothing comes OUT as value)
+      [→O→]   = Constraint (function bounded by hard limits)
+      →O→*    = Task      (same structure as Function but output is sub-level)
+
+    SYNONYM: [v] is the ratified SHORT FORM of →O→*.
+      →O→* = full compositional form (encodes the flow grammar; use in specifications,
+              glossary, and formal notation contexts).
+      [v]   = short synonym (checkbox pun — bounded value contribution / ✓;
+              use in UI badges, task lists, and space-constrained contexts).
+      Both are official. Which wins long-term will be decided by user feedback
+      sent to Tom@Gilb.com. Tom likes both and wants real-world use to decide.
+    Slate: deliberately neutral "boring" — no semantic colour load.
+  -->
+  <div class="card">
+    <div class="label">Task</div>
+    <div class="variant-row">
+      <div class="variant">
+        <div class="chip-mono">
+          <svg viewBox="0 0 70 48" width="82" height="56" fill="none">
+            <!--
+              DASHED → (left) = effort/resource into the task (same grammar as Function dashed inputs)
+              O              = the task process circle
+              SOLID → (right) = sub-level output arrow
+              * (right tip)  = sub-level asterisk — output is task-level, not Level of Concern
+            -->
+            <!-- Dashed arrow in -->
+            <line x1="2" y1="24" x2="15" y2="24"
+              stroke="#1e293b" stroke-width="2" stroke-dasharray="3.5 2.5" stroke-linecap="round"/>
+            <polyline points="12,20 16,24 12,28"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Circle O (task process) -->
+            <circle cx="25" cy="24" r="9"
+              stroke="#1e293b" stroke-width="2.5" fill="none"/>
+            <!-- Solid arrow out -->
+            <line x1="34" y1="24" x2="49" y2="24"
+              stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <polyline points="46,20 51,24 46,28"
+              stroke="#1e293b" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- * sub-level marker: 3-spoke asterisk at right tip (cx=60, cy=24, r=3.5) -->
+            <line x1="56.5" y1="24" x2="63.5" y2="24"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <line x1="57.2" y1="20.9" x2="62.8" y2="27.1"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <line x1="62.8" y1="20.9" x2="57.2" y2="27.1"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">mono</span>
+      </div>
+      <div class="variant">
+        <div class="chip-color">
+          <svg viewBox="0 0 70 48" width="82" height="56" fill="none">
+            <!-- Dashed arrow in — slate-400 on dark bg (#94a3b8 ≈ 7:1 contrast on #0f172a) -->
+            <line x1="2" y1="24" x2="15" y2="24"
+              stroke="#94a3b8" stroke-width="2" stroke-dasharray="3.5 2.5" stroke-linecap="round"/>
+            <polyline points="12,20 16,24 12,28"
+              stroke="#94a3b8" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Circle — slate-400 -->
+            <circle cx="25" cy="24" r="9"
+              stroke="#94a3b8" stroke-width="2.5" fill="none"/>
+            <!-- Solid arrow out — slate-400 -->
+            <line x1="34" y1="24" x2="49" y2="24"
+              stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+            <polyline points="46,20 51,24 46,28"
+              stroke="#94a3b8" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- * sub-level — slate-500 #64748b (slightly dimmer than body = sub-level hierarchy, still ~4:1) -->
+            <line x1="56.5" y1="24" x2="63.5" y2="24"
+              stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+            <line x1="57.2" y1="20.9" x2="62.8" y2="27.1"
+              stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+            <line x1="62.8" y1="20.9" x2="57.2" y2="27.1"
+              stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">colour</span>
+      </div>
+    </div>
+    <span class="key-badge" style="border-color:#374151; color:#374151;">→O→*</span>
+    <span class="key-badge" style="border-color:#374151; color:#374151; opacity:0.6; font-size:10.5px;">[v] synonym</span>
+
+    <div class="divider"></div>
+
+    <!-- 16px badge-size version -->
+    <div class="px16-row">
+      <div class="px16-mono">
+        <svg viewBox="0 0 28 16" width="32" height="16" fill="none">
+          <!-- Dashed in -->
+          <line x1="0" y1="8" x2="5.5" y2="8"
+            stroke="#1e293b" stroke-width="1.3" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+          <polyline points="4,6 6,8 4,10"
+            stroke="#1e293b" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Circle -->
+          <circle cx="10" cy="8" r="3.5"
+            stroke="#1e293b" stroke-width="1.5" fill="none"/>
+          <!-- Solid out -->
+          <line x1="13.5" y1="8" x2="19.5" y2="8"
+            stroke="#1e293b" stroke-width="1.5" stroke-linecap="round"/>
+          <polyline points="18,6 20.5,8 18,10"
+            stroke="#1e293b" stroke-width="1.5" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- * small (cx=24, cy=8, r=1.6) -->
+          <line x1="22.4" y1="8" x2="25.6" y2="8"
+            stroke="#1e293b" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="22.9" y1="6.4" x2="25.1" y2="9.6"
+            stroke="#1e293b" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="25.1" y1="6.4" x2="22.9" y2="9.6"
+            stroke="#1e293b" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="px16-sep">·</span>
+      <div class="px16-color">
+        <svg viewBox="0 0 28 16" width="32" height="16" fill="none">
+          <!-- Dashed in — slate-400 on dark bg -->
+          <line x1="0" y1="8" x2="5.5" y2="8"
+            stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+          <polyline points="4,6 6,8 4,10"
+            stroke="#94a3b8" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Circle — slate-400 -->
+          <circle cx="10" cy="8" r="3.5"
+            stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+          <!-- Solid out — slate-400 -->
+          <line x1="13.5" y1="8" x2="19.5" y2="8"
+            stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+          <polyline points="18,6 20.5,8 18,10"
+            stroke="#94a3b8" stroke-width="1.5" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- * — slate-500, slightly dimmer = sub-level -->
+          <line x1="22.4" y1="8" x2="25.6" y2="8"
+            stroke="#64748b" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="22.9" y1="6.4" x2="25.1" y2="9.6"
+            stroke="#64748b" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="25.1" y1="6.4" x2="22.9" y2="9.6"
+            stroke="#64748b" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+    <p class="desc"><strong>→O→*</strong> official · <strong>[v]</strong> short synonym. Dashed →=effort in · O=task process · Solid →=output · <strong>*</strong>=sub-level (not Level of Concern). [v] = bounded value contribution / ✓ checkbox pun — use in space-constrained UI. Feedback on which wins → Tom@Gilb.com</p>
+  </div>
+
+  <!-- ══════════════ EVO STEP ══════════════ -->
+  <!--
+    Keyed icon: < ->+->   (Tom Gilb, 2026-05-16)
+    Reading:
+      <     = Past — steps already delivered; the anchor you build from
+      (gap) = Planning Process + Tasks that fill the space BEFORE value arrives
+              The space is not empty — it IS the Planguage process work zone.
+      ->    = Value delivered (first increment; the arrow is the value flow)
+      +     = accumulation — evo steps add, they don't replace
+      ->    = Value delivered again (next evo step increment)
+  -->
+  <div class="card">
+    <div class="label">Evo Step</div>
+    <div class="variant-row">
+      <div class="variant">
+        <div class="chip-mono">
+          <svg viewBox="0 0 72 48" width="84" height="56" fill="none">
+            <!--
+              < = Past chevron (pointing left — you come FROM the past)
+              Gap (dashed) = planning + tasks before the value lands
+              ● →  = value data point + value delivery arrow (first increment)
+              +    = accumulation operator
+              ● →  = second value delivery (next evo step)
+            -->
+
+            <!-- < Past marker -->
+            <polyline points="14,16 5,24 14,32"
+              stroke="#1e293b" stroke-width="3.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+
+            <!-- Gap — dashed line = planning work / tasks before value -->
+            <line x1="16" y1="24" x2="24" y2="24"
+              stroke="#1e293b" stroke-width="2"
+              stroke-dasharray="2.5 2.5" stroke-linecap="round" opacity="0.45"/>
+
+            <!-- First value: filled dot + solid arrow → -->
+            <circle cx="29" cy="24" r="4.5" fill="#1e293b"/>
+            <line x1="34" y1="24" x2="40" y2="24"
+              stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+            <polyline points="37,19.5 43,24 37,28.5"
+              stroke="#1e293b" stroke-width="3" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+
+            <!-- + accumulation -->
+            <line x1="47" y1="24" x2="53" y2="24"
+              stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="50" y1="21" x2="50" y2="27"
+              stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+
+            <!-- Second value: filled dot + solid arrow → -->
+            <circle cx="58" cy="24" r="4.5" fill="#1e293b"/>
+            <line x1="63" y1="24" x2="68" y2="24"
+              stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+            <polyline points="66,19.5 72,24 66,28.5"
+              stroke="#1e293b" stroke-width="3" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">mono</span>
+      </div>
+      <div class="variant">
+        <div class="chip-color">
+          <svg viewBox="0 0 72 48" width="84" height="56" fill="none">
+            <!-- < Past — amber (same hue, slightly lighter) -->
+            <polyline points="14,16 5,24 14,32"
+              stroke="#ca8a04" stroke-width="3.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+
+            <!-- Gap — dashed, faint amber (the planning/task zone) -->
+            <line x1="16" y1="24" x2="24" y2="24"
+              stroke="#ca8a04" stroke-width="2"
+              stroke-dasharray="2.5 2.5" stroke-linecap="round" opacity="0.4"/>
+
+            <!-- First value dot: bright yellow (value accent) + amber arrow -->
+            <circle cx="29" cy="24" r="4.5" fill="#facc15"/>
+            <line x1="34" y1="24" x2="40" y2="24"
+              stroke="#ca8a04" stroke-width="3" stroke-linecap="round"/>
+            <polyline points="37,19.5 43,24 37,28.5"
+              stroke="#ca8a04" stroke-width="3" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+
+            <!-- + -->
+            <line x1="47" y1="24" x2="53" y2="24"
+              stroke="#ca8a04" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="50" y1="21" x2="50" y2="27"
+              stroke="#ca8a04" stroke-width="2.5" stroke-linecap="round"/>
+
+            <!-- Second value dot: bright yellow + amber arrow -->
+            <circle cx="58" cy="24" r="4.5" fill="#facc15"/>
+            <line x1="63" y1="24" x2="68" y2="24"
+              stroke="#ca8a04" stroke-width="3" stroke-linecap="round"/>
+            <polyline points="66,19.5 72,24 66,28.5"
+              stroke="#ca8a04" stroke-width="3" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">colour</span>
+      </div>
+    </div>
+    <span class="key-badge" style="border-color:#ca8a04; color:#92400e; background:#fefce8;">&lt; -&gt;+-&gt;</span>
+
+    <div class="divider"></div>
+
+    <!-- 16px badge-size version -->
+    <div class="px16-row">
+      <div class="px16-mono">
+        <!-- compact: < [gap] ●→+●→ in a tight 38×16 box -->
+        <svg viewBox="0 0 38 16" width="44" height="16" fill="none">
+          <polyline points="5,4.5 1.5,8 5,11.5"
+            stroke="#1e293b" stroke-width="1.6" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="6.5" y1="8" x2="10" y2="8"
+            stroke="#1e293b" stroke-width="1" stroke-dasharray="1.5 1.5" stroke-linecap="round" opacity="0.4"/>
+          <circle cx="13" cy="8" r="2.2" fill="#1e293b"/>
+          <line x1="15.3" y1="8" x2="19" y2="8"
+            stroke="#1e293b" stroke-width="1.4" stroke-linecap="round"/>
+          <polyline points="17.5,5.5 20.5,8 17.5,10.5"
+            stroke="#1e293b" stroke-width="1.4" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="22.5" y1="8" x2="25" y2="8"
+            stroke="#1e293b" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="23.8" y1="6.5" x2="23.8" y2="9.5"
+            stroke="#1e293b" stroke-width="1.3" stroke-linecap="round"/>
+          <circle cx="28" cy="8" r="2.2" fill="#1e293b"/>
+          <line x1="30.3" y1="8" x2="34" y2="8"
+            stroke="#1e293b" stroke-width="1.4" stroke-linecap="round"/>
+          <polyline points="32.5,5.5 35.5,8 32.5,10.5"
+            stroke="#1e293b" stroke-width="1.4" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="px16-sep">·</span>
+      <div class="px16-color">
+        <svg viewBox="0 0 38 16" width="44" height="16" fill="none">
+          <polyline points="5,4.5 1.5,8 5,11.5"
+            stroke="#ca8a04" stroke-width="1.6" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="6.5" y1="8" x2="10" y2="8"
+            stroke="#ca8a04" stroke-width="1" stroke-dasharray="1.5 1.5" stroke-linecap="round" opacity="0.4"/>
+          <circle cx="13" cy="8" r="2.2" fill="#facc15"/>
+          <line x1="15.3" y1="8" x2="19" y2="8"
+            stroke="#ca8a04" stroke-width="1.4" stroke-linecap="round"/>
+          <polyline points="17.5,5.5 20.5,8 17.5,10.5"
+            stroke="#ca8a04" stroke-width="1.4" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="22.5" y1="8" x2="25" y2="8"
+            stroke="#ca8a04" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="23.8" y1="6.5" x2="23.8" y2="9.5"
+            stroke="#ca8a04" stroke-width="1.3" stroke-linecap="round"/>
+          <circle cx="28" cy="8" r="2.2" fill="#facc15"/>
+          <line x1="30.3" y1="8" x2="34" y2="8"
+            stroke="#ca8a04" stroke-width="1.4" stroke-linecap="round"/>
+          <polyline points="32.5,5.5 35.5,8 32.5,10.5"
+            stroke="#ca8a04" stroke-width="1.4" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+    <p class="desc">
+      <strong>&lt;</strong> = past delivered · dashed gap = tasks / planning before value ·
+      <strong>●→</strong> = value increment · <strong>+</strong> = accumulation ·
+      <strong>●→</strong> = next increment.
+      The space is both intelligibility and semantics — it IS the Planguage process work zone.
+    </p>
+  </div>
+
+  <!-- ══════════════ VALUE ══════════════ -->
+  <div class="card">
+    <div class="label">Value</div>
+    <div class="variant-row">
+      <div class="variant">
+        <div class="chip-mono">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <!--
+              0 = source Function circle (thinner — it is referenced, not the subject)
+              ── = scale axis
+              * = level on scale (6-spoke asterisk: 2 diagonal lines + horizontal scale line)
+              > = direction of value delivery
+            -->
+            <circle cx="6" cy="24" r="5" stroke="#1e293b" stroke-width="2" fill="none"/>
+            <line x1="11" y1="24" x2="34" y2="24"
+              stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <!--
+              * = any useful set of data in any form (Planguage data symbol).
+              In Value context: the data set is measurement data — scale, thresholds,
+              Worst/Plan/Best levels. The asterisk shape (multiple radiating spokes)
+              visualises "multiple data attributes from a single point."
+              The filled dot = a specific data instance.
+            -->
+            <!-- Asterisk diagonals at x=22 (horizontal spoke = scale line) -->
+            <line x1="26" y1="16" x2="18" y2="32"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="16" x2="26" y2="32"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <!-- Data instance dot -->
+            <circle cx="22" cy="24" r="3" fill="#1e293b"/>
+            <!-- Arrowhead -->
+            <polyline points="30,18 37,24 30,30"
+              stroke="#1e293b" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">mono</span>
+      </div>
+      <div class="variant">
+        <div class="chip-color">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <!-- Source Function circle: blue (it IS a Function) -->
+            <circle cx="6" cy="24" r="5" stroke="#2563eb" stroke-width="2" fill="none"/>
+            <!-- Scale, asterisk, arrow: cyan (the value concept) -->
+            <line x1="11" y1="24" x2="34" y2="24"
+              stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="26" y1="16" x2="18" y2="32"
+              stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="16" x2="26" y2="32"
+              stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="22" cy="24" r="3" fill="#0ea5e9"/>
+            <polyline points="30,18 37,24 30,30"
+              stroke="#0ea5e9" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">colour</span>
+      </div>
+    </div>
+    <span class="key-badge">0--*--&gt;</span>
+    <div class="divider"></div>
+    <div class="px16-row">
+      <div class="px16-mono">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+          <circle cx="2" cy="8" r="1.8" stroke="#1e293b" stroke-width="1.2" fill="none"/>
+          <line x1="3.8" y1="8" x2="11.5" y2="8"
+            stroke="#1e293b" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="9.2" y1="5.5" x2="5.8" y2="10.5"
+            stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="5.8" y1="5.5" x2="9.2" y2="10.5"
+            stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="7.5" cy="8" r="1" fill="#1e293b"/>
+          <polyline points="10,5.5 13.5,8 10,10.5"
+            stroke="#1e293b" stroke-width="1.4" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="px16-sep">·</span>
+      <div class="px16-color">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+          <circle cx="2" cy="8" r="1.8" stroke="#2563eb" stroke-width="1.2" fill="none"/>
+          <line x1="3.8" y1="8" x2="11.5" y2="8"
+            stroke="#0ea5e9" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="9.2" y1="5.5" x2="5.8" y2="10.5"
+            stroke="#0ea5e9" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="5.8" y1="5.5" x2="9.2" y2="10.5"
+            stroke="#0ea5e9" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="7.5" cy="8" r="1" fill="#0ea5e9"/>
+          <polyline points="10,5.5 13.5,8 10,10.5"
+            stroke="#0ea5e9" stroke-width="1.4" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+    <p class="desc">0--*--> · Circle=source Function. Line=scale axis. ✱=any useful set of data in any form (* Planguage data symbol). Arrow=direction of value delivery.</p>
+  </div>
+
+  <!-- ══════════════ FUNCTION ══════════════ -->
+  <div class="card">
+    <div class="label">Function</div>
+    <div class="variant-row">
+      <div class="variant">
+        <div class="chip-mono">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <!--
+              DASHED arrows left  = resource / cost in  (consumed)
+              Oval                = the function capability
+              SOLID arrows right  = value out            (produced)
+              Dash vs solid carries left/right semantic in any single colour.
+            -->
+            <!-- Resource arrows IN — dashed -->
+            <line x1="2" y1="19" x2="13" y2="19"
+              stroke="#1e293b" stroke-width="2" stroke-dasharray="3.5 2.5" stroke-linecap="round"/>
+            <polyline points="10,16 14,19 10,22"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="2" y1="29" x2="13" y2="29"
+              stroke="#1e293b" stroke-width="2" stroke-dasharray="3.5 2.5" stroke-linecap="round"/>
+            <polyline points="10,26 14,29 10,32"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Oval -->
+            <ellipse cx="24" cy="24" rx="10" ry="9"
+              stroke="#1e293b" stroke-width="2.5" fill="none"/>
+            <!-- Value arrows OUT — solid, slightly heavier -->
+            <line x1="34" y1="19" x2="44" y2="19"
+              stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <polyline points="41,16 45,19 41,22"
+              stroke="#1e293b" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="34" y1="29" x2="44" y2="29"
+              stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <polyline points="41,26 45,29 41,32"
+              stroke="#1e293b" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">mono</span>
+      </div>
+      <div class="variant">
+        <div class="chip-color">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <!-- Resource arrows IN — orange, dashed -->
+            <line x1="2" y1="19" x2="13" y2="19"
+              stroke="#f59e0b" stroke-width="2" stroke-dasharray="3.5 2.5" stroke-linecap="round"/>
+            <polyline points="10,16 14,19 10,22"
+              stroke="#f59e0b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="2" y1="29" x2="13" y2="29"
+              stroke="#f59e0b" stroke-width="2" stroke-dasharray="3.5 2.5" stroke-linecap="round"/>
+            <polyline points="10,26 14,29 10,32"
+              stroke="#f59e0b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Function oval — blue -->
+            <ellipse cx="24" cy="24" rx="10" ry="9"
+              stroke="#2563eb" stroke-width="2.5" fill="none"/>
+            <!-- Value arrows OUT — cyan, solid -->
+            <line x1="34" y1="19" x2="44" y2="19"
+              stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/>
+            <polyline points="41,16 45,19 41,22"
+              stroke="#0ea5e9" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="34" y1="29" x2="44" y2="29"
+              stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/>
+            <polyline points="41,26 45,29 41,32"
+              stroke="#0ea5e9" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">colour</span>
+      </div>
+    </div>
+    <span class="key-badge">→O→</span>
+    <div class="divider"></div>
+    <div class="px16-row">
+      <div class="px16-mono">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+          <line x1="0" y1="8" x2="4" y2="8"
+            stroke="#1e293b" stroke-width="1.3" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+          <polyline points="2.5,6 5,8 2.5,10"
+            stroke="#1e293b" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <ellipse cx="8" cy="8" rx="3" ry="3"
+            stroke="#1e293b" stroke-width="1.4" fill="none"/>
+          <line x1="11" y1="8" x2="15.5" y2="8"
+            stroke="#1e293b" stroke-width="1.5" stroke-linecap="round"/>
+          <polyline points="13.5,6 16,8 13.5,10"
+            stroke="#1e293b" stroke-width="1.5" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="px16-sep">·</span>
+      <div class="px16-color">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+          <line x1="0" y1="8" x2="4" y2="8"
+            stroke="#f59e0b" stroke-width="1.3" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+          <polyline points="2.5,6 5,8 2.5,10"
+            stroke="#f59e0b" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <ellipse cx="8" cy="8" rx="3" ry="3"
+            stroke="#2563eb" stroke-width="1.4" fill="none"/>
+          <line x1="11" y1="8" x2="15.5" y2="8"
+            stroke="#0ea5e9" stroke-width="1.5" stroke-linecap="round"/>
+          <polyline points="13.5,6 16,8 13.5,10"
+            stroke="#0ea5e9" stroke-width="1.5" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+    <p class="desc">→O→ asymmetric. Dashed left = resources/cost (orange). Oval = function (blue). Solid right = value out (cyan). Dash vs solid works in any single colour.</p>
+  </div>
+
+  <!-- ══════════════ CONSTRAINT ══════════════ -->
+  <div class="card">
+    <div class="label">Constraint</div>
+    <div class="variant-row">
+      <div class="variant">
+        <div class="chip-mono">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <!--
+              [→O→]
+              BOLD brackets [ ] = the constraint boundary
+              Inside = full function diagram (dashed in · oval · solid out)
+              Bracket weight (3.5) > oval weight (2) distinguishes container from content.
+            -->
+            <!-- Bold brackets -->
+            <path d="M 14,7 L 8,7 L 8,41 L 14,41"
+              stroke="#1e293b" stroke-width="3.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M 34,7 L 40,7 L 40,41 L 34,41"
+              stroke="#1e293b" stroke-width="3.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Resource arrows IN — dashed, thin -->
+            <line x1="14" y1="18" x2="17" y2="18"
+              stroke="#1e293b" stroke-width="1.8" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+            <polyline points="15,15 19,18 15,21"
+              stroke="#1e293b" stroke-width="1.8" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="14" y1="30" x2="17" y2="30"
+              stroke="#1e293b" stroke-width="1.8" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+            <polyline points="15,27 19,30 15,33"
+              stroke="#1e293b" stroke-width="1.8" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Function oval -->
+            <ellipse cx="24" cy="24" rx="5" ry="7"
+              stroke="#1e293b" stroke-width="2" fill="none"/>
+            <!-- Value arrows OUT — solid -->
+            <line x1="29" y1="18" x2="32" y2="18"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <polyline points="30,15 34,18 30,21"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="29" y1="30" x2="32" y2="30"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <polyline points="30,27 34,30 30,33"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">mono</span>
+      </div>
+      <div class="variant">
+        <div class="chip-color">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <!-- Orange bold brackets — orange = cost/bound colour -->
+            <path d="M 14,7 L 8,7 L 8,41 L 14,41"
+              stroke="#f59e0b" stroke-width="3.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M 34,7 L 40,7 L 40,41 L 34,41"
+              stroke="#f59e0b" stroke-width="3.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Resource arrows IN — orange, dashed (same family as brackets: all "bound") -->
+            <line x1="14" y1="18" x2="17" y2="18"
+              stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+            <polyline points="15,15 19,18 15,21"
+              stroke="#f59e0b" stroke-width="1.8" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="14" y1="30" x2="17" y2="30"
+              stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+            <polyline points="15,27 19,30 15,33"
+              stroke="#f59e0b" stroke-width="1.8" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Function oval — blue -->
+            <ellipse cx="24" cy="24" rx="5" ry="7"
+              stroke="#2563eb" stroke-width="2" fill="none"/>
+            <!-- Value arrows OUT — cyan, solid -->
+            <line x1="29" y1="18" x2="32" y2="18"
+              stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"/>
+            <polyline points="30,15 34,18 30,21"
+              stroke="#0ea5e9" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="29" y1="30" x2="32" y2="30"
+              stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"/>
+            <polyline points="30,27 34,30 30,33"
+              stroke="#0ea5e9" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">colour</span>
+      </div>
+    </div>
+    <span class="key-badge">[→O→]</span>
+    <div class="divider"></div>
+    <div class="px16-row">
+      <div class="px16-mono">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+          <path d="M 4.5,2 L 2,2 L 2,14 L 4.5,14"
+            stroke="#1e293b" stroke-width="1.5" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M 11.5,2 L 14,2 L 14,14 L 11.5,14"
+            stroke="#1e293b" stroke-width="1.5" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="4.5" y1="8" x2="5.5" y2="8"
+            stroke="#1e293b" stroke-width="1.1" stroke-dasharray="1.5 1" stroke-linecap="round"/>
+          <polyline points="4.8,6.5 6.5,8 4.8,9.5"
+            stroke="#1e293b" stroke-width="1.1" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <ellipse cx="8" cy="8" rx="1.5" ry="2.2"
+            stroke="#1e293b" stroke-width="1.1" fill="none"/>
+          <line x1="9.5" y1="8" x2="10.5" y2="8"
+            stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+          <polyline points="9.8,6.5 11.5,8 9.8,9.5"
+            stroke="#1e293b" stroke-width="1.2" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="px16-sep">·</span>
+      <div class="px16-color">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+          <path d="M 4.5,2 L 2,2 L 2,14 L 4.5,14"
+            stroke="#f59e0b" stroke-width="1.5" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M 11.5,2 L 14,2 L 14,14 L 11.5,14"
+            stroke="#f59e0b" stroke-width="1.5" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="4.5" y1="8" x2="5.5" y2="8"
+            stroke="#f59e0b" stroke-width="1.1" stroke-dasharray="1.5 1" stroke-linecap="round"/>
+          <polyline points="4.8,6.5 6.5,8 4.8,9.5"
+            stroke="#f59e0b" stroke-width="1.1" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <ellipse cx="8" cy="8" rx="1.5" ry="2.2"
+            stroke="#2563eb" stroke-width="1.1" fill="none"/>
+          <line x1="9.5" y1="8" x2="10.5" y2="8"
+            stroke="#0ea5e9" stroke-width="1.2" stroke-linecap="round"/>
+          <polyline points="9.8,6.5 11.5,8 9.8,9.5"
+            stroke="#0ea5e9" stroke-width="1.2" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+    <p class="desc">[→O→] · Bold brackets = constraint bound (orange = limit/cost). Inside: dashed resource arrows · blue oval · cyan value arrows. Bracket weight signals containment without colour.</p>
+  </div>
+
+  <!-- ══════════════ SOLUTION ══════════════ -->
+  <div class="card">
+    <div class="label">Solution</div>
+    <div class="variant-row">
+      <div class="variant">
+        <div class="chip-mono">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <!--
+              [*]->
+              [ ] = acceptable constraints (constraint brackets, medium weight —
+                    they are context, not the primary subject; cf. Constraint icon bold weight)
+              *   = the idea / design (asterisk: same symbol as Value level-marker;
+                    here it means a candidate design point)
+              ->  = leads toward value delivery
+              Full reading: [*]->->O->  i.e. a constrained idea that leads to
+                            functional value. Simple keyed version: [*]->
+            -->
+            <!-- Left bracket — medium weight (2px, not bold 3.5px) -->
+            <path d="M 9,8 L 4,8 L 4,40 L 9,40"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Asterisk * at centre of bracket space (cx=17, cy=24, r=7) -->
+            <!-- Horizontal spoke -->
+            <line x1="10" y1="24" x2="24" y2="24"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <!-- 60° diagonal: (17+3.5, 24-6.06)=(20.5,18) → (13.5,30) -->
+            <line x1="20.5" y1="18" x2="13.5" y2="30"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <!-- 120° diagonal: (13.5,18) → (20.5,30) -->
+            <line x1="13.5" y1="18" x2="20.5" y2="30"
+              stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+            <!-- Centre data-point dot -->
+            <circle cx="17" cy="24" r="2.5" fill="#1e293b"/>
+            <!-- Right bracket — medium weight -->
+            <path d="M 25,8 L 30,8 L 30,40 L 25,40"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Arrow -> (leads toward value) -->
+            <line x1="32" y1="24" x2="40" y2="24"
+              stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <polyline points="37,19 43,24 37,29"
+              stroke="#1e293b" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">mono</span>
+      </div>
+      <div class="variant">
+        <div class="chip-color">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <!--
+              Colour semantics:
+              [ ] brackets → orange  (they ARE constraint brackets — same orange as Constraint icon,
+                                      but medium weight signals "context" not "primary subject")
+              *   asterisk → purple  (the design idea — creative, distinct)
+              ->  arrow    → cyan    (pointing toward value delivery)
+            -->
+            <!-- Left bracket — orange, medium weight -->
+            <path d="M 9,8 L 4,8 L 4,40 L 9,40"
+              stroke="#f59e0b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Asterisk — purple -->
+            <line x1="10" y1="24" x2="24" y2="24"
+              stroke="#9333ea" stroke-width="2" stroke-linecap="round"/>
+            <line x1="20.5" y1="18" x2="13.5" y2="30"
+              stroke="#9333ea" stroke-width="2" stroke-linecap="round"/>
+            <line x1="13.5" y1="18" x2="20.5" y2="30"
+              stroke="#9333ea" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="17" cy="24" r="2.5" fill="#9333ea"/>
+            <!-- Right bracket — orange -->
+            <path d="M 25,8 L 30,8 L 30,40 L 25,40"
+              stroke="#f59e0b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Arrow — cyan (toward values) -->
+            <line x1="32" y1="24" x2="40" y2="24"
+              stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/>
+            <polyline points="37,19 43,24 37,29"
+              stroke="#0ea5e9" stroke-width="2.5" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">colour</span>
+      </div>
+    </div>
+    <span class="key-badge">[*]-&gt;</span>
+    <div class="divider"></div>
+    <div class="px16-row">
+      <div class="px16-mono">
+        <svg viewBox="0 0 20 16" width="20" height="16" fill="none">
+          <!-- Left bracket -->
+          <path d="M 3,1.5 L 1,1.5 L 1,14.5 L 3,14.5"
+            stroke="#1e293b" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Asterisk at (6, 8) r=2.5 -->
+          <line x1="3.5" y1="8" x2="8.5" y2="8" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="7.25" y1="5.84" x2="4.75" y2="10.16" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="4.75" y1="5.84" x2="7.25" y2="10.16" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="6" cy="8" r="1.1" fill="#1e293b"/>
+          <!-- Right bracket -->
+          <path d="M 9,1.5 L 11,1.5 L 11,14.5 L 9,14.5"
+            stroke="#1e293b" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Arrow -->
+          <line x1="12" y1="8" x2="16.5" y2="8" stroke="#1e293b" stroke-width="1.4" stroke-linecap="round"/>
+          <polyline points="14.5,5.5 18,8 14.5,10.5"
+            stroke="#1e293b" stroke-width="1.4" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="px16-sep">·</span>
+      <div class="px16-color">
+        <svg viewBox="0 0 20 16" width="20" height="16" fill="none">
+          <!-- Left bracket — orange -->
+          <path d="M 3,1.5 L 1,1.5 L 1,14.5 L 3,14.5"
+            stroke="#f59e0b" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Asterisk — purple -->
+          <line x1="3.5" y1="8" x2="8.5" y2="8" stroke="#9333ea" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="7.25" y1="5.84" x2="4.75" y2="10.16" stroke="#9333ea" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="4.75" y1="5.84" x2="7.25" y2="10.16" stroke="#9333ea" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="6" cy="8" r="1.1" fill="#9333ea"/>
+          <!-- Right bracket — orange -->
+          <path d="M 9,1.5 L 11,1.5 L 11,14.5 L 9,14.5"
+            stroke="#f59e0b" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Arrow — cyan -->
+          <line x1="12" y1="8" x2="16.5" y2="8" stroke="#0ea5e9" stroke-width="1.4" stroke-linecap="round"/>
+          <polyline points="14.5,5.5 18,8 14.5,10.5"
+            stroke="#0ea5e9" stroke-width="1.4" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+    <p class="desc">[*]-> · Brackets=acceptable constraints (medium weight). ✱=any useful set of data in any form — the solution's specification data. Arrow=leads toward value delivery. Full: [*]->->O-></p>
+  </div>
+
+  <!-- ══════════════ STAKEHOLDER ══════════════ -->
+  <!--
+    Keyed icon: ←¶→   Tom Gilb (ratified 2026-05-16 with applause)
+
+    THREE ELEMENTS, THREE GRAMMARS:
+      ← (solid left arrow)   = VALUE flowing TO the stakeholder — they RECEIVE value.
+                               Solid stroke = value-delivery grammar (same as Function's right arrows).
+      ¶  (pilcrow)           = IDENTITY marker — entity with documented interests.
+                               Typographically: paragraph mark = a unit of thought / requirements.
+                               Visually: a LEFT-FACING HUMAN PROFILE.
+                                 Bowl at top = the HEAD (profile facing left).
+                                 Two stems   = the BODY standing upright.
+                                 Eye dot     = the FACE — looking LEFT toward the arriving value.
+                               Double meaning: simultaneous readings — "paragraph of requirements"
+                               AND "a person." Both exact, both load-bearing.
+      → (dashed right arrow) = RESOURCES flowing FROM the stakeholder to the system — they are
+                               a resource SOURCE. Dashed = resource/cost grammar (same as →O).
+
+    COLOUR ENCODING (colour chip):
+      Violet ← (#7c3aed, value type) · Blue ¶ (#2563eb, stakeholder type) · Green → (#22c55e, resource accent)
+
+    THE RESOURCE-PROVISION DIAGNOSTIC — Brown (Tom Gilb, Stakeholder Engineering):
+      "Follow the resources. Every entity that provides resources, whether internal or
+      external, labor or facilities, and equipment, is a stakeholder."
+      The dashed → is not merely descriptive — it IS the diagnostic: trace any dashed
+      resource flow back to its source and you have found a stakeholder. Line managers,
+      facilities owners, data custodians — all stakeholders by this rule.
+      Tom's ←¶→ was designed INDEPENDENTLY and CONVERGED on Brown's principle.
+      Independent convergence = strongest possible design validation.
+
+    NOT JUST PEOPLE:
+      Inanimate stakeholders — data, laws (GDPR), regulations, systems — carry the same
+      bilateral exchange: GDPR imposes C. constraints AND exposes data the system depends on.
+      Every entity with documented requirements IS a stakeholder.
+
+    PREVIOUS: ":-| / ¶" (person + pilcrow as separate elements — unified into bilateral ←¶→).
+  -->
+  <div class="card">
+    <div class="label">Stakeholder</div>
+    <div class="variant-row">
+      <div class="variant">
+        <div class="chip-mono">
+          <svg viewBox="0 0 72 48" width="84" height="56" fill="none">
+            <!-- ← solid arrow — value flows TO stakeholder -->
+            <polyline points="5,21 0,24 5,27" fill="none" stroke="#1e293b" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="0" y1="24" x2="18" y2="24" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <!-- ¶ pilcrow — identity AND a left-facing human profile -->
+            <!-- Left stem (body) -->
+            <line x1="24" y1="7" x2="24" y2="43" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <!-- Right stem (body) -->
+            <line x1="32" y1="7" x2="32" y2="43" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+            <!-- Bowl = HEAD in left-facing profile (bowl extends right from right stem) -->
+            <path d="M 24,7 Q 24,1 32,1 Q 42,1 42,13 Q 42,24 32,24 L 24,24"
+              fill="none" stroke="#1e293b" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Eye dot — inside the bowl, making the face legible. Face looks LEFT toward the arriving value. -->
+            <circle cx="35" cy="9" r="2.5" fill="#1e293b"/>
+            <!-- → dashed arrow — resources FROM stakeholder to system -->
+            <line x1="48" y1="24" x2="66" y2="24" stroke="#1e293b" stroke-width="2"
+              stroke-dasharray="4 2.5" stroke-linecap="round"/>
+            <polyline points="63,21 68,24 63,27" fill="none" stroke="#1e293b" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">mono</span>
+      </div>
+      <div class="variant">
+        <div class="chip-color">
+          <svg viewBox="0 0 72 48" width="84" height="56" fill="none">
+            <!-- ← violet arrow — value type colour (they RECEIVE value) -->
+            <polyline points="5,21 0,24 5,27" fill="none" stroke="#7c3aed" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="0" y1="24" x2="18" y2="24" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round"/>
+            <!-- ¶ pilcrow — blue = stakeholder identity colour -->
+            <line x1="24" y1="7" x2="24" y2="43" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="32" y1="7" x2="32" y2="43" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M 24,7 Q 24,1 32,1 Q 42,1 42,13 Q 42,24 32,24 L 24,24"
+              fill="none" stroke="#2563eb" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Eye — blue, inside the bowl, face profile looking left toward value -->
+            <circle cx="35" cy="9" r="2.5" fill="#2563eb"/>
+            <!-- → green dashed arrow — resource type colour (they GIVE resources) -->
+            <line x1="48" y1="24" x2="66" y2="24" stroke="#22c55e" stroke-width="2"
+              stroke-dasharray="4 2.5" stroke-linecap="round"/>
+            <polyline points="63,21 68,24 63,27" fill="none" stroke="#22c55e" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="chip-label">colour</span>
+      </div>
+    </div>
+    <span class="key-badge" style="border-color:#2563eb; color:#1e40af; background:#eff6ff;">←¶→</span>
+    <div class="divider"></div>
+
+    <!-- 16px badge-size version -->
+    <div class="px16-row">
+      <div class="px16-mono">
+        <svg viewBox="0 0 28 16" width="28" height="16" fill="none">
+          <!-- ← solid -->
+          <polygon points="2,5.5 0,8 2,10.5" fill="#1e293b"/>
+          <line x1="0" y1="8" x2="6" y2="8" stroke="#1e293b" stroke-width="1.3" stroke-linecap="round"/>
+          <!-- ¶ text -->
+          <text x="12" y="13.5" font-size="10" fill="#1e293b" text-anchor="middle" font-family="serif">¶</text>
+          <!-- → dashed -->
+          <line x1="17" y1="8" x2="24" y2="8" stroke="#1e293b" stroke-width="1.3"
+            stroke-dasharray="1.8 1.2" stroke-linecap="round"/>
+          <polygon points="22,5.5 27,8 22,10.5" fill="#1e293b" opacity="0.85"/>
+        </svg>
+      </div>
+      <span class="px16-sep">·</span>
+      <div class="px16-color">
+        <svg viewBox="0 0 28 16" width="28" height="16" fill="none">
+          <!-- ← violet solid -->
+          <polygon points="2,5.5 0,8 2,10.5" fill="#7c3aed"/>
+          <line x1="0" y1="8" x2="6" y2="8" stroke="#7c3aed" stroke-width="1.3" stroke-linecap="round"/>
+          <!-- ¶ blue -->
+          <text x="12" y="13.5" font-size="10" fill="#2563eb" text-anchor="middle" font-family="serif">¶</text>
+          <!-- → green dashed -->
+          <line x1="17" y1="8" x2="24" y2="8" stroke="#22c55e" stroke-width="1.3"
+            stroke-dasharray="1.8 1.2" stroke-linecap="round"/>
+          <polygon points="22,5.5 27,8 22,10.5" fill="#22c55e" opacity="0.85"/>
+        </svg>
+      </div>
+    </div>
+    <p class="desc">←¶→ · Solid ← = value TO the stakeholder (they receive; solid = value grammar). Centre ¶ = identity: a paragraph of documented interests; ALSO a left-facing human profile — bowl=head, stems=body, eye dot=face looking left at the arriving value. Double meaning: typographic AND figurative, simultaneous. Dashed → = resources FROM the stakeholder (dashed = resource/cost grammar). Tri-colour: violet=value · blue=identity · green=resources. <strong>Brown (cited in Tom Gilb, <em>Stakeholder Engineering</em>, Dec 2024): "Follow the resources — every entity that provides resources, whether internal or external, labor or facilities, and equipment, is a stakeholder."</strong> The → is not just descriptive — it is the <em>diagnostic arrow</em>: trace any dashed resource flow back to its source and you have found a stakeholder. Tom's ←¶→ independently converged on Brown's principle. Not just people: data, laws (GDPR), systems, line managers allocating team time — each a resource provider, each a stakeholder. Blue = trust, authority, people-centric.</p>
+    <p style="font-size:10px; color:#94a3b8; margin-top:6px; line-height:1.55;">
+      <strong style="color:#475569;">Free source:</strong>
+      Tom Gilb, <em>Stakeholder Engineering</em> (Dec 2024) —
+      <a href="https://www.researchgate.net/publication/386907645_Stakeholder_Engineering_MASTER_121224_Edit_Refs_for_Researchgate"
+         style="color:#2563eb;" target="_blank" rel="noopener">ResearchGate (open access)</a>
+    </p>
+  </div>
+
+  <!-- ══════════════ RESOURCE ══════════════ -->
+  <!--
+    Keyed icon: →O   (Kai Gilb, spotted 2026-05-16)
+
+    →O is the LEFT HALF of the Function glyph →O→
+    The resource goes INTO the system (dashed arrow + oval entry),
+    but there is NO output arrow — this entry is a cost, not a function.
+    It records "development resource" or any input budget.
+
+    Mono grammar: dashed = resource/cost going IN.
+    No solid right arrow = the system does not produce output from this entry type.
+    Dark green colour (v6): Kai "green for money." #166534 (green-800). Distinct from function green #16a34a by luminance (dark vs bright). Both honour Kai's "green" suggestions.
+  -->
+  <div class="card">
+    <div class="label">Resource</div>
+    <div class="variant-row">
+      <div class="variant">
+        <div class="chip-mono">
+          <svg viewBox="0 0 36 48" width="42" height="56" fill="none">
+            <!--
+              →O (left half of →O→)
+              Dashed arrow approaches the oval — resource/cost entering the system.
+              Oval present, but no exit arrow — the cost is consumed, not emitted.
+            -->
+            <!-- Resource arrow IN — dashed, two lines -->
+            <line x1="1" y1="18" x2="10" y2="18"
+              stroke="#1e293b" stroke-width="2" stroke-dasharray="3 2.2" stroke-linecap="round"/>
+            <polyline points="8,15 12,18 8,21"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="1" y1="30" x2="10" y2="30"
+              stroke="#1e293b" stroke-width="2" stroke-dasharray="3 2.2" stroke-linecap="round"/>
+            <polyline points="8,27 12,30 8,33"
+              stroke="#1e293b" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Oval — the system boundary -->
+            <ellipse cx="23" cy="24" rx="10" ry="9"
+              stroke="#1e293b" stroke-width="2.5" fill="none"/>
+            <!-- No output arrow — intentional. Resource is consumed, not produced. -->
+          </svg>
+        </div>
+        <span class="chip-label">mono</span>
+      </div>
+      <div class="variant">
+        <div class="chip-color">
+          <svg viewBox="0 0 36 48" width="42" height="56" fill="none">
+            <!-- Resource arrows IN — dark green dashed (Kai: "green for money" · #166534) -->
+            <line x1="1" y1="18" x2="10" y2="18"
+              stroke="#166534" stroke-width="2" stroke-dasharray="3 2.2" stroke-linecap="round"/>
+            <polyline points="8,15 12,18 8,21"
+              stroke="#166534" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="1" y1="30" x2="10" y2="30"
+              stroke="#166534" stroke-width="2" stroke-dasharray="3 2.2" stroke-linecap="round"/>
+            <polyline points="8,27 12,30 8,33"
+              stroke="#166534" stroke-width="2" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Oval — dark green (money enters the system) -->
+            <ellipse cx="23" cy="24" rx="10" ry="9"
+              stroke="#166534" stroke-width="2.5" fill="none"/>
+          </svg>
+        </div>
+        <span class="chip-label">colour</span>
+      </div>
+    </div>
+    <span class="key-badge" style="border-color:#166534; color:#14532d; background:#f0fdf4;">→O</span>
+    <div class="divider"></div>
+
+    <!-- 16px badge-size version -->
+    <div class="px16-row">
+      <div class="px16-mono">
+        <svg viewBox="0 0 20 16" width="20" height="16" fill="none">
+          <line x1="0" y1="8" x2="6" y2="8"
+            stroke="#1e293b" stroke-width="1.3" stroke-dasharray="2.2 1.6" stroke-linecap="round"/>
+          <polyline points="4.5,6 7,8 4.5,10"
+            stroke="#1e293b" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <ellipse cx="14" cy="8" rx="5" ry="5"
+            stroke="#1e293b" stroke-width="1.5" fill="none"/>
+        </svg>
+      </div>
+      <span class="px16-sep">·</span>
+      <div class="px16-color">
+        <svg viewBox="0 0 20 16" width="20" height="16" fill="none">
+          <line x1="0" y1="8" x2="6" y2="8"
+            stroke="#166534" stroke-width="1.3" stroke-dasharray="2.2 1.6" stroke-linecap="round"/>
+          <polyline points="4.5,6 7,8 4.5,10"
+            stroke="#166534" stroke-width="1.3" fill="none"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <ellipse cx="14" cy="8" rx="5" ry="5"
+            stroke="#166534" stroke-width="1.5" fill="none"/>
+        </svg>
+      </div>
+    </div>
+    <p class="desc">→O · Left half of →O→ (Function). Resource / cost enters the system — dashed arrow + oval. No output arrow: the budget is consumed, not delivered. Dark green #166534: "green for money" (Kai). Distinct from function green #16a34a by luminance (dark vs bright).</p>
+  </div>
+
+</div><!-- /grid -->
+
+<p style="margin-top:56px; font-size:11px; color:#94a3b8;">
+  SEM App · Spec Type Glyphs v7 · 8 types · Mono-first · Value=Violet · Function=Green · Resource=Dark Green · Task=→O→* (Tom+Kai Gilb 2026-05-16)
+</p>
+
+</body>
+</html>

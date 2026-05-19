@@ -66,15 +66,17 @@ describe('useSpecHistory', () => {
     expect(history.value[1].label).toBe('Generated')
   })
 
-  it('enforces max 10 versions (11th oldest is dropped)', () => {
+  it('enforces max 50 versions (51st oldest is dropped)', () => {
+    // Bumped from 10 → 50 (2026-05-12) along with the History redesign:
+    // grouping + search means many older snapshots stay useful.
     const { history, addVersion } = composable
-    for (let i = 1; i <= 11; i++) {
+    for (let i = 1; i <= 51; i++) {
       addVersion(makeSpec(`Spec ${i}`), 'Generated')
     }
-    expect(history.value).toHaveLength(10)
-    // Newest is spec 11, oldest remaining is spec 2 (spec 1 was dropped)
-    expect(history.value[0].spec.values[0].description).toBe('Spec 11')
-    expect(history.value[9].spec.values[0].description).toBe('Spec 2')
+    expect(history.value).toHaveLength(50)
+    // Newest is spec 51, oldest remaining is spec 2 (spec 1 was dropped)
+    expect(history.value[0].spec.values[0].description).toBe('Spec 51')
+    expect(history.value[49].spec.values[0].description).toBe('Spec 2')
   })
 
   it('restoreVersion returns the correct spec', () => {
@@ -84,7 +86,9 @@ describe('useSpecHistory', () => {
     const id = history.value[0].id
     const restored = restoreVersion(id)
     expect(restored).not.toBeNull()
-    expect(restored!.values[0].description).toBe('Restore me')
+    // restoreVersion now returns { spec, plan } — the spec lives on .spec
+    expect(restored!.spec.values[0].description).toBe('Restore me')
+    expect(restored!.plan).toBeNull()
   })
 
   it('restoreVersion returns null for unknown id', () => {
@@ -116,10 +120,14 @@ describe('useSpecHistory', () => {
     expect(history.value[0].summary.length).toBeLessThanOrEqual(60)
   })
 
-  it('summary is NOT truncated when description is 60 chars or fewer', () => {
+  it('summary always includes counts and the function topic', () => {
+    // buildSummary preferences functions[0].description as the topic — the
+    // function says "what the system does" and is more identifying than V.
+    // Format: "<F>F · <V>V · <S>S — <topic>" (topic ≤ 42 chars).
     const { addVersion, history } = composable
-    const shortDesc = 'Short description'
-    addVersion(makeSpec(shortDesc), 'Generated')
-    expect(history.value[0].summary).toBe(shortDesc)
+    addVersion(makeSpec('Short description'), 'Generated')
+    expect(history.value[0].summary).toContain('1F · 1V · 1S')
+    // Function description "Test function" is the topic source
+    expect(history.value[0].summary).toContain('Test function')
   })
 })

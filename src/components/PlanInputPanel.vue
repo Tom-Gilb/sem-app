@@ -18,6 +18,14 @@ import {
 } from '../composables/usePlanInput'
 import type { SpecBlock } from '../types/spec'
 import LoadingProgress from './LoadingProgress.vue'
+import ScrollContainer from './ScrollContainer.vue'
+import CloseDot from './CloseDot.vue'
+// DD-001 (2026-05-13) — Get glyph (`[*]→*`) is the canonical icon for the
+// import / get-back-out side of the Save/Get pair. Save glyph cited in the
+// "Save now in the plan bar" guidance so the user can recognise the symbol
+// on the destination button.
+import SaveGlyph from './icons/SaveGlyph.vue'
+import GetGlyph from './icons/GetGlyph.vue'
 
 const props = defineProps<{
   /**
@@ -42,7 +50,7 @@ const pastedText   = ref('')
 const urlInput     = ref('')
 const selectedFile = ref<File | null>(null)
 const parsedSpec   = ref<SpecBlock | null>(null)
-const scrollBody   = ref<HTMLElement | null>(null)
+const scrollBodyRef = ref<InstanceType<typeof ScrollContainer> | null>(null)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -90,7 +98,8 @@ async function handleParse(): Promise<void> {
     } else {
       // Scroll the panel body down so the results section is immediately visible
       await nextTick()
-      scrollBody.value?.scrollTo({ top: scrollBody.value.scrollHeight, behavior: 'smooth' })
+      const el = scrollBodyRef.value?.el
+      el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
     }
   } catch (err) {
     planInputError.value = err instanceof Error ? err.message : 'An unexpected error occurred.'
@@ -131,31 +140,24 @@ function handleAddTo(): void {
       aria-modal="true"
       aria-label="Import Planning Data"
     >
-      <div class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col pointer-events-auto max-h-[90vh]">
+      <div class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden pointer-events-auto max-h-[90vh]">
 
         <!-- Header -->
         <div class="flex items-center justify-between px-5 py-3.5 bg-indigo-600 rounded-t-2xl flex-shrink-0">
-          <div class="flex items-center gap-2">
-            <span class="text-lg" aria-hidden="true">📥</span>
+          <div class="flex items-center gap-2 text-white">
+            <GetGlyph size="standard" class="h-4 w-auto" aria-hidden="true" />
             <h2 class="text-sm font-semibold text-white tracking-wide">Import Planning Data</h2>
           </div>
-          <button
-            type="button"
-            class="min-h-[44px] flex items-center gap-1.5 px-3 rounded-lg
-                   text-indigo-200 hover:text-white hover:bg-indigo-700
-                   focus:outline-none focus:ring-2 focus:ring-white transition-colors text-sm font-medium"
+          <!-- Close — universal CloseDot per "Universal Close-Button Rule" -->
+          <CloseDot
+            variant="on-dark"
             aria-label="Close import panel"
             @click="emit('close')"
-          >
-            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-            Close
-          </button>
+          />
         </div>
 
         <!-- Scrollable body -->
-        <div ref="scrollBody" class="flex-1 overflow-y-auto p-5 space-y-5">
+        <ScrollContainer ref="scrollBodyRef" outer-class="flex-1 min-h-0 relative" inner-class="h-full p-5 space-y-5">
 
           <!-- ── Format availability grid ── -->
           <div class="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -309,7 +311,9 @@ function handleAddTo(): void {
             <div>
               <p class="font-semibold">This will replace your current live plan.</p>
               <p class="text-xs text-amber-700 mt-0.5">
-                Your existing spec will be overwritten. Save it first (💾 Save now in the plan bar) if you want to keep it.
+                Your existing spec will be overwritten. Save it first
+                (<span class="inline-flex items-center gap-1 align-middle"><SaveGlyph size="compact" class="inline-block h-3 w-auto -mt-0.5" /> Save now</span>
+                in the plan bar) if you want to keep it.
                 Archived model history is not affected.
               </p>
             </div>
@@ -435,7 +439,7 @@ function handleAddTo(): void {
             </div>
           </template>
 
-        </div>
+        </ScrollContainer>
       </div>
     </div>
   </Teleport>

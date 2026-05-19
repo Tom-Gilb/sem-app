@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CloseDot from './CloseDot.vue'
 import { ref, computed } from 'vue'
 
 const emit = defineEmits<{ close: [] }>()
@@ -9,7 +10,7 @@ const TOUR_STEPS = [
     icon: '✍️',
     region: 'SEM Entry Form',
     title: 'Start with your goal',
-    description: 'Fill in Stakes (who cares), Ends (measurable outcomes), and Means (your solution approach). Use the 🎤 mic button to dictate any field. The 🎲 Surprise Me button loads a demo scenario.',
+    description: 'Type or dictate your project idea — who cares, what outcomes you want, how you\'ll achieve them. Toolbar shortcuts: 🎲 Surprise me (random scenario), 🎯 Start with your goal (guided 4-step wizard), 📋 Templates, 📎 Import from URL or file, 🎤 Voice dictation.',
   },
   {
     step: 2,
@@ -94,17 +95,12 @@ function finish(): void {
         />
       </div>
 
-      <!-- Close × button -->
-      <button
-        type="button"
-        class="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full
-               text-slate-400 hover:text-slate-600 hover:bg-slate-100
-               focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
+      <!-- Close button -->
+      <CloseDot
+        title="Close"
         aria-label="Close tour"
         @click="finish"
-      >
-        ×
-      </button>
+      />
 
       <!-- Step counter -->
       <p class="text-xs text-slate-400 font-medium mb-4 pt-1">

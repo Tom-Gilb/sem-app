@@ -25,6 +25,10 @@ function toggle(): void {
 function close(): void {
   open.value = false
 }
+
+// Exposed so App.vue can call close() from _closeAllOverlays() on stage navigation.
+// Without this the backdrop lingers after navigation and blocks all clicks below it.
+defineExpose({ close })
 </script>
 
 <template>
@@ -48,14 +52,18 @@ function close(): void {
     </button>
 
     <!-- Dropdown menu -->
+    <!-- overflow-hidden removed: Safari clips pointer-event hit-testing at border-radius
+         corners when overflow:hidden is set, making buttons near rounded corners unresponsive.
+         Same fix as SharpenPanel.vue (inline mode) and modal mode. rounded-t-xl on the header
+         preserves the clipped amber-50 background without affecting pointer events. -->
     <div
       v-if="open"
       class="absolute top-full right-0 mt-1.5 z-50 w-56 rounded-xl border border-amber-200
-             bg-white shadow-xl overflow-hidden"
+             bg-white shadow-xl"
       role="menu"
       aria-label="Sharpening dimensions"
     >
-      <div class="px-3 py-2 border-b border-amber-100 bg-amber-50">
+      <div class="px-3 py-2 border-b border-amber-100 bg-amber-50 rounded-t-xl">
         <p class="text-[11px] font-semibold text-amber-700 uppercase tracking-wide">
           Sharpen Aspects
         </p>
@@ -78,12 +86,18 @@ function close(): void {
       </div>
     </div>
 
-    <!-- Invisible backdrop to close on outside click -->
-    <div
-      v-if="open"
-      class="fixed inset-0 z-40"
-      aria-hidden="true"
-      @click="close"
-    />
+    <!-- Invisible backdrop to close on outside click.
+         Teleported to <body> so it lives in the root stacking context, not inside
+         the nav bar's z-[55] stacking context. Without Teleport the z-40 backdrop
+         resolves at z-55 level in the root, blocking all regular page content and
+         causing the "everything freezes" bug after stage navigation. -->
+    <Teleport to="body">
+      <div
+        v-if="open"
+        class="fixed inset-0 z-40"
+        aria-hidden="true"
+        @click="close"
+      />
+    </Teleport>
   </div>
 </template>

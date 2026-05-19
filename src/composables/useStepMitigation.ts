@@ -2,6 +2,7 @@
 // Feature #106 — Evo step Risk Mitigation Plan composable
 import { ref, watch, type Ref } from 'vue'
 import type { EvoStep } from '../types/evo-plan'
+import { ollamaChat } from '../lib/ollamaChat'
 
 export interface MitigationStrategy {
   type: 'preventive' | 'contingent'
@@ -113,51 +114,36 @@ export function useStepMitigation(
 
     try {
       const key = typeof apiKey === 'string' ? apiKey : apiKey.value
+      const hasBackend = (key && key.length > 0) || !!import.meta.env.VITE_OLLAMA_MODEL
 
-      if (key && key.length > 0) {
-        // Live mode: call claude-haiku-4-5
+      if (hasBackend) {
+        // Live mode: call local Ollama
         try {
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': key,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5',
-              max_tokens: 400,
-              messages: [
-                {
-                  role: 'user',
-                  content: `Generate exactly 2 risk mitigation strategies for Evo step: "${step.name}".
+          const content = await ollamaChat({
+            max_tokens: 400,
+            messages: [{
+              role: 'user',
+              content: `Generate exactly 2 risk mitigation strategies for Evo step: "${step.name}".
 Return ONLY a JSON array with exactly 2 objects, each with "type" ("preventive" or "contingent") and "text" fields.
 First object must be preventive (avoid the risk before it occurs).
 Second object must be contingent (respond if the risk occurs).
 Example: [{"type":"preventive","text":"..."},{"type":"contingent","text":"..."}]`,
-                },
-              ],
-            }),
+            }],
           })
-
-          if (response.ok) {
-            const data = await response.json()
-            const content = data.content?.[0]?.text ?? ''
-            const match = content.match(/\[[\s\S]*\]/)
-            if (match) {
-              const parsed: Array<{ type: string; text: string }> = JSON.parse(match[0])
-              if (
-                Array.isArray(parsed) &&
-                parsed.length >= 2 &&
-                parsed[0].type === 'preventive' &&
-                parsed[1].type === 'contingent'
-              ) {
-                state.strategies = [
-                  { type: 'preventive', text: String(parsed[0].text) },
-                  { type: 'contingent', text: String(parsed[1].text) },
-                ]
-                return
-              }
+          const match = content.match(/\[[\s\S]*\]/)
+          if (match) {
+            const parsed: Array<{ type: string; text: string }> = JSON.parse(match[0])
+            if (
+              Array.isArray(parsed) &&
+              parsed.length >= 2 &&
+              parsed[0].type === 'preventive' &&
+              parsed[1].type === 'contingent'
+            ) {
+              state.strategies = [
+                { type: 'preventive', text: String(parsed[0].text) },
+                { type: 'contingent', text: String(parsed[1].text) },
+              ]
+              return
             }
           }
         } catch {

@@ -80,7 +80,7 @@ function matchesF(f: FEntry, pred: Predicate): boolean {
   const t = pred.token
   return (
     f.description.toLowerCase().includes(t) ||
-    f.successCriteria.toLowerCase().includes(t)
+    (f.presenceTest || f.successCriteria || '').toLowerCase().includes(t)
   )
 }
 
@@ -182,6 +182,10 @@ export function useSpecFilter() {
       functions: matchedFunctions,
       values: matchedValues,
       solutions: matchedSolutions,
+      // Constraints (C.) are binary rules — they are never filtered by V./goal
+      // predicates. Always carry them through unchanged so they remain visible
+      // regardless of the active filter query.
+      constraints: spec.constraints,
     }
   }
 

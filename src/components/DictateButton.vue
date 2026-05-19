@@ -1,7 +1,13 @@
 <script setup lang="ts">
-// DictateButton.vue — floating mic toggle, sits above the SpecCoach bubble.
-// Position: fixed bottom-36 right-6 — stacked above SpeakerButton (bottom-24 right-6).
-// aria-pressed reflects live on/off state for screen readers and Voice Control.
+// DictateButton.vue — mic toggle button.
+// Positioning is owned by the PARENT (it is mounted inside the persistent
+// right-side FAB cluster in App.vue, stacked above the ⚡ Actions button so
+// users always have one-tap access to voice without opening Actions).
+// 2026-05-13: removed self-positioning `fixed bottom-12 left-6 z-[370]` per
+// Tom: "the mic and speaker options are hidden in actions, theyneed to be on
+// the surface at all times right side above actions and nnot colliding with
+// it". Self-fixed positioning made the button collide with whichever bottom-
+// left widget existed at the time and prevented stacking with Actions.
 
 defineProps<{
   active: boolean
@@ -23,10 +29,8 @@ const emit = defineEmits<{ toggle: [] }>()
       : active
         ? 'Voice commands on — say «Mic Off» or press F5 to stop'
         : 'Click, press F5, or say «Turn on Mic» to start'"
-    class="fixed bottom-36 right-6 z-[370] flex items-center gap-1.5 px-3 py-2
-           rounded-full shadow-lg text-sm font-medium select-none
-           transition-colors duration-150
-           focus:outline-none focus:ring-2 focus:ring-offset-2"
+    class="flex items-center gap-1.5 px-3 py-2 rounded-full shadow-lg text-sm font-medium select-none
+           transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2"
     :class="!supported
       ? 'bg-white text-gray-300 border border-gray-100 cursor-not-allowed'
       : active

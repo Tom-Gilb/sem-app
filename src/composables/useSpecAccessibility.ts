@@ -76,7 +76,7 @@ export function useSpecAccessibility() {
     for (const f of spec.functions) {
       const fieldsToCheck: Array<[string, string]> = [
         ['description', f.description],
-        ['successCriteria', f.successCriteria],
+        ['presenceTest', f.presenceTest || f.successCriteria || ''],
       ]
 
       for (const [fieldName, fieldValue] of fieldsToCheck) {
@@ -88,13 +88,13 @@ export function useSpecAccessibility() {
 
       if (f.description) checkLongDescription(f.id, f.description)
 
-      // Rule 6: Missing successCriteria
-      if (!f.successCriteria || f.successCriteria.trim().length < 10) {
+      // Rule 6: Missing presenceTest
+      if (!(f.presenceTest || f.successCriteria) || (f.presenceTest || f.successCriteria || '').trim().length < 10) {
         issues.push({
           entryId: f.id,
-          field: 'successCriteria',
+          field: 'presenceTest',
           severity: 'warning',
-          message: 'Function is missing success criteria',
+          message: 'Function is missing presence test',
           suggestion: 'Add a measurable exit condition',
         })
       }

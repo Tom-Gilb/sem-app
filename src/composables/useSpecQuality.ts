@@ -62,7 +62,7 @@ export function useSpecQuality() {
 
       for (const f of spec.functions) {
         if (f.description.length > 20)       { fRaw += 5; fDescMissing = false }
-        if (f.successCriteria.length > 10)   { fRaw += 5; fCriteriaMissing = false }
+        if ((f.presenceTest || f.successCriteria || '').length > 10) { fRaw += 5; fCriteriaMissing = false }
         if (f.functionOfValue)               { fRaw += 2; fFovMissing = false }
       }
 

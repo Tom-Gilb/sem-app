@@ -2,9 +2,14 @@
 // Tests that useEvoPlan correctly manages reactive EvoStepPlan state and
 // that all mutation actions (reorderSteps, renameStep, removeStep, confirmPlan)
 // update state as specified.
+//
+// Isolation note: useEvoPlan uses module-level singleton state (plan, isConfirmed,
+// _inFlight, etc.). _resetModuleState() must be called in beforeEach — without it,
+// state from one test bleeds into the next, causing 15/20 failures (confirmed 2026-05-17).
+// This is the same failure mode as the HMR-stuck _inFlight production bug (r11).
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useEvoPlan } from '../useEvoPlan'
+import { useEvoPlan, _resetModuleState } from '../useEvoPlan'
 import type { EvoStepPlan } from '../../types/evo-plan'
 import type { SpecBlock } from '../../types/spec'
 
@@ -29,6 +34,16 @@ let workspaceOverride: { id: string; name: string } | null = { id: 'ws-test-123'
 vi.mock('../useWorkspace', () => ({
   useWorkspace: () => ({
     get currentWorkspace() { return { value: workspaceOverride } },
+  }),
+}))
+
+// Mock useSpecHistory — updateLatestPlan is called by fetchPlan after a successful
+// AI response to back-fill the plan into the most recent history entry. Without this
+// mock the real implementation runs in test, which may access localStorage/indexedDB.
+const mockUpdateLatestPlan = vi.fn()
+vi.mock('../useSpecHistory', () => ({
+  useSpecHistory: () => ({
+    updateLatestPlan: mockUpdateLatestPlan,
   }),
 }))
 
@@ -62,11 +77,16 @@ const THREE_STEP_PLAN: EvoStepPlan = {
 
 describe('useEvoPlan', () => {
   beforeEach(() => {
+    // Reset module-level singleton state FIRST — without this, _inFlight, plan,
+    // _lastFetchedSpec etc. carry over from the previous test and cause cascading
+    // failures (identical failure mode to the HMR-stuck _inFlight production bug).
+    _resetModuleState()
+
     mockPlanSteps.mockReset()
     mockUpsert.mockReset()
     mockGetSession.mockReset()
+    mockUpdateLatestPlan.mockReset()
     vi.stubEnv('VITE_MOCK_MODE', '')
-    // Reset shared mutable state before each test
     mockApiError.value = ''
     workspaceOverride = { id: 'ws-test-123', name: 'Test WS' }
   })
@@ -102,8 +122,10 @@ describe('useEvoPlan', () => {
       await confirmPlan()
       expect(isConfirmed.value).toBe(true)
 
+      // Force = true bypasses the identity guard so we get a real second fetch
+      // that resets isConfirmed back to false.
       vi.stubEnv('VITE_MOCK_MODE', '')
-      await fetchPlan(SPEC_BLOCK)
+      await fetchPlan(SPEC_BLOCK, true)
       expect(isConfirmed.value).toBe(false)
     })
 
@@ -123,6 +145,80 @@ describe('useEvoPlan', () => {
       // plan should remain null; error should be populated from the API error
       expect(plan.value).toBeNull()
       expect(error.value).toBe('LLM call failed — network error')
+    })
+
+    // ── HMR regression guard (r11) ──────────────────────────────────────────────
+    // Root cause of "Generate Evo Plan silently fails" (2026-05-18):
+    // _inFlight is module-level and survives Vite HMR. A fetch in-flight when
+    // HMR fires leaves _inFlight = true forever. All subsequent calls — including
+    // force=true from the Generate button — were silently dropped.
+    // Fix: force=true bypasses the _inFlight guard (same as _skipNextFetch,
+    // identity guard). This test guards against regression.
+    it('force=true bypasses _inFlight guard when stuck (HMR regression, r11)', async () => {
+      // Start a fetch that hangs — leaves _inFlight = true
+      let resolveFirst!: () => void
+      mockPlanSteps.mockReturnValueOnce(
+        new Promise<EvoStepPlan>(r => { resolveFirst = () => r(THREE_STEP_PLAN) }),
+      )
+      const { plan, fetchPlan } = useEvoPlan()
+      const hangingFetch = fetchPlan(SPEC_BLOCK)  // _inFlight = true, awaiting AI
+
+      // force=true must bypass _inFlight and succeed — not silently return
+      mockPlanSteps.mockResolvedValueOnce(THREE_STEP_PLAN)
+      await fetchPlan(SPEC_BLOCK, true)
+
+      // Plan populated despite _inFlight having been stuck true
+      expect(plan.value).not.toBeNull()
+      expect(plan.value!.steps).toHaveLength(3)
+      expect(plan.value!.steps[0].name).toBe('S.Evo1.Alpha')
+
+      // Clean up: let the hanging first fetch resolve so no unhandled rejections
+      resolveFirst()
+      await hangingFetch
+    })
+
+    it('without force, drops re-entrant call while fetch is in flight', async () => {
+      // The non-force concurrency guard prevents duplicate AI calls from watchers
+      // that fire twice (e.g. from a reactive dependency side-effect mid-fetch).
+      let resolveFirst!: () => void
+      mockPlanSteps.mockReturnValueOnce(
+        new Promise<EvoStepPlan>(r => { resolveFirst = () => r(THREE_STEP_PLAN) }),
+      )
+      const { fetchPlan } = useEvoPlan()
+      const firstFetch = fetchPlan(SPEC_BLOCK)   // _inFlight = true
+
+      // Second call without force — should be dropped (no second mockPlanSteps call)
+      await fetchPlan(SPEC_BLOCK)
+
+      expect(mockPlanSteps).toHaveBeenCalledTimes(1)
+
+      resolveFirst()
+      await firstFetch
+    })
+
+    it('identity guard skips re-fetch for same spec after success (no force)', async () => {
+      // Prevents watcher from regenerating plan in a loop when same spec ref fires twice.
+      mockPlanSteps.mockResolvedValueOnce(THREE_STEP_PLAN)
+      const { plan, fetchPlan } = useEvoPlan()
+      await fetchPlan(SPEC_BLOCK)
+
+      // Second call for same spec — identity guard skips it
+      await fetchPlan(SPEC_BLOCK)
+
+      expect(mockPlanSteps).toHaveBeenCalledTimes(1)
+      expect(plan.value!.steps).toHaveLength(3)
+    })
+
+    it('force=true bypasses identity guard to regenerate plan for same spec', async () => {
+      // User clicking "Generate Evo Plan" again must always trigger a fresh AI call.
+      mockPlanSteps.mockResolvedValue(THREE_STEP_PLAN)
+      const { plan, fetchPlan } = useEvoPlan()
+      await fetchPlan(SPEC_BLOCK)
+
+      await fetchPlan(SPEC_BLOCK, true)
+
+      expect(mockPlanSteps).toHaveBeenCalledTimes(2)
+      expect(plan.value!.steps).toHaveLength(3)
     })
   })
 

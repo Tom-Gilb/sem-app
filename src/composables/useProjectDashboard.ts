@@ -50,7 +50,7 @@ export function useProjectDashboard() {
     }
     for (const f of spec.functions) {
       if (f.description) score += 10
-      if (f.successCriteria) score += 5
+      if (f.presenceTest || f.successCriteria) score += 5
     }
     for (const s of spec.solutions) {
       if (s.description) score += 5
@@ -58,11 +58,11 @@ export function useProjectDashboard() {
     return Math.min(100, Math.round(score / Math.max(total, 1)))
   }
 
-  function addEntry(spec: SpecBlock): void {
-    const existing = entries.value.find(e => JSON.stringify(e.spec) === JSON.stringify(spec))
-    if (existing) return // deduplicate
+  /** Add a brand-new entry. Returns the new entry's id. */
+  function addEntry(spec: SpecBlock): string {
+    const id = crypto.randomUUID()
     entries.value.unshift({
-      id: crypto.randomUUID(),
+      id,
       name: deriveName(spec),
       domain: deriveDomain(spec),
       qualityScore: deriveQualityScore(spec),
@@ -70,6 +70,20 @@ export function useProjectDashboard() {
       createdAt: new Date(),
       spec,
     })
+    return id
+  }
+
+  /**
+   * Update an existing entry's live spec fields in place (for sharpening rounds).
+   * The createdAt and domain stay fixed to the original generation event.
+   */
+  function updateEntry(id: string, spec: SpecBlock): void {
+    const entry = entries.value.find(e => e.id === id)
+    if (!entry) return
+    entry.spec         = spec
+    entry.name         = deriveName(spec)
+    entry.qualityScore = deriveQualityScore(spec)
+    entry.entryCount   = spec.functions.length + spec.values.length + spec.solutions.length
   }
 
   function removeEntry(id: string): void {
@@ -80,5 +94,5 @@ export function useProjectDashboard() {
     entries.value = []
   }
 
-  return { entries, addEntry, removeEntry, clearAll, deriveName, deriveDomain, deriveQualityScore }
+  return { entries, addEntry, updateEntry, removeEntry, clearAll, deriveName, deriveDomain, deriveQualityScore }
 }

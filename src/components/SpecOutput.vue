@@ -81,6 +81,22 @@
     <!-- Spec area with toggle -->
     <div v-else-if="spec" class="space-y-3">
 
+      <!-- Sharpening summary strip — single line showing total changes + timestamp -->
+      <div
+        v-if="sharpenSummary"
+        class="flex items-center gap-1.5 px-1"
+        aria-label="Sharpening applied to this spec"
+      >
+        <span aria-hidden="true" class="text-amber-500 text-[11px] leading-none">✂️</span>
+        <span class="text-[11px] font-medium text-amber-700">
+          <template v-if="sharpenSummary.totalChanges > 0">
+            {{ sharpenSummary.totalChanges }} new change{{ sharpenSummary.totalChanges === 1 ? '' : 's' }}
+          </template>
+          <template v-else>Sharpened — no changes made</template>
+          <span v-if="sharpenSummary.at" class="text-amber-500 font-normal"> · {{ _formatTimestamp(sharpenSummary.at) }}</span>
+        </span>
+      </div>
+
       <!-- Header bar with toggle + action buttons -->
       <div class="flex items-center justify-between px-1">
         <div class="flex items-center gap-2 flex-wrap">
@@ -148,6 +164,21 @@
 
           <!-- ── Controls (always visible) ── -->
           <div class="flex flex-wrap items-center justify-end gap-1.5">
+
+            <!-- Evo Step 13 — 🧭 Plan Advisor button (visible when spec exists) -->
+            <button
+              v-if="spec"
+              type="button"
+              aria-label="Open Plan Advisor"
+              title="Plan Advisor — chat with AI about your spec: ask questions, challenge entries, get suggested rewrites"
+              class="flex h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-medium transition-colors
+                     bg-violet-100 text-violet-700 hover:bg-violet-200
+                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+                     focus-visible:outline-violet-600"
+              @click="emit('open-collaborator')"
+            >
+              <span aria-hidden="true">🧭</span> Plan Advisor
+            </button>
 
             <!-- Before/After toggle — only visible once spec is generated -->
             <button
@@ -322,17 +353,17 @@
               >{{ glossary.length }}</span>
             </button>
 
-            <!-- ⌘K shortcut pill -->
+            <!-- ⌘F Find shortcut pill (renamed from ⌘K Search 2026-05-12) -->
             <button
               type="button"
-              title="Search all features (⌘K / Ctrl+K)"
-              aria-label="Search all features (command palette)"
+              title="Find features (⌘F / Ctrl+F)"
+              aria-label="Find features (command palette)"
               class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium text-slate-400 hover:border-slate-400 hover:text-slate-600 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
               @click="palette.open()"
             >
               <span aria-hidden="true" class="text-xs leading-none">🔍</span>
-              <span>Search features</span>
-              <kbd class="font-mono text-[9px] leading-none border border-slate-200 rounded px-1 py-0.5 text-slate-300">⌘K</kbd>
+              <span>Find</span>
+              <kbd class="font-mono text-[9px] leading-none border border-slate-200 rounded px-1 py-0.5 text-slate-300">⌘F</kbd>
             </button>
           </div>
 
@@ -407,14 +438,10 @@
           <p class="text-xs font-semibold text-rose-700">
             ♿ Spec Check — {{ a11yIssues.length }} issue{{ a11yIssues.length === 1 ? '' : 's' }} found
           </p>
-          <button
-            type="button"
-            aria-label="Close spec check panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 hover:text-rose-700 transition-colors"
-            @click="a11yOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close spec check panel"
+        @click="a11yOpen = false"
+      />
         </div>
 
         <!-- No issues state -->
@@ -472,12 +499,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-amber-700">⚡ Team Energy</p>
-          <button
-            type="button"
-            aria-label="Close energy tracker panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-amber-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
-            @click="energyPanelOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close energy tracker panel"
+        @click="energyPanelOpen = false"
+      />
         </div>
         <div class="flex items-center gap-3">
           <button
@@ -508,14 +533,10 @@
         <!-- Panel header -->
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-red-700">🔍 Peer Review — adversarial critique</p>
-          <button
-            type="button"
-            aria-label="Close peer review panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors"
-            @click="peerReviewOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close peer review panel"
+        @click="peerReviewOpen = false"
+      />
         </div>
 
         <!-- Loading -->
@@ -574,14 +595,10 @@
         <!-- Panel header -->
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-sky-700">📄 Executive Summary</p>
-          <button
-            type="button"
-            aria-label="Close executive summary panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-sky-500 hover:bg-sky-100 hover:text-sky-700 transition-colors"
-            @click="summaryOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close executive summary panel"
+        @click="summaryOpen = false"
+      />
         </div>
 
         <!-- Loading -->
@@ -620,14 +637,10 @@
         <!-- Panel header -->
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-indigo-700">🧠 What would Gilb do?</p>
-          <button
-            type="button"
-            aria-label="Close Gilb critique panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
-            @click="kaiOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close Gilb critique panel"
+        @click="kaiOpen = false"
+      />
         </div>
 
         <!-- Loading -->
@@ -826,14 +839,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-emerald-700">Share this plan</p>
-          <button
-            type="button"
-            aria-label="Close share panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-100 hover:text-emerald-700 transition-colors"
-            @click="shareOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close share panel"
+        @click="shareOpen = false"
+      />
         </div>
         <div class="flex items-center gap-2">
           <input
@@ -866,14 +875,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-amber-700">⚡ Spec Challenges</p>
-          <button
-            type="button"
-            aria-label="Close challenge panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-amber-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
-            @click="challengeOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close challenge panel"
+        @click="challengeOpen = false"
+      />
         </div>
 
         <!-- Loading -->
@@ -917,14 +922,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-teal-700">📋 OKR Export</p>
-          <button
-            type="button"
-            aria-label="Close OKR panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-teal-500 hover:bg-teal-100 hover:text-teal-700 transition-colors"
-            @click="okrOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close OKR panel"
+        @click="okrOpen = false"
+      />
         </div>
         <pre class="font-mono text-xs text-slate-700 bg-slate-50 rounded-lg p-4 overflow-auto max-h-64 whitespace-pre-wrap">{{ okrText }}</pre>
         <button
@@ -955,14 +956,10 @@
             >
               {{ regCopied ? '✓ Copied!' : 'Copy Table' }}
             </button>
-            <button
-              type="button"
-              aria-label="Close regulatory traceability panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-teal-500 hover:bg-teal-100 hover:text-teal-700 transition-colors"
-              @click="regsOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close regulatory traceability panel"
+        @click="regsOpen = false"
+      />
           </div>
         </div>
 
@@ -1009,9 +1006,9 @@
                 <span
                   class="font-mono text-xs font-medium"
                   :class="{
-                    'text-blue-600': m.entryType === 'F',
-                    'text-emerald-600': m.entryType === 'V',
-                    'text-violet-600': m.entryType === 'S',
+                    'text-green-600': m.entryType === 'F',
+                    'text-violet-600': m.entryType === 'V',
+                    'text-orange-600': m.entryType === 'S',
                   }"
                 >{{ m.entryId }}</span>
                 <!-- Framework badge -->
@@ -1042,14 +1039,10 @@
         <!-- Panel header -->
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-rose-700">📅 Review in {{ horizonDays }} days</p>
-          <button
-            type="button"
-            aria-label="Close time capsule panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 hover:text-rose-700 transition-colors"
-            @click="capsuleOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close time capsule panel"
+        @click="capsuleOpen = false"
+      />
         </div>
 
         <!-- Horizon selector -->
@@ -1123,7 +1116,7 @@
       >
         <!-- Panel header -->
         <div class="flex items-center justify-between">
-          <p class="text-xs font-semibold text-violet-700">✏️ Plain Language Version</p>
+          <p class="text-xs font-semibold text-violet-700">✏️ Rewrite Spec</p>
           <div class="flex items-center gap-2">
             <button
               type="button"
@@ -1135,11 +1128,59 @@
             </button>
             <button
               type="button"
+              title="Close"
               aria-label="Close simplify panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-violet-500 hover:bg-violet-100 hover:text-violet-700 transition-colors"
+              class="group h-3.5 w-3.5 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-rose-900/20 transition-all duration-150 hover:scale-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400"
               @click="simplifyOpen = false"
+            ><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[7px] font-black leading-none select-none">⊖</span></button>
+          </div>
+        </div>
+
+        <!-- ── Rewrite mode selector ── -->
+        <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Rewrite style">
+          <button
+            v-for="m in SIMPLIFY_MODES"
+            :key="m.key"
+            type="button"
+            :role="'radio'"
+            :aria-checked="simplifyActiveMode === m.key"
+            :title="m.hint"
+            :class="[
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+              simplifyActiveMode === m.key
+                ? 'bg-violet-600 text-white shadow'
+                : 'bg-white border border-violet-200 text-violet-700 hover:border-violet-400 hover:bg-violet-100',
+              simplifyLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+            ]"
+            :disabled="simplifyLoading"
+            @click="handleSimplifyMode(m.key)"
+          >
+            <span aria-hidden="true">{{ m.emoji }}</span>
+            {{ m.label }}
+          </button>
+        </div>
+
+        <!-- ── Apply scope selector ── -->
+        <div class="flex items-center gap-2 flex-wrap pt-0.5 border-t border-violet-100">
+          <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Apply as:</span>
+          <div class="flex gap-1.5 flex-wrap" role="radiogroup" aria-label="Apply scope">
+            <button
+              v-for="scope in SIMPLIFY_SCOPES"
+              :key="scope.key"
+              type="button"
+              :role="'radio'"
+              :aria-checked="simplifyScope === scope.key"
+              :title="scope.hint"
+              :class="[
+                'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all',
+                simplifyScope === scope.key
+                  ? 'bg-violet-600 text-white shadow'
+                  : 'bg-white border border-violet-200 text-violet-600 hover:border-violet-400 hover:bg-violet-100',
+              ]"
+              @click="simplifyScope = scope.key"
             >
-              ×
+              <span aria-hidden="true">{{ scope.emoji }}</span>
+              {{ scope.label }}
             </button>
           </div>
         </div>
@@ -1166,9 +1207,9 @@
             <span
               class="shrink-0 font-mono text-xs font-semibold"
               :class="{
-                'text-blue-600': entry.type === 'F',
-                'text-emerald-600': entry.type === 'V',
-                'text-violet-600': entry.type === 'S',
+                'text-green-600': entry.type === 'F',
+                'text-violet-600': entry.type === 'V',
+                'text-orange-600': entry.type === 'S',
               }"
             >{{ entry.id }}</span>
             <!-- Original (truncated) -->
@@ -1184,8 +1225,33 @@
 
         <!-- Empty state -->
         <p v-else class="text-xs text-violet-500 italic">
-          Click "✏️ Simplify" to generate a plain-language version
+          Choose a style above then click a mode button to rewrite the spec
         </p>
+
+        <!-- ── Apply footer ── -->
+        <div v-if="simplified.length && !simplifyLoading" class="flex items-center justify-between pt-2 border-t border-violet-100">
+          <p class="text-[10px] text-slate-400 leading-tight max-w-[200px]">
+            <span v-if="simplifyScope === 'preview'">Preview only — spec unchanged</span>
+            <span v-else-if="simplifyScope === 'copy'">Saves rewrite as a new version you can restore</span>
+            <span v-else>Replaces master; original saved to history first</span>
+          </p>
+          <button
+            type="button"
+            :disabled="simplifyScope === 'preview'"
+            class="min-h-[36px] px-4 text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            :class="simplifyScope === 'preview'
+              ? 'bg-slate-100 text-slate-400'
+              : 'bg-violet-600 text-white hover:bg-violet-700'"
+            @click="handleApplyRewrite"
+          >
+            <span v-if="simplifyScope === 'copy'" class="inline-flex items-center gap-1.5">
+              <SaveGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
+              <span>Save as Copy</span>
+            </span>
+            <span v-else-if="simplifyScope === 'replace'">✅ Replace Master</span>
+            <span v-else>👁 Preview only</span>
+          </button>
+        </div>
       </div>
 
       <!-- Feature #60 — Gaps panel -->
@@ -1206,14 +1272,10 @@
               {{ gapDomain }} (auto-detected)
             </span>
           </div>
-          <button
-            type="button"
-            aria-label="Close gaps panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
-            @click="gapsOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close gaps panel"
+        @click="gapsOpen = false"
+      />
         </div>
 
         <!-- Template selector pills -->
@@ -1314,14 +1376,10 @@
               {{ shipChecklistCopied ? '✓ Copied!' : '📋 Copy' }}
             </button>
             <!-- Close button -->
-            <button
-              type="button"
-              aria-label="Close ship check panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-100 hover:text-emerald-700 transition-colors"
-              @click="shipOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close ship check panel"
+        @click="shipOpen = false"
+      />
           </div>
         </div>
 
@@ -1395,14 +1453,10 @@
             >
               {{ glossaryCopied ? '✓ Copied!' : '📋 Copy' }}
             </button>
-            <button
-              type="button"
-              aria-label="Close glossary panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-amber-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
-              @click="glossaryOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close glossary panel"
+        @click="glossaryOpen = false"
+      />
           </div>
         </div>
 
@@ -1470,14 +1524,10 @@
             >
               {{ narrativeCopied ? '✓ Copied!' : '📋 Copy' }}
             </button>
-            <button
-              type="button"
-              aria-label="Close story panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 hover:text-rose-700 transition-colors"
-              @click="narrativeOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close story panel"
+        @click="narrativeOpen = false"
+      />
           </div>
         </div>
 
@@ -1543,14 +1593,10 @@
             >
               Clear
             </button>
-            <button
-              type="button"
-              aria-label="Close changelog panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-              @click="changelogOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close changelog panel"
+        @click="changelogOpen = false"
+      />
           </div>
         </div>
         <!-- Empty state -->
@@ -1590,14 +1636,10 @@
         <!-- Panel header -->
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-blue-700">🌐 Translate Spec</p>
-          <button
-            type="button"
-            aria-label="Close translate panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition-colors"
-            @click="translateOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close translate panel"
+        @click="translateOpen = false"
+      />
         </div>
         <!-- Language toggle pills -->
         <div class="flex items-center gap-2 flex-wrap">
@@ -1694,14 +1736,10 @@
             >
               📋 Copy Table
             </button>
-            <button
-              type="button"
-              aria-label="Close RICE panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 hover:bg-orange-100 hover:text-orange-700 transition-colors"
-              @click="riceOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close RICE panel"
+        @click="riceOpen = false"
+      />
           </div>
         </div>
         <!-- Empty state -->
@@ -1803,14 +1841,10 @@
             >
               📋 Copy
             </button>
-            <button
-              type="button"
-              aria-label="Close interview guide panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-teal-500 hover:bg-teal-100 hover:text-teal-700 transition-colors"
-              @click="guideOpen = false; clearGuide()"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close interview guide panel"
+        @click="guideOpen = false; clearGuide()"
+      />
           </div>
         </div>
         <!-- Loading -->
@@ -1869,14 +1903,10 @@
             >
               📋 Copy
             </button>
-            <button
-              type="button"
-              aria-label="Close heatmap panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors"
-              @click="heatmapOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close heatmap panel"
+        @click="heatmapOpen = false"
+      />
           </div>
         </div>
         <!-- Summary bar -->
@@ -1893,7 +1923,7 @@
         <!-- Empty state -->
         <p v-if="heatmapRows.length === 0" class="text-xs text-slate-400 italic">No spec loaded.</p>
         <!-- Scrollable table -->
-        <div v-else class="max-h-96 overflow-y-auto overflow-x-auto">
+        <ScrollContainer v-else outer-class="relative" inner-class="overflow-x-auto" inner-style="max-height: 24rem" :no-pill="true">
           <table class="text-xs border-collapse w-full">
             <thead>
               <tr class="sticky top-0 bg-red-100 text-red-800">
@@ -1921,7 +1951,7 @@
                 </td>
                 <td class="px-1.5 py-1">
                   <span class="inline-flex items-center rounded px-1 py-0.5 text-xs font-medium"
-                    :class="row.type === 'Value' ? 'bg-blue-100 text-blue-700' : row.type === 'Function' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'"
+                    :class="row.type === 'Value' ? 'bg-violet-100 text-violet-700' : row.type === 'Function' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'"
                   >{{ row.type[0] }}</span>
                 </td>
                 <td
@@ -1944,7 +1974,7 @@
               </tr>
             </tbody>
           </table>
-        </div>
+        </ScrollContainer>
         <!-- Rule legend -->
         <div v-if="heatmapRows.length > 0" class="flex flex-wrap gap-x-3 gap-y-1">
           <span
@@ -1976,14 +2006,10 @@
             >
               📋 Copy
             </button>
-            <button
-              type="button"
-              aria-label="Close confidence panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-purple-500 hover:bg-purple-100 hover:text-purple-700 transition-colors"
-              @click="confidenceOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close confidence panel"
+        @click="confidenceOpen = false"
+      />
           </div>
         </div>
         <!-- Aggregate summary banner -->
@@ -2049,14 +2075,10 @@
               {{ graph.edges.length }} edge{{ graph.edges.length !== 1 ? 's' : '' }}
             </span>
           </p>
-          <button
-            type="button"
-            aria-label="Close dependency graph panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-cyan-500 hover:bg-cyan-100 hover:text-cyan-700 transition-colors"
-            @click="graphOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close dependency graph panel"
+        @click="graphOpen = false"
+      />
         </div>
         <!-- Empty state -->
         <p v-if="graph.nodes.length === 0" class="text-xs text-slate-400 italic">No V. entries in spec.</p>
@@ -2097,14 +2119,10 @@
             >
               🗑 Clear
             </button>
-            <button
-              type="button"
-              aria-label="Close debate panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 hover:text-rose-700 transition-colors"
-              @click="debateOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close debate panel"
+        @click="debateOpen = false"
+      />
           </div>
         </div>
         <!-- Empty state -->
@@ -2190,14 +2208,10 @@
             >
               ↺ Regenerate
             </button>
-            <button
-              type="button"
-              aria-label="Close pitch panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-lime-500 hover:bg-lime-100 hover:text-lime-700 transition-colors"
-              @click="pitchOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close pitch panel"
+        @click="pitchOpen = false"
+      />
           </div>
         </div>
         <!-- Empty state -->
@@ -2227,14 +2241,10 @@
         <!-- Panel header -->
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-indigo-700">👤 Persona Challenge</p>
-          <button
-            type="button"
-            aria-label="Close persona challenge panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
-            @click="personaOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close persona challenge panel"
+        @click="personaOpen = false"
+      />
         </div>
         <!-- Empty state -->
         <p v-if="!spec" class="text-xs text-slate-400 italic">Add a spec first.</p>
@@ -2319,14 +2329,10 @@
             >
               📋 Copy Table
             </button>
-            <button
-              type="button"
-              aria-label="Close assumptions register panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-yellow-600 hover:bg-yellow-100 hover:text-yellow-800 transition-colors"
-              @click="assumptionsOpen = false"
-            >
-              ×
-            </button>
+            <CloseDot
+        aria-label="Close assumptions register panel"
+        @click="assumptionsOpen = false"
+      />
           </div>
         </div>
         <!-- Empty state -->
@@ -2374,14 +2380,10 @@
         <!-- Panel header -->
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-emerald-700">✨ Auto-Improve</p>
-          <button
-            type="button"
-            aria-label="Close auto-improve panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-100 hover:text-emerald-700 transition-colors"
-            @click="autoImproveOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close auto-improve panel"
+        @click="autoImproveOpen = false"
+      />
         </div>
         <!-- Empty state -->
         <p v-if="!spec" class="text-xs text-slate-400 italic">Add a spec first.</p>
@@ -2454,14 +2456,10 @@
           <p class="text-xs font-semibold text-sky-700">
             🐦 Tweet Thread — {{ tweets.length }} tweet{{ tweets.length === 1 ? '' : 's' }}
           </p>
-          <button
-            type="button"
-            aria-label="Close tweet thread panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-sky-500 hover:bg-sky-100 hover:text-sky-700 transition-colors"
-            @click="tweetOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close tweet thread panel"
+        @click="tweetOpen = false"
+      />
         </div>
 
         <!-- Empty state -->
@@ -2482,9 +2480,9 @@
               <span
                 class="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide"
                 :class="{
-                  'bg-blue-100 text-blue-700': t.type === 'F',
-                  'bg-emerald-100 text-emerald-700': t.type === 'V',
-                  'bg-violet-100 text-violet-700': t.type === 'S',
+                  'bg-green-100 text-green-700': t.type === 'F',
+                  'bg-violet-100 text-violet-700': t.type === 'V',
+                  'bg-orange-100 text-orange-700': t.type === 'S',
                 }"
               >{{ t.type }}.</span>
               <span class="font-mono text-xs text-slate-600">{{ t.id }}</span>
@@ -2522,14 +2520,10 @@
           <p class="text-xs font-semibold text-amber-800">
             ⚠️ Anti-Pattern Detector
           </p>
-          <button
-            type="button"
-            aria-label="Close anti-pattern panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-amber-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
-            @click="antiPatternsOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close anti-pattern panel"
+        @click="antiPatternsOpen = false"
+      />
         </div>
 
         <!-- Clean state -->
@@ -2612,12 +2606,10 @@
             class="text-lg font-bold bg-transparent border-none outline-none text-slate-800 w-full"
             aria-label="Contract title"
           />
-          <button
-            type="button"
-            aria-label="Close contract panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors"
-            @click="contractOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close contract panel"
+        @click="contractOpen = false"
+      />
         </div>
 
         <!-- Empty state -->
@@ -2669,10 +2661,14 @@
           >📋 Copy Contract</button>
           <button
             type="button"
-            aria-label="Export contract as PDF"
-            class="h-11 flex-1 rounded-lg bg-indigo-100 text-indigo-800 text-sm font-medium hover:bg-indigo-200 transition-colors"
+            aria-label="Export contract as PDF — `*→[*]` save to file"
+            title="Export contract as PDF — `*→[*]` save to file"
+            class="h-11 flex-1 rounded-lg bg-indigo-100 text-indigo-800 text-sm font-medium hover:bg-indigo-200 transition-colors inline-flex items-center justify-center gap-1.5"
             @click="exportContractPDF()"
-          >📥 Export PDF</button>
+          >
+            <SaveGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
+            <span>Export PDF</span>
+          </button>
         </div>
       </div>
 
@@ -2690,12 +2686,10 @@
               {{ lanes.length }} lane{{ lanes.length === 1 ? '' : 's' }}
             </span>
           </p>
-          <button
-            type="button"
-            aria-label="Close story map panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-500 hover:bg-emerald-100 hover:text-emerald-700 transition-colors"
-            @click="storyMapOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close story map panel"
+        @click="storyMapOpen = false"
+      />
         </div>
 
         <!-- Empty state -->
@@ -2722,12 +2716,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-fuchsia-800">⚔️ Battle Card</p>
-          <button
-            type="button"
-            aria-label="Close battle card panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-fuchsia-500 hover:bg-fuchsia-100 hover:text-fuchsia-700 transition-colors"
-            @click="battleOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close battle card panel"
+        @click="battleOpen = false"
+      />
         </div>
 
         <!-- Two-column strengths / weaknesses -->
@@ -2770,12 +2762,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-violet-800">📊 Market Size Estimate</p>
-          <button
-            type="button"
-            aria-label="Close market size panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-violet-500 hover:bg-violet-100 hover:text-violet-700 transition-colors"
-            @click="marketOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close market size panel"
+        @click="marketOpen = false"
+      />
         </div>
 
         <!-- Empty state -->
@@ -2825,12 +2815,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-teal-800">🎯 OKR Crosswalk Map</p>
-          <button
-            type="button"
-            aria-label="Close OKR crosswalk panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-teal-500 hover:bg-teal-100 hover:text-teal-700 transition-colors"
-            @click="okrCrosswalkOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close OKR crosswalk panel"
+        @click="okrCrosswalkOpen = false"
+      />
         </div>
 
         <!-- Objectives list -->
@@ -2887,12 +2875,10 @@
           <p class="text-xs font-semibold text-slate-700">
             🛡️ Resilience Report
           </p>
-          <button
-            type="button"
-            aria-label="Close resilience panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-            @click="resilienceOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close resilience panel"
+        @click="resilienceOpen = false"
+      />
         </div>
 
         <!-- Summary badges -->
@@ -2945,12 +2931,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-amber-800">🪜 Goal Ladder</p>
-          <button
-            type="button"
-            aria-label="Close goal ladder panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-amber-600 hover:bg-amber-100 hover:text-amber-800 transition-colors"
-            @click="ladderOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close goal ladder panel"
+        @click="ladderOpen = false"
+      />
         </div>
 
         <!-- Empty state -->
@@ -3019,12 +3003,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-blue-800">📏 Benchmark Comparison</p>
-          <button
-            type="button"
-            aria-label="Close benchmark panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-100 hover:text-blue-800 transition-colors"
-            @click="benchmarkOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close benchmark panel"
+        @click="benchmarkOpen = false"
+      />
         </div>
 
         <!-- Empty state -->
@@ -3095,12 +3077,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-gray-700">📓 Decision Log</p>
-          <button
-            type="button"
-            aria-label="Close decision log panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="decisionsOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close decision log panel"
+        @click="decisionsOpen = false"
+      />
         </div>
 
         <!-- Add decision form -->
@@ -3202,12 +3182,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-purple-700">🗺️ Impact Map</p>
-          <button
-            type="button"
-            aria-label="Close impact map panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="impactMapOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close impact map panel"
+        @click="impactMapOpen = false"
+      />
         </div>
         <SpecImpactMap v-if="spec" :blocks="[spec]" />
         <p v-else class="text-xs text-slate-400 italic">Add a spec first to see the impact map.</p>
@@ -3221,12 +3199,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-yellow-700">🚩 Feature Flags</p>
-          <button
-            type="button"
-            aria-label="Close feature flags panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="flagsOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close feature flags panel"
+        @click="flagsOpen = false"
+      />
         </div>
         <p v-if="flags.length === 0" class="text-xs text-slate-400 italic">Add a spec first to see feature flags.</p>
         <template v-else>
@@ -3284,12 +3260,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-teal-700">✅ INVEST Checker</p>
-          <button
-            type="button"
-            aria-label="Close INVEST checker panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="investOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close INVEST checker panel"
+        @click="investOpen = false"
+      />
         </div>
         <div class="flex gap-2 mb-3">
           <button
@@ -3338,12 +3312,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-orange-700">💰 ROI Calculator</p>
-          <button
-            type="button"
-            aria-label="Close ROI calculator panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="roiOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close ROI calculator panel"
+        @click="roiOpen = false"
+      />
         </div>
         <p v-if="roiEntries.length === 0" class="text-xs text-slate-400 italic">Add a spec first to see ROI calculations.</p>
         <template v-else>
@@ -3431,12 +3403,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-cyan-700">⚡ Velocity Tracker</p>
-          <button
-            type="button"
-            aria-label="Close velocity tracker panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="velocityOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close velocity tracker panel"
+        @click="velocityOpen = false"
+      />
         </div>
         <!-- Overall score badge -->
         <div class="flex items-center gap-3 mb-4">
@@ -3498,12 +3468,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-slate-700">🏗️ TOGAF Architecture View</p>
-          <button
-            type="button"
-            aria-label="Close TOGAF panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="togafOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close TOGAF panel"
+        @click="togafOpen = false"
+      />
         </div>
         <SpecTogafView v-if="spec" :blocks="[spec]" />
         <p v-else class="text-xs text-slate-400 italic">Add a spec first to see the TOGAF view.</p>
@@ -3517,12 +3485,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-red-700">💸 Cost of Quality</p>
-          <button
-            type="button"
-            aria-label="Close cost of quality panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="coqOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close cost of quality panel"
+        @click="coqOpen = false"
+      />
         </div>
         <p v-if="coqEntries.length === 0" class="text-xs text-slate-400 italic">Add a spec with V. entries to see CoQ calculations.</p>
         <template v-else>
@@ -3601,12 +3567,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-pink-700">💬 Sentiment Analyser</p>
-          <button
-            type="button"
-            aria-label="Close sentiment analyser panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="sentimentOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close sentiment analyser panel"
+        @click="sentimentOpen = false"
+      />
         </div>
         <!-- Distribution bar -->
         <div class="mb-4">
@@ -3653,7 +3617,7 @@
         </div>
         <!-- Entry list -->
         <div v-if="sentimentResults.length === 0" class="text-xs text-slate-400 italic">No entries to analyse.</div>
-        <div v-else class="space-y-1 mb-4 max-h-56 overflow-y-auto">
+        <ScrollContainer v-else outer-class="mb-4 relative" inner-class="space-y-1" inner-style="max-height: 14rem" :no-pill="true">
           <div
             v-for="r in sentimentResults"
             :key="r.entryId"
@@ -3671,7 +3635,7 @@
               class="inline-flex items-center rounded bg-gray-200 px-1.5 py-0.5 text-xs text-slate-600"
             >{{ kw }}</span>
           </div>
-        </div>
+        </ScrollContainer>
         <!-- Urgent entries callout -->
         <div
           v-if="sentimentUrgentEntries.length > 0"
@@ -3703,12 +3667,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-red-700">🔴 Critical Path</p>
-          <button
-            type="button"
-            aria-label="Close critical path panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="criticalPathOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close critical path panel"
+        @click="criticalPathOpen = false"
+      />
         </div>
         <!-- Chain display -->
         <div v-if="criticalPath.stepChain.length === 0" class="text-xs text-slate-400 italic">No dependency chain detected.</div>
@@ -3746,12 +3708,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-indigo-700">📰 Press Release</p>
-          <button
-            type="button"
-            aria-label="Close press release panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="pressReleaseOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close press release panel"
+        @click="pressReleaseOpen = false"
+      />
         </div>
         <!-- Generating state -->
         <div v-if="pressReleaseGenerating" class="flex items-center gap-2 text-sm text-slate-500">
@@ -3795,12 +3755,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-gray-700">🔒 Constraint Mapper</p>
-          <button
-            type="button"
-            aria-label="Close constraints panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="constraintsOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close constraints panel"
+        @click="constraintsOpen = false"
+      />
         </div>
         <!-- Summary bar -->
         <div class="flex items-center gap-3 mb-4">
@@ -3859,12 +3817,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-teal-700">🌊 Value Stream Map</p>
-          <button
-            type="button"
-            aria-label="Close value stream map panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="valueStreamOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close value stream map panel"
+        @click="valueStreamOpen = false"
+      />
         </div>
         <SpecValueStream :blocks="valueStreamBlocks" />
       </div>
@@ -3898,12 +3854,10 @@
               class="h-11 px-3 text-xs font-medium rounded-lg bg-lime-200 text-lime-800 hover:bg-lime-300 transition-colors"
               @click="copyHyp()"
             >{{ hypCopied ? '✅ Copied!' : '📋 Copy' }}</button>
-            <button
-              type="button"
-              aria-label="Close hypothesis cards panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-lime-600 hover:bg-lime-200 hover:text-lime-800 transition-colors"
-              @click="hypothesisOpen = false"
-            >×</button>
+            <CloseDot
+        aria-label="Close hypothesis cards panel"
+        @click="hypothesisOpen = false"
+      />
           </div>
         </div>
         <div v-if="hypCards.length === 0 && !hypGenerating" class="text-xs text-lime-600 italic">No V. entries found. Add values to your spec to generate hypothesis cards.</div>
@@ -3954,12 +3908,10 @@
               class="h-11 px-3 text-xs font-medium rounded-lg bg-indigo-100 text-indigo-800 hover:bg-indigo-200 transition-colors"
               @click="regCopyMarkdown()"
             >{{ regScanCopied ? '✅ Copied!' : '📋 Copy' }}</button>
-            <button
-              type="button"
-              aria-label="Close regulatory scan panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-              @click="regScanOpen = false"
-            >×</button>
+            <CloseDot
+        aria-label="Close regulatory scan panel"
+        @click="regScanOpen = false"
+      />
           </div>
         </div>
         <div v-if="regResult.clean" class="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
@@ -4026,12 +3978,10 @@
               class="h-11 px-3 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
               @click="copyJd()"
             >{{ jdCopied ? '✅ Copied!' : '📋 Copy' }}</button>
-            <button
-              type="button"
-              aria-label="Close job description panel"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-              @click="jdOpen = false"
-            >×</button>
+            <CloseDot
+        aria-label="Close job description panel"
+        @click="jdOpen = false"
+      />
           </div>
         </div>
         <div v-if="!jobDesc && !jdGenerating" class="text-xs text-slate-400 italic">Click Generate to create a hire-ready job description from this spec.</div>
@@ -4070,12 +4020,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-lime-700">🧪 Hypothesis Cards</p>
-          <button
-            type="button"
-            aria-label="Close hypothesis cards panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="hypothesisOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close hypothesis cards panel"
+        @click="hypothesisOpen = false"
+      />
         </div>
         <template v-if="hypothesisCards.length === 0">
           <p class="text-sm text-slate-400">No V. entries found</p>
@@ -4128,12 +4076,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-amber-700">⚖️ Regulatory Impact</p>
-          <button
-            type="button"
-            aria-label="Close regulatory impact panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="regulatoryOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close regulatory impact panel"
+        @click="regulatoryOpen = false"
+      />
         </div>
         <!-- High-impact banner -->
         <div
@@ -4203,12 +4149,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-violet-700">💼 Job Description</p>
-          <button
-            type="button"
-            aria-label="Close job description panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="jdOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close job description panel"
+        @click="jdOpen = false"
+      />
         </div>
         <div v-if="jdGenerating" class="flex items-center gap-2 text-sm text-slate-500">
           <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" aria-hidden="true" />
@@ -4271,12 +4215,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-yellow-700">💡 Innovation Score</p>
-          <button
-            type="button"
-            aria-label="Close innovation score panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="innovationOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close innovation score panel"
+        @click="innovationOpen = false"
+      />
         </div>
         <!-- Score display -->
         <div class="flex items-center gap-3 mb-4">
@@ -4340,12 +4282,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-rose-700">🥊 Competitor Matrix</p>
-          <button
-            type="button"
-            aria-label="Close competitor matrix panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="competitorOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close competitor matrix panel"
+        @click="competitorOpen = false"
+      />
         </div>
         <!-- Competitor table -->
         <div class="overflow-x-auto mb-4">
@@ -4400,12 +4340,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-orange-700">🚩 Feature Flag Rollout Planner</p>
-          <button
-            type="button"
-            aria-label="Close rollout panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="rolloutOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close rollout panel"
+        @click="rolloutOpen = false"
+      />
         </div>
         <div v-if="rolloutEntries.length === 0" class="text-xs text-slate-400">No F. entries found.</div>
         <div v-else class="space-y-4">
@@ -4460,12 +4398,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-red-700">💥 Chaos Engineering Scenarios</p>
-          <button
-            type="button"
-            aria-label="Close chaos engineering panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="chaosOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close chaos engineering panel"
+        @click="chaosOpen = false"
+      />
         </div>
         <div v-if="chaosScenarios.length === 0" class="text-xs text-slate-400">No S. entries found.</div>
         <div v-else class="space-y-4">
@@ -4516,12 +4452,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-lime-700">⚔️ SWOT Analysis</p>
-          <button
-            type="button"
-            aria-label="Close SWOT analysis panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="swotOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close SWOT analysis panel"
+        @click="swotOpen = false"
+      />
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div class="rounded-lg border p-3 bg-green-50">
@@ -4569,12 +4503,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-violet-700">🧠 Customer Empathy Map</p>
-          <button
-            type="button"
-            aria-label="Close empathy map panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="empathyOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close empathy map panel"
+        @click="empathyOpen = false"
+      />
         </div>
         <p v-if="empathyCards.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
         <div v-else class="grid grid-cols-2 gap-2">
@@ -4611,12 +4543,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-emerald-700">📊 NPS Predictor</p>
-          <button
-            type="button"
-            aria-label="Close NPS predictor panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="npsOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close NPS predictor panel"
+        @click="npsOpen = false"
+      />
         </div>
         <p v-if="npsEntries.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
         <template v-else>
@@ -4679,12 +4609,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-slate-700">📝 Changelog Entry</p>
-          <button
-            type="button"
-            aria-label="Close changelog entry panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="changelogEntryOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close changelog entry panel"
+        @click="changelogEntryOpen = false"
+      />
         </div>
         <p v-if="changelogEntries.length === 0" class="text-xs text-slate-400 italic">No F. entries found. Generate a spec first.</p>
         <template v-else>
@@ -4734,12 +4662,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-indigo-700">🎯 Impact-Complexity</p>
-          <button
-            type="button"
-            aria-label="Close impact-complexity panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="scatterOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close impact-complexity panel"
+        @click="scatterOpen = false"
+      />
         </div>
         <p v-if="scatterPoints.length === 0" class="text-xs text-slate-400 italic">No entries found. Generate a spec first.</p>
         <template v-else>
@@ -4808,12 +4734,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-lime-700">💼 Jobs to be Done</p>
-          <button
-            type="button"
-            aria-label="Close JTBD canvas panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="jtbdOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close JTBD canvas panel"
+        @click="jtbdOpen = false"
+      />
         </div>
         <p v-if="jtbdCards.length === 0" class="text-xs text-slate-400 italic">No F. entries found. Generate a spec first.</p>
         <div v-else class="space-y-2">
@@ -4852,12 +4776,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-cyan-700">🔌 Spec as API Contract</p>
-          <button
-            type="button"
-            aria-label="Close API contract panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="apiContractOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close API contract panel"
+        @click="apiContractOpen = false"
+      />
         </div>
         <p v-if="apiEndpoints.length === 0" class="text-xs text-slate-400 italic">No F. or S. entries found. Generate a spec first.</p>
         <div v-else class="space-y-2">
@@ -4904,8 +4826,10 @@
       <div v-if="experimentOpen" class="mt-4 border rounded-lg p-4 bg-white" aria-label="Experiment mapper panel">
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-purple-700">🧬 Lean Experiments</p>
-          <button
-            v-show="activeProfile === 'All'" type="button" aria-label="Close experiments panel" class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100" @click="experimentOpen = false">×</button>
+          <CloseDot
+        aria-label="Close experiments panel"
+        @click="experimentOpen = false"
+      />
         </div>
         <p v-if="experimentCards.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
         <div v-else class="space-y-3">
@@ -4935,8 +4859,10 @@
       <div v-if="decayOpen" class="mt-4 border rounded-lg p-4 bg-white" aria-label="Value decay panel">
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-red-700">📉 Value Decay Estimator</p>
-          <button
-            v-show="fp('161')" type="button" aria-label="Close value decay panel" class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100" @click="decayOpen = false">×</button>
+          <CloseDot
+        aria-label="Close value decay panel"
+        @click="decayOpen = false"
+      />
         </div>
         <p v-if="decayEntries.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
         <template v-else>
@@ -4968,8 +4894,10 @@
       <div v-if="pressKitOpen" class="mt-4 border rounded-lg p-4 bg-white" aria-label="Press kit panel">
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-slate-700">📰 Press Kit</p>
-          <button
-            v-show="activeProfile === 'All'" type="button" aria-label="Close press kit panel" class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100" @click="pressKitOpen = false">×</button>
+          <CloseDot
+        aria-label="Close press kit panel"
+        @click="pressKitOpen = false"
+      />
         </div>
         <template v-if="pressKit">
           <h3 class="text-base font-bold text-slate-800 mb-1">{{ pressKit.headline }}</h3>
@@ -4998,8 +4926,10 @@
       <div v-if="riskValueOpen" class="mt-4 border rounded-lg p-4 bg-white" aria-label="Risk-adjusted value panel">
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-orange-700">⚠️ Risk-Adjusted Value</p>
-          <button
-            v-show="fp('164')" type="button" aria-label="Close risk value panel" class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100" @click="riskValueOpen = false">×</button>
+          <CloseDot
+        aria-label="Close risk value panel"
+        @click="riskValueOpen = false"
+      />
         </div>
         <p v-if="riskValueEntries.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
         <template v-else>
@@ -5045,8 +4975,10 @@
       <div v-if="personasOpen" class="mt-4 border rounded-lg p-4 bg-white" aria-label="Personas gallery panel">
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-pink-700">👤 User Personas</p>
-          <button
-            v-show="activeProfile === 'All'" type="button" aria-label="Close personas panel" class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100" @click="personasOpen = false">×</button>
+          <CloseDot
+        aria-label="Close personas panel"
+        @click="personasOpen = false"
+      />
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <div v-for="p in personaCards" :key="p.name" class="bg-white rounded border border-slate-200 p-3">
@@ -5078,12 +5010,14 @@
       <div v-if="backlogOpen" class="mt-4 border rounded-lg p-4 bg-white" aria-label="Sprint backlog panel">
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-indigo-700">📋 Sprint Backlog</p>
-          <button
-            v-show="fp('167')" type="button" aria-label="Close sprint backlog panel" class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100" @click="backlogOpen = false">×</button>
+          <CloseDot
+        aria-label="Close sprint backlog panel"
+        @click="backlogOpen = false"
+      />
         </div>
         <p v-if="backlogStories.length === 0" class="text-xs text-slate-400 italic">No F. entries found. Generate a spec first.</p>
         <template v-else>
-          <div class="space-y-2 mb-3 max-h-96 overflow-y-auto">
+          <ScrollContainer outer-class="mb-3 relative" inner-class="space-y-2" inner-style="max-height: 24rem" :no-pill="true">
             <template v-for="story in backlogStories" :key="story.storyId">
               <div class="rounded border border-slate-100 p-3 bg-slate-50">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -5108,7 +5042,7 @@
                 </details>
               </div>
             </template>
-          </div>
+          </ScrollContainer>
           <div class="flex items-center gap-2">
             <div class="flex rounded overflow-hidden border border-slate-200 text-xs">
               <button
@@ -5139,12 +5073,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-stone-700">📄 Spec as RFC</p>
-          <button
-            type="button"
-            aria-label="Close RFC panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="rfcOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close RFC panel"
+        @click="rfcOpen = false"
+      />
         </div>
         <h3 class="text-sm font-bold text-slate-800 mb-4">{{ rfcDocument.title }}</h3>
         <!-- RFC sections as collapsible details -->
@@ -5189,12 +5121,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-blue-800">📡 Tech Radar</p>
-          <button
-            type="button"
-            aria-label="Close tech radar panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="techRadarOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close tech radar panel"
+        @click="techRadarOpen = false"
+      />
         </div>
         <SpecTechRadar :blocks="techRadarBlocks" />
         <!-- Ring count summary -->
@@ -5222,12 +5152,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-emerald-800">📋 SLA Generator</p>
-          <button
-            type="button"
-            aria-label="Close SLA panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="slaOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close SLA panel"
+        @click="slaOpen = false"
+      />
         </div>
         <div v-if="slaClauses.length === 0" class="text-sm text-slate-500 italic">No V. entries in spec.</div>
         <div v-else class="overflow-x-auto">
@@ -5299,12 +5227,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-fuchsia-700">💰 Investor Pitch Deck</p>
-          <button
-            type="button"
-            aria-label="Close pitch deck panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="pitchDeckOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close pitch deck panel"
+        @click="pitchDeckOpen = false"
+      />
         </div>
         <div class="space-y-3">
           <div
@@ -5345,12 +5271,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-teal-700">🗺️ User Journey Map</p>
-          <button
-            type="button"
-            aria-label="Close user journey panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="journeyOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close user journey panel"
+        @click="journeyOpen = false"
+      />
         </div>
         <SpecUserJourney :blocks="journeyBlocks" />
         <button
@@ -5369,12 +5293,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-purple-700">🎯 Delphi Estimation</p>
-          <button
-            type="button"
-            aria-label="Close delphi estimation panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="delphiOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close delphi estimation panel"
+        @click="delphiOpen = false"
+      />
         </div>
         <div class="space-y-3">
           <p class="text-xs text-purple-600">Current round: <strong>{{ delphiCurrentRound }}</strong></p>
@@ -5465,12 +5387,10 @@
       >
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs font-semibold text-pink-700">📣 Marketing One-Pager</p>
-          <button
-            type="button"
-            aria-label="Close one-pager panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            @click="onePagerOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close one-pager panel"
+        @click="onePagerOpen = false"
+      />
         </div>
         <!-- One-pager card -->
         <div class="rounded-lg border border-pink-100 bg-pink-50 p-5 space-y-4">
@@ -5585,14 +5505,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-cyan-700">🔬 Lean Plan</p>
-          <button
-            type="button"
-            aria-label="Close lean plan panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-cyan-500 hover:bg-cyan-100 hover:text-cyan-700 transition-colors"
-            @click="leanOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close lean plan panel"
+        @click="leanOpen = false"
+      />
         </div>
 
         <!-- Loading -->
@@ -5614,7 +5530,7 @@
             :key="f.id"
             class="rounded-lg border border-blue-100 bg-cyan-100 px-3 py-2.5"
           >
-            <p class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Function · <span class="font-mono">{{ f.id }}</span></p>
+            <p class="text-xs font-bold text-green-600 uppercase tracking-wide mb-1">Function · <span class="font-mono">{{ f.id }}</span></p>
             <p class="text-xs text-slate-700">{{ f.description }}</p>
           </div>
           <!-- V. entries -->
@@ -5623,9 +5539,9 @@
             :key="v.id"
             class="rounded-lg border border-emerald-100 bg-cyan-100 px-3 py-2.5"
           >
-            <p class="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">Value · <span class="font-mono">{{ v.id }}</span></p>
+            <p class="text-xs font-bold text-violet-600 uppercase tracking-wide mb-1">Value · <span class="font-mono">{{ v.id }}</span></p>
             <p class="text-xs text-slate-700">{{ v.description }}</p>
-            <p v-if="v.goal" class="text-xs text-emerald-700 mt-1"><span class="font-semibold">Goal:</span> {{ v.goal }}</p>
+            <p v-if="v.goal" class="text-xs text-green-700 mt-1"><span class="font-semibold">Goal:</span> {{ v.goal }}</p>
           </div>
           <!-- S. entries -->
           <div
@@ -5633,7 +5549,7 @@
             :key="s.id"
             class="rounded-lg border border-violet-100 bg-cyan-100 px-3 py-2.5"
           >
-            <p class="text-xs font-bold text-violet-600 uppercase tracking-wide mb-1">Solution · <span class="font-mono">{{ s.id }}</span></p>
+            <p class="text-xs font-bold text-orange-600 uppercase tracking-wide mb-1">Solution · <span class="font-mono">{{ s.id }}</span></p>
             <p class="text-xs text-slate-700">{{ s.description }}</p>
           </div>
 
@@ -5655,15 +5571,10 @@
       <div v-show="sensitivityOpen" class="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-orange-700">🎯 Goal Sensitivity</p>
-          <button
-            v-show="fp('42')"
-            type="button"
-            aria-label="Close sensitivity panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 hover:bg-orange-100 hover:text-orange-700 transition-colors"
-            @click="sensitivityOpen = false"
-          >
-            ×
-          </button>
+          <CloseDot
+        aria-label="Close sensitivity panel"
+        @click="sensitivityOpen = false"
+      />
         </div>
 
         <!-- Slider -->
@@ -5755,6 +5666,60 @@
           <!-- Feature #10: animationKey as wrapper key forces re-animation on each new spec -->
           <div v-else key="after" class="space-y-3">
 
+            <!-- Feature #198 — Edit in Spec Editor shortcut bar -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                class="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-amber-300
+                       bg-amber-50 text-amber-700 text-xs font-semibold
+                       hover:bg-amber-100 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-300"
+                title="Open the Spec Editor for all entries"
+                @click="emit('open-editor', {})"
+              ><EditGlyph size="compact" class="h-3.5 w-auto shrink-0" aria-hidden="true" /> Edit Spec</button>
+              <!-- About the Edit Glyph info affordance -->
+              <button
+                type="button"
+                class="flex items-center gap-1 h-8 px-2 rounded-lg border border-slate-200
+                       bg-slate-50 text-slate-500 text-[10px] font-semibold
+                       hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300"
+                title="About the Edit Glyph — what [*]→[**] means"
+                @click="emit('open-edit-info')"
+              ><EditGlyph size="compact" class="h-2.5 w-auto shrink-0" aria-hidden="true" /><span class="ml-1">?</span></button>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-blue-200
+                       bg-blue-50 text-blue-700 text-xs font-semibold
+                       hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300"
+                title="Open Spec Editor on the Functions tab"
+                @click="emit('open-editor', { tab: 'functions' })"
+              ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /> Functions</button>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-emerald-200
+                       bg-emerald-50 text-emerald-700 text-xs font-semibold
+                       hover:bg-emerald-100 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                title="Open Spec Editor on the Values tab"
+                @click="emit('open-editor', { tab: 'values' })"
+              ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /> Values</button>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-violet-200
+                       bg-violet-50 text-violet-700 text-xs font-semibold
+                       hover:bg-violet-100 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-300"
+                title="Open Spec Editor on the Solutions tab"
+                @click="emit('open-editor', { tab: 'solutions' })"
+              ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /> Solutions</button>
+              <button
+                v-if="(displaySpec?.constraints ?? []).length > 0"
+                type="button"
+                class="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-red-200
+                       bg-red-50 text-red-700 text-xs font-semibold
+                       hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-300"
+                title="Open Spec Editor on the Constraints tab"
+                @click="emit('open-editor', { tab: 'constraints' })"
+              ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /> Constraints</button>
+            </div>
+
             <!-- Feature #31 — Natural Language Filter -->
             <div class="relative">
               <input
@@ -5787,6 +5752,88 @@
             <!-- Subtle label -->
             <p class="px-1 text-xs text-slate-400">What Planguage gives you</p>
 
+            <!-- Feature #178 (enhanced) — Stakeholders Section Card
+                 Tom 2026-05-15 SUPREME: "THE SPECS DO NOT SHOW STAKEHOLDERS (AND
+                 THEIR NEEDS) AT LATER STAGES, this is important to understand and
+                 check the plans. Top priority."
+                 Sources: V.wishStakeholder (named wish-givers) + rawInput.stakes
+                 text (who benefits). For each stakeholder, shows their linked
+                 Values (needs) and applicable Constraints (rules).
+                 DD-006 / SUPREME inanimate-stakeholder rule: regulatory bodies
+                 (GDPR, HIPAA) appear here too, via Constraints. -->
+            <div
+              v-if="specStakeholderCards.length > 0 || rawInput?.stakes"
+              class="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden shadow-sm"
+              aria-label="Stakeholders and their needs"
+            >
+              <!-- Header -->
+              <div class="flex items-center gap-2 bg-amber-100 px-4 py-2.5 border-b border-amber-200">
+                <span class="text-xs font-bold text-amber-800 uppercase tracking-wide">👤§</span>
+                <span class="text-xs font-bold text-amber-800 uppercase tracking-wide">Stakeholders</span>
+                <span class="ml-auto text-[10px] text-amber-600">
+                  {{ specStakeholderCards.length }} identified
+                </span>
+              </div>
+              <div class="px-4 py-3 space-y-2.5">
+                <!-- Raw stakes text for context -->
+                <p
+                  v-if="rawInput?.stakes"
+                  class="text-xs text-amber-700 italic border-b border-amber-100 pb-2"
+                >
+                  Stakes: "{{ rawInput.stakes }}"
+                </p>
+                <!-- Per-stakeholder rows -->
+                <div
+                  v-for="sh in specStakeholderCards"
+                  :key="sh.name"
+                  class="flex flex-col gap-1"
+                >
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span
+                      class="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                      :class="[sh.palette.bg, sh.palette.text, sh.palette.border]"
+                    >{{ sh.name }}</span>
+                    <!-- Linked value descriptions (their needs) -->
+                    <span
+                      v-if="sh.linkedValues.length > 0"
+                      class="text-xs text-amber-800"
+                    >
+                      needs: <span class="font-medium">{{ sh.linkedValues.map(v => v.description).join(' · ') }}</span>
+                    </span>
+                    <!-- Wish text -->
+                    <span
+                      v-if="sh.wish"
+                      class="text-xs text-amber-600 italic"
+                    >wishes: "{{ sh.wish }}"</span>
+                    <!-- No linked values fallback -->
+                    <span
+                      v-else-if="sh.linkedValues.length === 0 && !sh.wish"
+                      class="text-xs text-amber-500 italic"
+                    >needs defined in Ends</span>
+                  </div>
+                  <!-- Applicable constraints -->
+                  <div
+                    v-if="sh.linkedConstraints.length > 0"
+                    class="flex flex-wrap gap-1 ml-2"
+                  >
+                    <span
+                      v-for="c in sh.linkedConstraints"
+                      :key="c.id"
+                      class="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-px font-mono"
+                      :title="c.description"
+                    >{{ c.id }}</span>
+                  </div>
+                </div>
+                <!-- Empty: just show stakes text hint -->
+                <p
+                  v-if="specStakeholderCards.length === 0"
+                  class="text-xs text-amber-600 italic"
+                >
+                  Use the Stakes field to name who benefits — they'll appear here with their needs.
+                </p>
+              </div>
+            </div>
+
             <!-- Feature #10 — Animated entry wrapper: keyed by animationKey to re-trigger on new spec -->
             <div :key="animationKey" class="space-y-3">
 
@@ -5810,9 +5857,81 @@
                     aria-label="Sharpened entry"
                     title="This entry was added or refined by a sharpening round"
                   >🔪</span>
+                  <!-- Feature #57b — per-entry rewrite pin -->
+                  <button
+                    type="button"
+                    :aria-label="entryState(f.id).open ? 'Close rewrite panel' : 'Rewrite this entry'"
+                    title="Rewrite this entry"
+                    class="ml-auto h-7 w-7 flex items-center justify-center rounded-full text-sm transition-colors hover:bg-blue-100"
+                    :class="entryState(f.id).open ? 'text-blue-500 bg-blue-100' : 'text-slate-300 hover:text-blue-400'"
+                    @click.stop="toggleEntryPin(f.id)"
+                  ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit this entry" /></button>
                 </div>
                 <div class="px-4 py-4 space-y-3">
-                  <p class="text-sm text-slate-800 leading-relaxed">{{ f.description }}</p>
+                  <!-- Inline description: click to edit directly (Tom 2026-05-18) -->
+                  <div v-if="entryState(f.id).editingDesc" class="space-y-1.5">
+                    <textarea
+                      :id="`desc-edit-${f.id}`"
+                      v-model="entryState(f.id).editDescText"
+                      rows="3"
+                      class="w-full rounded-md border border-blue-300 bg-white px-3 py-2 text-sm text-slate-800 leading-relaxed
+                             focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                      @keydown="onDescEditKeydown($event, f.id, 'F')"
+                      @blur="saveDescEdit(f.id, 'F')"
+                    />
+                    <p class="text-[10px] text-slate-400">⌘↵ save · Esc cancel · click outside to save</p>
+                  </div>
+                  <p
+                    v-else
+                    class="text-sm text-slate-800 leading-relaxed cursor-text hover:bg-blue-50/60 rounded px-1 -mx-1 transition-colors"
+                    title="Click to edit"
+                    @click="startDescEdit(f.id, f.description)"
+                  >{{ f.description }}</p>
+                  <!-- Feature #57b — inline entry rewrite panel -->
+                  <div v-if="entryState(f.id).open" class="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                    <div class="flex flex-wrap gap-1" role="group" aria-label="Rewrite style for this entry">
+                      <button
+                        v-for="m in SIMPLIFY_MODES"
+                        :key="m.key"
+                        type="button"
+                        :title="m.hint"
+                        :disabled="entryState(f.id).loading"
+                        :class="[
+                          'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all',
+                          entryState(f.id).mode === m.key
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-white border border-blue-200 text-blue-700 hover:border-blue-400 hover:bg-blue-100',
+                          entryState(f.id).loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+                        ]"
+                        @click="handleEntrySimplify(f.id, f.description, m.key)"
+                      ><span>{{ m.emoji }}</span>{{ m.label }}</button>
+                    </div>
+                    <div v-if="entryState(f.id).loading" class="flex items-center gap-1.5">
+                      <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600"/>
+                      <span class="text-[10px] text-blue-600">Rewriting…</span>
+                    </div>
+                    <div v-else-if="entryState(f.id).result" class="space-y-2">
+                      <p class="text-xs text-slate-700 italic bg-white border border-blue-100 rounded-md px-3 py-2 leading-relaxed">{{ entryState(f.id).result }}</p>
+                      <div class="flex gap-2">
+                        <button
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                          @click="acceptEntryRewrite(f.id, 'F')"
+                        >✅ Accept</button>
+                        <button
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+                          @click="entryState(f.id).result = ''; entryState(f.id).accepted = false"
+                        >↩ Change Back</button>
+                        <button
+                          v-if="entryState(f.id).accepted"
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors"
+                          @click="emit('rewrite-entry-fix', { id: f.id, type: 'F', description: entryState(f.id).result })"
+                        >🔧 Fix in Spec</button>
+                      </div>
+                    </div>
+                  </div>
                   <!-- Feature #65 — Complexity bar -->
                   <div
                     class="mt-1.5 h-1 rounded-full bg-slate-100 overflow-hidden"
@@ -5827,9 +5946,16 @@
                       }"
                     />
                   </div>
-                  <div v-if="f.successCriteria" class="rounded-lg bg-slate-50 px-3 py-2.5">
-                    <p class="text-xs font-semibold text-slate-500 mb-1">Success Criteria</p>
-                    <p class="text-sm text-slate-700 leading-relaxed">{{ f.successCriteria }}</p>
+                  <!--
+                    DD-004 (Tom 2026-05-14): "REPURPOSE: NOT AS SUCCESS. AS PRESENCE OR
+                    ABSENCE OF THE DEFINED FUNCTION." Field renamed successCriteria →
+                    presenceTest. We read presenceTest first, fall back to legacy
+                    successCriteria so old saved specs still render until they are
+                    migrated.
+                  -->
+                  <div v-if="f.presenceTest || f.successCriteria" class="rounded-lg bg-slate-50 px-3 py-2.5">
+                    <p class="text-xs font-semibold text-slate-500 mb-1">Presence Test</p>
+                    <p class="text-sm text-slate-700 leading-relaxed">{{ f.presenceTest || f.successCriteria }}</p>
                   </div>
                 </div>
               </article>
@@ -5857,6 +5983,17 @@
                     aria-label="Sharpened entry"
                     title="This entry was added or refined by a sharpening round"
                   >🔪</span>
+                  <!-- Feature #178 — Stakeholder chip -->
+                  <span
+                    v-if="v.wishStakeholder"
+                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none"
+                    :class="[stakeholderPalette(v.wishStakeholder).bg, stakeholderPalette(v.wishStakeholder).text, stakeholderPalette(v.wishStakeholder).border]"
+                    :aria-label="`Stakeholder: ${v.wishStakeholder}`"
+                    :title="`Stakeholder: ${v.wishStakeholder}`"
+                  >
+                    <span aria-hidden="true" class="text-[8px]">●</span>
+                    {{ v.wishStakeholder }}
+                  </span>
                   <!-- Feature #84 — Relevance badge (shown when another entry is pinned) -->
                   <span
                     v-if="pinnedId && pinnedId !== v.id && relevanceMap[v.id] !== undefined"
@@ -5879,11 +6016,82 @@
                   >
                     <span aria-hidden="true">{{ pinnedId === v.id ? '⭐' : '☆' }}</span>
                   </button>
+                  <!-- Feature #57b — per-entry rewrite pin -->
+                  <button
+                    type="button"
+                    :aria-label="entryState(v.id).open ? 'Close rewrite panel' : 'Rewrite this entry'"
+                    title="Rewrite this entry"
+                    class="h-7 w-7 flex items-center justify-center rounded-full text-sm transition-colors hover:bg-emerald-100"
+                    :class="entryState(v.id).open ? 'text-emerald-500 bg-emerald-100' : 'text-slate-300 hover:text-emerald-400'"
+                    @click.stop="toggleEntryPin(v.id)"
+                  ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit this entry" /></button>
                 </div>
                 <div class="px-4 py-4 space-y-3">
 
-                  <!-- Description -->
-                  <p v-if="v.description" class="text-sm text-slate-800 leading-relaxed">{{ v.description }}</p>
+                  <!-- Description — click to edit inline (Tom 2026-05-18) -->
+                  <div v-if="entryState(v.id).editingDesc" class="space-y-1.5">
+                    <textarea
+                      :id="`desc-edit-${v.id}`"
+                      v-model="entryState(v.id).editDescText"
+                      rows="3"
+                      class="w-full rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm text-slate-800 leading-relaxed
+                             focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none"
+                      @keydown="onDescEditKeydown($event, v.id, 'V')"
+                      @blur="saveDescEdit(v.id, 'V')"
+                    />
+                    <p class="text-[10px] text-slate-400">⌘↵ save · Esc cancel · click outside to save</p>
+                  </div>
+                  <p
+                    v-else-if="v.description"
+                    class="text-sm text-slate-800 leading-relaxed cursor-text hover:bg-emerald-50/60 rounded px-1 -mx-1 transition-colors"
+                    title="Click to edit"
+                    @click="startDescEdit(v.id, v.description)"
+                  >{{ v.description }}</p>
+                  <!-- Feature #57b — inline entry rewrite panel -->
+                  <div v-if="entryState(v.id).open" class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                    <div class="flex flex-wrap gap-1" role="group" aria-label="Rewrite style for this entry">
+                      <button
+                        v-for="m in SIMPLIFY_MODES"
+                        :key="m.key"
+                        type="button"
+                        :title="m.hint"
+                        :disabled="entryState(v.id).loading"
+                        :class="[
+                          'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all',
+                          entryState(v.id).mode === m.key
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-white border border-emerald-200 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100',
+                          entryState(v.id).loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+                        ]"
+                        @click="handleEntrySimplify(v.id, v.description ?? '', m.key)"
+                      ><span>{{ m.emoji }}</span>{{ m.label }}</button>
+                    </div>
+                    <div v-if="entryState(v.id).loading" class="flex items-center gap-1.5">
+                      <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-600"/>
+                      <span class="text-[10px] text-emerald-600">Rewriting…</span>
+                    </div>
+                    <div v-else-if="entryState(v.id).result" class="space-y-2">
+                      <p class="text-xs text-slate-700 italic bg-white border border-emerald-100 rounded-md px-3 py-2 leading-relaxed">{{ entryState(v.id).result }}</p>
+                      <div class="flex gap-2">
+                        <button
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                          @click="acceptEntryRewrite(v.id, 'V')"
+                        >✅ Accept</button>
+                        <button
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                          @click="entryState(v.id).result = ''; entryState(v.id).accepted = false"
+                        >↩ Change Back</button>
+                        <button
+                          v-if="entryState(v.id).accepted"
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors"
+                          @click="emit('rewrite-entry-fix', { id: v.id, type: 'V', description: entryState(v.id).result })"
+                        >🔧 Fix in Spec</button>
+                      </div>
+                    </div>
+                  </div>
                   <!-- Feature #65 — Complexity bar -->
                   <div
                     v-if="v.description"
@@ -6041,9 +6249,81 @@
                     aria-label="Sharpened entry"
                     title="This entry was added or refined by a sharpening round"
                   >🔪</span>
+                  <!-- Feature #57b — per-entry rewrite pin -->
+                  <button
+                    type="button"
+                    :aria-label="entryState(s.id).open ? 'Close rewrite panel' : 'Rewrite this entry'"
+                    title="Rewrite this entry"
+                    class="ml-auto h-7 w-7 flex items-center justify-center rounded-full text-sm transition-colors hover:bg-violet-100"
+                    :class="entryState(s.id).open ? 'text-violet-500 bg-violet-100' : 'text-slate-300 hover:text-violet-400'"
+                    @click.stop="toggleEntryPin(s.id)"
+                  ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit this entry" /></button>
                 </div>
                 <div class="px-4 py-4 space-y-3">
-                  <p class="text-sm text-slate-800 leading-relaxed">{{ s.description }}</p>
+                  <!-- Description — click to edit inline (Tom 2026-05-18) -->
+                  <div v-if="entryState(s.id).editingDesc" class="space-y-1.5">
+                    <textarea
+                      :id="`desc-edit-${s.id}`"
+                      v-model="entryState(s.id).editDescText"
+                      rows="3"
+                      class="w-full rounded-md border border-violet-300 bg-white px-3 py-2 text-sm text-slate-800 leading-relaxed
+                             focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                      @keydown="onDescEditKeydown($event, s.id, 'S')"
+                      @blur="saveDescEdit(s.id, 'S')"
+                    />
+                    <p class="text-[10px] text-slate-400">⌘↵ save · Esc cancel · click outside to save</p>
+                  </div>
+                  <p
+                    v-else
+                    class="text-sm text-slate-800 leading-relaxed cursor-text hover:bg-violet-50/60 rounded px-1 -mx-1 transition-colors"
+                    title="Click to edit"
+                    @click="startDescEdit(s.id, s.description)"
+                  >{{ s.description }}</p>
+                  <!-- Feature #57b — inline entry rewrite panel -->
+                  <div v-if="entryState(s.id).open" class="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-2">
+                    <div class="flex flex-wrap gap-1" role="group" aria-label="Rewrite style for this entry">
+                      <button
+                        v-for="m in SIMPLIFY_MODES"
+                        :key="m.key"
+                        type="button"
+                        :title="m.hint"
+                        :disabled="entryState(s.id).loading"
+                        :class="[
+                          'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all',
+                          entryState(s.id).mode === m.key
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'bg-white border border-violet-200 text-violet-700 hover:border-violet-400 hover:bg-violet-100',
+                          entryState(s.id).loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+                        ]"
+                        @click="handleEntrySimplify(s.id, s.description, m.key)"
+                      ><span>{{ m.emoji }}</span>{{ m.label }}</button>
+                    </div>
+                    <div v-if="entryState(s.id).loading" class="flex items-center gap-1.5">
+                      <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-violet-300 border-t-violet-600"/>
+                      <span class="text-[10px] text-violet-600">Rewriting…</span>
+                    </div>
+                    <div v-else-if="entryState(s.id).result" class="space-y-2">
+                      <p class="text-xs text-slate-700 italic bg-white border border-violet-100 rounded-md px-3 py-2 leading-relaxed">{{ entryState(s.id).result }}</p>
+                      <div class="flex gap-2">
+                        <button
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+                          @click="acceptEntryRewrite(s.id, 'S')"
+                        >✅ Accept</button>
+                        <button
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-violet-200 text-violet-700 hover:bg-violet-50 transition-colors"
+                          @click="entryState(s.id).result = ''; entryState(s.id).accepted = false"
+                        >↩ Change Back</button>
+                        <button
+                          v-if="entryState(s.id).accepted"
+                          type="button"
+                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors"
+                          @click="emit('rewrite-entry-fix', { id: s.id, type: 'S', description: entryState(s.id).result })"
+                        >🔧 Fix in Spec</button>
+                      </div>
+                    </div>
+                  </div>
                   <!-- Feature #65 — Complexity bar -->
                   <div
                     class="mt-1.5 h-1 rounded-full bg-slate-100 overflow-hidden"
@@ -6065,48 +6345,67 @@
                 </div>
               </article>
 
+            <!-- DD-006: Binary Constraint cards (C.) -->
+            <article
+              v-for="(c, index) in (displaySpec!.constraints ?? [])"
+              :key="c.id"
+              class="spec-entry-card rounded-xl border border-red-200 bg-white shadow-sm overflow-hidden"
+              :style="{ animationDelay: `${(displaySpec!.functions.length + displaySpec!.values.length + displaySpec!.solutions.length + index) * 80}ms` }"
+              :aria-label="`Constraint: ${c.id}`"
+            >
+              <div class="flex items-center gap-2 bg-red-50 px-4 py-2.5 border-b border-red-100">
+                <PlanguageTerm term="Constraint" class="text-xs font-bold tracking-wide text-red-700 uppercase" />
+                <span class="text-xs text-red-300">·</span>
+                <span class="text-xs font-mono text-red-700">{{ c.id }}</span>
+                <button
+                  type="button"
+                  title="Edit this constraint"
+                  class="ml-auto h-7 w-7 flex items-center justify-center rounded-full text-sm transition-colors text-red-200 hover:text-red-500 hover:bg-red-100"
+                  @click.stop="emit('open-editor', { tab: 'constraints', entryId: c.id })"
+                ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit this entry" /></button>
+              </div>
+              <div class="px-4 py-4 space-y-3">
+                <!-- Description IS the binary rule (Template_Write_Constraint.md standard) -->
+                <div class="rounded-lg border border-red-100 bg-red-50 px-3 py-2.5">
+                  <p class="text-xs font-semibold text-red-600 mb-1 uppercase tracking-wide">Binary Rule</p>
+                  <p class="text-sm text-red-900 font-medium leading-relaxed">{{ c.description }}</p>
+                </div>
+                <!-- Scope + Rationale shown when present -->
+                <div v-if="c.scope" class="space-y-0.5">
+                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Scope</p>
+                  <p class="text-xs text-slate-600 leading-relaxed">{{ c.scope }}</p>
+                </div>
+                <div v-if="c.rationale" class="space-y-0.5">
+                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Rationale</p>
+                  <p class="text-xs text-slate-600 leading-relaxed italic">{{ c.rationale }}</p>
+                </div>
+                <div v-if="c.source" class="space-y-0.5">
+                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Source</p>
+                  <p class="text-xs text-slate-500 font-mono">{{ c.source }}</p>
+                </div>
+              </div>
+            </article>
+
             </div><!-- end animationKey wrapper -->
 
-            <!-- Feature #41 / #45 — Readability + Complexity Footer -->
+            <!-- Feature #41 / #45 — Spec Quality Footer (redesigned)
+                 Flesch Readability dropped — that metric was designed for journalism/fiction
+                 and always scores 0 ("Very Hard") for technical specification language, which
+                 is correct behaviour for Planguage but misleading to users.
+                 Replaced with Planguage-native signals: F/V/S entry breakdown + measurability. -->
             <div
-              class="flex items-center gap-4 py-2 px-3 bg-gray-50 border-t border-gray-100 rounded-b-xl text-xs text-gray-500"
-              aria-label="Spec readability and complexity stats"
+              class="flex items-center flex-wrap gap-x-3 gap-y-1 py-2 px-3
+                     bg-gray-50 border-t border-gray-100 rounded-b-xl text-xs text-gray-500"
+              aria-label="Spec quality stats"
             >
-              <!-- Readability grade with tooltip showing 3 lowest-scoring entries -->
-              <span
-                v-if="readabilityResult"
-                class="relative group cursor-default select-none"
-              >
-                📖 Readability:
-                <span
-                  :class="{
-                    'text-emerald-600': readabilityResult.grade === 'Very Easy' || readabilityResult.grade === 'Easy',
-                    'text-amber-600':   readabilityResult.grade === 'Moderate',
-                    'text-red-600':     readabilityResult.grade === 'Hard' || readabilityResult.grade === 'Very Hard',
-                  }"
-                  class="font-medium"
-                  :title="readabilityLowestTooltip"
-                >{{ readabilityResult.grade }} ({{ readabilityResult.score }})</span>
-                <!-- Tooltip (hover) listing 3 lowest-scoring entries — CSS-only, info already in :title -->
-                <span
-                  class="pointer-events-none absolute left-0 bottom-full mb-1 z-10 hidden group-hover:flex
-                         flex-col gap-0.5 min-w-[200px] rounded-lg border border-gray-200 bg-white shadow-md px-3 py-2"
-                  aria-hidden="true"
-                >
-                  <span class="text-xs font-semibold text-gray-600 mb-1">Lowest readability:</span>
-                  <span
-                    v-for="entry in readabilityLowest3"
-                    :key="entry.entryId"
-                    class="text-xs text-gray-700"
-                  >{{ entry.entryId }}: {{ Math.round(entry.score) }}</span>
-                </span>
+              <!-- F / V / S / C entry breakdown — replaces meaningless "N entries" -->
+              <span class="font-medium text-gray-600 shrink-0">
+                {{ specStats.fCount }}F · {{ specStats.vCount }}V · {{ specStats.sCount }}S<template v-if="(displaySpec?.constraints ?? []).length > 0"> · <span class="text-red-600">{{ (displaySpec?.constraints ?? []).length }}C</span></template>
               </span>
 
-              <!-- N entries -->
-              <span>· {{ totalEntryCount }} entries</span>
-
-              <!-- Completeness % -->
+              <!-- Completeness % — fields filled vs expected -->
               <span
+                class="shrink-0"
                 :class="{
                   'text-emerald-600': specStats.completenessPercent >= 80,
                   'text-amber-600':   specStats.completenessPercent >= 60 && specStats.completenessPercent < 80,
@@ -6114,44 +6413,40 @@
                 }"
               >· {{ specStats.completenessPercent }}% complete</span>
 
-              <!-- Feature #65 — Total word count -->
-              <span>· {{ totalWordCount }} words</span>
+              <!-- Measurability — V. entries with Scale + Meter + Goal all set.
+                   This is the core Planguage quality signal: without all three
+                   fields a Value cannot drive acceptance testing. -->
+              <span
+                v-if="specStats.vCount > 0"
+                class="shrink-0"
+                :class="{
+                  'text-emerald-600': specStats.measurableValues === specStats.vCount,
+                  'text-amber-600':   specStats.measurableValues > 0 && specStats.measurableValues < specStats.vCount,
+                  'text-red-600':     specStats.measurableValues === 0,
+                }"
+                :title="`${specStats.measurableValues} of ${specStats.vCount} Value entries have Scale, Meter and Goal defined — these are testable`"
+              >· 🎯 {{ specStats.measurableValues }}/{{ specStats.vCount }} measurable</span>
 
-              <!-- Feature #107 — Spec health gamification -->
-              <span class="flex items-center gap-1.5 ml-2">
-                <span
-                  class="rounded-full px-2 py-0.5 text-xs font-semibold"
-                  :class="{
-                    'bg-slate-200 text-slate-700': level.colour === 'slate',
-                    'bg-amber-200 text-amber-800': level.colour === 'amber',
-                    'bg-emerald-200 text-emerald-800': level.colour === 'emerald',
-                  }"
-                >{{ level.badge }} {{ level.name }}</span>
-                <span class="flex flex-col gap-0.5">
-                  <div
-                    class="h-1 w-16 rounded-full bg-gray-200 overflow-hidden"
-                    aria-hidden="true"
-                  >
-                    <div
-                      class="h-full rounded-full transition-all duration-500"
-                      :class="{
-                        'bg-slate-400': level.colour === 'slate',
-                        'bg-amber-400': level.colour === 'amber',
-                        'bg-emerald-400': level.colour === 'emerald',
-                      }"
-                      :style="{ width: xpBarWidth }"
-                    />
-                  </div>
-                  <span class="text-xs text-gray-400">XP: {{ xp }}/{{ maxXp }}</span>
-                </span>
-              </span>
+              <!-- Total word count -->
+              <span class="shrink-0">· {{ totalWordCount }} words</span>
+
+              <!-- Level badge — simplified: just badge + name, no XP bar or numbers -->
+              <span
+                class="rounded-full px-2 py-0.5 text-xs font-semibold shrink-0 ml-1"
+                :class="{
+                  'bg-slate-200 text-slate-700':   level.colour === 'slate',
+                  'bg-amber-200 text-amber-800':   level.colour === 'amber',
+                  'bg-emerald-200 text-emerald-800': level.colour === 'emerald',
+                }"
+                :title="`XP: ${xp} / ${maxXp}`"
+              >{{ level.badge }} {{ level.name }}</span>
 
               <!-- Feature #92 — Anti-pattern violation badge -->
               <button
                 v-show="fp('92')"
                 type="button"
                 aria-label="Open anti-pattern detector"
-                class="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors"
+                class="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors shrink-0"
                 :class="violationCount > 0
                   ? 'bg-red-100 text-red-700 hover:bg-red-200'
                   : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'"
@@ -6173,12 +6468,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-teal-800">💎 Minimum Lovable Product</p>
-          <button
-            type="button"
-            aria-label="Close MLP panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-teal-500 hover:bg-teal-100 hover:text-teal-700 transition-colors"
-            @click="mlpOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close MLP panel"
+        @click="mlpOpen = false"
+      />
         </div>
 
         <p v-if="mlpEntries.length === 0" class="text-xs text-teal-700 italic">No entries found. Generate a spec first.</p>
@@ -6241,12 +6534,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-orange-800">⛓️ Value Chain</p>
-          <button
-            type="button"
-            aria-label="Close value chain panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 hover:bg-orange-100 hover:text-orange-700 transition-colors"
-            @click="vcOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close value chain panel"
+        @click="vcOpen = false"
+      />
         </div>
 
         <!-- Placeholder when no functions defined -->
@@ -6323,12 +6614,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-violet-800">💼 Investor FAQ</p>
-          <button
-            type="button"
-            aria-label="Close investor FAQ panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-violet-500 hover:bg-violet-100 hover:text-violet-700 transition-colors"
-            @click="faqOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close investor FAQ panel"
+        @click="faqOpen = false"
+      />
         </div>
 
         <!-- FAQ numbered card list -->
@@ -6359,12 +6648,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-stone-700">📂 Work Breakdown Structure</p>
-          <button
-            type="button"
-            aria-label="Close WBS panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors"
-            @click="wbsOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close WBS panel"
+        @click="wbsOpen = false"
+      />
         </div>
 
         <p v-if="wbsNodes.length === 0" class="text-xs text-stone-500 italic">No F. entries found. Generate a spec first.</p>
@@ -6426,12 +6713,10 @@
               }"
             >{{ okrHealthOverallGrade }} — {{ okrHealthOverallScore }}</span>
           </div>
-          <button
-            type="button"
-            aria-label="Close OKR health score panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-cyan-500 hover:bg-cyan-100 hover:text-cyan-700 transition-colors"
-            @click="okrHealthOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close OKR health score panel"
+        @click="okrHealthOpen = false"
+      />
         </div>
 
         <p v-if="okrHealthEntries.length === 0" class="text-xs text-cyan-700 italic">No V. entries found. Generate a spec first.</p>
@@ -6495,12 +6780,10 @@
             <p class="text-xs font-semibold text-rose-800">🎙️ Podcast Episode Outline</p>
             <span class="text-xs bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full font-medium">~{{ podcastOutline.totalMins }} mins total</span>
           </div>
-          <button
-            type="button"
-            aria-label="Close podcast outline panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 hover:text-rose-700 transition-colors"
-            @click="podcastOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close podcast outline panel"
+        @click="podcastOpen = false"
+      />
         </div>
 
         <p class="text-xs text-slate-600 italic">{{ podcastOutline.episodeTitle }}</p>
@@ -6565,12 +6848,10 @@
               }"
             >{{ scorecardOverallGrade }} — {{ scorecardOverallScore }}/6</span>
           </div>
-          <button
-            type="button"
-            aria-label="Close accessibility scorecard panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-lime-600 hover:bg-lime-100 hover:text-lime-800 transition-colors"
-            @click="scorecardOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close accessibility scorecard panel"
+        @click="scorecardOpen = false"
+      />
         </div>
 
         <p v-if="scorecardEntries.length === 0" class="text-xs text-lime-700 italic">No entries found. Generate a spec first.</p>
@@ -6652,12 +6933,10 @@
               }"
             >{{ readinessStatus }} — avg FRL {{ readinessAvgLevel }}</span>
           </div>
-          <button
-            type="button"
-            aria-label="Close feature readiness level panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-purple-600 hover:bg-purple-100 hover:text-purple-800 transition-colors"
-            @click="readinessOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close feature readiness level panel"
+        @click="readinessOpen = false"
+      />
         </div>
 
         <p v-if="readinessEntries.length === 0" class="text-xs text-purple-700 italic">No entries found. Generate a spec first.</p>
@@ -6701,12 +6980,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-indigo-800">🗺️ Outcome-Assumption Map</p>
-          <button
-            type="button"
-            aria-label="Close outcome-assumption map panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
-            @click="outcomeOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close outcome-assumption map panel"
+        @click="outcomeOpen = false"
+      />
         </div>
 
         <p v-if="outcomeEntries.length === 0" class="text-xs text-indigo-700 italic">No value entries found. Generate a spec first.</p>
@@ -6781,12 +7058,10 @@
               }"
             >Total {{ totalDebtScore }} — {{ debtHighCount }} High</span>
           </div>
-          <button
-            type="button"
-            aria-label="Close tech debt register panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-800 transition-colors"
-            @click="debtOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close tech debt register panel"
+        @click="debtOpen = false"
+      />
         </div>
 
         <p v-if="debtEntries.length === 0" class="text-xs text-zinc-600 italic">No solution entries found. Generate a spec first.</p>
@@ -6849,12 +7124,10 @@
               }"
             >📡 {{ driftScore }}% drift detected — {{ driftCount }} of {{ driftEntries.length }} V. entries need attention</span>
           </div>
-          <button
-            type="button"
-            aria-label="Close specification drift detector panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-sky-600 hover:bg-sky-200 hover:text-sky-800 transition-colors"
-            @click="driftOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close specification drift detector panel"
+        @click="driftOpen = false"
+      />
         </div>
 
         <p v-if="driftEntries.length === 0" class="text-xs text-sky-600 italic">No value entries found. Generate a spec first.</p>
@@ -6902,12 +7175,10 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-fuchsia-800">🎯 User Story Priority Matrix</p>
-          <button
-            type="button"
-            aria-label="Close user story priority matrix panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-fuchsia-600 hover:bg-fuchsia-200 hover:text-fuchsia-800 transition-colors"
-            @click="priorityOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close user story priority matrix panel"
+        @click="priorityOpen = false"
+      />
         </div>
 
         <p v-if="priorityEntries.length === 0" class="text-xs text-fuchsia-600 italic">No value entries found. Generate a spec first.</p>
@@ -7010,12 +7281,10 @@
               }"
             >{{ deprecationHighRiskCount }} High Risk</span>
           </div>
-          <button
-            type="button"
-            aria-label="Close feature deprecation radar panel"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors"
-            @click="deprecationOpen = false"
-          >×</button>
+          <CloseDot
+        aria-label="Close feature deprecation radar panel"
+        @click="deprecationOpen = false"
+      />
         </div>
 
         <p v-if="deprecationEntries.length === 0" class="text-xs text-gray-600 italic">No function or solution entries found. Generate a spec first.</p>
@@ -7245,7 +7514,7 @@
 
     </div>
 
-    <!-- Feature Organisation Design — Command Palette (⌘K) -->
+    <!-- Feature Organisation Design — Command Palette (⌘F, alias ⌘K) -->
     <Teleport to="body">
       <Transition name="palette-fade">
         <div
@@ -7278,7 +7547,8 @@
             </div>
 
             <!-- Results -->
-            <ul class="max-h-72 overflow-y-auto py-2" role="listbox">
+            <ScrollContainer outer-class="relative" inner-style="max-height: 18rem" :no-pill="true">
+            <ul class="py-2" role="listbox">
               <li
                 v-for="(entry, idx) in palette.filtered.value"
                 :key="entry.key"
@@ -7309,6 +7579,7 @@
                 No features match "{{ palette.query.value }}"
               </li>
             </ul>
+            </ScrollContainer>
 
             <!-- Footer -->
             <div class="flex items-center gap-3 border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400">
@@ -7367,6 +7638,11 @@
  * rawInput should be passed alongside spec once generation succeeds.
  */
 import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick, reactive } from 'vue'
+// DD-001 (2026-05-13) — SaveGlyph (`*→[*]`) replaces 💾 for save-to-copy
+// and save-to-file actions; GetGlyph (`[*]→*`) replaces 📥/📂 for input-side
+// affordances (export-to-PDF is treated as save-out — outbound to user disk).
+import SaveGlyph from './icons/SaveGlyph.vue'
+import EditGlyph from './icons/EditGlyph.vue'
 import type { SpecBlock } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import { useSpecExport } from '../composables/useSpecExport'
@@ -7397,7 +7673,8 @@ import type { MergeConflict } from '../composables/useSpecFork'
 import { useRegulationMap } from '../composables/useRegulationMap'
 import type { RegMapping } from '../composables/useRegulationMap'
 import { useTimeCapsule } from '../composables/useTimeCapsule'
-import { useSpecSimplify } from '../composables/useSpecSimplify'
+import { useSpecSimplify, applySimplifiedToSpec, SIMPLIFY_MODES } from '../composables/useSpecSimplify'
+import type { SimplifyMode } from '../composables/useSpecSimplify'
 import { useSpecGapAnalyser } from '../composables/useSpecGapAnalyser'
 import { useSpecGlossary } from '../composables/useSpecGlossary'
 import { useSpecNarrative } from '../composables/useSpecNarrative'
@@ -7419,6 +7696,8 @@ import { useAutoImprove } from '../composables/useAutoImprove'
 import { useSpecTweet } from '../composables/useSpecTweet'
 import { useAntiPatterns } from '../composables/useAntiPatterns'
 import { scoreSentenceComplexity, complexityColour, complexityBarWidth, countSpecWords } from '../utils/sentenceComplexity'
+import ScrollContainer from './ScrollContainer.vue'
+import CloseDot from './CloseDot.vue'
 import PlanguageTerm from './PlanguageTerm.vue'
 import StakeholderSignOff from './StakeholderSignOff.vue'
 import SpecHeatLane from './SpecHeatLane.vue'
@@ -7578,6 +7857,20 @@ import { useCommandPalette } from '../composables/useCommandPalette'
 const emit = defineEmits<{
   /** Feature #28 — emitted when the user clicks "Use Lean Plan" */
   (e: 'lean-spec-selected', spec: SpecBlock): void
+  /** Evo Step 13 — emitted when the user clicks the 🤝 Collaborator button */
+  (e: 'open-collaborator'): void
+  /** Feature #57b — whole-spec rewrite saved as a new copy version (original untouched) */
+  (e: 'rewrite-copy', spec: SpecBlock): void
+  /** Feature #57b — whole-spec rewrite replaces the master (App saves old first) */
+  (e: 'rewrite-replace', spec: SpecBlock): void
+  /** Feature #57b — single entry rewrite accepted */
+  (e: 'rewrite-entry', payload: { id: string; type: 'F' | 'V' | 'S'; description: string }): void
+  /** Feature #57b — single entry accepted, user wants to also fix it in the underlying spec */
+  (e: 'rewrite-entry-fix', payload: { id: string; type: 'F' | 'V' | 'S'; description: string }): void
+  /** Feature #198 — open the Spec Editor at a given tab / entry */
+  (e: 'open-editor', payload: { tab?: 'functions' | 'values' | 'solutions' | 'constraints'; entryId?: string }): void
+  /** Open the "About the Edit Glyph" info modal */
+  (e: 'open-edit-info'): void
 }>()
 
 const props = withDefaults(defineProps<{
@@ -7599,6 +7892,13 @@ const props = withDefaults(defineProps<{
   previousSpec?: SpecBlock | null
   /** Sharpening Cycles — IDs of entries added/modified by sharpening rounds; shows 🔪 badge */
   sharpenedEntryIds?: string[]
+  /**
+   * Sharpening summary — single object shown as one line above the spec header.
+   * totalChanges = sum of all entry changes across all sharpen rounds.
+   * at = Date the last sharpen completed (null if not yet known).
+   * Pass null when no sharpening has been applied.
+   */
+  sharpenSummary?: { totalChanges: number; at: Date | null } | null
   /** Feature #177 — When the spec was generated; shown as a timestamp in the header */
   generatedAt?: Date | null
 }>(), {
@@ -7609,6 +7909,7 @@ const props = withDefaults(defineProps<{
   confirmedSteps: () => [],
   previousSpec: null,
   sharpenedEntryIds: () => [],
+  sharpenSummary: null,
   generatedAt: null,
 })
 
@@ -7935,13 +8236,13 @@ const { suggestions: featureSuggestions } = useFeatureSuggestions(
 
 const { toast: specToast, showToast } = useToast()
 
-// ── Feature Organisation Design — Command Palette (⌘K) ───────────────────────
+// ── Feature Organisation Design — Command Palette (⌘F, alias ⌘K) ─────────────
 // Registry is built lazily after all handler refs are declared — see bottom of
 // script where `paletteRegistry` is assembled and `palette` is wired.
 const paletteRegistry: import('../composables/useCommandPalette').PaletteEntry[] = []
 const palette = useCommandPalette(paletteRegistry)
 
-// Mount ⌘K global listener
+// Mount ⌘F (alias ⌘K) global listener
 const paletteInput = ref<HTMLInputElement | null>(null)
 onMounted(() => {
   window.addEventListener('keydown', palette.handleKey)
@@ -8039,10 +8340,10 @@ const filteredSpec = computed(() => {
   return filterSpec(props.spec, filterQuery.value)
 })
 
-/** Total entries in the full spec */
+/** Total entries in the full spec (F + V + S + C) */
 const totalEntryCount = computed(() => {
   if (!props.spec) return 0
-  return props.spec.functions.length + props.spec.values.length + props.spec.solutions.length
+  return props.spec.functions.length + props.spec.values.length + props.spec.solutions.length + (props.spec.constraints?.length ?? 0)
 })
 
 /** Total entries in the filtered spec */
@@ -8273,16 +8574,117 @@ const displaySpec = computed(() => {
   return filteredSpec.value
 })
 
+// ── Feature #178 — Stakeholder Summary ───────────────────────────────────────
+// Derives unique named stakeholders from:
+//   1. V.wishStakeholder fields (explicit wish-source tagging)
+//   2. rawInput.stakes text (the user's own description of who benefits)
+// Used for chip display in V. card headers, the summary banner, and the new
+// full Stakeholders section card (DD-006 / SUPREME inanimate-stakeholder rule).
+const STAKEHOLDER_PALETTES = [
+  { bg: 'bg-teal-100',   text: 'text-teal-800',   border: 'border-teal-200'   },
+  { bg: 'bg-sky-100',    text: 'text-sky-800',     border: 'border-sky-200'    },
+  { bg: 'bg-indigo-100', text: 'text-indigo-800',  border: 'border-indigo-200' },
+  { bg: 'bg-rose-100',   text: 'text-rose-800',    border: 'border-rose-200'   },
+  { bg: 'bg-amber-100',  text: 'text-amber-800',   border: 'border-amber-200'  },
+  { bg: 'bg-fuchsia-100',text: 'text-fuchsia-800', border: 'border-fuchsia-200'},
+]
+
+/** Parse stakeholder-looking names from a stakes free-text string.
+ *  Splits on commas, semicolons, "and", "or". Keeps fragments ≤5 words and
+ *  not obviously a verb clause. Returns lowercased–then-title-cased names. */
+function _parseStakesNames(stakes: string): string[] {
+  return stakes
+    .split(/[,;]|\band\b|\bor\b/i)
+    .map(s => s.trim())
+    .filter(s => {
+      if (!s || s.length < 2) return false
+      const words = s.split(/\s+/)
+      // Skip long phrases — they're sentences, not names
+      if (words.length > 5) return false
+      // Skip purely functional clauses (starts with verb)
+      if (/^(provide|ensure|improve|increase|reduce|enable|allow|support|deliver|create|build|use|make|give|help|let|get|set)/i.test(s)) return false
+      return true
+    })
+    .map(s => {
+      // Title-case if all lowercase/uppercase; otherwise preserve
+      return s === s.toLowerCase() || s === s.toUpperCase()
+        ? s.replace(/\b\w/g, c => c.toUpperCase())
+        : s
+    })
+}
+
+const uniqueStakeholders = computed<{ name: string; palette: typeof STAKEHOLDER_PALETTES[0] }[]>(() => {
+  const spec = displaySpec.value
+  if (!spec) return []
+  const seen = new Map<string, number>()
+  // Primary source: V.wishStakeholder
+  for (const v of spec.values) {
+    const s = v.wishStakeholder?.trim()
+    if (s && !seen.has(s)) seen.set(s, seen.size)
+  }
+  // Secondary source: rawInput.stakes text
+  if (props.rawInput?.stakes) {
+    for (const name of _parseStakesNames(props.rawInput.stakes)) {
+      if (!seen.has(name)) seen.set(name, seen.size)
+    }
+  }
+  return Array.from(seen.entries()).map(([name, idx]) => ({
+    name,
+    palette: STAKEHOLDER_PALETTES[idx % STAKEHOLDER_PALETTES.length],
+  }))
+})
+
+/**
+ * Full stakeholder records for the section card — each stakeholder enriched
+ * with their linked Values (via wishStakeholder) and applied Constraints
+ * (via c.scope containing their name, or all C. entries when scope is blank).
+ */
+interface StakeholderCard {
+  name: string
+  palette: typeof STAKEHOLDER_PALETTES[0]
+  /** V. entries where this stakeholder is the wishStakeholder */
+  linkedValues: { id: string; description: string; goal: string }[]
+  /** C. entries whose scope mentions this stakeholder (or all if scope is empty) */
+  linkedConstraints: { id: string; description: string }[]
+  /** The Wish text, if any */
+  wish: string
+}
+
+const specStakeholderCards = computed<StakeholderCard[]>(() => {
+  const spec = displaySpec.value
+  if (!spec) return []
+  return uniqueStakeholders.value.map(sh => {
+    const nameLower = sh.name.toLowerCase()
+    const linkedValues = spec.values
+      .filter(v => v.wishStakeholder?.trim().toLowerCase() === nameLower)
+      .map(v => ({ id: v.id, description: v.description, goal: v.goal }))
+    const wish = spec.values.find(v => v.wishStakeholder?.trim().toLowerCase() === nameLower)?.wish ?? ''
+    const linkedConstraints = (spec.constraints ?? [])
+      .filter(c => !c.scope || c.scope.toLowerCase().includes(nameLower))
+      .map(c => ({ id: c.id, description: c.description }))
+    return { ...sh, linkedValues, linkedConstraints, wish }
+  })
+})
+
+function stakeholderPalette(name: string | undefined): typeof STAKEHOLDER_PALETTES[0] {
+  if (!name) return STAKEHOLDER_PALETTES[0]
+  const idx = uniqueStakeholders.value.findIndex(s => s.name === name.trim())
+  return STAKEHOLDER_PALETTES[Math.max(idx, 0) % STAKEHOLDER_PALETTES.length]
+}
+
 // ── Feature #57 — Spec Simplify ──────────────────────────────────────────────
+// ── Feature #57b — Extended modes + per-entry rewrite + scope apply ──────────
 
 const {
   simplified,
   loading: simplifyLoading,
   error: simplifyError,
   copied: simplifyCopied,
+  activeMode: simplifyActiveMode,
   simplifySpec,
+  simplifyEntry: simplifyEntryFn,
   copySimplified,
-} = useSpecSimplify(props.apiKey)
+} = useSpecSimplify()
 
 const simplifyOpen = ref(false)
 
@@ -8290,6 +8692,134 @@ async function handleSimplify(): Promise<void> {
   if (!props.spec) return
   simplifyOpen.value = !simplifyOpen.value
   if (simplifyOpen.value && simplified.value.length === 0) await simplifySpec(props.spec)
+}
+
+async function handleSimplifyMode(mode: SimplifyMode): Promise<void> {
+  if (!props.spec) return
+  simplifyOpen.value = true
+  await simplifySpec(props.spec, mode)
+}
+
+// ── Feature #57b — Scope selector ────────────────────────────────────────────
+
+type SimplifyScope = 'preview' | 'copy' | 'replace'
+
+interface SimplifyScopeOption {
+  key: SimplifyScope
+  label: string
+  emoji: string
+  hint: string
+}
+
+const SIMPLIFY_SCOPES: SimplifyScopeOption[] = [
+  { key: 'preview',  label: 'Preview',        emoji: '👁',  hint: 'Show rewrites without changing anything' },
+  { key: 'copy',     label: 'Save Copy',       emoji: '✱',  hint: 'Save rewrite as a new version — original untouched (`*→[*]`)' },
+  { key: 'replace',  label: 'Replace Master',  emoji: '✅',  hint: 'Apply rewrites to the master spec — old saved to history first' },
+]
+
+const simplifyScope = ref<SimplifyScope>('preview')
+
+function handleApplyRewrite(): void {
+  if (!props.spec || !simplified.value.length) return
+  const rewritten = applySimplifiedToSpec(props.spec, simplified.value)
+  if (simplifyScope.value === 'copy')    emit('rewrite-copy', rewritten)
+  if (simplifyScope.value === 'replace') emit('rewrite-replace', rewritten)
+}
+
+// ── Feature #57b — Per-entry rewrite state ────────────────────────────────────
+
+interface EntryState {
+  open: boolean
+  mode: SimplifyMode
+  result: string
+  loading: boolean
+  accepted: boolean
+  /** Inline description editing — Tom 2026-05-18: "we need to be able to edit the text here" */
+  editingDesc: boolean
+  editDescText: string
+}
+
+const entryStateMap = reactive<Record<string, EntryState>>({})
+
+/** Blank fallback used when a render happens before the watchEffect has run. Never mutates during render. */
+const _entryStateFallback: EntryState = { open: false, mode: 'plain', result: '', loading: false, accepted: false, editingDesc: false, editDescText: '' }
+
+/** Pre-populate entryStateMap outside of the render cycle so reading it in templates never triggers a mutation. */
+watchEffect(() => {
+  const spec = props.spec
+  if (!spec) return
+  const ids = [
+    ...spec.functions.map(f => f.id),
+    ...spec.values.map(v => v.id),
+    ...spec.solutions.map(s => s.id),
+  ]
+  for (const id of ids) {
+    if (!entryStateMap[id]) {
+      entryStateMap[id] = { open: false, mode: 'plain', result: '', loading: false, accepted: false, editingDesc: false, editDescText: '' }
+    }
+  }
+})
+
+function entryState(id: string): EntryState {
+  return entryStateMap[id] ?? _entryStateFallback
+}
+
+function toggleEntryPin(id: string): void {
+  entryState(id).open = !entryState(id).open
+}
+
+async function handleEntrySimplify(id: string, description: string, mode: SimplifyMode): Promise<void> {
+  const s = entryState(id)
+  s.mode    = mode
+  s.loading = true
+  s.result  = ''
+  s.accepted = false
+  s.result  = await simplifyEntryFn(id, description, mode)
+  s.loading = false
+}
+
+function acceptEntryRewrite(id: string, type: 'F' | 'V' | 'S'): void {
+  const s = entryState(id)
+  if (!s.result) return
+  emit('rewrite-entry', { id, type, description: s.result })
+  s.accepted = true
+}
+
+// ── Inline description editing — Tom 2026-05-18 ──────────────────────────────
+// Click any entry description to edit it directly, no AI call needed.
+
+function startDescEdit(id: string, currentText: string): void {
+  const s = entryState(id)
+  s.editDescText = currentText
+  s.editingDesc = true
+  // Auto-focus the textarea after Vue renders it
+  nextTick(() => {
+    const el = document.getElementById(`desc-edit-${id}`) as HTMLTextAreaElement | null
+    el?.focus()
+    el?.select()
+  })
+}
+
+function saveDescEdit(id: string, type: 'F' | 'V' | 'S'): void {
+  const s = entryState(id)
+  // Guard: blur fires after Escape (textarea removed from DOM triggers a final blur).
+  // If editingDesc is already false the edit was cancelled — skip saving.
+  if (!s.editingDesc) return
+  const text = s.editDescText.trim()
+  if (text) emit('rewrite-entry', { id, type, description: text })
+  s.editingDesc = false
+}
+
+function cancelDescEdit(id: string): void {
+  // Set false BEFORE the textarea is removed so the blur guard above catches the
+  // spurious blur event that fires when the element leaves the DOM.
+  entryState(id).editingDesc = false
+}
+
+function onDescEditKeydown(e: KeyboardEvent, id: string, type: 'F' | 'V' | 'S'): void {
+  if (e.key === 'Escape') { e.preventDefault(); cancelDescEdit(id) }
+  // Cmd+Enter or Ctrl+Enter saves; plain Enter adds a newline (multi-line support)
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveDescEdit(id, type) }
 }
 
 // ── Feature #60 — Spec Gap Analyser ──────────────────────────────────────────
@@ -9364,15 +9894,128 @@ const downloadHref = computed(() => {
   return `data:text/markdown;charset=utf-8,${encodeURIComponent(props.markdown)}`
 })
 
+/**
+ * Builds an inline-styled HTML table for the spec — safe to paste into
+ * Keynote, Numbers, Apple Notes, Pages.  Follows the table-copy standard:
+ * white-space:normal on all cells, solid opaque colours, no border-radius.
+ * Includes a Stakeholders section at the top, then F./V./S. tables.
+ * V. entries include a "Stakeholder" column so attributions are visible.
+ */
+function _buildSpecHtml(spec: NonNullable<typeof props.spec>): string {
+  const TD = 'padding:6px 10px;border:1px solid #e2e8f0;vertical-align:top;white-space:normal;font-size:13px;'
+  const TH = TD + 'font-weight:600;'
+
+  // ── header colour palettes (match STAKEHOLDER_PALETTES indices) ──────────
+  const SH_BG  = ['#99f6e4','#bae6fd','#c7d2fe','#fecdd3','#fde68a','#f5d0fe']
+  const SH_TXT = ['#115e59','#075985','#3730a3','#9f1239','#92400e','#701a75']
+
+  function shRow(name: string, idx: number): string {
+    const bg  = SH_BG[idx  % SH_BG.length]
+    const txt = SH_TXT[idx % SH_TXT.length]
+    return `<tr><td style="${TD}background:${bg};color:${txt};font-weight:600;">● ${name}</td></tr>`
+  }
+
+  // Collect unique stakeholders
+  const shMap = new Map<string, number>()
+  for (const v of spec.values) {
+    const s = v.wishStakeholder?.trim()
+    if (s && !shMap.has(s)) shMap.set(s, shMap.size)
+  }
+
+  let html = '<table style="border-collapse:collapse;font-family:system-ui,sans-serif;width:100%;">'
+
+  // ── Stakeholders section ─────────────────────────────────────────────────
+  if (shMap.size > 0) {
+    html += `<tr><td colspan="6" style="${TH}background:#0f766e;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Stakeholders</td></tr>`
+    html += `<tr><th style="${TH}background:#f0fdf4;">Who</th></tr>`
+    for (const [name, idx] of shMap) html += shRow(name, idx)
+  }
+
+  // ── Functions section ────────────────────────────────────────────────────
+  if (spec.functions.length) {
+    html += `<tr><td colspan="6" style="${TH}background:#16a34a;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Functions</td></tr>`
+    html += `<tr>
+      <th style="${TH}background:#eff6ff;">ID</th>
+      <th style="${TH}background:#eff6ff;">Description</th>
+      <th style="${TH}background:#eff6ff;">Presence Test</th>
+    </tr>`
+    for (const f of spec.functions) {
+      // DD-004 (2026-05-14): successCriteria → presenceTest; legacy fallback retained.
+      html += `<tr>
+        <td style="${TD}font-family:monospace;white-space:nowrap;">${f.id}</td>
+        <td style="${TD}">${f.description ?? ''}</td>
+        <td style="${TD}color:#374151;">${(f.presenceTest || f.successCriteria) ?? ''}</td>
+      </tr>`
+    }
+  }
+
+  // ── Values section ───────────────────────────────────────────────────────
+  if (spec.values.length) {
+    html += `<tr><td colspan="6" style="${TH}background:#5b21b6;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Values</td></tr>`
+    html += `<tr>
+      <th style="${TH}background:#f5f3ff;">Stakeholder</th>
+      <th style="${TH}background:#f0fdf4;">ID</th>
+      <th style="${TH}background:#f0fdf4;">Description</th>
+      <th style="${TH}background:#f0fdf4;">Scale</th>
+      <th style="${TH}background:#f0fdf4;">Tolerable</th>
+      <th style="${TH}background:#f0fdf4;">Goal (Wish)</th>
+    </tr>`
+    for (const v of spec.values) {
+      const shIdx = v.wishStakeholder ? (shMap.get(v.wishStakeholder.trim()) ?? 0) : -1
+      const shBg  = shIdx >= 0 ? SH_BG[shIdx % SH_BG.length]  : '#f8fafc'
+      const shTxt = shIdx >= 0 ? SH_TXT[shIdx % SH_TXT.length] : '#1e293b'
+      html += `<tr>
+        <td style="${TD}background:${shBg};color:${shTxt};font-weight:600;">${v.wishStakeholder ?? ''}</td>
+        <td style="${TD}font-family:monospace;white-space:nowrap;">${v.id}</td>
+        <td style="${TD}">${v.description ?? ''}</td>
+        <td style="${TD}color:#374151;">${v.scale ?? ''}</td>
+        <td style="${TD}background:#fffbeb;color:#92400e;">${v.tolerable ?? ''}</td>
+        <td style="${TD}background:#f5f3ff;color:#4c1d95;">${v.goal ?? ''}</td>
+      </tr>`
+    }
+  }
+
+  // ── Solutions section ────────────────────────────────────────────────────
+  if (spec.solutions.length) {
+    html += `<tr><td colspan="6" style="${TH}background:#ea580c;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Solutions</td></tr>`
+    html += `<tr>
+      <th style="${TH}background:#faf5ff;">ID</th>
+      <th style="${TH}background:#faf5ff;">Description</th>
+      <th style="${TH}background:#faf5ff;">Impact</th>
+    </tr>`
+    for (const s of spec.solutions) {
+      html += `<tr>
+        <td style="${TD}font-family:monospace;white-space:nowrap;">${s.id}</td>
+        <td style="${TD}">${s.description ?? ''}</td>
+        <td style="${TD}color:#374151;">${s.impact ?? ''}</td>
+      </tr>`
+    }
+  }
+
+  html += '</table>'
+  return html
+}
+
 async function copyToClipboard() {
-  const text = props.markdown || (props.spec ? serialise(props.spec) : '')
-  if (!text) return
+  if (!props.spec) return
+  const html  = _buildSpecHtml(props.spec)
+  const plain = props.markdown || serialise(props.spec)
   try {
-    await navigator.clipboard.writeText(text)
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html':  new Blob([html],  { type: 'text/html'  }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      }),
+    ])
     copied.value = true
     setTimeout(() => { copied.value = false }, 2000)
   } catch {
-    // no-op — clipboard not available
+    // ClipboardItem not available — fall back to plain text
+    try {
+      await navigator.clipboard.writeText(plain)
+      copied.value = true
+      setTimeout(() => { copied.value = false }, 2000)
+    } catch { /* no-op */ }
   }
 }
 
@@ -9488,7 +10131,7 @@ async function copyToClipboard() {
     { key:'97',  emoji:'⚡', label:'Team Energy',          profiles:['All'],         action:() => { energyPanelOpen.value = !energyPanelOpen.value } },
     { key:'7',   emoji:'🔗', label:'Share Link',            profiles:['All'],         action:() => toggleShare() },
     { key:'13',  emoji:'⚡', label:'Challenge',             profiles:['All'],         action:() => handleChallenge() },
-    { key:'14',  emoji:'📥', label:'Export PDF',            profiles:['All'],         action:() => handleExportPdf() },
+    { key:'14',  emoji:'✱', label:'Export PDF',            profiles:['All'],         action:() => handleExportPdf() },
     { key:'49',  emoji:'⑂',  label:'Fork',                  profiles:['All'],         action:() => handleFork() },
   ]
   paletteRegistry.push(...entries)

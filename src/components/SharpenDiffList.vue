@@ -15,16 +15,23 @@ defineProps<{
   rounds: SharpenRound[]
 }>()
 
-// Human-readable labels for field keys
+// Human-readable labels for content fields only.
+// Implementation/linking fields (id, type, level, *OfValue, function) are
+// intentionally excluded — they are metadata not useful to the user in a diff.
 const FIELD_LABELS: Record<string, string> = {
   description:     'Description',
   successCriteria: 'Success criteria',
   scale:           'Scale',
   meter:           'Meter',
+  status:          'Status',
   tolerable:       'Tolerable',
   goal:            'Goal',
   impact:          'Impact',
+  wish:            'Wish',
 }
+
+// Fields that should never appear in the diff — metadata and linking fields.
+const SKIP_FIELDS = new Set(['id', 'type', 'level', 'functionOfValue', 'valueOfFunction', 'function'])
 
 function fieldLabel(key: string): string {
   return FIELD_LABELS[key] ?? key
@@ -83,6 +90,16 @@ function fieldLabel(key: string): string {
           <!-- Entry ID -->
           <span class="font-mono font-semibold text-slate-700 truncate flex-1 min-w-0">{{ c.id }}</span>
 
+          <!-- Cause / sharpening dimension badge -->
+          <span
+            class="flex-shrink-0 flex items-center gap-0.5 text-[9px] font-semibold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 leading-none whitespace-nowrap"
+            :title="`Sharpening cause: ${r.category.label}`"
+            :aria-label="`Caused by ${r.category.label} sharpening`"
+          >
+            <span aria-hidden="true">{{ r.category.emoji }}</span>
+            <span>{{ r.category.label }}</span>
+          </span>
+
           <!-- Status badge -->
           <span
             class="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded leading-none uppercase tracking-wide"
@@ -92,13 +109,14 @@ function fieldLabel(key: string): string {
           >{{ c.status === 'added' ? 'New' : 'Changed' }}</span>
         </div>
 
-        <!-- ── Added entry: show all fields in emerald ── -->
+        <!-- ── Added entry: show content fields in emerald (metadata fields skipped) ── -->
         <div
           v-if="c.status === 'added'"
           class="px-2.5 py-2 space-y-2 bg-white"
         >
           <div
             v-for="(val, field) in c.after"
+            v-show="!SKIP_FIELDS.has(String(field))"
             :key="field"
           >
             <p class="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">
@@ -110,13 +128,13 @@ function fieldLabel(key: string): string {
           </div>
         </div>
 
-        <!-- ── Modified entry: only changed fields, before → after ── -->
+        <!-- ── Modified entry: only changed content fields (metadata fields skipped) ── -->
         <div
-          v-else-if="c.changedFields.length > 0"
+          v-else-if="c.changedFields.filter(f => !SKIP_FIELDS.has(f)).length > 0"
           class="px-2.5 py-2 space-y-3 bg-white"
         >
           <div
-            v-for="field in c.changedFields"
+            v-for="field in c.changedFields.filter(f => !SKIP_FIELDS.has(f))"
             :key="field"
           >
             <p class="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-1">

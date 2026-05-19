@@ -475,8 +475,8 @@ Features reconstructed from source comments (exact order/dates unknown within th
 
 ## Pending / Not Yet Logged
 
-- Changes to `OnboardingTour.vue` referencing "Start with your goal" — not yet updated to match toolbar label
-- Title bars for "Surprise me" and "Start with your goal" tool outputs — pending
+- ~~Changes to `OnboardingTour.vue` referencing "Start with your goal" — not yet updated to match toolbar label~~ — **DONE 2026-05-11** step 1 description updated to list all current toolbar tools
+- ~~Title bars for "Surprise me" and "Start with your goal" tool outputs — pending~~ — **DONE 2026-05-11** see SEMEntryForm.vue `inputSource` banner + SpecWizard.vue modal title bar
 - Earlier sessions before 2026-05-06 — no session memory; reconstructed from code only
 - **SpecOutput features #18–#174 gap:** Features with these numbers are SpecOutput panel features (Share #7, Challenge #13, Ambitious #19, Domain Badge #20, Spec Quality Ring #22 … Glossary #61 … etc.) reconstructed from source comments. They exist in `SpecOutput.vue` but were not individually logged here. A full retrospective log pass would add ~100+ entries. The Evo Steps 5-9 table covers only `EvoPlanView`-related features.
 - **Session times (backfilled):** All times marked with `~` are approximate, inferred from session descriptions ("evening", "early morning") and session-note order. Exact wall-clock times were not recorded before 2026-05-07 ~14:00.

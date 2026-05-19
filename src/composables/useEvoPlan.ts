@@ -5,6 +5,7 @@
 import { ref, readonly } from 'vue'
 import { useEvoPlannerAPI } from './useEvoPlannerAPI'
 import { useWorkspace } from './useWorkspace'
+import { useSpecHistory } from './useSpecHistory'
 import { getSupabaseClient } from '../config/supabase'
 import type { SpecBlock } from '../types/spec'
 import type { EvoStepPlan } from '../types/evo-plan'
@@ -24,7 +25,7 @@ import type { EvoStepPlan } from '../types/evo-plan'
  *   isConfirmed: Readonly<Ref<boolean>>,
  *   loading: Readonly<Ref<boolean>>,
  *   error: Readonly<Ref<string>>,
- *   fetchPlan(specBlock: SpecBlock): Promise<void>,
+ *   fetchPlan(specBlock: SpecBlock, force?: boolean): Promise<void>,
  *   reorderSteps(fromIndex: number, toIndex: number): void,
  *   renameStep(index: number, name: string): void,
  *   removeStep(index: number): void,
@@ -37,35 +38,171 @@ import type { EvoStepPlan } from '../types/evo-plan'
  *
  * Spec: S.Evo7.EvoStepPlannerComposable
  */
-export function useEvoPlan() {
-  const plan = ref<EvoStepPlan | null>(null)
-  const isConfirmed = ref(false)
-  const error = ref('')
+// ── Module-level singleton state ─────────────────────────────────────────────
+// Shared across all callers so App.vue can read and write the active plan
+// without going through EvoPlanView's component boundary.
 
+const plan        = ref<EvoStepPlan | null>(null)
+const isConfirmed = ref(false)
+const _planError  = ref('')
+
+/**
+ * Pre-loads a saved plan so the very next fetchPlan() call is a no-op.
+ * Called by App.vue's onHistoryRestore() before it updates currentSpec,
+ * which would otherwise trigger a fresh AI generation in EvoPlanView.
+ */
+let _skipNextFetch = false
+
+/**
+ * Concurrency guard — prevents fetchPlan from being re-entered while an
+ * existing call is still in-flight.  Without this, a watcher that re-fires
+ * the watch-getter (e.g. when currentSpec is replaced mid-fetch by an
+ * unrelated downstream side-effect) can launch a second AI request that
+ * clears `plan.value = null` while the first is awaiting — visible to the
+ * user as the Evo Plan view flickering back to "Generate Evo Plan" right
+ * after the first plan appears, then regenerating in a loop.
+ */
+let _inFlight = false
+/** Tracks the most recent spec we've seen so subsequent calls with the
+ *  exact same SpecBlock identity are a guaranteed no-op even after the
+ *  inFlight guard clears.  Without this, a watcher firing twice with the
+ *  same spec would still cause a second AI call once the first finished. */
+let _lastFetchedSpec: SpecBlock | null = null
+
+export function loadPlan(stored: EvoStepPlan): void {
+  plan.value        = { ...stored }
+  isConfirmed.value = false
+  _planError.value  = ''
+  _skipNextFetch    = true
+}
+
+/**
+ * Clears any pre-loaded plan and resets the skip flag.
+ * Call this when restoring a history entry that has NO saved plan,
+ * so stale state from a previous loadPlan() call is not carried forward.
+ */
+export function clearLoadedPlan(): void {
+  plan.value        = null
+  isConfirmed.value = false
+  _planError.value  = ''
+  _skipNextFetch    = false
+  _lastFetchedSpec  = null   // allow a fresh fetch for the next spec
+}
+
+/**
+ * Clears plan state but suppresses the next fetchPlan() call.
+ * Use when loading/replacing a plan model — the spec changes but we do NOT
+ * want EvoPlanView's immediate watcher to auto-generate steps on mount.
+ * The user can trigger generation manually when ready.
+ */
+export function resetPlanForLoad(): void {
+  plan.value        = null
+  isConfirmed.value = false
+  _planError.value  = ''
+  _skipNextFetch    = true
+  _lastFetchedSpec  = null   // forget identity so the next real fetch is allowed
+}
+
+/**
+ * Resets ALL module-level singleton state to initial values.
+ *
+ * @internal — for Vitest isolation ONLY. Not part of the public API.
+ *
+ * Vite HMR does NOT reinitialise module-level state between hot reloads, so
+ * the same singleton persists for the entire dev-server session. In tests,
+ * Vitest keeps the module alive across all tests in a file, so without this
+ * reset, state from one test bleeds into the next — the same failure mode as
+ * the `_inFlight` HMR bug (useEvoPlan r11 / useDefine r04).
+ *
+ * Call in `beforeEach` so every test starts with a clean slate.
+ */
+export function _resetModuleState(): void {
+  plan.value        = null
+  isConfirmed.value = false
+  _planError.value  = ''
+  _skipNextFetch    = false
+  _inFlight         = false
+  _lastFetchedSpec  = null
+}
+
+export function useEvoPlan() {
   // Delegate loading state to the API composable
   const { loading, error: apiError, planSteps } = useEvoPlannerAPI()
   const { currentWorkspace } = useWorkspace()
+  const { updateLatestPlan } = useSpecHistory()
+
+  // error alias — wraps the module-level ref so callers keep the same API
+  const error = _planError
 
   // --- Fetch plan from the LLM API ---
 
   /**
    * Calls the Evo Planner API with the given SpecBlock and populates plan state.
    * Resets isConfirmed to false — a re-fetch starts a fresh confirmation cycle.
+   *
+   * If loadPlan() was called immediately before this (version-history restore),
+   * skips the API call and uses the pre-loaded plan instead — UNLESS `force`
+   * is true, in which case both the skip-next guard and the identity guard are
+   * bypassed.  Pass `force = true` from explicit user-triggered actions (the
+   * "Generate Evo Plan" CTA and the Retry button) so that clicking always
+   * launches a fresh LLM call regardless of cached / pre-loaded state.
    */
-  async function fetchPlan(specBlock: SpecBlock): Promise<void> {
-    error.value = ''
-    isConfirmed.value = false
-    plan.value = null
+  async function fetchPlan(specBlock: SpecBlock, force = false): Promise<void> {
+    // Restore path: a plan was pre-loaded — use it directly, skip AI generation.
+    // Bypassed when force = true (user explicitly asked to regenerate).
+    if (!force && _skipNextFetch) {
+      _skipNextFetch = false
+      _lastFetchedSpec = specBlock
+      return
+    }
+    // Consume a pending skip flag even when forcing so it doesn't fire on the
+    // next automatic watcher call after the forced fetch completes.
+    if (force) _skipNextFetch = false
 
-    const result = await planSteps(specBlock)
-
-    if (apiError.value) {
-      // Propagate API error into this composable's error ref for the component
-      error.value = apiError.value
+    // Concurrency guard — drop re-entrant calls while a fetch is already running.
+    // Bypassed when force = true:
+    //   (a) Explicit user action ("Generate Evo Plan" button, Retry) must ALWAYS work.
+    //   (b) Vite HMR does NOT reinitialise module-level state between hot reloads —
+    //       if a fetch was in-flight when HMR fired, _inFlight stays `true` forever
+    //       and every subsequent call (including the Generate button) is silently
+    //       dropped.  force=true is the user's explicit override and the correct
+    //       escape hatch.  (Same root cause as the Illuminate eternal-spinner fixed
+    //       2026-05-18; see useDefine.ts r04.)
+    if (!force && _inFlight) {
+      console.warn('[useEvoPlan] fetchPlan re-entered while in flight — ignoring duplicate call')
+      return
+    }
+    // Identity guard — if the exact same spec object was just successfully
+    // planned, skip the re-fetch.  Prevents a watcher that fires twice with
+    // the same currentSpec reference from regenerating the plan in a loop.
+    // Bypassed when force = true (user explicitly asked to regenerate).
+    if (!force && _lastFetchedSpec === specBlock && plan.value && !apiError.value) {
       return
     }
 
-    plan.value = result
+    _inFlight = true
+    try {
+      error.value = ''
+      isConfirmed.value = false
+      plan.value = null
+
+      const result = await planSteps(specBlock)
+
+      if (apiError.value) {
+        // Propagate API error into this composable's error ref for the component
+        error.value = apiError.value
+        return
+      }
+
+      plan.value = result
+      _lastFetchedSpec = specBlock
+      // Retroactively update the most recent history entry with the generated plan.
+      // addVersion() is always called before fetchPlan() completes (timing gap),
+      // so the entry's plan field starts as null — this fills it in correctly.
+      updateLatestPlan(result)
+    } finally {
+      _inFlight = false
+    }
   }
 
   // --- Mutation actions ---

@@ -2,6 +2,7 @@
 // Feature #113 — Evo step retrospective generator
 
 import { ref } from 'vue'
+import { ollamaChat } from '../lib/ollamaChat'
 
 export interface RetroPrompt {
   category: 'went-well' | 'improve' | 'experiment'
@@ -74,54 +75,38 @@ export function useStepRetro(apiKey: string) {
     state.loading = true
 
     try {
-      const useMock = !apiKey || import.meta.env.VITE_MOCK_MODE === 'true'
+      const useMock = (!apiKey && !import.meta.env.VITE_OLLAMA_MODEL) || import.meta.env.VITE_MOCK_MODE === 'true'
 
       if (!useMock) {
-        // Live mode: call claude-haiku-4-5
+        // Live mode: call local Ollama
         try {
           const descPart = step.description ? `\nDescription: ${step.description}` : ''
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5',
-              max_tokens: 400,
-              messages: [
-                {
-                  role: 'user',
-                  content: `Generate exactly 3 retrospective prompts for Evo step: "${step.name}".${descPart}
+          const content = await ollamaChat({
+            max_tokens: 400,
+            messages: [{
+              role: 'user',
+              content: `Generate exactly 3 retrospective prompts for Evo step: "${step.name}".${descPart}
 Return ONLY a JSON array with exactly 3 objects, each with "category" and "prompt" fields.
 Categories must be exactly: "went-well", "improve", "experiment" (one each, in that order).
 Example: [{"category":"went-well","prompt":"..."},{"category":"improve","prompt":"..."},{"category":"experiment","prompt":"..."}]`,
-                },
-              ],
-            }),
+            }],
           })
-
-          if (response.ok) {
-            const data = await response.json()
-            const content = data.content?.[0]?.text ?? ''
-            const match = content.match(/\[[\s\S]*\]/)
-            if (match) {
-              const parsed: Array<{ category: string; prompt: string }> = JSON.parse(match[0])
-              if (
-                Array.isArray(parsed) &&
-                parsed.length >= 3 &&
-                parsed[0].category === 'went-well' &&
-                parsed[1].category === 'improve' &&
-                parsed[2].category === 'experiment'
-              ) {
-                state.prompts = [
-                  { category: 'went-well', prompt: String(parsed[0].prompt) },
-                  { category: 'improve', prompt: String(parsed[1].prompt) },
-                  { category: 'experiment', prompt: String(parsed[2].prompt) },
-                ]
-                return
-              }
+          const match = content.match(/\[[\s\S]*\]/)
+          if (match) {
+            const parsed: Array<{ category: string; prompt: string }> = JSON.parse(match[0])
+            if (
+              Array.isArray(parsed) &&
+              parsed.length >= 3 &&
+              parsed[0].category === 'went-well' &&
+              parsed[1].category === 'improve' &&
+              parsed[2].category === 'experiment'
+            ) {
+              state.prompts = [
+                { category: 'went-well', prompt: String(parsed[0].prompt) },
+                { category: 'improve', prompt: String(parsed[1].prompt) },
+                { category: 'experiment', prompt: String(parsed[2].prompt) },
+              ]
+              return
             }
           }
         } catch {

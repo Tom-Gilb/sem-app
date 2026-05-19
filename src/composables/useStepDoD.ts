@@ -2,6 +2,7 @@
 // Feature #91 — Evo step Definition of Done composable
 import { ref, watch, type Ref } from 'vue'
 import type { EvoStep } from '../types/evo-plan'
+import { ollamaChat } from '../lib/ollamaChat'
 
 export interface DoDItem {
   text: string
@@ -105,39 +106,24 @@ export function useStepDoD(
 
     try {
       const key = typeof apiKey === 'string' ? apiKey : apiKey.value
+      const hasBackend = (key && key.length > 0) || !!import.meta.env.VITE_OLLAMA_MODEL
 
-      if (key && key.length > 0) {
-        // Live mode: call claude-haiku-4-5
+      if (hasBackend) {
+        // Live mode: call local Ollama
         try {
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': key,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5',
-              max_tokens: 300,
-              messages: [
-                {
-                  role: 'user',
-                  content: `Generate 3 Definition of Done items for Evo step: "${step.name}". Return ONLY a JSON array of strings, no explanation. Example: ["item1","item2","item3"]`,
-                },
-              ],
-            }),
+          const content = await ollamaChat({
+            max_tokens: 300,
+            messages: [{
+              role: 'user',
+              content: `Generate 3 Definition of Done items for Evo step: "${step.name}". Return ONLY a JSON array of strings, no explanation. Example: ["item1","item2","item3"]`,
+            }],
           })
-
-          if (response.ok) {
-            const data = await response.json()
-            const content = data.content?.[0]?.text ?? ''
-            const match = content.match(/\[[\s\S]*\]/)
-            if (match) {
-              const parsed: string[] = JSON.parse(match[0])
-              if (Array.isArray(parsed) && parsed.length >= 3) {
-                state.items = parsed.slice(0, 3).map(text => ({ text: String(text), checked: false }))
-                return
-              }
+          const match = content.match(/\[[\s\S]*\]/)
+          if (match) {
+            const parsed: string[] = JSON.parse(match[0])
+            if (Array.isArray(parsed) && parsed.length >= 3) {
+              state.items = parsed.slice(0, 3).map(text => ({ text: String(text), checked: false }))
+              return
             }
           }
         } catch {

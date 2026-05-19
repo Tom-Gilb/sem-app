@@ -3,6 +3,13 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "types": ["vite/client", "vitest/globals"],
+    "paths": {
+      "@anthropic-ai/sdk/resources/beta/messages/messages": ["./src/lib/ollamaAdapter.ts"],
+      "@anthropic-ai/sdk": ["./src/lib/ollamaAdapter.ts"]
+    },
+
+    /* Strict mode — required by S.MarkdownSerialiserSchema key assumption */
+    "strict": true,
 
     /* Linting */
     "noUnusedLocals": true,

@@ -4,7 +4,7 @@
 // Saves the full App.vue working state to localStorage so the user can recover
 // from unexpected page kills (iOS Safari zoom eviction, backgrounding, OOM).
 //
-// Key: sem-session-v1
+// Key: sem-session-v2 (bumped from v1 when stages 3↔4 were swapped: Impact before Tasks)
 // Save triggers: debounced watch on all key refs + immediate save on pagehide / visibilitychange
 // Restore: App.vue onMounted reads and applies saved state before showing the app view
 // Clear: on sign-out or when the user explicitly clicks "Start fresh"
@@ -14,11 +14,11 @@ import type { EvoStep } from '../types/evo-plan'
 import type { ImpactMatrix } from '../types/impact'
 import type { TaskSuggestion } from '../types/task'
 
-const SESSION_KEY = 'sem-session-v1'
+const SESSION_KEY = 'sem-session-v2'
 
 export interface SavedSession {
   /** Schema version — increment if shape changes to avoid deserialising stale data. */
-  version: 1
+  version: 2
   /** ISO timestamp of last save — displayed in the restore toast. */
   savedAt: string
   stage: number
@@ -60,7 +60,7 @@ export function useSessionPersist() {
       // Minimum validity check — must have a spec with at least functions array
       if (
         !parsed ||
-        parsed.version !== 1 ||
+        parsed.version !== 2 ||
         !parsed.currentSpec ||
         !Array.isArray(parsed.currentSpec.functions)
       ) {

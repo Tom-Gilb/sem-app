@@ -6,11 +6,21 @@ import type { SpecBlock } from '../types/spec'
 
 export interface SpecStats {
   totalEntries: number          // F + V + S count
+  fCount: number                // F. function entries
+  vCount: number                // V. value entries
+  sCount: number                // S. solution entries
   completenessPercent: number   // non-empty fields ÷ expected fields × 100
   avgDescriptionLength: number  // average chars across all description fields
   longestEntry: string          // entryId of the entry with longest description
   shortestEntry: string         // entryId of the entry with shortest description
   missingFieldCount: number     // total count of empty required fields
+  /**
+   * Number of V. entries that are fully measurable —
+   * i.e. Scale, Meter AND Goal are all non-empty.
+   * This is the core Planguage quality signal: an unmeasured Value cannot
+   * drive implementation or acceptance testing.
+   */
+  measurableValues: number
 }
 
 // Required fields per entry type
@@ -20,12 +30,15 @@ export interface SpecStats {
 
 export function useSpecStats() {
   function computeStats(spec: SpecBlock): SpecStats {
-    const totalEntries =
-      spec.functions.length + spec.values.length + spec.solutions.length
+    const fCount = spec.functions.length
+    const vCount = spec.values.length
+    const sCount = spec.solutions.length
+    const totalEntries = fCount + vCount + sCount
 
     let totalExpected = 0
     let totalFilled = 0
     let missingFieldCount = 0
+    let measurableValues = 0
 
     // Track per-entry description lengths to find longest/shortest
     const descLengths: Array<{ entryId: string; len: number }> = []
@@ -56,6 +69,8 @@ export function useSpecStats() {
         }
       }
       descLengths.push({ entryId: v.id, len: v.description.length })
+      // Measurability: Scale + Meter + Goal all non-empty → V. entry is testable
+      if (v.scale?.trim() && v.meter?.trim() && v.goal?.trim()) measurableValues++
     }
 
     // --- S entries ---
@@ -108,11 +123,15 @@ export function useSpecStats() {
 
     return {
       totalEntries,
+      fCount,
+      vCount,
+      sCount,
       completenessPercent,
       avgDescriptionLength,
       longestEntry,
       shortestEntry,
       missingFieldCount,
+      measurableValues,
     }
   }
 

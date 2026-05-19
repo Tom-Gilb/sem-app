@@ -4,7 +4,7 @@
 // Supported inputs:
 //   text   — plain pasted text (any format)
 //   url    — public web page (direct fetch or allorigins.win CORS proxy)
-//   file   — .pdf  (sent to Anthropic as a native document — no local parser needed)
+//   file   — .pdf  (text extracted via pdfjs-dist in local mode; native document API in Anthropic mode)
 //            .docx (text extracted via mammoth, then AI-parsed)
 //            .txt / .md / .rtf / .html / .csv and other text types
 //            .doc  (unsupported — user prompted to save as .docx)
@@ -17,10 +17,11 @@ import Anthropic from '@anthropic-ai/sdk'
 import { MODEL_ID } from '../config/llm'
 import type { SpecBlock, FEntry, VEntry, SEntry } from '../types/spec'
 
+// apiKey is optional in local mode — the ollamaAdapter ignores it entirely
 const _client = new Anthropic({
-  apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY as string,
-  dangerouslyAllowBrowser: true,
-  timeout: 90_000,
+  apiKey:                    (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ?? 'local',
+  dangerouslyAllowBrowser:   true,
+  timeout:                   90_000,
 })
 
 const _MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true'
@@ -33,6 +34,10 @@ export const planInputLoading  = ref(false)
 export const planInputError    = ref('')
 /** Short status message shown while multi-step extraction is running */
 export const planInputProgress = ref('')
+
+/** Loading / error state for the Merge Plans AI call — separate from planInputLoading. */
+export const mergeLoading = ref(false)
+export const mergeError   = ref('')
 
 // ── URL extraction ─────────────────────────────────────────────────────────────
 
@@ -80,11 +85,11 @@ function _htmlToText(html: string): string {
 // ── File extraction ────────────────────────────────────────────────────────────
 
 export interface FileExtractionResult {
-  /** Extracted plain text (empty for PDFs — use pdfBase64 instead) */
+  /** Extracted plain text. Non-empty for all formats including PDFs (in local mode, pdfjs-dist extracts the text). */
   text: string
-  /** True when the file is a PDF; use pdfBase64 with the Anthropic documents API */
+  /** True only in Anthropic mode for PDFs — use pdfBase64 with the native documents API */
   isPdf: boolean
-  /** Base-64 encoded PDF bytes — only set when isPdf is true */
+  /** Base-64 encoded PDF bytes — only set when isPdf is true (Anthropic mode only) */
   pdfBase64?: string
 }
 
@@ -97,8 +102,41 @@ export interface FileExtractionResult {
 export async function extractFromFile(file: File): Promise<FileExtractionResult> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
 
-  // ── PDF: return base-64 for Anthropic's native document API ──────────────────
+  // ── PDF: text extraction (local mode) or base-64 (Anthropic mode) ───────────
+  //
+  // Local mode:     pdfjs-dist extracts the text page-by-page in the browser.
+  //                 pdfjs-dist is already in package.json and excluded from
+  //                 esbuild pre-bundling in vite.config.ts; dynamic import works.
+  //
+  // Anthropic mode: pass base-64 to the native documents API — Claude reads the
+  //                 PDF natively (richer than extracted text: layout, tables, etc.).
   if (ext === 'pdf') {
+    if (!import.meta.env.VITE_ANTHROPIC_API_KEY) {
+      // Local mode — extract text via pdfjs-dist
+      planInputProgress.value = 'Extracting text from PDF…'
+      const pdfjs = await import('pdfjs-dist')
+      // Point the web worker at the pre-built worker bundle.
+      // new URL(..., import.meta.url) is the Vite-native pattern for worker URLs.
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.js',
+        import.meta.url,
+      ).href
+      const buf = await file.arrayBuffer()
+      const pdf = await pdfjs.getDocument({ data: buf }).promise
+      const pageTexts: string[] = []
+      for (let i = 1; i <= pdf.numPages; i++) {
+        planInputProgress.value = `Extracting PDF — page ${i} of ${pdf.numPages}…`
+        const page = await pdf.getPage(i)
+        const content = await page.getTextContent()
+        pageTexts.push(
+          content.items
+            .map((item) => ('str' in item ? (item as { str: string }).str : ''))
+            .join(' '),
+        )
+      }
+      return { text: pageTexts.join('\n\n'), isPdf: false }
+    }
+    // Anthropic mode — base-64 for the native documents API
     planInputProgress.value = 'Reading PDF…'
     const buf = await file.arrayBuffer()
     const bytes = new Uint8Array(buf)
@@ -130,7 +168,25 @@ export async function extractFromFile(file: File): Promise<FileExtractionResult>
     )
   }
 
-  // ── Plain text: .txt .md .rtf .html .csv and anything else ───────────────────
+  // ── HTML: strip tags before sending to LLM ──────────────────────────────────
+  // Raw HTML contains thousands of chars of CSS, attribute noise, and markup
+  // that swamp the LLM context and make Planguage extraction unreliable.
+  // _htmlToText() removes scripts/styles and returns innerText so the LLM
+  // receives clean prose and table content — the same path used for URL fetch.
+  if (['html', 'htm'].includes(ext)) {
+    planInputProgress.value = 'Extracting text from HTML…'
+    return new Promise<FileExtractionResult>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const raw = (e.target?.result as string) ?? ''
+        resolve({ text: _htmlToText(raw), isPdf: false })
+      }
+      reader.onerror = () => reject(new Error('Could not read the file. Try copy-pasting the content instead.'))
+      reader.readAsText(file)
+    })
+  }
+
+  // ── Plain text: .txt .md .rtf .csv and anything else ─────────────────────────
   planInputProgress.value = 'Reading file…'
   return new Promise<FileExtractionResult>((resolve, reject) => {
     const reader = new FileReader()
@@ -163,6 +219,7 @@ Rules:
 - Cross-links are mandatory: F.functionOfValue → a V.id; V.valueOfFunction → a F.id; S.function → a F.id
 - If the source has no explicit metrics, infer reasonable ones from the stated goals and context
 - Produce at least 2 F. entries, 2 V. entries, and 2 S. entries when the source material permits
+- Budget terminology: for any resource value (money, time, people, space), the allocated amount is called a 'Budget' — NOT a 'Goal' or 'Wish'. For a finance V. entry: scale describes balance or available amount; tolerable = minimum viable budget; goal = the full Budget aspiration. Do NOT use "Wish" for financial targets unless the source explicitly uses that word.
 
 Return ONLY valid JSON — no markdown fences, no explanation, no prose outside the JSON:
 {
@@ -199,8 +256,20 @@ export async function parseAsPlanguage(
 
   let content: UserContent
 
-  if (options?.isPdf && options.pdfBase64) {
-    // Native PDF: Anthropic extracts text internally — no local parser needed
+  // Safety net — if a caller somehow passes isPdf without an Anthropic key (e.g.
+  // re-importing a previously cached extraction object), bail with the same clear
+  // message rather than silently sending an empty document to the model.
+  if (options?.isPdf && !import.meta.env.VITE_ANTHROPIC_API_KEY) {
+    throw new Error(
+      'PDF parsing requires the cloud Anthropic API and is not available in local LLM mode. ' +
+      'Please paste the PDF text directly instead.',
+    )
+  }
+
+  if (options?.isPdf && options.pdfBase64 && import.meta.env.VITE_ANTHROPIC_API_KEY) {
+    // Native PDF: only supported when running against the real Anthropic API.
+    // In local (Ollama) mode VITE_ANTHROPIC_API_KEY is unset, so we fall through
+    // to the text path — the caller should pre-extract PDF text before calling here.
     content = [
       {
         type: 'document',
@@ -209,11 +278,11 @@ export async function parseAsPlanguage(
           media_type: 'application/pdf',
           data: options.pdfBase64,
         },
-      } as unknown as Anthropic.TextBlockParam,
+      } as unknown as { type: string; text?: string; [key: string]: unknown },
       { type: 'text', text: _PARSE_PROMPT },
     ]
   } else {
-    // Text / URL / file-extracted text
+    // Text / URL / file-extracted text (also the local-mode PDF fallback)
     const trimmed = rawText.slice(0, 14_000)
     content = `${_PARSE_PROMPT}\n\nPlan document:\n---\n${trimmed}\n---`
   }
@@ -325,5 +394,126 @@ function _mockParsedSpec(text: string): SpecBlock {
         impact: `V.${tag}Visibility ~95%`, function: `F.${tag}Reporting`,
       },
     ],
+  }
+}
+
+// ── Merge Plans ────────────────────────────────────────────────────────────────
+
+const _MERGE_PROMPT = `You are a Competitive Engineering consultant trained in Tom Gilb's Planguage methodology.
+You have been given multiple planning sources (plan documents, spec versions, meeting notes, etc.).
+Your task is to synthesise them into ONE consolidated Planguage specification.
+
+Synthesis rules:
+- Deduplicate: merge entries that represent the same concept, keeping the most complete/precise version
+- Resolve contradictions: prefer the most recently dated source where dates are discernible; otherwise choose the more specific/quantified statement
+- Combine complementary elements: an F. from source A can reference a V. from source B if they are conceptually linked
+- Do NOT discard entries just because they appear in only one source — include them if they add value
+- Produce at least 2 F. entries, 2 V. entries, and 2 S. entries
+
+Entry rules (same as single-source parsing):
+- F. entries (Functions): binary capability — successCriteria must be a binary test, never a number or rate
+- V. entries (Values): must have all five fields: scale, meter, status, tolerable, goal
+- S. entries (Solutions): strategies / approaches / architectures
+- id format: F.PascalCase, V.PascalCase, S.PascalCase
+- type: exactly "Function" | "Value" | "Solution"
+- level: "Business" | "Stakeholder" | "Product" | "Solution"
+- Cross-links are mandatory: F.functionOfValue → a V.id; V.valueOfFunction → a F.id; S.function → a F.id
+
+Return ONLY valid JSON — no markdown fences, no explanation:
+{
+  "functions": [
+    {"id":"F.Xxx","type":"Function","level":"Product","description":"...","successCriteria":"...","functionOfValue":"V.Xxx"}
+  ],
+  "values": [
+    {"id":"V.Xxx","type":"Value","level":"Product","description":"...","scale":"...","meter":"...","status":"pre-build","tolerable":"...","goal":"...","valueOfFunction":"F.Xxx"}
+  ],
+  "solutions": [
+    {"id":"S.Xxx","type":"Solution","level":"Product","description":"...","impact":"V.Xxx ~target","function":"F.Xxx"}
+  ]
+}`
+
+/**
+ * Merge multiple plan text sources into a single consolidated SpecBlock.
+ * Each element of `inputs` is a serialised plan string (plain text, extracted
+ * spec JSON, meeting notes, etc.). The AI synthesises them using the same
+ * Planguage rules as parseAsPlanguage.
+ */
+export async function mergePlansAsPlanguage(inputs: string[]): Promise<SpecBlock | null> {
+  if (!inputs.length) return null
+
+  if (_MOCK_MODE) {
+    return _mockParsedSpec(inputs.join(' '))
+  }
+
+  mergeLoading.value = true
+  mergeError.value   = ''
+
+  try {
+    // Build the user message: list each source, trimmed to keep total token count manageable
+    const MAX_PER_SOURCE = Math.floor(12_000 / inputs.length)
+    const sourceSections = inputs
+      .map((src, i) => `--- SOURCE ${i + 1} ---\n${src.slice(0, MAX_PER_SOURCE)}`)
+      .join('\n\n')
+
+    const content = `${_MERGE_PROMPT}\n\n${sourceSections}\n\n--- END OF SOURCES ---`
+
+    const message = await _client.messages.create({
+      model:      MODEL_ID,
+      max_tokens: 4096,
+      messages:   [{ role: 'user', content }],
+    })
+
+    const textBlock = message.content.find((b): b is Anthropic.TextBlock => b.type === 'text')
+    if (!textBlock) return null
+
+    const json = textBlock.text
+      .replace(/^```json\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim()
+
+    const parsed = JSON.parse(json) as {
+      functions?: Array<Record<string, string>>
+      values?:    Array<Record<string, string>>
+      solutions?: Array<Record<string, string>>
+    }
+
+    const functions: FEntry[] = (parsed.functions ?? []).map(f => ({
+      id:              f.id              ?? '',
+      type:            f.type            ?? 'Function',
+      level:           f.level           ?? 'Product',
+      description:     f.description     ?? '',
+      successCriteria: f.successCriteria ?? '',
+      functionOfValue: f.functionOfValue ?? '',
+    }))
+
+    const values: VEntry[] = (parsed.values ?? []).map(v => ({
+      id:              v.id              ?? '',
+      type:            v.type            ?? 'Value',
+      level:           v.level           ?? 'Product',
+      description:     v.description     ?? '',
+      scale:           v.scale           ?? '',
+      meter:           v.meter           ?? '',
+      status:          v.status          ?? 'pre-build',
+      tolerable:       v.tolerable       ?? '',
+      goal:            v.goal            ?? '',
+      valueOfFunction: v.valueOfFunction ?? '',
+    }))
+
+    const solutions: SEntry[] = (parsed.solutions ?? []).map(s => ({
+      id:          s.id          ?? '',
+      type:        s.type        ?? 'Solution',
+      level:       s.level       ?? 'Product',
+      description: s.description ?? '',
+      impact:      s.impact      ?? '',
+      function:    s.function    ?? '',
+    }))
+
+    if (!functions.length && !values.length) return null
+    return { functions, values, solutions }
+  } catch (err) {
+    mergeError.value = err instanceof Error ? err.message : 'Merge failed — please try again.'
+    return null
+  } finally {
+    mergeLoading.value = false
   }
 }

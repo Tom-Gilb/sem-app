@@ -4,6 +4,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import ScrollContainer from './ScrollContainer.vue'
+import CloseDot from './CloseDot.vue'
 
 const props = defineProps<{
   onSubmit: (stakes: string, ends: string, means: string, oneLiner: string) => void
@@ -100,6 +102,15 @@ function insertExample(): void {
     aria-modal="true"
     :aria-label="`Guided spec wizard — step ${currentStep} of 4`"
   >
+    <!-- ── Modal title bar ───────────────────────────────────────────────── -->
+    <div class="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-sky-600 to-emerald-600 shrink-0">
+      <span class="text-xl" aria-hidden="true">🎯</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-white font-bold text-sm leading-tight">Start with your goal</p>
+        <p class="text-white/70 text-[11px] leading-tight">4 guided questions → structured Planguage spec</p>
+      </div>
+    </div>
+
     <!-- ── Progress bar ─────────────────────────────────────────────────── -->
     <div
       class="flex gap-1 px-4 pt-4"
@@ -123,22 +134,16 @@ function insertExample(): void {
       <span class="text-xs text-gray-400 font-medium" data-testid="step-indicator">
         Step {{ currentStep }} of 4
       </span>
-      <!-- Close button -->
-      <button
-        type="button"
-        class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg
-               text-gray-400 hover:text-gray-700 hover:bg-gray-100
-               focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
-               focus-visible:outline-gray-500 transition-colors"
+      <!-- Close — universal CloseDot per "Universal Close-Button Rule" -->
+      <CloseDot
         aria-label="Close wizard"
+        title="Close this window"
         @click="props.onClose()"
-      >
-        ×
-      </button>
+      />
     </div>
 
     <!-- ── Step content (animated) ─────────────────────────────────────── -->
-    <div class="flex-1 overflow-y-auto px-4 pb-4">
+    <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full px-4 pb-4">
       <Transition name="fade" mode="out-in">
         <div :key="currentStep" class="space-y-5 pt-2">
 
@@ -152,7 +157,7 @@ function insertExample(): void {
             {{ STEPS[currentStep - 1].hint }}
           </p>
 
-          <!-- Textarea input -->
+          <!-- Textarea input — ⌘↵ advances to next step -->
           <textarea
             v-model="stepValue"
             :aria-label="STEPS[currentStep - 1].title"
@@ -162,6 +167,7 @@ function insertExample(): void {
                    focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent
                    transition-colors duration-150"
             data-testid="step-textarea"
+            @keydown.meta.enter.prevent="goNext"
           />
 
           <!-- Example text (click to insert) -->
@@ -180,10 +186,10 @@ function insertExample(): void {
 
         </div>
       </Transition>
-    </div>
+    </ScrollContainer>
 
     <!-- ── Navigation footer ────────────────────────────────────────────── -->
-    <div class="flex items-center justify-between gap-3 px-4 py-4 border-t border-gray-100">
+    <div class="flex items-center justify-between gap-3 px-4 py-4 border-t border-gray-100 bg-gray-50">
 
       <!-- Back button -->
       <button
@@ -200,18 +206,21 @@ function insertExample(): void {
       </button>
 
       <!-- Next / Submit button -->
-      <button
-        type="button"
-        class="min-h-[44px] px-6 text-sm font-semibold rounded-lg bg-emerald-600 text-white
-               hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2
-               focus-visible:outline-offset-2 focus-visible:outline-emerald-600
-               transition-colors"
-        data-testid="next-button"
-        @click="goNext"
-      >
-        <span v-if="currentStep < 4">Next →</span>
-        <span v-else>✨ Generate Spec</span>
-      </button>
+      <div class="flex flex-col items-end gap-1">
+        <button
+          type="button"
+          class="min-h-[44px] px-6 text-sm font-semibold rounded-lg bg-emerald-600 text-white
+                 hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2
+                 focus-visible:outline-offset-2 focus-visible:outline-emerald-600
+                 transition-colors"
+          data-testid="next-button"
+          @click="goNext"
+        >
+          <span v-if="currentStep < 4">Next →</span>
+          <span v-else>✨ Generate Spec</span>
+        </button>
+        <span class="text-[10px] text-gray-400 select-none">or <kbd class="px-1 rounded bg-gray-200 text-gray-500 font-mono text-[9px]">⌘↵</kbd></span>
+      </div>
 
     </div>
   </div>

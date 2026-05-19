@@ -13,7 +13,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { buildBullockRows, bullockToMarkdown, fieldLabel, type BullockRow } from '../composables/useBullock'
+import ScrollContainer from './ScrollContainer.vue'
+import CloseDot from './CloseDot.vue'
+import { buildBullockRows, fieldLabel, type BullockRow } from '../composables/useBullock'
 import type { SpecBlock } from '../types/spec'
 import type { SpecVersion } from '../composables/useSpecHistory'
 import type { SharpenRound } from '../composables/useSharpen'
@@ -97,17 +99,61 @@ function formatDate(ts: number): string {
   })
 }
 
-// ── Copy as Markdown ──────────────────────────────────────────────────────────
+// ── Copy as rich HTML table ───────────────────────────────────────────────────
+// Writes text/html (coloured table) + text/plain (TSV) so it pastes beautifully
+// in Mac Notes, Pages, Keynote, and Word. No Markdown ever.
 
 const copied = ref(false)
 
-function copyMarkdown(): void {
+async function copyRich(): Promise<void> {
   if (!baseline.value || rows.value.length === 0) return
-  const md = bullockToMarkdown(rows.value, baseline.value)
-  navigator.clipboard.writeText(md).then(() => {
-    copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
-  }).catch(() => {})
+
+  const TBL  = 'font-family:system-ui,-apple-system,sans-serif;font-size:12px;border-collapse:collapse;width:100%'
+  const TH   = 'background:#1f2937;color:#fff;padding:5px 10px;text-align:left;font-size:11px;white-space:nowrap'
+  const TD   = 'padding:5px 10px;border:1px solid #e5e7eb;font-size:12px;vertical-align:top'
+  const TYPE_COLOUR: Record<string, string> = {
+    sharpen: '#eff6ff', manual: '#f9fafb', added: '#f0fdf4', removed: '#fff1f2',
+  }
+
+  let html = `<table style="${TBL}"><thead><tr>`
+  for (const h of ['#', 'Entry', 'Field', 'Before', 'After', 'Source']) {
+    html += `<th style="${TH}">${h}</th>`
+  }
+  html += `</tr></thead><tbody>`
+
+  const tsvRows: string[][] = [['#', 'Entry', 'Field', 'Before', 'After', 'Source']]
+
+  for (const r of rows.value) {
+    const bg = TYPE_COLOUR[r.changeType] ?? '#ffffff'
+    const cells = [
+      String(r.seq),
+      `${r.entryId}`,
+      fieldLabel(r.field),
+      r.before,
+      r.after,
+      `${r.sourceEmoji} ${r.source}`,
+    ]
+    html += `<tr style="background:${bg}">`
+    for (const c of cells) html += `<td style="${TD}">${c}</td>`
+    html += `</tr>`
+    tsvRows.push(cells)
+  }
+  html += `</tbody></table>`
+  const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`
+  const tsv = tsvRows.map(r => r.join('\t')).join('\n')
+
+  try {
+    if (typeof ClipboardItem !== 'undefined') {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html':  new Blob([fullHtml], { type: 'text/html' }),
+        'text/plain': new Blob([tsv],      { type: 'text/plain' }),
+      })])
+    } else {
+      await navigator.clipboard.writeText(tsv)
+    }
+  } catch { try { await navigator.clipboard.writeText(tsv) } catch { /* silent */ } }
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
 }
 
 // ── Expanded cell state (click to expand long text) ───────────────────────────
@@ -159,15 +205,12 @@ function truncate(text: string, len = 80): string {
               <p class="text-[11px] text-slate-400">All field changes since the chosen baseline version</p>
             </div>
           </div>
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-700
-                   focus:outline-none focus:ring-2 focus:ring-white transition-colors text-xl leading-none"
-            aria-label="Close audit trail"
-            @click="emit('close')"
-          >
-            ×
-          </button>
+          <CloseDot
+        variant="on-dark"
+        title="Close"
+        aria-label="Close audit trail"
+        @click="emit('close')"
+      />
         </div>
 
         <!-- ── Baseline selector + summary bar ────────────────────────────── -->
@@ -243,7 +286,7 @@ function truncate(text: string, len = 80): string {
         </div>
 
         <!-- ── Audit table ─────────────────────────────────────────────────── -->
-        <div v-else class="flex-1 overflow-auto">
+        <ScrollContainer v-else outer-class="flex-1 min-h-0 relative" inner-class="h-full">
           <table class="w-full text-xs border-collapse">
 
             <!-- Sticky table header -->
@@ -352,7 +395,7 @@ function truncate(text: string, len = 80): string {
               </tr>
             </tbody>
           </table>
-        </div>
+        </ScrollContainer>
 
         <!-- ── Footer ──────────────────────────────────────────────────────── -->
         <div class="flex items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex-shrink-0">
@@ -367,22 +410,17 @@ function truncate(text: string, len = 80): string {
               class="flex items-center gap-1.5 min-h-[36px] px-4 rounded-lg border border-slate-200
                      text-xs font-medium text-slate-600 bg-white hover:bg-slate-100
                      focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
-              :aria-label="copied ? 'Copied!' : 'Copy audit trail as Markdown'"
-              @click="copyMarkdown"
+              :aria-label="copied ? 'Copied!' : 'Copy audit trail — pastes as coloured table'"
+              @click="copyRich"
             >
               <span aria-hidden="true">{{ copied ? '✅' : '📋' }}</span>
-              {{ copied ? 'Copied!' : 'Copy as Markdown' }}
+              {{ copied ? 'Copied!' : 'Copy' }}
             </button>
-            <!-- Close -->
-            <button
-              type="button"
-              class="flex items-center gap-1.5 min-h-[36px] px-5 rounded-lg
-                     bg-slate-800 text-white text-xs font-semibold
-                     hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 transition-colors"
+            <!-- Close — universal CloseDot per "Universal Close-Button Rule" -->
+            <CloseDot
+              aria-label="Close audit trail"
               @click="emit('close')"
-            >
-              Close
-            </button>
+            />
           </div>
         </div>
 

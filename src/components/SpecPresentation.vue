@@ -12,6 +12,8 @@
 <script setup lang="ts">
 // UNIT_TYPE=Widget
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import ScrollContainer from './ScrollContainer.vue'
+import CloseDot from './CloseDot.vue'
 import type { SpecBlock, FEntry, VEntry, SEntry } from '../types/spec'
 
 // ---------------------------------------------------------------------------
@@ -136,20 +138,16 @@ const showDots = computed(() => slides.value.length <= MAX_DOTS)
       <span class="text-sm font-semibold text-gray-300 tracking-wide uppercase text-xs">
         Spec Presentation
       </span>
-      <button
-        type="button"
-        class="h-11 w-11 flex items-center justify-center rounded-full text-gray-400
-               hover:text-white hover:bg-gray-800 focus:outline-none focus:ring-2
-               focus:ring-gray-500 transition-colors duration-150 text-xl font-bold"
+      <CloseDot
+        variant="on-dark"
+        title="Close"
         aria-label="Close presentation"
         @click="emit('close')"
-      >
-        ×
-      </button>
+      />
     </div>
 
     <!-- ── Main card area ─────────────────────────────────────────────── -->
-    <div class="flex-1 flex items-center justify-center overflow-y-auto py-8">
+    <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full flex items-center justify-center py-8" :no-pill="true" fade-from="#0f172a">
       <div
         v-if="currentSlide"
         class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-8 p-10"
@@ -194,7 +192,7 @@ const showDots = computed(() => slides.value.length <= MAX_DOTS)
           </div>
         </template>
       </div>
-    </div>
+    </ScrollContainer>
 
     <!-- ── Footer nav bar ────────────────────────────────────────────── -->
     <div class="flex items-center justify-between px-8 py-4 border-t border-gray-800 shrink-0">
@@ -261,13 +259,11 @@ const showDots = computed(() => slides.value.length <= MAX_DOTS)
     aria-label="Spec Presentation Mode"
   >
     <p class="text-gray-400 text-lg">No spec loaded</p>
-    <button
-      type="button"
-      class="h-11 px-6 rounded-full bg-gray-800 text-white hover:bg-gray-700 text-sm font-medium
-             focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-150"
+    <!-- Close — universal CloseDot per "Universal Close-Button Rule" -->
+    <CloseDot
+      variant="on-dark"
+      aria-label="Close presentation"
       @click="emit('close')"
-    >
-      Close
-    </button>
+    />
   </div>
 </template>

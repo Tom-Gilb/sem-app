@@ -131,16 +131,44 @@ export function useTaskSuggestions() {
         'Define the requirements for this step',
         'Implement and verify this step',
       ]
-    } else {
-      // Description is too short or has no imperative sentences —
-      // fall back to splitting into 2 equal halves as generic tasks.
-      const mid = Math.ceil(description.length / 2)
-      const half1 = description.slice(0, mid).trim().replace(/[.!?]+$/, '').trim()
-      const half2 = description.slice(mid).trim().replace(/[.!?]+$/, '').trim()
+    } else if (extracted.length === 1) {
+      // Exactly one imperative sentence — use it as task 1; derive task 2 from
+      // the remainder of the description (if any), else synthesise a verify step.
+      const sentence = extracted[0]
+      const remainder = description
+        .slice(description.toLowerCase().indexOf(sentence.toLowerCase()) + sentence.length)
+        .replace(/^[.!?,;\s]+/, '')
+        .trim()
+        .replace(/[.!?]+$/, '')
+        .trim()
       taskDescriptions = [
-        half1 || 'Plan this step',
-        half2 || 'Complete this step',
+        sentence,
+        remainder.length > 8 ? remainder : `Verify and test: ${sentence.slice(0, 60)}`,
       ]
+    } else {
+      // No imperative sentences found — try splitting on clause connectors
+      // (" and ", "; ") before falling back to a word-boundary mid-split.
+      // This avoids the previous bug of cutting words at a raw character index.
+      const trim = description.trim().replace(/[.!?]+$/, '').trim()
+
+      // Try clause-level split on " and " or "; "
+      const clauseSplit = trim.split(/\s+and\s+|;\s*/i).map(s => s.trim()).filter(Boolean)
+      if (clauseSplit.length >= 2) {
+        taskDescriptions = [clauseSplit[0], clauseSplit.slice(1).join(' and ')]
+      } else {
+        // Word-boundary mid-split — never cut inside a word
+        const mid = Math.ceil(trim.length / 2)
+        const spaceAfter  = trim.indexOf(' ', mid)
+        const spaceBefore = trim.lastIndexOf(' ', mid)
+        const splitAt = spaceAfter === -1 && spaceBefore === -1 ? mid
+          : spaceAfter  === -1 ? spaceBefore
+          : spaceBefore === -1 ? spaceAfter
+          : (spaceAfter - mid) <= (mid - spaceBefore) ? spaceAfter : spaceBefore
+        taskDescriptions = [
+          trim.slice(0, splitAt).trim().replace(/[.!?]+$/, '').trim() || 'Plan this step',
+          trim.slice(splitAt).trim().replace(/[.!?]+$/, '').trim()    || 'Complete this step',
+        ]
+      }
     }
 
     // --- Build TaskSuggestion objects ---

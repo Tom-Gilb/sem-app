@@ -3,6 +3,7 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
 import type { SpecBlock } from '../types/spec'
+import { ollamaChat } from '../lib/ollamaChat'
 
 export const INVEST_CRITERIA = [
   'Independent',
@@ -44,7 +45,7 @@ export function useInvestChecker(spec: Ref<SpecBlock | null>, apiKey: string) {
     const blocks = [currentSpec]
     checking.value = true
 
-    const isMock = !apiKey || import.meta.env.VITE_MOCK_MODE === 'true'
+    const isMock = (!apiKey && !import.meta.env.VITE_OLLAMA_MODEL) || import.meta.env.VITE_MOCK_MODE === 'true'
 
     if (isMock) {
       results.value = blocks.map(block => {
@@ -74,24 +75,7 @@ Return ONLY valid JSON in this format:
   ...
 }`
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5',
-          max_tokens: 2048,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      })
-
-      if (!response.ok) throw new Error(`API error: ${response.status}`)
-
-      const data = await response.json()
-      const text = data.content?.[0]?.text || '{}'
+      const text = await ollamaChat({ max_tokens: 2048, messages: [{ role: 'user', content: prompt }] })
       const parsed = JSON.parse(text) as Record<string, Record<string, boolean>>
 
       results.value = blocks.map(block => {

@@ -10,12 +10,16 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import ScrollContainer from './ScrollContainer.vue'
+import CloseDot from './CloseDot.vue'
+// DD-001 (2026-05-13).
+import GetGlyph from './icons/GetGlyph.vue'
 import {
   useModelComparison,
   addComparisonSlot,
   removeComparisonSlot,
   setComparisonMode,
-  toggleDiffCriterion,
+  selectDiffCriterion,
   setCriteriaModelForVDT,
   updateVDTCell,
   runAutoScore,
@@ -43,6 +47,7 @@ const {
   DIFF_CRITERIA,
   computeTypesDiff, computeTextDiff, computeValuesDiff, computeImpactDiff,
   computeSequencesDiff, computeFinancialsDiff, computeDurationDiff, computeEffortDiff,
+  selectDiffCriterion,
 } = useModelComparison()
 
 // Pre-load the current model on open
@@ -176,18 +181,15 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
             {{ slots.length }} model{{ slots.length !== 1 ? 's' : '' }}
           </span>
         </div>
-        <button
-          type="button"
-          class="flex h-9 w-9 items-center justify-center rounded-full text-slate-400
-                 hover:text-slate-700 hover:bg-slate-100 text-xl
-                 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
-          aria-label="Close comparison"
-          @click="handleClose"
-        >×</button>
+        <CloseDot
+        title="Close"
+        aria-label="Close comparison"
+        @click="handleClose"
+      />
       </div>
 
       <!-- ── Scrollable body ───────────────────────────────────────────────── -->
-      <div class="flex-1 overflow-y-auto">
+      <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full">
 
         <!-- ── Models section ─────────────────────────────────────────────── -->
         <div class="px-4 py-3 border-b bg-slate-50">
@@ -198,13 +200,14 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
             <div
               v-for="slot in slots"
               :key="slot.planModel.id"
-              class="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium border"
+              :title="slot.label"
+              class="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium border max-w-[18rem]"
               :class="criteriaModel?.id === slot.planModel.id
                 ? 'bg-indigo-100 border-indigo-300 text-indigo-800'
                 : 'bg-white border-slate-200 text-slate-700'"
             >
-              <span v-if="criteriaModel?.id === slot.planModel.id" class="text-[10px] text-indigo-600 font-bold uppercase tracking-wide">Criteria</span>
-              {{ slot.label }}
+              <span v-if="criteriaModel?.id === slot.planModel.id" class="flex-shrink-0 text-[10px] text-indigo-600 font-bold uppercase tracking-wide">Criteria</span>
+              <span class="truncate">{{ slot.label }}</span>
               <button
                 type="button"
                 class="flex h-4 w-4 items-center justify-center rounded-full hover:bg-black/10 text-[10px]"
@@ -230,15 +233,21 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
             <!-- Mode tabs -->
             <div class="flex gap-1">
               <button
-                v-for="tab in ([{ id: 'recall', label: '🗂️ From storage' }, { id: 'file', label: '📁 Import file' }] as const)"
+                v-for="tab in ([{ id: 'recall', label: 'From storage', emoji: '🗂️' }, { id: 'file', label: 'Import file', emoji: '' }] as const)"
                 :key="tab.id"
                 type="button"
-                class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors border focus:outline-none focus:ring-2 focus:ring-blue-400"
+                class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors border focus:outline-none focus:ring-2 focus:ring-blue-400 inline-flex items-center justify-center gap-1.5"
                 :class="addInputMode === tab.id
                   ? 'bg-blue-600 border-blue-600 text-white'
                   : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
                 @click="addInputMode = tab.id"
-              >{{ tab.label }}</button>
+              >
+                <!-- DD-001 — Import is a Get action, rendered as `[*]→*` SVG.
+                     The "From storage" tab keeps its 🗂️ emoji (filesystem state, not action). -->
+                <GetGlyph v-if="tab.id === 'file'" size="compact" class="h-3 w-auto" aria-hidden="true" />
+                <span v-else aria-hidden="true">{{ tab.emoji }}</span>
+                <span>{{ tab.label }}</span>
+              </button>
             </div>
 
             <!-- Recall from storage -->
@@ -275,7 +284,8 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
             <div v-else>
               <label class="flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-slate-300
                             cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm text-slate-600">
-                <span aria-hidden="true">📁</span> Choose Plan Model .json
+                <GetGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" />
+                <span>Choose Plan Model .json</span>
                 <input type="file" accept=".json,application/json" class="sr-only" @change="handleAddFile" />
               </label>
             </div>
@@ -325,21 +335,22 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
         <!-- ── Differences criteria selector ─────────────────────────────── -->
         <div v-if="mode === 'differences'" class="px-4 py-3 border-b bg-slate-50">
           <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
-            Compare by (select one or more):
+            Compare by:
           </p>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Comparison criterion">
             <button
               v-for="c in DIFF_CRITERIA"
               :key="c.key"
               type="button"
+              role="radio"
+              :aria-checked="activeCriteria[0] === c.key"
               :title="c.description"
-              :aria-pressed="activeCriteria.includes(c.key)"
               class="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-colors
                      focus:outline-none focus:ring-2 focus:ring-blue-400"
-              :class="activeCriteria.includes(c.key as DiffCriterion)
+              :class="activeCriteria[0] === c.key
                 ? 'bg-blue-600 border-blue-600 text-white'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'"
-              @click="toggleDiffCriterion(c.key)"
+              @click="selectDiffCriterion(c.key)"
             >
               <span aria-hidden="true">{{ c.icon }}</span>
               {{ c.label }}
@@ -727,7 +738,7 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
 
         <!-- Bottom padding -->
         <div class="h-16" />
-      </div>
+      </ScrollContainer>
     </div>
   </Teleport>
 </template>

@@ -47,8 +47,11 @@
           @click="setHighlight(layer.name)"
         >{{ layer.name }}</text>
 
-        <!-- Entry cards -->
-        <template v-for="(entry, ei) in layer.entries.slice(0, 4)" :key="entry.id">
+        <!-- Entry cards — show max 3 when overflow, to leave the 4th slot for the badge -->
+        <template
+          v-for="(entry, ei) in layer.entries.slice(0, layer.entries.length > 4 ? 3 : 4)"
+          :key="entry.id"
+        >
           <rect
             :x="130 + ei * 124"
             :y="li * 90 + 14"
@@ -69,16 +72,28 @@
           >{{ truncate(entry.id, 14) }}</text>
         </template>
 
-        <!-- Overflow count if > 4 entries -->
-        <text
-          v-if="layer.entries.length > 4"
-          :x="630"
-          :y="li * 90 + 45"
-          text-anchor="end"
-          dominant-baseline="middle"
-          font-size="10"
-          fill="#64748b"
-        >+{{ layer.entries.length - 4 }} more</text>
+        <!-- Overflow badge — occupies the 4th card slot, never overlaps cards -->
+        <template v-if="layer.entries.length > 4">
+          <rect
+            :x="130 + 3 * 124"
+            :y="li * 90 + 14"
+            width="110"
+            height="44"
+            rx="6"
+            fill="#f1f5f9"
+            stroke="#cbd5e1"
+            stroke-width="1"
+          />
+          <text
+            :x="130 + 3 * 124 + 55"
+            :y="li * 90 + 14 + 22"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            font-size="11"
+            fill="#64748b"
+            font-weight="600"
+          >+{{ layer.entries.length - 3 }} more</text>
+        </template>
       </template>
     </svg>
 

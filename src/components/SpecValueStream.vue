@@ -15,13 +15,13 @@
       <defs>
         <marker
           id="vsm-arrow"
-          markerWidth="8"
-          markerHeight="8"
-          refX="6"
-          refY="3"
+          markerWidth="10"
+          markerHeight="10"
+          refX="7"
+          refY="4"
           orient="auto"
         >
-          <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8" />
+          <path d="M0,0 L0,8 L10,4 z" fill="#475569" />
         </marker>
       </defs>
 
@@ -55,8 +55,8 @@
       >🔩 Solutions</text>
 
       <!-- Horizontal swimlane dividers -->
-      <line x1="0" y1="110" x2="620" y2="110" stroke="#e2e8f0" stroke-width="1" />
-      <line x1="0" y1="240" x2="620" y2="240" stroke="#e2e8f0" stroke-width="1" />
+      <line x1="0" y1="110" x2="620" y2="110" stroke="#cbd5e1" stroke-width="1.5" />
+      <line x1="0" y1="240" x2="620" y2="240" stroke="#cbd5e1" stroke-width="1.5" />
 
       <!-- Edges -->
       <g aria-hidden="true">
@@ -67,8 +67,8 @@
           :y1="edgeY1(edge.from)"
           :x2="nodeById(edge.to)?.x ?? 0"
           :y2="edgeY2(edge.to)"
-          stroke="#94a3b8"
-          stroke-width="1.5"
+          stroke="#475569"
+          stroke-width="3"
           marker-end="url(#vsm-arrow)"
         />
       </g>

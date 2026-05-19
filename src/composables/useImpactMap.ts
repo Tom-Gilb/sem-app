@@ -35,7 +35,7 @@ export function useImpactMap(blocks: SpecBlock[]) {
     const angle = (2 * Math.PI * i) / Math.max(allFunctions.length, 1)
     return {
       id: f.id,
-      label: f.id.replace(/^F\./, '').slice(0, 18),
+      label: f.id.slice(0, 18),
       type: 'function',
       x: Math.round(CENTRE_X + FUNCTION_RADIUS * Math.cos(angle)),
       y: Math.round(CENTRE_Y + FUNCTION_RADIUS * Math.sin(angle)),
@@ -59,7 +59,7 @@ export function useImpactMap(blocks: SpecBlock[]) {
     }
     return {
       id: v.id,
-      label: v.id.replace(/^V\./, '').slice(0, 18),
+      label: v.id.slice(0, 18),
       type: 'value',
       x: Math.round(CENTRE_X + VALUE_RADIUS * Math.cos(parentAngle)),
       y: Math.round(CENTRE_Y + VALUE_RADIUS * Math.sin(parentAngle)),

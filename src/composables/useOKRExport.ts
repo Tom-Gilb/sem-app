@@ -30,8 +30,8 @@ export function useOKRExport() {
 
     spec.functions.forEach((f) => {
       lines.push(`### Objective: ${f.description}`)
-      if (f.successCriteria) {
-        lines.push(`(Success: ${f.successCriteria})`)
+      if (f.presenceTest || f.successCriteria) {
+        lines.push(`(Presence: ${f.presenceTest || f.successCriteria})`)
       }
 
       // Find linked V. entries: V. id is referenced in functionOfValue

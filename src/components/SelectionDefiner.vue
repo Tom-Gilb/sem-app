@@ -5,14 +5,20 @@
        1. Floating "📖 Define" pill — appears above any non-trivial text selection.
           Clicking it triggers an AI definition lookup.
        2. Result panel — slides up from the bottom showing the definition + source.
-       3. Keyboard: Cmd+D / Ctrl+D calls defineCurrentSelection().
+       3. Keyboard: Cmd+I / Ctrl+I calls defineCurrentSelection().
           Voice "Define" is wired in App.vue dictation commands.
+
+     For Planguage terms: a "More Concept Detail" section appears below the AI definition,
+     loading the full glossary entry from the vault via the local /api/glossary endpoint.
+     The entry is organised into tabs (Card · Notes · Examples · Diagram · Mistakes).
+     Diagrams are rendered on demand using mermaid (lazy-loaded to keep initial bundle small).
 
      Props:  spec — the current SpecBlock (passed as context for AI definitions).
      No emits — self-contained via useDefine module-level state. -->
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import CloseDot from './CloseDot.vue'
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import {
   useDefine,
   defineTerm,
@@ -21,13 +27,16 @@ import {
   DEFINE_TYPE_LABELS,
   DEFINE_TYPE_COLOURS,
 } from '../composables/useDefine'
+import { useGlossaryEntry } from '../composables/useGlossaryEntry'
+import { parseGlossaryEntry } from '../utils/parseGlossaryEntry'
 import type { SpecBlock } from '../types/spec'
 
 const props = defineProps<{
   spec: SpecBlock | null
 }>()
 
-const { result, loading, error, open, term } = useDefine()
+const { result, loading, error, open, term, defineSearchOpen } = useDefine()
+const { loading: gLoading, entry: gEntry, error: gError, synonymOf: gSynonymOf, nearMatchOptions: gNearMatchOptions, fetchEntry, clearEntry } = useGlossaryEntry()
 
 // ── Floating pill state ────────────────────────────────────────────────────
 
@@ -35,6 +44,77 @@ const pillVisible = ref(false)
 const pillX       = ref(0)   // CSS left (pixels from viewport left)
 const pillY       = ref(0)   // CSS top (pixels from viewport top)
 const pillTerm    = ref('')
+
+// ── Persistent Define FAB + Term Search ───────────────────────────────────
+
+// defineSearchOpen comes from useDefine() module-level shared state.
+// openDefineSearch() (called from nav-bar buttons in App.vue) sets it true.
+// We read + write it directly here — no watch() needed, no reactive loop risk.
+// Local alias for ergonomics (same semantics as the old local termSearchOpen ref).
+const termSearchValue = ref('')
+const termSearchInputRef = ref<HTMLInputElement | null>(null)
+
+/** Last 5 defined terms — persisted to localStorage for quick re-lookup */
+const RECENT_TERMS_KEY = 'sem-define-recent'
+const recentTerms = ref<string[]>(() => {
+  try { return JSON.parse(localStorage.getItem(RECENT_TERMS_KEY) ?? '[]') as string[] } catch { return [] }
+})
+
+function _recordRecentTerm(t: string): void {
+  const next = [t, ...recentTerms.value.filter(r => r.toLowerCase() !== t.toLowerCase())].slice(0, 6)
+  recentTerms.value = next
+  try { localStorage.setItem(RECENT_TERMS_KEY, JSON.stringify(next)) } catch { /* quota */ }
+}
+
+/** Handle the always-visible 📖 Define FAB click. */
+function handleDefineFABClick(): void {
+  // Priority 1: live text selection
+  const sel = window.getSelection()?.toString().trim() ?? ''
+  if (sel.length >= MIN_CHARS && sel.length <= MAX_CHARS) {
+    pillVisible.value = false
+    defineTerm(sel, props.spec)
+    return
+  }
+  // Priority 2: last pill term (user selected text but pill is still pending)
+  if (pillTerm.value) {
+    pillVisible.value = false
+    defineTerm(pillTerm.value, props.spec)
+    return
+  }
+  // Priority 3: no selection — open term search panel
+  defineSearchOpen.value = true
+  termSearchValue.value = ''
+  nextTick(() => termSearchInputRef.value?.focus())
+}
+
+function handleTermSearchSubmit(): void {
+  const t = termSearchValue.value.trim()
+  if (t) {
+    defineSearchOpen.value = false
+    termSearchValue.value = ''
+    defineTerm(t, props.spec)
+  }
+}
+
+function closeTermSearch(): void {
+  defineSearchOpen.value = false
+  termSearchValue.value = ''
+}
+
+// ── First-use ⌘I discovery tip ────────────────────────────────────────────
+// Shown once after the first successful define (any method), then permanently
+// dismissed via localStorage flag.  Teaches the keyboard shortcut + no-
+// selection path at the moment of highest engagement — right after the user
+// sees their first definition result.
+const TIP_SHOWN_KEY = 'sem-define-tip-shown'
+const tipDismissed = ref<boolean>(
+  (() => { try { return localStorage.getItem(TIP_SHOWN_KEY) === '1' } catch { return false } })(),
+)
+
+function dismissTip(): void {
+  tipDismissed.value = true
+  try { localStorage.setItem(TIP_SHOWN_KEY, '1') } catch { /* quota */ }
+}
 
 let _selectionTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -72,15 +152,29 @@ function _updatePill(): void {
       return
     }
 
-    // Position: centred above the selection, 8px gap
+    // Position: centred above the selection, 8px gap.
+    //
+    // Bug fix (2026-05-12): when the selection is INSIDE the SelectionDefiner
+    // card itself (drilling into a glossary term inside More Concept Detail),
+    // the pill at `rect.top − 44px` often lands on top of the violet gradient
+    // header — the user sees their own selection covered by the bar. Detect
+    // that case via `closest('[data-seldef-card]')` and force the pill BELOW
+    // the selection instead so the highlighted text and the surrounding
+    // context both stay visible.
     const PILL_HEIGHT = 36
-    const rawTop      = rect.top - PILL_HEIGHT - 8
+    const insideCard  = (() => {
+      const node = range.startContainer
+      const el   = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement
+      return !!el?.closest('[data-seldef-card]')
+    })()
+    const rawTop = rect.top - PILL_HEIGHT - 8
+    const flipBelow = insideCard || rawTop < 4
 
     pillX.value       = Math.min(
       Math.max(rect.left + rect.width / 2, 60),
       window.innerWidth - 60,
     )
-    pillY.value       = rawTop < 4 ? rect.bottom + 8 : rawTop   // flip below if too high
+    pillY.value       = flipBelow ? rect.bottom + 8 : rawTop
     pillTerm.value    = text
     pillVisible.value = true
   } catch {
@@ -100,14 +194,34 @@ function _onMouseup(): void {
 }
 
 function _onKeydown(e: KeyboardEvent): void {
-  // Cmd+D / Ctrl+D — define selection
-  if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+  // Cmd+I / Ctrl+I — illuminate selection (or open term search if nothing selected).
+  // Guard: skip only if result panel is already open (user can see it, no double-trigger).
+  // NOTE: do NOT guard on loading.value — _loading is module-level state that Vite HMR
+  // preserves across hot reloads, so a loading=true from an interrupted call permanently
+  // blocks ⌘I for the rest of the session.  open.value covers the same case because
+  // _open is set true at the same moment _loading is set true inside defineTerm().
+  if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+    // Guard: don't intercept when the user is typing — ⌘I means italic in text contexts.
+    if (
+      document.activeElement instanceof HTMLInputElement ||
+      document.activeElement instanceof HTMLTextAreaElement
+    ) return
     e.preventDefault()
-    defineCurrentSelection(props.spec)
+    // Block ⌘I only when a completed result is being READ — not during loading or error.
+    // If the panel is stuck on a spinner (open=true, loading=true, result=null),
+    // allow ⌘I to start a fresh call so the user is never locked out.
+    if (open.value && result.value && !loading.value) return
+    const sel = window.getSelection()?.toString().trim() ?? ''
+    if (sel.length >= MIN_CHARS && sel.length <= MAX_CHARS) {
+      defineCurrentSelection(props.spec)
+    } else {
+      handleDefineFABClick()  // no selection → open term search
+    }
   }
-  // Escape — close the result panel
-  if (e.key === 'Escape' && open.value) {
-    closeDefine()
+  // Escape — close result panel OR term search
+  if (e.key === 'Escape') {
+    if (open.value) { closeDefine(); return }
+    if (defineSearchOpen.value) { closeTermSearch(); return }
   }
 }
 
@@ -137,6 +251,340 @@ const typeLabel = computed(() =>
 const typeColour = computed(() =>
   result.value ? DEFINE_TYPE_COLOURS[result.value.type] : 'bg-slate-100 text-slate-600',
 )
+
+// ── More Concept Detail — Planguage glossary section ──────────────────────
+
+/** Whether the glossary panel is expanded */
+const detailOpen    = ref(false)
+/** Active tab in the detail panel */
+type DetailTab = 'card' | 'notes' | 'examples' | 'diagram' | 'mistakes' | 'joke' | 'related'
+const activeDetailTab = ref<DetailTab>('card')
+
+const detailTabs: { key: DetailTab; emoji: string; label: string }[] = [
+  { key: 'card',     emoji: '🃏', label: 'At a Glance' },
+  { key: 'notes',    emoji: '📝', label: 'Notes'        },
+  { key: 'examples', emoji: '💡', label: 'Examples'     },
+  { key: 'diagram',  emoji: '🗂️', label: 'Diagram'      },
+  { key: 'mistakes', emoji: '⚠️', label: 'Mistakes'     },
+  { key: 'joke',     emoji: '😄', label: 'Joke'         },
+  { key: 'related',  emoji: '🔗', label: 'Related'      },
+]
+
+// ── Related-concept diagram fallback ─────────────────────────────────────
+// When the primary entry has no diagrams, we probe related concepts in order
+// and use the first one that has a diagram.
+
+const relatedDiagrams       = ref<string[]>([])
+const relatedDiagramLabel   = ref('')   // human-readable name of the source concept
+const relatedDiagramLoading = ref(false)
+
+/** Diagrams to actually render — primary entry first, related entry as fallback. */
+const activeDiagrams = computed<string[]>(() =>
+  (gEntry.value?.diagrams.length ?? 0) > 0
+    ? gEntry.value!.diagrams
+    : relatedDiagrams.value,
+)
+
+// When any result arrives, reset diagram + tab state and background-probe the
+// glossary. The pin appears only when the vault actually has an entry for this
+// term — so classification (planguage-term vs CE concept etc.) no longer matters.
+//
+// Bug fix (2026-05-12): `detailOpen` is now STICKY across re-defines. If the
+// More Concept Detail panel was already open and the user selects another term
+// inside it (drill-down within the glossary itself), keep it expanded so the
+// new entry replaces the old one in-place — instead of forcing the user to
+// re-click the "More Concept Detail" pin every single time.
+watch(result, (r) => {
+  const wasOpen            = detailOpen.value
+  activeDetailTab.value    = 'card'
+  diagramRendered.value    = false
+  diagramError.value       = ''
+  diagramRendering.value   = false
+  relatedDiagrams.value    = []
+  relatedDiagramLabel.value = ''
+  if (r?.term) _recordRecentTerm(r.term)
+  clearEntry()
+  // Silent background probe — 404s are swallowed; pin shows only on a vault match.
+  // Pass `wasOpen` so the response handler can immediately re-show detail panel.
+  if (r?.term) {
+    fetchEntry(r.term).then(() => {
+      // Only keep open if the new term actually resolved to a vault entry —
+      // otherwise the empty pin would show "open" with nothing inside.
+      if (wasOpen && gEntry.value) detailOpen.value = true
+      else if (!wasOpen) detailOpen.value = false
+    }).catch(() => {
+      detailOpen.value = false
+    })
+  } else {
+    detailOpen.value = false
+  }
+})
+
+// When the result panel opens: immediately hide the floating pill so it can't
+// be double-clicked while a lookup is in flight (the "eternal spinner" bug).
+// When the panel closes: reset detail state.
+watch(open, (o) => {
+  if (o) {
+    // Panel just opened — pill must vanish so user can't re-trigger define
+    pillVisible.value = false
+  } else {
+    detailOpen.value = false
+    clearEntry()
+  }
+})
+
+// ── Helpers: related-concept diagram fetch ─────────────────────────────────
+
+/** Extract file stems from all [[wikilinks]] in a markdown string. */
+function parseWikilinkTerms(md: string): string[] {
+  const re = /\[\[([^\]|]+?)(?:\|[^\]]*?)?\]\]/g
+  const seen = new Set<string>()
+  let m: RegExpExecArray | null
+  while ((m = re.exec(md)) !== null) {
+    const stem = m[1].trim()
+    if (stem) seen.add(stem)
+  }
+  return [...seen]
+}
+
+/**
+ * Walk related concepts in order; fetch the first one that has diagrams.
+ * Sets relatedDiagrams and relatedDiagramLabel on success.
+ */
+async function fetchRelatedDiagram(): Promise<void> {
+  if (!gEntry.value || relatedDiagramLoading.value) return
+  const terms = parseWikilinkTerms(gEntry.value.relatedConcepts)
+  if (terms.length === 0) return
+
+  relatedDiagramLoading.value = true
+  try {
+    for (const term of terms) {
+      try {
+        const res = await fetch(`/api/glossary?term=${encodeURIComponent(term)}`)
+        if (!res.ok) continue
+        const md      = await res.text()
+        const related = parseGlossaryEntry(md, term)
+        if (related.diagrams.length > 0) {
+          relatedDiagrams.value      = related.diagrams
+          relatedDiagramLabel.value  = related.term
+          return
+        }
+      } catch {
+        // try next related concept
+      }
+    }
+  } finally {
+    relatedDiagramLoading.value = false
+  }
+}
+
+// ── Auto-render watches ───────────────────────────────────────────────────
+
+/**
+ * Core trigger: called whenever the diagram tab becomes active.
+ * 1. If primary entry has diagrams → auto-render immediately.
+ * 2. Otherwise → fetch first related concept with a diagram, then render.
+ */
+async function _triggerDiagramTab(): Promise<void> {
+  if (!gEntry.value || !detailOpen.value) return
+
+  if (activeDiagrams.value.length > 0) {
+    if (!diagramRendered.value && !diagramRendering.value) renderDiagram(0, activeDiagrams.value)
+    return
+  }
+  // No diagrams yet — try related concepts
+  if (!relatedDiagramLoading.value && relatedDiagrams.value.length === 0) {
+    await fetchRelatedDiagram()
+  }
+  if (activeDiagrams.value.length > 0 && !diagramRendered.value && !diagramRendering.value) {
+    renderDiagram(0, activeDiagrams.value)
+  }
+}
+
+// Fire when user switches to the Diagram tab
+watch(activeDetailTab, (tab) => {
+  if (tab === 'diagram') _triggerDiagramTab()
+})
+
+// Fire when gEntry arrives late (e.g. entry loaded after user opened diagram tab)
+watch(gEntry, () => {
+  if (activeDetailTab.value === 'diagram' && detailOpen.value) _triggerDiagramTab()
+})
+
+function handleMoreDetailClick(): void {
+  if (detailOpen.value) {
+    detailOpen.value = false
+    return
+  }
+  detailOpen.value = true
+  // User-initiated fetch — shows vault errors if the endpoint is unreachable
+  if (!gEntry.value && !gLoading.value && result.value) {
+    fetchEntry(result.value.term, true)
+  }
+}
+
+// ── Mermaid diagram rendering ─────────────────────────────────────────────
+//
+// mermaid@11 ships only as chunked ESM builds (.core.mjs / .esm.min.mjs).
+// All builds use relative dynamic chunk imports at runtime:
+//   await import("./chunks/mermaid.core/flowDiagram-*.mjs")
+// Vite's dep pre-bundler (esbuild) inlines static imports but preserves
+// dynamic imports, so the chunk paths break when the pre-bundled file is
+// placed outside node_modules — causing "Importing a module script failed"
+// in every browser.
+//
+// The fix: load mermaid.min.js (the IIFE/UMD build — zero dynamic imports,
+// fully self-contained, sets globalThis.mermaid) as a plain <script> from
+// /public. Files in public/ bypass Vite's module pipeline entirely.
+// The script is injected lazily the first time the Diagram tab is opened,
+// then cached in `_mermaidInstance` for all subsequent renders.
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MermaidGlobal = { initialize(cfg: Record<string, unknown>): void; render(id: string, src: string): Promise<{ svg: string }> }
+let _mermaidInstance: MermaidGlobal | null = null
+
+function _loadMermaidScript(): Promise<MermaidGlobal> {
+  // Already loaded in a previous render
+  if (_mermaidInstance) return Promise.resolve(_mermaidInstance)
+  // globalThis.mermaid set by a previous script-tag injection this session
+  const existing = (globalThis as Record<string, unknown>).mermaid as MermaidGlobal | undefined
+  if (existing) { _mermaidInstance = existing; return Promise.resolve(existing) }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    // /public/mermaid.min.js — copied from node_modules at build time,
+    // served as a static file with no Vite transforms.
+    script.src = '/mermaid.min.js'
+    script.onload = () => {
+      const m = (globalThis as Record<string, unknown>).mermaid as MermaidGlobal | undefined
+      if (m) { _mermaidInstance = m; resolve(m) }
+      else reject(new Error('mermaid global not found after script load'))
+    }
+    script.onerror = () => reject(new Error('Failed to load /mermaid.min.js — check public/ folder'))
+    document.head.appendChild(script)
+  })
+}
+
+const diagramContainer = ref<HTMLElement | null>(null)
+const diagramRendered  = ref(false)
+const diagramError     = ref('')
+const diagramRendering = ref(false)
+let   _diagramIndex    = 0   // which diagram is being shown (0-based)
+
+async function renderDiagram(index = 0, sourceDiagrams?: string[]): Promise<void> {
+  const diagrams = sourceDiagrams ?? gEntry.value?.diagrams ?? []
+  if (diagrams.length === 0) return
+  const source = diagrams[index]
+  if (!source) return
+
+  diagramRendering.value = true
+  diagramError.value     = ''
+  _diagramIndex          = index
+
+  // Switch to diagram tab so the container mounts
+  activeDetailTab.value = 'diagram'
+  await nextTick()
+
+  if (!diagramContainer.value) {
+    diagramError.value = 'Diagram container not ready — try again.'
+    diagramRendering.value = false
+    return
+  }
+
+  try {
+    const mermaid = await _loadMermaidScript()
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+    })
+    const id = `sel-def-diagram-${Date.now()}`
+    const { svg } = await mermaid.render(id, source)
+    diagramContainer.value.innerHTML = svg
+    // Bug fix (2026-05-12): mermaid 11 stamps the rendered <svg> with an
+    // inline `style="max-width: …px; max-height: …px"` plus explicit width/
+    // height attributes that match its OWN measured viewport — NOT the
+    // SelectionDefiner card's width. When the card body is narrower than
+    // mermaid's measurement, the bottom half of every diagram silently
+    // clipped (the user only saw the top text, edges and arrow tails were
+    // cut off). Strip those constraints and force a responsive sizing
+    // contract: width 100% of the container, height auto-derived from the
+    // viewBox aspect ratio, no max-height cap. The Tailwind selectors on
+    // the container (`[&_svg]:max-w-full [&_svg]:h-auto`) cover the
+    // breakpoint defaults; this block guarantees mermaid's inline styles
+    // don't override them.
+    const svgEl = diagramContainer.value.querySelector('svg')
+    if (svgEl) {
+      svgEl.removeAttribute('width')
+      svgEl.removeAttribute('height')
+      svgEl.style.cssText = 'display:block;width:100%;height:auto;max-width:100%;max-height:none;'
+    }
+    diagramRendered.value = true
+  } catch (err) {
+    diagramError.value = err instanceof Error ? err.message : 'Diagram render failed.'
+    diagramRendered.value = false
+  } finally {
+    diagramRendering.value = false
+  }
+}
+
+// Simple markdown table → HTML renderer (handles | col | col | tables only)
+function renderMarkdownTable(md: string): string {
+  const lines = md.split('\n').filter(l => l.trim().startsWith('|'))
+  if (lines.length < 2) return `<pre class="text-xs text-slate-600 whitespace-pre-wrap">${md}</pre>`
+
+  const rows = lines.map(l =>
+    l.split('|').slice(1, -1).map(c => c.trim()),
+  )
+  // Filter separator rows (|---|---|)
+  const dataRows = rows.filter(r => !r.every(c => /^[-:]+$/.test(c)))
+  if (dataRows.length === 0) return ''
+
+  const [head, ...body] = dataRows
+  const ths = head.map(c => `<th class="px-3 py-1.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200 bg-slate-50">${c}</th>`).join('')
+  const trs = body.map(r =>
+    `<tr class="border-b border-slate-100 last:border-0">${r.map((c, i) => `<td class="px-3 py-2 text-xs text-slate-700 ${i === 0 ? 'font-medium w-32 flex-shrink-0' : ''}">${c}</td>`).join('')}</tr>`,
+  ).join('')
+
+  return `<table class="w-full text-left border border-slate-200 rounded-lg overflow-hidden text-xs"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`
+}
+
+// Render a markdown section (strip Mermaid blocks, basic formatting)
+function renderMarkdownText(md: string): string {
+  return md
+    // Remove mermaid blocks entirely (shown in Diagram tab)
+    .replace(/```mermaid[\s\S]*?```/g, '')
+    // Code blocks → <pre>
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+      `<pre class="bg-slate-900 text-green-300 text-[10px] rounded-lg p-3 overflow-x-auto my-2 leading-relaxed">${escapeHtml(code.trim())}</pre>`,
+    )
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Inline code
+    .replace(/`([^`]+)`/g, '<code class="bg-slate-100 text-violet-700 text-[10px] px-1 rounded">$1</code>')
+    // Wikilinks → plain text
+    .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, _path, alias) => alias ?? _path.split('/').pop() ?? _path)
+    // Markdown links
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // ❌ / ✓ lines (list items)
+    .replace(/^[-*] (❌|✓|⚠️) /gm, '<span class="mr-1">$1</span>')
+    // List items
+    .replace(/^[-*] (.+)$/gm, '<li class="mb-1">$1</li>')
+    .replace(/(<li[\s\S]*?<\/li>)+/g, '<ul class="list-none space-y-1 my-2 pl-0">$&</ul>')
+    // Headings stripped
+    .replace(/^#{1,6} .+$/gm, '')
+    // Paragraphs: blank lines → paragraph breaks
+    .replace(/\n{2,}/g, '</p><p class="mb-3">')
+    .replace(/^/, '<p class="mb-3">')
+    .replace(/$/, '</p>')
+    // Clean up empty paragraphs
+    .replace(/<p class="mb-3"><\/p>/g, '')
+    .trim()
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 </script>
 
 <template>
@@ -153,11 +601,18 @@ const typeColour = computed(() =>
       leave-from-class="opacity-100 scale-100"
       leave-to-class="opacity-0 scale-90"
     >
+      <!-- Universal Define-by-Selection rule (DD-002 follow-up 2026-05-14):
+           pill renders above most surfaces at z-[10100].
+           z history: z-[380] → z-[700] (2026-05-14) → z-[950] (2026-05-17)
+           → z-[10100] (2026-05-17).
+           NOTE: the Version History drawer and PlanModelPanel drawer are now
+           at z-[10200]/z-[10201] so they correctly cover the pill when open —
+           the pill should not be reachable when a full-panel overlay is up. -->
       <button
-        v-if="pillVisible && !open"
+        v-if="pillVisible"
         type="button"
-        aria-label="Define selected text"
-        class="fixed z-[350] flex items-center gap-1.5 px-3 py-1.5 rounded-full
+        aria-label="Illuminate selected text"
+        class="fixed z-[10100] flex items-center gap-1.5 px-3 py-1.5 rounded-full
                bg-violet-600 text-white text-xs font-semibold shadow-lg
                hover:bg-violet-700 active:scale-95
                focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-1
@@ -169,8 +624,10 @@ const typeColour = computed(() =>
         }"
         @mousedown.prevent="handlePillClick"
       >
-        <span aria-hidden="true">📖</span>
-        Define
+        <span aria-hidden="true">💡</span>
+        Illuminate
+        <!-- Tom 2026-05-17: teach ⌘I at the exact moment of first discovery -->
+        <kbd class="ml-0.5 text-[9px] font-mono bg-violet-500/60 rounded px-1 py-0.5 leading-none" aria-hidden="true">⌘I</kbd>
       </button>
     </Transition>
   </Teleport>
@@ -189,11 +646,13 @@ const typeColour = computed(() =>
     >
       <div
         v-if="open"
-        class="fixed bottom-0 left-0 right-0 z-[360] flex justify-center px-4 pb-4 pt-0"
+        class="fixed bottom-0 left-0 right-0 z-[10100] flex justify-center px-4 pb-4 pt-0"
         role="dialog"
         aria-modal="true"
         aria-label="Term definition"
-      >
+      ><!-- Universal Define-by-Selection rule: z-[10100] sits above most surfaces.
+            History and PlanModels drawers are at z-[10200]/z-[10201] so they
+            correctly cover this panel when open (drawers take priority). -->
         <!-- Backdrop -->
         <div
           class="fixed inset-0 z-[-1]"
@@ -201,17 +660,21 @@ const typeColour = computed(() =>
           @click="closeDefine"
         />
 
-        <!-- Card -->
+        <!-- Card — max-h set so it scrolls on small screens.
+             data-seldef-card: marker used by _updatePill() so that selections
+             made INSIDE this card flip the Define pill BELOW the selection
+             (otherwise the pill would land on the violet header bar above). -->
         <div
+          data-seldef-card
           class="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl
-                 border border-violet-200 bg-white"
+                 border border-violet-200 bg-white flex flex-col max-h-[90dvh]"
         >
           <!-- Header -->
-          <div class="flex items-start justify-between px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600">
+          <div class="flex items-start justify-between px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 flex-shrink-0">
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-base" aria-hidden="true">📖</span>
-                <span class="text-sm font-bold text-white tracking-wide">Defining</span>
+                <span class="text-base" aria-hidden="true">💡</span>
+                <span class="text-sm font-bold text-white tracking-wide">Illuminating</span>
                 <!-- Type badge (shown after result arrives) -->
                 <span
                   v-if="result"
@@ -225,19 +688,20 @@ const typeColour = computed(() =>
                 "{{ term || result?.term }}"
               </p>
             </div>
-            <button
-              type="button"
-              class="flex-shrink-0 ml-3 text-violet-200 hover:text-white text-xl leading-none
-                     focus:outline-none focus:ring-2 focus:ring-white rounded"
-              aria-label="Close definition"
-              @click="closeDefine"
-            >
-              ×
-            </button>
+            <CloseDot
+        variant="on-dark"
+        title="Close"
+        aria-label="Close definition"
+        @click="closeDefine"
+      />
           </div>
 
-          <!-- Body -->
-          <div class="px-4 py-4">
+          <!-- Body (scrollable) — plain overflow div; no scroll indicator overlay.
+               ScrollContainer's gradient/pill both obscure the "More Concept Detail" pin
+               and tab bar (and the diagram when rendered), so indicator is omitted here.
+               The pin button + tab structure already communicate that more content exists.
+               audit-ignore: scroll — documented opt-out, see comment above. -->
+          <div class="flex-1 min-h-0 overflow-y-auto px-4 py-4">
             <!-- Loading state -->
             <div v-if="loading" class="flex items-center gap-3" role="status" aria-live="polite">
               <div class="h-5 w-5 flex-shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600" aria-hidden="true" />
@@ -270,13 +734,302 @@ const typeColour = computed(() =>
                   {{ typeLabel }}
                 </span>
               </div>
+
+              <!-- ── Near-match suggestions — vault has no direct entry but prefix-similar concepts exist ── -->
+              <div
+                v-if="!gEntry && gNearMatchOptions.length > 0"
+                class="mt-4 border-t border-slate-100 pt-3"
+              >
+                <p class="text-[11px] text-slate-400 mb-2 flex items-center gap-1.5">
+                  <span aria-hidden="true">🔍</span>
+                  Not in vault glossary. Related concepts:
+                </p>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="option in gNearMatchOptions"
+                    :key="option"
+                    type="button"
+                    :aria-label="`Define ${option}`"
+                    class="px-2.5 py-1 rounded-full text-xs font-semibold
+                           bg-violet-50 text-violet-700 border border-violet-200
+                           hover:bg-violet-100 active:scale-95 transition-colors
+                           focus:outline-none focus:ring-2 focus:ring-violet-400"
+                    @click="defineTerm(option, props.spec)"
+                  >
+                    {{ option }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- ── More Concept Detail pin — shown when vault has a glossary entry ── -->
+              <div v-if="gEntry" class="mt-4 border-t border-violet-100 pt-3">
+                <button
+                  type="button"
+                  :aria-expanded="detailOpen"
+                  :aria-label="detailOpen ? 'Hide concept detail' : 'Show more concept detail from vault glossary'"
+                  class="w-full flex items-center justify-between px-3 py-2 rounded-xl
+                         bg-violet-50 hover:bg-violet-100 border border-violet-200
+                         text-xs font-semibold text-violet-700 transition-colors
+                         focus:outline-none focus:ring-2 focus:ring-violet-400"
+                  @click="handleMoreDetailClick"
+                >
+                  <span class="flex items-center gap-2">
+                    <span aria-hidden="true">🔍</span>
+                    More Concept Detail
+                    <span
+                      v-if="gEntry"
+                      class="text-[9px] font-normal text-violet-500"
+                    >
+                      {{ gEntry.conceptNumber }} · {{ gEntry.keyedIcon }}
+                    </span>
+                  </span>
+                  <!-- Chevron -->
+                  <span
+                    class="text-violet-400 transition-transform duration-200"
+                    :class="detailOpen ? 'rotate-180' : ''"
+                    aria-hidden="true"
+                  >▾</span>
+                </button>
+
+                <!-- ── Detail panel (expanded) ── -->
+                <Transition
+                  enter-active-class="transition-all duration-200 ease-out overflow-hidden"
+                  enter-from-class="opacity-0 max-h-0"
+                  enter-to-class="opacity-100 max-h-[2000px]"
+                  leave-active-class="transition-all duration-150 ease-in overflow-hidden"
+                  leave-from-class="opacity-100 max-h-[2000px]"
+                  leave-to-class="opacity-0 max-h-0"
+                >
+                  <div v-if="detailOpen" class="mt-2">
+
+                    <!-- Loading glossary entry -->
+                    <div v-if="gLoading" class="flex items-center gap-2 py-3 text-xs text-slate-400" role="status">
+                      <div class="h-4 w-4 animate-spin rounded-full border-2 border-violet-200 border-t-violet-500" aria-hidden="true" />
+                      Loading from vault glossary…
+                    </div>
+
+                    <!-- Glossary not found -->
+                    <p v-else-if="gError" class="text-xs text-amber-600 py-2">
+                      {{ gError }}
+                    </p>
+
+                    <!-- Glossary entry loaded -->
+                    <template v-else-if="gEntry">
+                      <!-- Summary callout -->
+                      <div
+                        v-if="gEntry.atAGlanceSummary"
+                        class="mb-3 bg-violet-50 border-l-4 border-violet-400 rounded-r-lg px-3 py-2"
+                      >
+                        <p class="text-[11px] text-violet-800 leading-relaxed">{{ gEntry.atAGlanceSummary }}</p>
+                      </div>
+
+                      <!-- Synonym resolution badge -->
+                      <div
+                        v-if="gSynonymOf"
+                        class="mb-2 flex items-center gap-1.5 px-2 py-1 rounded-lg
+                               bg-slate-50 border border-slate-200 text-[10px] text-slate-400"
+                      >
+                        <span aria-hidden="true">↩</span>
+                        Matched as:
+                        <span class="font-semibold text-violet-600">{{ gSynonymOf }}</span>
+                      </div>
+
+                      <!-- Tab bar -->
+                      <div class="flex gap-1 overflow-x-auto pb-1 mb-2 border-b border-slate-100">
+                        <button
+                          v-for="tab in detailTabs"
+                          :key="tab.key"
+                          type="button"
+                          :aria-selected="activeDetailTab === tab.key"
+                          :class="[
+                            'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-shrink-0 transition-colors',
+                            activeDetailTab === tab.key
+                              ? 'bg-violet-100 text-violet-700'
+                              : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50',
+                          ]"
+                          @click="activeDetailTab = tab.key"
+                        >
+                          <span aria-hidden="true">{{ tab.emoji }}</span>
+                          {{ tab.label }}
+                        </button>
+                      </div>
+
+                      <!-- Tab: At a Glance -->
+                      <div v-if="activeDetailTab === 'card'" class="overflow-x-auto">
+                        <div
+                          v-if="gEntry.atAGlanceCard"
+                          v-html="renderMarkdownTable(gEntry.atAGlanceCard)"
+                        />
+                        <p v-else class="text-xs text-slate-400 italic">No at-a-glance card in this entry.</p>
+                      </div>
+
+                      <!-- Tab: Notes -->
+                      <div
+                        v-else-if="activeDetailTab === 'notes'"
+                        class="text-xs text-slate-700 leading-relaxed space-y-2 [&_strong]:font-semibold [&_code]:text-violet-700 [&_code]:bg-violet-50 [&_code]:px-1 [&_code]:rounded [&_pre]:overflow-x-auto"
+                      >
+                        <div v-if="gEntry.notes" v-html="renderMarkdownText(gEntry.notes)" />
+                        <p v-else class="text-slate-400 italic">No notes section in this entry.</p>
+                      </div>
+
+                      <!-- Tab: Examples -->
+                      <div v-else-if="activeDetailTab === 'examples'">
+                        <div
+                          v-if="gEntry.examples"
+                          class="text-xs [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:text-[10px]"
+                          v-html="renderMarkdownText(gEntry.examples)"
+                        />
+                        <p v-else class="text-xs text-slate-400 italic">No examples in this entry.</p>
+                      </div>
+
+                      <!-- Tab: Diagram -->
+                      <div v-else-if="activeDetailTab === 'diagram'">
+
+                        <!-- Nothing available anywhere -->
+                        <div
+                          v-if="activeDiagrams.length === 0 && !relatedDiagramLoading"
+                          class="text-xs text-slate-400 italic"
+                        >
+                          No diagrams in this entry or its related concepts.
+                        </div>
+
+                        <!-- Searching related concepts -->
+                        <div
+                          v-if="relatedDiagramLoading"
+                          class="flex items-center gap-2 py-3 text-xs text-slate-400"
+                          role="status"
+                        >
+                          <div class="h-4 w-4 animate-spin rounded-full border-2 border-violet-200 border-t-violet-500" aria-hidden="true" />
+                          Searching related concepts for a diagram…
+                        </div>
+
+                        <!-- Related concept attribution -->
+                        <div
+                          v-if="relatedDiagramLabel && (gEntry?.diagrams.length ?? 0) === 0 && relatedDiagrams.length > 0"
+                          class="mb-2 flex items-center gap-1.5 px-2 py-1 rounded-lg
+                                 bg-amber-50 border border-amber-200 text-[10px] text-amber-700"
+                        >
+                          <span aria-hidden="true">🔗</span>
+                          No direct diagram — using related:
+                          <span class="font-semibold">{{ relatedDiagramLabel }}</span>
+                        </div>
+
+                        <template v-if="activeDiagrams.length > 0">
+                          <!-- Multi-diagram selector -->
+                          <div v-if="activeDiagrams.length > 1" class="flex gap-2 mb-2 flex-wrap">
+                            <button
+                              v-for="(_, idx) in activeDiagrams"
+                              :key="idx"
+                              type="button"
+                              class="px-2 py-1 text-[10px] rounded bg-slate-100 text-slate-600 hover:bg-violet-100 hover:text-violet-700 transition-colors"
+                              @click="renderDiagram(idx, activeDiagrams)"
+                            >
+                              Diagram {{ idx + 1 }}
+                            </button>
+                          </div>
+
+                          <!-- Auto-rendering spinner -->
+                          <div v-if="diagramRendering" class="flex items-center gap-2 py-4 justify-center text-xs text-slate-400" role="status">
+                            <div class="h-4 w-4 animate-spin rounded-full border-2 border-violet-200 border-t-violet-500" aria-hidden="true" />
+                            Rendering diagram…
+                          </div>
+
+                          <!-- Render error + retry -->
+                          <div v-if="diagramError" class="py-2 space-y-2">
+                            <p class="text-xs text-red-500">{{ diagramError }}</p>
+                            <button
+                              type="button"
+                              class="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-semibold
+                                     hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-400
+                                     transition-colors"
+                              @click="renderDiagram(0, activeDiagrams)"
+                            >
+                              🔄 Retry
+                            </button>
+                          </div>
+
+                          <!-- Rendered SVG container -->
+                          <div
+                            ref="diagramContainer"
+                            class="overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto"
+                            aria-label="Mermaid diagram"
+                          />
+                        </template>
+                      </div>
+
+                      <!-- Tab: Mistakes -->
+                      <div
+                        v-else-if="activeDetailTab === 'mistakes'"
+                        class="text-xs text-slate-700 leading-relaxed [&_strong]:font-semibold [&_code]:text-violet-700 [&_code]:bg-violet-50 [&_code]:px-1 [&_code]:rounded"
+                      >
+                        <div v-if="gEntry.commonMistakes" v-html="renderMarkdownText(gEntry.commonMistakes)" />
+                        <p v-else class="text-slate-400 italic">No common mistakes section in this entry.</p>
+                      </div>
+
+                      <!-- Tab: Joke -->
+                      <div
+                        v-else-if="activeDetailTab === 'joke'"
+                        class="text-xs text-slate-700 leading-relaxed [&_strong]:font-semibold"
+                      >
+                        <div
+                          v-if="gEntry.joke"
+                          class="bg-amber-50 border-l-4 border-amber-300 rounded-r-lg px-3 py-2"
+                        >
+                          <p class="text-[11px] text-amber-800 leading-relaxed">{{ gEntry.joke }}</p>
+                        </div>
+                        <p v-else class="text-slate-400 italic">No joke in this entry.</p>
+                      </div>
+
+                      <!-- Tab: Related -->
+                      <div
+                        v-else-if="activeDetailTab === 'related'"
+                        class="text-xs text-slate-700 leading-relaxed [&_strong]:font-semibold [&_code]:text-violet-700 [&_code]:bg-violet-50 [&_code]:px-1 [&_code]:rounded"
+                      >
+                        <div
+                          v-if="gEntry.relatedConcepts"
+                          v-html="renderMarkdownText(gEntry.relatedConcepts)"
+                        />
+                        <p v-else class="text-slate-400 italic">No related concepts in this entry.</p>
+                      </div>
+                    </template>
+                  </div>
+                </Transition>
+              </div>
+              <!-- End More Concept Detail -->
+
             </template>
           </div>
 
+          <!-- ── ⌘I first-use tip — amber strip, flex-shrink-0 so it never scrolls away.
+               Shown once after first successful illumination (any trigger method).
+               Dismissed to localStorage; never shown again. Tom 2026-05-17:
+               "whenever define is actually used a reminder that ⌘I will give
+               illuminate without the term select." -->
+          <div
+            v-if="result && !tipDismissed"
+            class="px-4 py-2 bg-amber-50 border-t border-amber-200 flex items-center gap-2 flex-shrink-0"
+            role="note"
+          >
+            <span class="text-sm flex-shrink-0" aria-hidden="true">✨</span>
+            <span class="flex-1 text-[11px] text-amber-800 leading-snug">
+              Tip: press
+              <kbd class="font-mono bg-amber-100 border border-amber-200 rounded px-1 text-[10px] text-amber-700">⌘I</kbd>
+              anytime — no selection needed.
+            </span>
+            <button
+              type="button"
+              aria-label="Dismiss tip"
+              class="flex-shrink-0 text-amber-400 hover:text-amber-700 text-xs leading-none
+                     p-0.5 rounded focus:outline-none focus:ring-1 focus:ring-amber-400
+                     transition-colors"
+              @click="dismissTip"
+            >✕</button>
+          </div>
+
           <!-- Footer hint -->
-          <div class="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+          <div class="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
             <p class="text-[10px] text-slate-400">
-              Select any text and click <strong>📖 Define</strong>, or say <strong>"Define"</strong>, or press <kbd class="font-mono border border-slate-200 rounded px-1 bg-white text-slate-400">⌘D</kbd>
+              Select any text and click <strong>💡 Illuminate</strong>, or say <strong>"Illuminate"</strong>, or press <kbd class="font-mono border border-slate-200 rounded px-1 bg-white text-slate-400">⌘I</kbd>
             </p>
             <button
               type="button"
@@ -290,5 +1043,82 @@ const typeColour = computed(() =>
         </div>
       </div>
     </Transition>
+  </Teleport>
+
+  <!-- ────────────────────────────────────────────────────────────────────────
+       3. TERM SEARCH PANEL — opens via nav-bar Illuminate button or ⌘I with no selection.
+          FAB removed 2026-05-18 (was cluttering bottom-right, redundant with nav bar button).
+       ──────────────────────────────────────────────────────────────────────── -->
+  <Teleport to="body">
+    <!-- Term-search panel — shown when nav-bar Illuminate button or ⌘I clicked with no active selection -->
+    <Transition
+      enter-active-class="transition-all duration-150 ease-out"
+      enter-from-class="opacity-0 scale-95 translate-y-2"
+      enter-to-class="opacity-100 scale-100 translate-y-0"
+      leave-active-class="transition-all duration-100 ease-in"
+      leave-from-class="opacity-100 scale-100 translate-y-0"
+      leave-to-class="opacity-0 scale-95 translate-y-2"
+    >
+      <div
+        v-if="defineSearchOpen"
+        class="fixed bottom-[8.5rem] right-4 z-[10101] w-72 rounded-2xl
+               overflow-hidden shadow-2xl border border-violet-200 bg-white"
+        role="dialog"
+        aria-label="Define a term"
+      >
+        <!-- Backdrop (click outside to close) -->
+        <div
+          class="fixed inset-0 z-[-1]"
+          aria-hidden="true"
+          @click="closeTermSearch"
+        />
+        <!-- Header -->
+        <div class="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 flex items-center gap-2">
+          <span class="text-sm" aria-hidden="true">💡</span>
+          <span class="text-xs font-bold text-white tracking-wide flex-1">Illuminate any term</span>
+          <kbd class="text-[10px] text-white/70 font-mono bg-white/15 rounded px-1.5 py-0.5">⌘I</kbd>
+        </div>
+        <!-- Input -->
+        <div class="px-3 py-2.5">
+          <input
+            ref="termSearchInputRef"
+            v-model="termSearchValue"
+            type="text"
+            placeholder="Type any Planguage term…"
+            class="w-full rounded-lg border border-violet-200 px-3 py-2 text-sm
+                   text-slate-800 placeholder-slate-400
+                   focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent
+                   bg-violet-50"
+            @keydown.enter.prevent="handleTermSearchSubmit"
+            @keydown.escape.prevent="closeTermSearch"
+          />
+        </div>
+        <!-- Recent terms quick-picks -->
+        <div v-if="recentTerms.length > 0" class="px-3 pb-3 flex flex-wrap gap-1.5">
+          <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide w-full">Recent</span>
+          <button
+            v-for="rt in recentTerms"
+            :key="rt"
+            type="button"
+            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
+                   bg-violet-50 text-violet-700 border border-violet-200
+                   hover:bg-violet-100 hover:text-violet-800 transition-colors"
+            @click="termSearchValue = rt; handleTermSearchSubmit()"
+          >
+            {{ rt }}
+          </button>
+        </div>
+        <!-- Footer hint -->
+        <div class="px-4 pb-2.5 text-[10px] text-slate-400 flex items-center gap-1.5">
+          <kbd class="font-mono bg-slate-100 rounded px-1">↵</kbd> define ·
+          <kbd class="font-mono bg-slate-100 rounded px-1">Esc</kbd> close
+        </div>
+      </div>
+    </Transition>
+
+    <!-- FAB removed 2026-05-17: redundant — nav bar has "💡 Illuminate ⌘I" button,
+         floating pill appears on text selection, ⌘I works globally.
+         The persistent FAB was cluttering the bottom-right and clashing with
+         the Actions / Mic / Read Aloud buttons. -->
   </Teleport>
 </template>

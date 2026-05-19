@@ -201,6 +201,9 @@ describe('useSDK', () => {
   it('sets error and returns null when VITE_ANTHROPIC_API_KEY is not set', async () => {
     // Spec: S.EvoStep2.PipelineHandler — missing API key must produce a clear error
     // Coverage: line 23 — getClient() throw path when apiKey is falsy
+    // Stub Ollama vars to '' so isLocal=false and the API key guard fires
+    vi.stubEnv('VITE_OLLAMA_MODEL', '')
+    vi.stubEnv('VITE_OLLAMA_BASE_URL', '')
     vi.stubEnv('VITE_ANTHROPIC_API_KEY', '')
     _resetClientForTest()
     const { translate, error } = useSDK()

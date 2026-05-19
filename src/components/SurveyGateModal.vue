@@ -31,14 +31,14 @@ const RATINGS = [1, 2, 3, 4, 5] as const
         <p class="flex-1 text-sm font-medium leading-snug text-gray-800">{{ question }}</p>
         <button
           type="button"
-          class="flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded
-                 text-gray-400 hover:text-gray-600
-                 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          class="group relative flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full
+                 bg-[#ff5f57] ring-1 ring-black/25
+                 hover:bg-[#ff3b30] hover:scale-125 transition-all
+                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+          title="Dismiss"
           aria-label="Dismiss survey"
           @click="emit('dismiss')"
-        >
-          ×
-        </button>
+        ><span class="opacity-70 group-hover:opacity-100 transition-opacity text-[9px] font-black text-red-900 leading-none select-none">⊖</span></button>
       </div>
 
       <!-- 1–5 rating buttons -->

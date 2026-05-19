@@ -23,6 +23,8 @@
 <script setup lang="ts">
 // UNIT_TYPE=Widget
 import { ref, computed, watch, onMounted, reactive, nextTick } from 'vue'
+import ScrollContainer from './ScrollContainer.vue'
+import CloseDot from './CloseDot.vue'
 import { useEvoPlan } from '../composables/useEvoPlan'
 import { useStepCostEstimator } from '../composables/useStepCostEstimator'
 import { useSprintPlanner } from '../composables/useSprintPlanner'
@@ -84,6 +86,11 @@ import { SKILL_CATEGORIES, buildSkillsMatrix, skillCellStyle } from '../utils/sk
 import RiskRadar from './RiskRadar.vue'
 import EffortRing from './EffortRing.vue'
 import LoadingProgress from './LoadingProgress.vue'
+import ConceptHint from './ConceptHint.vue'
+import { CONCEPT_HINTS } from '../data/conceptHints'
+import EditGlyph from './icons/EditGlyph.vue'
+import { VIZ_THUMBS, VIZ_STRIP_ITEMS } from '../constants/vizThumbs'
+import type { VisualisTab } from '../constants/vizThumbs'
 
 // ── Props and emits ───────────────────────────────────────────────────────────
 
@@ -93,6 +100,15 @@ const props = defineProps<{
   specBlock: SpecBlock
   /** Optional map of step name → tasks for Feature #47 emoji progress tracker */
   tasksByStep?: Record<string, TaskSuggestion[]>
+  /**
+   * Raw SEM input captured at submission time.
+   * Used to derive the stakeholder context banner (who benefits, what they need)
+   * shown at the top of the Evo Plan view — so the planner always knows WHOSE
+   * value each step is moving.
+   * Tom 2026-05-15: "THE SPECS DO NOT SHOW STAKEHOLDERS (AND THEIR NEEDS) AT
+   * LATER STAGES, this is important to understand and check the plans."
+   */
+  rawInput?: { stakes: string; ends: string; means: string } | null
 }>()
 
 /** Emitted when the user confirms the plan (plan is persisted) */
@@ -106,6 +122,16 @@ const emit = defineEmits<{
    * Parent (App.vue) should open the SharpenPanel modal.
    */
   'sharpen-plan': []
+  /** Open the global Diagrams & Visuals modal at a specific tab.
+   *  Tab defaults to 'flow' if omitted. */
+  'open-visualise': [{ tab: VisualisTab }]
+  /** Open the full-screen Heat Lane / Swimlane view. */
+  'open-heatlane': []
+  /** Open the Evo Simulator modal. */
+  'open-evo-simulator': []
+  /** Open the Spec Editor at a given tab — used by error states to give user a fix path.
+   *  Tom 2026-05-15: "there is no action path here" — error states need an escape route. */
+  'open-editor': [{ tab: 'functions' | 'values' | 'solutions' | 'constraints' }]
 }>()
 
 // ── Composable ────────────────────────────────────────────────────────────────
@@ -160,9 +186,9 @@ function computeRisk(
   const complexity = Math.min(1, step.effortPercent / 100)
 
   const others = allSteps.filter((s) => s !== step)
-  const myValues = new Set(step.linkedValues)
+  const myValues = new Set(step.linkedValues ?? [])
   const sharingCount = others.filter((s) =>
-    s.linkedValues.some((v) => myValues.has(v)),
+    (s.linkedValues ?? []).some((v) => myValues.has(v)),
   ).length
   const dependencies = allSteps.length > 1
     ? Math.min(1, sharingCount / (allSteps.length - 1))
@@ -297,6 +323,41 @@ function handleMobToggle(step: EvoStep, index: number): void {
   }
   toggleMobOpen(id)
 }
+
+// ── Traffic light: minimize / fullscreen expand states ───────────────────────
+const pairMinimized       = reactive<Record<string, boolean>>({})
+const mobMinimized        = reactive<Record<string, boolean>>({})
+const retroMinimized      = reactive<Record<string, boolean>>({})
+const readyMinimized      = reactive<Record<string, boolean>>({})
+const blockerMinimized    = reactive<Record<string, boolean>>({})
+const acceptMinimized     = reactive<Record<string, boolean>>({})
+const standMinimized      = reactive<Record<string, boolean>>({})
+const agendaMinimized     = reactive<Record<string, boolean>>({})
+const spikeMinimized      = reactive<Record<string, boolean>>({})
+
+/** Key format: '<type>-step-<index>' — e.g. 'pair-step-2' */
+const expandedPanel = ref<string | null>(null)
+
+const _exType = computed(() => expandedPanel.value?.split('-step-')[0] ?? '')
+const _exIdx  = computed(() => expandedPanel.value?.split('-step-')[1] ?? '0')
+const _exKey  = computed(() => `step-${_exIdx.value}`)
+
+const _exMeta = computed(() => {
+  switch (_exType.value) {
+    case 'pair':       return { emoji: '👥', title: 'Pair Program Plot',   bg: 'bg-blue-600',   border: 'border-blue-200' }
+    case 'mob':        return { emoji: '🖥️',  title: 'Mob Meandering',      bg: 'bg-sky-500',    border: 'border-sky-200' }
+    case 'retro':      return { emoji: '🎨',  title: 'Retro Themes',        bg: 'bg-violet-500', border: 'border-violet-200' }
+    case 'ready':      return { emoji: '🚦',  title: 'Definition of Ready', bg: 'bg-rose-500',   border: 'border-rose-200' }
+    case 'blocker':    return { emoji: '🚫',  title: 'Blocker Log',         bg: 'bg-red-600',    border: 'border-red-200' }
+    case 'acceptance': return { emoji: '🧪',  title: 'Acceptance Tests',    bg: 'bg-teal-600',   border: 'border-teal-200' }
+    case 'standup':    return { emoji: '📢',  title: 'Daily Standup',       bg: 'bg-green-600',  border: 'border-green-200' }
+    case 'agenda':     return { emoji: '📅',  title: 'Meeting Agenda',      bg: 'bg-indigo-600', border: 'border-indigo-200' }
+    case 'spike':      return { emoji: '⚡',  title: 'Spike Detector',      bg: 'bg-orange-500', border: 'border-orange-200' }
+    default:           return { emoji: '📋',  title: '',                    bg: 'bg-slate-600',  border: 'border-slate-200' }
+  }
+})
+
+function closeExpanded(): void { expandedPanel.value = null }
 
 // ── Feature #138: Blocker Log ─────────────────────────────────────────────────
 
@@ -695,10 +756,21 @@ function toggleEvoPanel(toggle: string): void {
   if (!r) return
   r.value = !r.value
   // When opening, scroll the panel into view after Vue renders it.
+  // We use manual window.scrollTo instead of scrollIntoView so we can subtract
+  // the 56px fixed Plan Identity Bar height and not have the panel hidden behind it.
   if (r.value) {
+    // Wait for Vue's DOM update, then wait for the browser's layout/paint cycle
+    // before measuring position. Without requestAnimationFrame, getBoundingClientRect()
+    // can return stale zeros on newly-shown v-if / v-show elements.
+    // scrollMarginTop tells the browser to leave 60px above the element (plan bar height)
+    // so scrollIntoView never hides the panel behind the fixed header.
     nextTick(() => {
-      document.querySelector<HTMLElement>(`[data-panel="${toggle}"]`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLElement>(`[data-panel="${toggle}"]`)
+        if (!el) return
+        el.style.scrollMarginTop = '60px'
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
     })
   }
 }
@@ -722,7 +794,7 @@ type StepActionItem = {
 
 /**
  * Returns the four labelled dropdown groups that replace the flat icon strip
- * under each Evo step card. Groups: Analyze · Visualize · Simplify · Criticize
+ * under each Evo step card. Groups: Analyze · Presentation · Visualize · Simplify · Criticize
  * (Financial is reserved for future per-step cost features).
  * All refs are accessed with .value here — Vue auto-unwraps only in templates.
  */
@@ -753,7 +825,7 @@ function stepActionGroups(step: EvoStep, index: number): Array<{ id: string; emo
       ],
     },
     {
-      id: 'visualize', emoji: '👁️', label: 'Visualize Spec',
+      id: 'presentation', emoji: '🖥️', label: 'Presentation',
       items: [
         { label: 'Daily Standup',  emoji: '📢', testid: `standup-gen-toggle-${index}`,
           isActive: () => standupGenMap.value[key]?.isOpen ?? false,
@@ -770,7 +842,21 @@ function stepActionGroups(step: EvoStep, index: number): Array<{ id: string; emo
       ],
     },
     {
-      id: 'simplify', emoji: '✨', label: 'Simplify Spec',
+      id: 'visualize', emoji: '🗺️', label: 'Visualize',
+      items: [
+        { label: 'Diagrams & Visuals', emoji: '📊',
+          isActive: () => false,
+          onClick:  () => emit('open-visualise', { tab: 'flow' }) },
+        { label: 'Swimlane View',      emoji: '🏊',
+          isActive: () => false,
+          onClick:  () => emit('open-heatlane') },
+        { label: 'Evo Simulator',      emoji: '▶',
+          isActive: () => false,
+          onClick:  () => emit('open-evo-simulator') },
+      ],
+    },
+    {
+      id: 'simplify', emoji: '✨', label: 'Plan Team Steps Detail',
       items: [
         { label: 'Pair Programming', emoji: '👥',
           isActive: () => pairMap.value[key]?.open ?? false,
@@ -1262,9 +1348,9 @@ const depEdges = computed((): DepEdge[] => {
   const edges: DepEdge[] = []
   // For each step (from index 1 onward) check if it shares a value with any prior step
   for (let b = 1; b < n; b++) {
-    const bVals = new Set(steps.value[b].linkedValues)
+    const bVals = new Set(steps.value[b].linkedValues ?? [])
     for (let a = 0; a < b; a++) {
-      const shared = steps.value[a].linkedValues.some(v => bVals.has(v))
+      const shared = (steps.value[a].linkedValues ?? []).some(v => bVals.has(v))
       if (shared) {
         edges.push({ from: a, to: b })
         break // only one edge per "to" step (first matching predecessor)
@@ -1288,6 +1374,14 @@ const depViewBox = computed(() =>
 
 const DEP_NODE_W = 120
 const DEP_NODE_H = 44
+
+/**
+ * Unique marker ID generated at setup time.
+ * A fresh random suffix prevents browsers from reusing a stale cached
+ * url(#arrow) reference when the dependencies SVG is unmounted and remounted
+ * via v-if (switching tabs).
+ */
+const depArrowMarkerId = `dep-arrow-${Math.random().toString(36).slice(2, 8)}`
 
 /**
  * Compute the (cx, cy) centre for node at index i.
@@ -1482,15 +1576,37 @@ const skillsMatrix = computed(() =>
 )
 
 // ── Auto-fetch on mount or when specBlock changes ─────────────────────────────
+//
+// We deliberately avoid `{ immediate: true }`.  EvoPlanView unmounts every time
+// the user navigates to a different stage and remounts on return — with
+// immediate-fire the watcher would re-call fetchPlan() on every return, and
+// inside useEvoPlan that path (a) cleared `plan.value = null` before awaiting
+// the AI and (b) cost a full AI round-trip even though the plan was already
+// in the module-level singleton.  Now we manually decide on mount: only fetch
+// if no plan exists yet for the current spec.
 
+onMounted(() => {
+  // If a plan is already loaded from a prior mount (or from version-history
+  // restore via loadPlan), do NOT regenerate.  The module-level singletons
+  // _lastFetchedSpec and _inFlight in useEvoPlan would also catch a duplicate,
+  // but checking here avoids the network round-trip entirely.
+  if (plan.value) return
+  if (props.specBlock) {
+    void fetchPlan(props.specBlock)
+  }
+})
+
+// Real spec change (sharpen, rewrite, model swap, etc.) — currentSpec.value
+// gets reassigned to a new object reference, watcher fires (not immediate),
+// fetchPlan is called.  useEvoPlan's _lastFetchedSpec identity guard still
+// short-circuits if the new spec is somehow === the old one.
 watch(
   () => props.specBlock,
-  async (block) => {
-    if (block) {
+  async (block, prev) => {
+    if (block && block !== prev) {
       await fetchPlan(block)
     }
   },
-  { immediate: true },
 )
 
 // ── Inline editing ─────────────────────────────────────────────────────────────
@@ -1578,55 +1694,104 @@ async function handleConfirm(): Promise<void> {
     confirming.value = false
   }
 }
+
+// ── Per-step card copy ────────────────────────────────────────────────────────
+// Keyed by step index so each card has independent copied feedback.
+// Uses execCommand('copy') on a hidden contenteditable div so the HTML table
+// lands on the clipboard and pastes as a real grid in Notes / Keynote / Mail.
+const stepCardCopied = ref<Record<number, boolean>>({})
+let _stepCopyTimer: Record<number, number> = {}
+
+function copyStepCard(step: { name: string; description?: string; linkedValues: string[]; effortPercent: number }, index: number): void {
+  const rows = [
+    ['Field', 'Value'],
+    ['Step',     step.name],
+    ['Impacts',  step.linkedValues.join(', ') || '—'],
+    ['Effort',   step.effortPercent + '% of total build'],
+    ['Details',  step.description ?? '—'],
+  ]
+
+  const TH = (s: string) =>
+    `<th style="padding:6px 12px;border:1px solid #cbd5e1;background:#f1f5f9;font-weight:600;text-align:left;white-space:normal">${s}</th>`
+  const TD = (s: string) =>
+    `<td style="padding:6px 12px;border:1px solid #cbd5e1;vertical-align:top;white-space:normal">${s}</td>`
+  const html = `<table style="border-collapse:collapse;font-family:system-ui,sans-serif;font-size:13px">
+    <thead><tr>${rows[0].map(TH).join('')}</tr></thead>
+    <tbody>${rows.slice(1).map(r => `<tr>${r.map(TD).join('')}</tr>`).join('')}</tbody>
+  </table>`
+
+  const div = document.createElement('div')
+  div.setAttribute('contenteditable', 'true')
+  div.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;z-index:-1'
+  div.innerHTML = html
+  document.body.appendChild(div)
+  const sel = window.getSelection()!
+  const range = document.createRange()
+  range.selectNodeContents(div)
+  sel.removeAllRanges()
+  sel.addRange(range)
+  let ok = false
+  try { ok = document.execCommand('copy') } catch { ok = false }
+  sel.removeAllRanges()
+  document.body.removeChild(div)
+  if (!ok) navigator.clipboard.writeText(rows.slice(1).map(r => r.join('\t')).join('\n'))
+
+  stepCardCopied.value = { ...stepCardCopied.value, [index]: true }
+  clearTimeout(_stepCopyTimer[index])
+  _stepCopyTimer[index] = window.setTimeout(() => {
+    stepCardCopied.value = { ...stepCardCopied.value, [index]: false }
+  }, 2000)
+}
 </script>
 
 <template>
-  <section class="w-full max-w-2xl mx-auto px-4 py-6">
+  <section class="w-full max-w-7xl mx-auto px-4 py-6">
 
-    <!-- ── Sharpen this plan — top strip ──────────────────────────────────── -->
-    <div class="flex items-center justify-between mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
-      <p class="text-xs text-amber-700 font-medium">
-        Want a sharper spec before confirming?
-      </p>
-      <button
-        type="button"
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-full
-               bg-amber-500 text-white text-xs font-semibold
-               hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1
-               transition-colors flex-shrink-0"
-        @click="emit('sharpen-plan')"
-      >
-        🔪 Sharpen this plan
-      </button>
+    <!-- ── Stakeholder context banner (Tom 2026-05-15) ─────────────────────── -->
+    <!-- Shows who this plan benefits so the planner never loses sight of the
+         stakeholder during Evo step review. Amber = stakes/stakeholder colour.
+         Only shown when rawInput.stakes is non-empty. -->
+    <div
+      v-if="rawInput?.stakes?.trim()"
+      class="flex items-center gap-2 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 flex-wrap"
+      aria-label="Stakeholders this plan is for"
+    >
+      <span class="text-[10px] font-bold text-amber-700 uppercase tracking-wide shrink-0">👤§ For</span>
+      <span class="text-xs text-amber-900 italic">{{ rawInput.stakes }}</span>
+      <template v-if="(specBlock.constraints ?? []).length > 0">
+        <span class="text-amber-300 select-none">·</span>
+        <span class="text-[10px] text-red-700 font-mono shrink-0">
+          {{ (specBlock.constraints ?? []).length }}C must be respected
+        </span>
+      </template>
     </div>
 
-    <!-- ── Tab bar ─────────────────────────────────────────────────────────── -->
-    <div class="flex gap-1 mb-6" role="tablist" aria-label="Evo Plan views">
+    <!-- ── Visualise strip — one pill per diagram type, each with mini SVG thumbnail ── -->
+    <div class="flex items-center gap-0.5 mb-2 -mt-1 flex-wrap">
       <button
-        v-for="tab in ([
-          { id: 'plan', label: 'Plan' },
-          { id: 'timeline', label: 'Timeline' },
-          { id: 'coverage', label: 'Coverage' },
-          { id: 'dependencies', label: 'Dependencies' },
-          { id: 'gantt', label: 'Gantt' },
-          { id: 'effort', label: 'Effort' },
-          { id: 'skills', label: 'Skills' },
-          { id: 'bubble', label: '🫧 Bubble' },
-          { id: 'knowledge', label: '🕸️ Knowledge Graph' },
-        ] as const)"
-        :key="tab.id"
+        v-for="item in VIZ_STRIP_ITEMS"
+        :key="item.tab"
         type="button"
-        role="tab"
-        :aria-selected="activeTab === tab.id"
-        :aria-controls="`tabpanel-${tab.id}`"
-        :aria-label="`View ${tab.label.replace(/^[^a-zA-Z]+/, '')}`"
-        class="min-h-[44px] px-5 rounded-lg text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-        :class="activeTab === tab.id
-          ? 'bg-blue-600 text-white'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-        @click="activeTab = tab.id"
+        class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5
+               text-slate-400 hover:text-slate-700 hover:bg-slate-50
+               transition-colors duration-100"
+        :aria-label="`Open ${item.label} diagram`"
+        @click="emit('open-visualise', { tab: item.tab })"
       >
-        {{ tab.label }}
+        <span class="block w-7 h-[15px] flex-shrink-0" v-html="VIZ_THUMBS[item.tab]" />
+        <span class="text-[10px] font-semibold tracking-wide whitespace-nowrap">{{ item.label }}</span>
+      </button>
+      <span class="w-px h-4 bg-slate-200 mx-1 flex-shrink-0" aria-hidden="true" />
+      <button
+        type="button"
+        class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5
+               text-slate-400 hover:text-green-700 hover:bg-green-50
+               transition-colors duration-100"
+        aria-label="Open Evo Simulator"
+        @click="emit('open-evo-simulator')"
+      >
+        <span class="text-sm leading-none">▶</span>
+        <span class="text-[10px] font-semibold tracking-wide">Simulate</span>
       </button>
     </div>
 
@@ -2688,7 +2853,7 @@ async function handleConfirm(): Promise<void> {
             />
           </svg>
           <!-- Step list with forecast -->
-          <div class="space-y-1 max-h-40 overflow-y-auto">
+          <ScrollContainer outer-class="relative" inner-class="space-y-1" inner-style="max-height: 10rem" :no-pill="true">
             <div
               v-for="pt in forecastPoints"
               :key="pt.stepIndex"
@@ -2697,7 +2862,7 @@ async function handleConfirm(): Promise<void> {
               <span class="text-base">{{ pt.forecastLevel }}</span>
               <span :class="pt.numericValue <= 1.2 ? 'text-red-600 font-medium' : 'text-slate-600'" class="truncate flex-1">{{ pt.stepName }}</span>
             </div>
-          </div>
+          </ScrollContainer>
           <button aria-label="Copy Forecast" @click="copyForecast" class="text-xs text-slate-500 hover:text-slate-700 hover:underline">
             {{ forecastCopied ? '✅ Copied!' : '📋 Copy forecast' }}
           </button>
@@ -2736,34 +2901,72 @@ async function handleConfirm(): Promise<void> {
     <div v-if="loading" class="py-10 px-2">
       <LoadingProgress
         :loading="loading"
-        label="Generating Evo step suggestions…"
+        label="Generating Evo Value Delivery Steps…"
         :baseline="30"
-        hint="can take up to 60s on slow networks"
+        hint="Each Evo step delivers incremental value from your Solutions · can take up to 60s on slow networks"
         color="indigo"
       />
     </div>
 
-    <!-- ── Error state (fetch) ────────────────────────────────────────────── -->
+    <!-- ── Error state (fetch) ─────────────────────────────────────────────
+         Tom 2026-05-15: "there is no action path here" — dead red box replaced
+         with Retry + Go-fix-it buttons so user always has an escape route. -->
     <div
       v-else-if="error"
-      class="rounded-lg bg-red-50 border border-red-200 p-4"
+      class="rounded-xl bg-red-50 border border-red-200 p-5 space-y-3"
       role="alert"
     >
-      <p class="text-red-700 text-sm font-medium">Could not generate Evo plan</p>
-      <p class="text-red-600 text-sm mt-1">{{ error }}</p>
+      <div class="flex items-start gap-3">
+        <span class="text-red-400 text-xl shrink-0" aria-hidden="true">⚠️</span>
+        <div class="min-w-0">
+          <p class="text-red-700 text-sm font-semibold">Could not generate Evo plan</p>
+          <p class="text-red-600 text-xs mt-1 break-words leading-relaxed">{{ error }}</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 pt-1">
+        <!-- Retry: re-run the planner with the same spec — force=true bypasses
+             the identity guard and any pending skip flag so the user always
+             gets a fresh generation regardless of cached / pre-loaded state. -->
+        <button
+          type="button"
+          class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold
+                 bg-indigo-600 text-white hover:bg-indigo-700
+                 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
+          @click="fetchPlan(props.specBlock, true)"
+        >
+          <span aria-hidden="true">↻</span> Retry
+        </button>
+        <!-- Open the Spec Editor to fix Solutions / Values that are missing -->
+        <button
+          type="button"
+          class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold
+                 bg-white border border-red-300 text-red-700
+                 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400
+                 transition-colors"
+          @click="emit('open-editor', { tab: 'solutions' })"
+        >
+          <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /> Fix Solutions in Spec Editor
+        </button>
+      </div>
+      <p class="text-xs text-red-400 italic">
+        Tip: every Evo step needs at least one S. entry. Open the Spec Editor
+        to add Solutions, then Retry.
+      </p>
     </div>
 
     <!-- ── Tab panels (plan loaded) ──────────────────────────────────────── -->
     <template v-else-if="plan">
 
-      <!-- ══ PLAN TAB ═════════════════════════════════════════════════════════ -->
-      <div
-        v-show="activeTab === 'plan'"
-        id="tabpanel-plan"
-        role="tabpanel"
-        aria-labelledby="tab-plan"
-      >
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Suggested Evo Steps</h2>
+      <!-- ══ PLAN TAB ═══════════════════════════════════════════════════════ -->
+      <!-- Tab bar removed: plan content is now always visible.
+           Diagrams/charts are in VisualisePanelModal (📊 Diagrams button above). -->
+      <div>
+        <h2 class="text-lg font-semibold text-gray-900 mb-2">Suggested Evo Steps</h2>
+        <ConceptHint
+          v-bind="CONCEPT_HINTS['evo-step']"
+          :spec="props.specBlock"
+          class="mb-4 rounded-lg"
+        />
 
         <!-- Confirmed banner -->
         <div
@@ -3027,13 +3230,6 @@ async function handleConfirm(): Promise<void> {
                     @click="setMood(`step-${index}`, emoji)"
                   >{{ emoji }}</button>
                 </div>
-                <button type="button"
-                  class="text-xs text-pink-600 hover:underline mt-1"
-                  :aria-label="`Copy mood table for ${step.name}`"
-                  :data-testid="`mood-copy-${index}`"
-                  @click="copyMoodMarkdown"
-                >{{ moodCopied ? '✅ Copied!' : '📋 Copy' }}</button>
-
                 <!-- Feature #155 — T-Skills toggle -->
                 <div class="hidden">
                   <button
@@ -3221,7 +3417,7 @@ async function handleConfirm(): Promise<void> {
                     aria-hidden="true"
                     @click="activeStepMenu = null"
                   />
-                  <!-- Analyze · Visualize · Simplify · Criticize -->
+                  <!-- Analyze · Presentation · Visualize · Simplify · Criticize -->
                   <div v-for="group in stepActionGroups(step, index)" :key="group.id" class="relative">
                     <!-- Group trigger button -->
                     <button
@@ -3511,6 +3707,15 @@ async function handleConfirm(): Promise<void> {
                   <span v-if="retroMap[`step-${index}`]?.loading" class="text-xs text-gray-400">Generating…</span>
                 </div>
                 <div v-if="retroMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-violet-300 pl-3 space-y-1">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-semibold text-violet-500 uppercase tracking-wide">🎨 Retro Themes</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" title="Close" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-rose-900/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Close Retro for ${step.name}`" @click="toggleRetroOpen(`step-${index}`)"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[6px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Minimize Retro for ${step.name}`" @click="retroMinimized[`step-${index}`] = !retroMinimized[`step-${index}`]"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[6px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Expand Retro for ${step.name}`" @click="expandedPanel = `retro-step-${index}`"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[6px] font-black leading-none select-none">+</span></button>
+                    </div>
+                  </div>
+                  <template v-if="!retroMinimized[`step-${index}`]">
                   <div v-for="p in retroMap[`step-${index}`]?.prompts ?? []" :key="p.category" class="text-sm">
                     <span class="font-medium capitalize">{{ p.category.replace('-', ' ') }}:</span>
                     <span class="ml-1 text-gray-700">{{ p.prompt }}</span>
@@ -3522,6 +3727,7 @@ async function handleConfirm(): Promise<void> {
                     :aria-label="`Copy retrospective for ${step.name}`"
                     :data-testid="`retro-copy-${index}`"
                   >📋 Copy</button>
+                  </template>
                 </div>
 
                 <!-- Feature #125 — Spike Detector badge -->
@@ -3547,6 +3753,15 @@ async function handleConfirm(): Promise<void> {
                   <span v-if="isReady(`step-${index}`) && readyMap[`step-${index}`]?.items?.length" class="text-xs text-emerald-600 font-medium">✅ Ready to start</span>
                 </div>
                 <div v-if="readyMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-rose-300 pl-3 space-y-1">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-semibold text-rose-500 uppercase tracking-wide">🚦 Definition of Ready</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" title="Close" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-rose-900/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Close Readiness for ${step.name}`" @click="toggleReadyOpen(`step-${index}`)"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[6px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Minimize Readiness for ${step.name}`" @click="readyMinimized[`step-${index}`] = !readyMinimized[`step-${index}`]"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[6px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Expand Readiness for ${step.name}`" @click="expandedPanel = `ready-step-${index}`"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[6px] font-black leading-none select-none">+</span></button>
+                    </div>
+                  </div>
+                  <template v-if="!readyMinimized[`step-${index}`]">
                   <div v-for="item in readyMap[`step-${index}`]?.items ?? []" :key="item.id" class="flex items-center gap-2">
                     <button
                       @click="toggleReadyItem(`step-${index}`, item.id)"
@@ -3564,6 +3779,7 @@ async function handleConfirm(): Promise<void> {
                     :aria-label="`Copy definition of ready for ${step.name}`"
                     :data-testid="`ready-copy-${index}`"
                   >📋 Copy</button>
+                  </template>
                 </div>
 
                 <!-- Pair Programming row (Feature #121) -->
@@ -3575,7 +3791,29 @@ async function handleConfirm(): Promise<void> {
                     👥 Pair
                   </button>
                 </div>
-                <div v-if="pairMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-blue-300 pl-3 space-y-1">
+                <div v-if="pairMap[`step-${index}`]?.open" class="mt-2 rounded-lg overflow-hidden border border-blue-200">
+                  <div class="flex items-center gap-2 px-3 py-2 bg-blue-600">
+                    <div class="flex items-center gap-1.5">
+                      <button type="button" title="Close"
+                        class="group w-3.5 h-3.5 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-black/25 transition-all duration-150 hover:scale-125 focus:outline-none"
+                        :aria-label="`Close Pair Program Plot for ${step.name}`"
+                        @click="handlePairToggle(step, index)"
+                      ><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[7px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize"
+                        class="group w-3.5 h-3.5 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none"
+                        :aria-label="`Minimize Pair Program Plot for ${step.name}`"
+                        @click="pairMinimized[`step-${index}`] = !pairMinimized[`step-${index}`]"
+                      ><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[7px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand"
+                        class="group w-3.5 h-3.5 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none"
+                        :aria-label="`Expand Pair Program Plot for ${step.name}`"
+                        @click="expandedPanel = `pair-step-${index}`"
+                      ><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[7px] font-black leading-none select-none">+</span></button>
+                    </div>
+                    <span class="text-base leading-none">👥</span>
+                    <span class="text-xs font-semibold text-white tracking-wide uppercase">Pair Program Plot</span>
+                  </div>
+                  <div v-if="!pairMinimized[`step-${index}`]" class="px-3 pb-3 pt-2 space-y-1">
                   <p class="text-xs text-gray-500 italic">{{ pairMap[`step-${index}`]?.contextBrief }}</p>
                   <div v-for="b in pairMap[`step-${index}`]?.blocks ?? []" :key="b.blockNumber" class="text-sm flex gap-2">
                     <span class="font-medium text-blue-700 w-24 flex-shrink-0">Block {{ b.blockNumber }} ({{ b.role }}):</span>
@@ -3587,6 +3825,7 @@ async function handleConfirm(): Promise<void> {
                     @click="copyPlan(`step-${index}`)"
                     class="text-xs text-blue-600 hover:underline mt-1"
                   >📋 Copy</button>
+                  </div><!-- /inner padding -->
                 </div>
 
                 <!-- Mob Programming row (Feature #135) -->
@@ -3598,7 +3837,29 @@ async function handleConfirm(): Promise<void> {
                     🖥️ Mob
                   </button>
                 </div>
-                <div v-if="mobMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-sky-300 pl-3 space-y-1">
+                <div v-if="mobMap[`step-${index}`]?.open" class="mt-2 rounded-lg overflow-hidden border border-sky-200">
+                  <div class="flex items-center gap-2 px-3 py-2 bg-sky-500">
+                    <div class="flex items-center gap-1.5">
+                      <button type="button" title="Close"
+                        class="group w-3.5 h-3.5 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-black/25 transition-all duration-150 hover:scale-125 focus:outline-none"
+                        :aria-label="`Close Mob Meandering for ${step.name}`"
+                        @click="handleMobToggle(step, index)"
+                      ><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[7px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize"
+                        class="group w-3.5 h-3.5 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none"
+                        :aria-label="`Minimize Mob Meandering for ${step.name}`"
+                        @click="mobMinimized[`step-${index}`] = !mobMinimized[`step-${index}`]"
+                      ><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[7px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand"
+                        class="group w-3.5 h-3.5 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none"
+                        :aria-label="`Expand Mob Meandering for ${step.name}`"
+                        @click="expandedPanel = `mob-step-${index}`"
+                      ><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[7px] font-black leading-none select-none">+</span></button>
+                    </div>
+                    <span class="text-base leading-none">🖥️</span>
+                    <span class="text-xs font-semibold text-white tracking-wide uppercase">Mob Meandering</span>
+                  </div>
+                  <div v-if="!mobMinimized[`step-${index}`]" class="px-3 pb-3 pt-2 space-y-1">
                   <p class="text-xs text-gray-500 italic">{{ mobMap[`step-${index}`]?.sessionGoal }}</p>
                   <p class="text-xs text-sky-600">Team: {{ mobMap[`step-${index}`]?.teamSize }} | 10 min/rotation | {{ mobMap[`step-${index}`]?.totalMinutes }} min total</p>
                   <div v-for="r in mobMap[`step-${index}`]?.rotations ?? []" :key="r.rotationNumber" class="text-sm">
@@ -3610,6 +3871,7 @@ async function handleConfirm(): Promise<void> {
                     @click="copyMob(`step-${index}`)"
                     class="text-xs text-sky-600 hover:underline mt-1"
                   >📋 Copy</button>
+                  </div><!-- /inner padding -->
                 </div>
 
                 <!-- Blocker Log row (Feature #138) -->
@@ -3623,6 +3885,15 @@ async function handleConfirm(): Promise<void> {
                   </button>
                 </div>
                 <div v-if="blockerMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-red-300 pl-3 space-y-2">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-semibold text-red-500 uppercase tracking-wide">🚫 Blocker Log</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" title="Close" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-rose-900/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Close Blockers for ${step.name}`" @click="toggleBlockerOpen(`step-${index}`)"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[6px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Minimize Blockers for ${step.name}`" @click="blockerMinimized[`step-${index}`] = !blockerMinimized[`step-${index}`]"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[6px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Expand Blockers for ${step.name}`" @click="expandedPanel = `blocker-step-${index}`"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[6px] font-black leading-none select-none">+</span></button>
+                    </div>
+                  </div>
+                  <template v-if="!blockerMinimized[`step-${index}`]">
                   <!-- Add blocker form -->
                   <div class="flex gap-2 items-center">
                     <input
@@ -3647,6 +3918,7 @@ async function handleConfirm(): Promise<void> {
                   </div>
                   <p v-if="!blockerMap[`step-${index}`]?.blockers?.length" class="text-xs text-gray-400 italic">No blockers logged</p>
                   <button v-if="blockerMap[`step-${index}`]?.blockers?.length" @click="copyLog(`step-${index}`)" class="text-xs text-red-600 hover:underline">📋 Copy Log</button>
+                  </template>
                 </div>
 
                 <!-- Feature #140 — Acceptance Tests -->
@@ -3661,6 +3933,15 @@ async function handleConfirm(): Promise<void> {
                   <span v-if="acceptanceMap[`step-${index}`]?.loading" class="text-xs text-gray-400">Generating…</span>
                 </div>
                 <div v-if="acceptanceMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-teal-300 pl-3 space-y-2">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-semibold text-teal-600 uppercase tracking-wide">🧪 Acceptance Tests</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" title="Close" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-rose-900/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Close Acceptance for ${step.name}`" @click="toggleAcceptanceOpen(`step-${index}`)"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[6px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Minimize Acceptance for ${step.name}`" @click="acceptMinimized[`step-${index}`] = !acceptMinimized[`step-${index}`]"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[6px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Expand Acceptance for ${step.name}`" @click="expandedPanel = `acceptance-step-${index}`"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[6px] font-black leading-none select-none">+</span></button>
+                    </div>
+                  </div>
+                  <template v-if="!acceptMinimized[`step-${index}`]">
                   <div
                     v-for="(sc, i) in acceptanceMap[`step-${index}`]?.scenarios ?? []"
                     :key="i"
@@ -3676,6 +3957,7 @@ async function handleConfirm(): Promise<void> {
                     @click="copyAcceptance(`step-${index}`)"
                     class="text-xs text-teal-600 hover:underline"
                   >{{ acceptanceCopied[`step-${index}`] ? '✅ Copied!' : '📋 Copy' }}</button>
+                  </template>
                 </div>
 
                 <!-- Daily Standup row (Feature #145) -->
@@ -3688,6 +3970,15 @@ async function handleConfirm(): Promise<void> {
                   </button>
                 </div>
                 <div v-if="standupMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-green-300 pl-3 space-y-1 text-sm">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-semibold text-green-600 uppercase tracking-wide">📢 Daily Standup</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" title="Close" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-rose-900/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Close Standup for ${step.name}`" @click="toggleStandupOpen(`step-${index}`)"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[6px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Minimize Standup for ${step.name}`" @click="standMinimized[`step-${index}`] = !standMinimized[`step-${index}`]"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[6px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Expand Standup for ${step.name}`" @click="expandedPanel = `standup-step-${index}`"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[6px] font-black leading-none select-none">+</span></button>
+                    </div>
+                  </div>
+                  <template v-if="!standMinimized[`step-${index}`]">
                   <p><span class="font-medium text-green-700">Yesterday:</span> {{ standupMap[`step-${index}`]?.yesterday }}</p>
                   <p><span class="font-medium text-green-700">Today:</span> {{ standupMap[`step-${index}`]?.today }}</p>
                   <p><span :class="(standupMap[`step-${index}`]?.blockers ?? 'None') === 'None identified' ? 'text-gray-400' : 'text-red-600'" class="font-medium">Blockers:</span> {{ standupMap[`step-${index}`]?.blockers }}</p>
@@ -3696,6 +3987,7 @@ async function handleConfirm(): Promise<void> {
                     @click="copyStandup(`step-${index}`)"
                     class="text-xs text-green-600 hover:underline mt-1"
                   >📋 Copy</button>
+                  </template>
                 </div>
 
                 <!-- Meeting Agenda row (Feature #148) -->
@@ -3708,6 +4000,15 @@ async function handleConfirm(): Promise<void> {
                   </button>
                 </div>
                 <div v-if="agendaMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-indigo-300 pl-3 space-y-2">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-semibold text-indigo-600 uppercase tracking-wide">📅 Meeting Agenda</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" title="Close" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-rose-900/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Close Agenda for ${step.name}`" @click="toggleAgendaOpen(`step-${index}`)"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[6px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Minimize Agenda for ${step.name}`" @click="agendaMinimized[`step-${index}`] = !agendaMinimized[`step-${index}`]"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[6px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Expand Agenda for ${step.name}`" @click="expandedPanel = `agenda-step-${index}`"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[6px] font-black leading-none select-none">+</span></button>
+                    </div>
+                  </div>
+                  <template v-if="!agendaMinimized[`step-${index}`]">
                   <p class="text-xs text-gray-500">45-minute structured meeting — {{ agendaMap[`step-${index}`]?.stepName }}</p>
                   <div v-for="s in agendaMap[`step-${index}`]?.sections ?? []" :key="s.title" class="text-sm">
                     <span class="font-medium text-indigo-700">{{ s.title }}</span>
@@ -3719,6 +4020,7 @@ async function handleConfirm(): Promise<void> {
                     @click="copyAgenda(`step-${index}`)"
                     class="text-xs text-indigo-600 hover:underline"
                   >📋 Copy Agenda</button>
+                  </template>
                 </div>
 
                 <!-- Spike detector row (Feature #125) -->
@@ -3731,6 +4033,15 @@ async function handleConfirm(): Promise<void> {
                   </button>
                 </div>
                 <div v-if="spikeMap[`step-${index}`]?.open" class="mt-2 ml-1 border-l-2 border-orange-300 pl-3 space-y-2">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-semibold text-orange-500 uppercase tracking-wide">⚡ Spike Detector</span>
+                    <div class="flex items-center gap-1">
+                      <button type="button" title="Close" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] ring-1 ring-rose-900/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Close Spike for ${step.name}`" @click="toggleSpikeOpen(`step-${index}`)"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#5c0000] text-[6px] font-black leading-none select-none">⊖</span></button>
+                      <button type="button" title="Minimize" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#febc2e] hover:bg-[#f0a000] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Minimize Spike for ${step.name}`" @click="spikeMinimized[`step-${index}`] = !spikeMinimized[`step-${index}`]"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#7e5000] text-[6px] font-black leading-none select-none">–</span></button>
+                      <button type="button" title="Expand" class="group w-3 h-3 flex items-center justify-center rounded-full bg-[#28c840] hover:bg-[#20a832] ring-1 ring-black/20 transition-all duration-150 hover:scale-125 focus:outline-none" :aria-label="`Expand Spike for ${step.name}`" @click="expandedPanel = `spike-step-${index}`"><span class="opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-[#006e1c] text-[6px] font-black leading-none select-none">+</span></button>
+                    </div>
+                  </div>
+                  <template v-if="!spikeMinimized[`step-${index}`]">
                   <div v-for="(flag, fi) in spikeMap[`step-${index}`]?.flags ?? []" :key="fi" class="text-sm">
                     <span :class="flag.severity === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'" class="text-xs font-medium px-2 py-0.5 rounded mr-2">{{ flag.severity }}</span>
                     <span class="text-gray-700">{{ flag.reason }}</span>
@@ -3741,6 +4052,7 @@ async function handleConfirm(): Promise<void> {
                     @click="copySpike(`step-${index}`)"
                     class="text-xs text-orange-600 hover:underline"
                   >📋 Copy</button>
+                  </template>
                 </div>
 
                 <!-- Feature #145 v2 — Standup Generator row -->
@@ -3894,19 +4206,46 @@ async function handleConfirm(): Promise<void> {
                 ✕
               </button>
 
-              <!-- Feature #27: Mini Risk Radar button (top-right of card) -->
+              <!-- Copy step — admin action; separated from plan content -->
               <button
                 type="button"
-                class="flex items-center justify-center min-w-[44px] min-h-[44px] border-0 bg-transparent shrink-0"
+                class="flex items-center justify-center min-w-[44px] min-h-[44px] rounded border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 shrink-0 transition-colors"
+                :aria-label="`Copy step ${index + 1} details`"
+                :data-testid="`step-copy-${index}`"
+                :title="stepCardCopied[index] ? 'Copied!' : 'Copy step details'"
+                @click="copyStepCard(step, index)"
+              >{{ stepCardCopied[index] ? '✅' : '📋' }}</button>
+
+              <!-- Feature #27: Risk expand button — dramatic colour-coded pill -->
+              <button
+                type="button"
+                class="flex flex-col items-center justify-center gap-0.5 shrink-0 rounded-xl
+                       min-w-[52px] min-h-[52px] border-2 font-bold transition-all duration-150
+                       focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-400"
+                :class="expandedRiskStep === index
+                  ? 'scale-110 shadow-lg ring-2 ring-offset-1 bg-indigo-600 border-indigo-500 text-white ring-indigo-400'
+                  : computeRisk(step, steps).complexity + computeRisk(step, steps).dependencies
+                    + computeRisk(step, steps).resource  + computeRisk(step, steps).uncertainty > 2
+                      ? 'bg-red-100 border-red-400 text-red-700 hover:bg-red-200 hover:scale-105 hover:shadow-md'
+                      : computeRisk(step, steps).complexity + computeRisk(step, steps).dependencies
+                        + computeRisk(step, steps).resource  + computeRisk(step, steps).uncertainty > 1
+                          ? 'bg-amber-100 border-amber-400 text-amber-700 hover:bg-amber-200 hover:scale-105 hover:shadow-md'
+                          : 'bg-emerald-100 border-emerald-400 text-emerald-700 hover:bg-emerald-200 hover:scale-105 hover:shadow-md'"
                 :aria-label="`View risk detail for ${step.name}`"
                 :data-testid="`risk-btn-${index}`"
                 @click="expandedRiskStep = expandedRiskStep === index ? null : index"
               >
-                <RiskRadar
-                  :scores="computeRisk(step, steps)"
-                  :size="36"
-                  :expanded="false"
-                />
+                <span class="text-xl leading-none" aria-hidden="true">{{
+                  expandedRiskStep === index ? '🔬' :
+                  computeRisk(step, steps).complexity + computeRisk(step, steps).dependencies
+                  + computeRisk(step, steps).resource  + computeRisk(step, steps).uncertainty > 2
+                    ? '🔴' : computeRisk(step, steps).complexity + computeRisk(step, steps).dependencies
+                    + computeRisk(step, steps).resource  + computeRisk(step, steps).uncertainty > 1
+                      ? '🟡' : '🟢'
+                }}</span>
+                <span class="text-[9px] uppercase tracking-wider leading-none">{{
+                  expandedRiskStep === index ? 'close' : 'risk'
+                }}</span>
               </button>
             </div>
 
@@ -4000,6 +4339,24 @@ async function handleConfirm(): Promise<void> {
           </button>
         </div>
 
+        <!-- ── Evo Simulator CTA — bottom of steps list ───────────────────── -->
+        <div class="flex items-center justify-between mt-3 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
+          <p class="text-xs text-green-700 font-medium">
+            Watch value accumulate across your steps — animated delivery timeline.
+          </p>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                   bg-green-600 text-white text-xs font-semibold
+                   hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1
+                   transition-colors flex-shrink-0"
+            aria-label="Open Evo Simulator"
+            @click="emit('open-evo-simulator')"
+          >
+            ▶ Evo Simulator
+          </button>
+        </div>
+
         <!-- ── Feature #5: What If Resource Slider ─────────────────────────── -->
         <div
           v-if="showWhatIf"
@@ -4052,14 +4409,8 @@ async function handleConfirm(): Promise<void> {
         </div>
       </div>
 
-      <!-- ══ TIMELINE TAB (Feature #2) ════════════════════════════════════════ -->
-      <div
-        v-show="activeTab === 'timeline'"
-        id="tabpanel-timeline"
-        role="tabpanel"
-        aria-labelledby="tab-timeline"
-        data-testid="timeline-section"
-      >
+      <!-- ══ TIMELINE TAB — retired: charts now in 📊 VisualisePanelModal ═════ -->
+      <div v-if="false" id="tabpanel-timeline">
         <!-- Placeholder when not confirmed or no steps -->
         <div
           v-if="showTimelinePlaceholder"
@@ -4193,11 +4544,7 @@ async function handleConfirm(): Promise<void> {
       </div>
 
       <!-- ══ COVERAGE TAB (Feature #3) ════════════════════════════════════════ -->
-      <div
-        v-show="activeTab === 'coverage'"
-        id="tabpanel-coverage"
-        role="tabpanel"
-        aria-labelledby="tab-coverage"
+      <div v-if="false" id="tabpanel-coverage"
         data-testid="coverage-section"
       >
         <!-- Placeholder when not confirmed or no steps -->
@@ -4316,14 +4663,8 @@ async function handleConfirm(): Promise<void> {
           </ul>
         </template>
       </div>
-      <!-- ══ DEPENDENCIES TAB (Feature #21) ════════════════════════════════════ -->
-      <div
-        v-show="activeTab === 'dependencies'"
-        id="tabpanel-dependencies"
-        role="tabpanel"
-        aria-labelledby="tab-dependencies"
-        data-testid="dependencies-section"
-      >
+      <!-- ══ DEPENDENCIES TAB — retired ═════════════════════════════════════ -->
+      <div v-if="false" id="tabpanel-dependencies">
         <!-- Placeholder: plan not confirmed or no steps -->
         <div
           v-if="showDepPlaceholder"
@@ -4355,9 +4696,10 @@ async function handleConfirm(): Promise<void> {
             data-testid="dependencies-svg"
           >
             <defs>
-              <!-- Arrowhead marker -->
+              <!-- Arrowhead marker — ID is unique per mount to avoid browser
+                   caching bugs when the SVG is destroyed/recreated via v-if -->
               <marker
-                id="arrow"
+                :id="depArrowMarkerId"
                 viewBox="0 0 10 10"
                 refX="9"
                 refY="5"
@@ -4377,9 +4719,7 @@ async function handleConfirm(): Promise<void> {
               fill="none"
               stroke="#818cf8"
               stroke-width="1.5"
-              marker-end="url(#arrow)"
-              stroke-dasharray="300"
-              :style="`stroke-dashoffset:0; animation: drawLine 600ms ease forwards; animation-delay: ${ei * 100}ms;`"
+              :marker-end="`url(#${depArrowMarkerId})`"
               :data-testid="`dep-arrow-${ei}`"
             />
 
@@ -4387,7 +4727,6 @@ async function handleConfirm(): Promise<void> {
             <g
               v-for="(node, ni) in depNodes"
               :key="`node-${ni}`"
-              :style="`animation: nodeIn 300ms ease forwards; animation-delay: ${ni * 200}ms; opacity: 0;`"
               :data-testid="`dep-node-${ni}`"
             >
               <rect
@@ -4464,14 +4803,8 @@ async function handleConfirm(): Promise<void> {
         </template>
       </div>
 
-      <!-- ══ GANTT TAB (Feature #32) ══════════════════════════════════════════ -->
-      <div
-        v-show="activeTab === 'gantt'"
-        id="tabpanel-gantt"
-        role="tabpanel"
-        aria-labelledby="tab-gantt"
-        data-testid="gantt-section"
-      >
+      <!-- ══ GANTT TAB — retired ══════════════════════════════════════════════ -->
+      <div v-if="false" id="tabpanel-gantt">
         <!-- Placeholder when not confirmed or no steps -->
         <div
           v-if="showGanttPlaceholder"
@@ -4594,14 +4927,8 @@ async function handleConfirm(): Promise<void> {
         </template>
       </div>
 
-      <!-- ══ EFFORT BREAKDOWN TAB (Feature #36) ════════════════════════════════ -->
-      <div
-        v-show="activeTab === 'effort'"
-        id="tabpanel-effort"
-        role="tabpanel"
-        aria-labelledby="tab-effort"
-        data-testid="effort-section"
-      >
+      <!-- ══ EFFORT BREAKDOWN TAB — retired ════════════════════════════════════ -->
+      <div v-if="false" id="tabpanel-effort">
         <!-- Placeholder when not confirmed or no steps -->
         <div
           v-if="showEffortPlaceholder"
@@ -4705,14 +5032,8 @@ async function handleConfirm(): Promise<void> {
         </template>
       </div>
 
-      <!-- ══ SKILLS TAB (Feature #58) ═════════════════════════════════════════ -->
-      <div
-        v-show="activeTab === 'skills'"
-        id="tabpanel-skills"
-        role="tabpanel"
-        aria-labelledby="tab-skills"
-        data-testid="skills-section"
-      >
+      <!-- ══ SKILLS TAB — retired ═════════════════════════════════════════════ -->
+      <div v-if="false" id="tabpanel-skills">
         <!-- Feature #58 — Team Skills Matrix -->
         <div class="mt-4">
           <p class="text-xs text-slate-500 mb-3">Skill demand inferred from Evo step descriptions. 0 = none, 3 = high.</p>
@@ -4770,14 +5091,8 @@ async function handleConfirm(): Promise<void> {
         </div>
       </div>
 
-      <!-- ══ BUBBLE TAB (Feature #89) ══════════════════════════════════════════ -->
-      <div
-        v-show="activeTab === 'bubble'"
-        id="tabpanel-bubble"
-        role="tabpanel"
-        aria-labelledby="tab-bubble"
-        data-testid="bubble-section"
-      >
+      <!-- ══ BUBBLE TAB — retired ══════════════════════════════════════════════ -->
+      <div v-if="false" id="tabpanel-bubble">
         <!-- Placeholder when no steps -->
         <div
           v-if="steps.length === 0"
@@ -4915,13 +5230,8 @@ async function handleConfirm(): Promise<void> {
         </template>
       </div>
 
-      <!-- ══ KNOWLEDGE GRAPH TAB (Feature #133 spec) ══════════════════════════ -->
-      <div
-        v-if="activeTab === 'knowledge'"
-        id="tabpanel-knowledge"
-        role="tabpanel"
-        aria-labelledby="tab-knowledge"
-      >
+      <!-- ══ KNOWLEDGE GRAPH TAB — retired ════════════════════════════════════ -->
+      <div v-if="false" id="tabpanel-knowledge">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Knowledge Graph</h2>
         <div class="overflow-x-auto">
           <svg
@@ -5275,9 +5585,19 @@ async function handleConfirm(): Promise<void> {
 
     <!-- Feature #188 — Sprint Risk Heatmap panel -->
     <div v-if="steps.length > 0" class="mt-2 mb-4">
-      <div v-show="riskHeatmapOpen" data-panel="riskHeatmapOpen" class="border border-slate-200 rounded-lg overflow-hidden">
+      <!-- overflow-hidden removed: Safari clips pointer-event hit-testing at border-radius corners,
+           making the close button unreachable. rounded-t-lg applied to header instead. -->
+      <div v-show="riskHeatmapOpen" data-panel="riskHeatmapOpen" class="border border-slate-200 rounded-lg">
         <div v-if="riskHeatmapOpen" class="p-4 bg-white space-y-3">
-          <div class="-mx-4 -mt-4 mb-3 flex items-center gap-1.5 px-4 py-2 bg-blue-500"><span aria-hidden="true">🔥</span><span class="text-xs font-semibold text-white flex-1">Risk Heatmap</span><button type="button" aria-label="Collapse Risk Heatmap" class="text-white/60 hover:text-white text-[10px]" @click="riskHeatmapOpen = false">▲</button></div>
+          <div class="-mx-4 -mt-4 mb-3 flex items-center gap-1.5 px-4 py-2 bg-blue-500 rounded-t-lg">
+            <span aria-hidden="true">🔥</span>
+            <span class="text-xs font-semibold text-white flex-1">Risk Heatmap</span>
+            <CloseDot
+        variant="on-dark"
+        aria-label="Close Risk Heatmap"
+        @click="riskHeatmapOpen = false"
+      />
+          </div>
           <!-- High risk count badge -->
           <div class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-rose-100 text-rose-800">
             {{ riskHeatmapHighCount }} High-risk step{{ riskHeatmapHighCount === 1 ? '' : 's' }}
@@ -5557,11 +5877,146 @@ async function handleConfirm(): Promise<void> {
     <!-- ── Empty state (no plan yet) ─────────────────────────────────────── -->
     <div
       v-else
-      class="py-12 text-center text-gray-400 text-sm"
+      class="py-16 flex flex-col items-center gap-5"
       role="status"
     >
-      No Evo plan generated yet.
+      <!-- Icon -->
+      <div class="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-3xl shadow-sm"
+           aria-hidden="true">🗺️</div>
+
+      <!-- Message -->
+      <div class="text-center space-y-1.5 max-w-sm">
+        <p class="text-base font-semibold text-gray-700">No Evo plan yet</p>
+        <p class="text-sm text-gray-400 leading-relaxed">
+          Generate AI-suggested Evo steps from your spec — each step delivers
+          measurable value and moves the stakeholder goal closer to its target.
+        </p>
+      </div>
+
+      <!-- Primary CTA — Generate — force=true bypasses the identity guard
+           and any pending skip flag (set by loadPlan on history restore)
+           so the button always triggers a fresh AI generation on click. -->
+      <button
+        type="button"
+        class="flex items-center gap-2.5 px-6 py-3 rounded-2xl
+               bg-gradient-to-r from-indigo-500 to-violet-500 text-white
+               font-semibold text-sm shadow-md shadow-indigo-200/60
+               hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg
+               focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2
+               transition-all duration-200 active:scale-[0.98] min-h-[44px]"
+        aria-label="Generate Evo Plan"
+        @click="fetchPlan(props.specBlock, true)"
+      >
+        <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+        </svg>
+        Generate Evo Plan
+      </button>
+
+      <p class="text-[11px] text-gray-400">Takes 10–60s depending on your AI backend</p>
     </div>
+
+  <!-- Fullscreen panel expand (green dot) -->
+  <Teleport to="body">
+    <Transition name="panel-expand">
+      <div v-if="expandedPanel" class="fixed inset-0 z-[850] flex flex-col bg-white shadow-2xl overflow-hidden">
+        <!-- Titlebar — close pin lives on the RIGHT per universal UX rule.
+             The previous design mimicked the macOS traffic-light triplet
+             on the left (red CloseDot + decorative yellow + green dots);
+             yellow/green dots were non-functional placeholders. Removed
+             them and moved the CloseDot to the right edge for consistency
+             with every other panel header. -->
+        <div :class="_exMeta.bg" class="flex items-center gap-3 px-4 py-3 flex-shrink-0 select-none">
+          <span class="text-xl leading-none">{{ _exMeta.emoji }}</span>
+          <span class="text-sm font-semibold text-white uppercase tracking-wide flex-1">{{ _exMeta.title }}</span>
+          <CloseDot
+            variant="on-dark"
+            title="Close"
+            aria-label="Close expanded panel"
+            @click="closeExpanded"
+          />
+        </div>
+        <!-- Scrollable body -->
+        <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full p-8 space-y-5 text-base">
+          <template v-if="_exType === 'pair' && pairMap[_exKey]">
+            <p class="text-gray-500 italic text-sm">{{ pairMap[_exKey]?.contextBrief }}</p>
+            <div v-for="b in pairMap[_exKey]?.blocks ?? []" :key="b.blockNumber" class="flex gap-4">
+              <span class="font-semibold text-blue-700 w-36 flex-shrink-0">Block {{ b.blockNumber }} ({{ b.role }}):</span>
+              <span class="text-gray-700">{{ b.focus }}</span>
+            </div>
+            <p class="text-amber-600 text-sm">⇄ {{ pairMap[_exKey]?.swapNote }}</p>
+          </template>
+          <template v-else-if="_exType === 'mob' && mobMap[_exKey]">
+            <p class="text-gray-500 italic text-sm">{{ mobMap[_exKey]?.sessionGoal }}</p>
+            <p class="text-sky-600 text-sm">Team: {{ mobMap[_exKey]?.teamSize }} | 10 min/rotation | {{ mobMap[_exKey]?.totalMinutes }} min total</p>
+            <div v-for="r in mobMap[_exKey]?.rotations ?? []" :key="r.rotationNumber" class="flex gap-4">
+              <span class="font-semibold text-sky-700 w-28 flex-shrink-0">Rotation {{ r.rotationNumber }}:</span>
+              <span class="text-gray-700">{{ r.focus }}</span>
+            </div>
+          </template>
+          <template v-else-if="_exType === 'retro' && retroMap[_exKey]">
+            <div v-for="p in retroMap[_exKey]?.prompts ?? []" :key="p.category">
+              <span class="font-semibold capitalize text-violet-700">{{ p.category.replace('-', ' ') }}:</span>
+              <span class="ml-2 text-gray-700">{{ p.prompt }}</span>
+            </div>
+          </template>
+          <template v-else-if="_exType === 'ready' && readyMap[_exKey]">
+            <div v-for="item in readyMap[_exKey]?.items ?? []" :key="item.id" class="flex items-center gap-3">
+              <button @click="toggleReadyItem(_exKey, item.id)"
+                :class="item.checked ? 'bg-emerald-500' : 'bg-gray-200'"
+                class="w-6 h-6 rounded flex items-center justify-center text-white flex-shrink-0"
+              >{{ item.checked ? '✓' : '' }}</button>
+              <span :class="item.checked ? 'line-through text-gray-400' : 'text-gray-700'">{{ item.label }}</span>
+            </div>
+          </template>
+          <template v-else-if="_exType === 'blocker' && blockerMap[_exKey]">
+            <div class="flex gap-2 items-center">
+              <input v-model="newBlockerDesc[_exKey]" type="text" placeholder="Describe blocker…" class="flex-1 h-10 border rounded px-3 text-sm"/>
+              <select v-model="newBlockerSeverity[_exKey]" class="h-10 border rounded px-2 text-sm"><option>P1</option><option>P2</option><option selected>P3</option></select>
+              <button @click="submitBlocker(parseInt(_exIdx))" class="h-10 px-4 bg-red-600 text-white text-sm rounded hover:bg-red-700">Add</button>
+            </div>
+            <div v-for="b in blockerMap[_exKey]?.blockers ?? []" :key="b.id" class="flex items-start gap-3">
+              <span :class="b.severity === 'P1' ? 'bg-red-600' : b.severity === 'P2' ? 'bg-orange-500' : 'bg-yellow-500'" class="text-white text-xs rounded px-2 py-0.5 flex-shrink-0 mt-0.5">{{ b.severity }}</span>
+              <span :class="b.resolved ? 'line-through text-gray-400' : 'text-gray-700'">{{ b.description }}</span>
+              <div class="ml-auto flex gap-2 flex-shrink-0">
+                <button v-if="!b.resolved" @click="resolveBlocker(_exKey, b.id)" class="text-sm text-emerald-600 hover:underline">✓ Resolve</button>
+                <button @click="removeBlocker(_exKey, b.id)" class="text-sm text-red-400 hover:underline">✕</button>
+              </div>
+            </div>
+            <p v-if="!blockerMap[_exKey]?.blockers?.length" class="text-sm text-gray-400 italic">No blockers logged</p>
+          </template>
+          <template v-else-if="_exType === 'acceptance' && acceptanceMap[_exKey]">
+            <div v-for="(sc, i) in acceptanceMap[_exKey]?.scenarios ?? []" :key="i" class="bg-teal-50 border border-teal-200 rounded-lg p-4 space-y-1">
+              <p class="font-semibold text-teal-800">Scenario: {{ sc.title }}</p>
+              <p class="text-gray-600"><span class="font-medium">Given</span> {{ sc.given }}</p>
+              <p class="text-gray-600"><span class="font-medium">When</span> {{ sc.when }}</p>
+              <p class="text-gray-600"><span class="font-medium">Then</span> {{ sc.then }}</p>
+            </div>
+          </template>
+          <template v-else-if="_exType === 'standup' && standupMap[_exKey]">
+            <p><span class="font-semibold text-green-700">Yesterday:</span> {{ standupMap[_exKey]?.yesterday }}</p>
+            <p><span class="font-semibold text-green-700">Today:</span> {{ standupMap[_exKey]?.today }}</p>
+            <p><span :class="(standupMap[_exKey]?.blockers ?? '') === 'None identified' ? 'text-gray-500' : 'text-red-600'" class="font-semibold">Blockers:</span> {{ standupMap[_exKey]?.blockers }}</p>
+          </template>
+          <template v-else-if="_exType === 'agenda' && agendaMap[_exKey]">
+            <p class="text-sm text-gray-500">45-minute structured meeting — {{ agendaMap[_exKey]?.stepName }}</p>
+            <div v-for="s in agendaMap[_exKey]?.sections ?? []" :key="s.title">
+              <span class="font-semibold text-indigo-700">{{ s.title }}</span>
+              <span class="text-sm text-gray-400 ml-2">({{ s.durationMinutes }} min)</span>
+              <p class="text-gray-600 text-sm mt-1">{{ s.content }}</p>
+            </div>
+          </template>
+          <template v-else-if="_exType === 'spike' && spikeMap[_exKey]">
+            <div v-for="(flag, fi) in spikeMap[_exKey]?.flags ?? []" :key="fi">
+              <span :class="flag.severity === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'" class="text-sm font-medium px-2 py-0.5 rounded mr-2">{{ flag.severity }}</span>
+              <span class="text-gray-700">{{ flag.reason }}</span>
+              <p class="text-sm text-orange-600 mt-1 italic">→ {{ flag.spikeTask }} ({{ flag.suggestedDuration }})</p>
+            </div>
+          </template>
+        </ScrollContainer>
+      </div>
+    </Transition>
+  </Teleport>
 
   <!-- Toast notification -->
   <Transition name="evo-toast">
@@ -5576,6 +6031,14 @@ async function handleConfirm(): Promise<void> {
 </template>
 
 <style scoped>
+/* Panel fullscreen expand — zoom in/out like macOS green dot */
+.panel-expand-enter-active { animation: panel-expand-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.panel-expand-leave-active  { animation: panel-expand-in 150ms cubic-bezier(0.7, 0, 0.84, 0) reverse both; }
+@keyframes panel-expand-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 /* Evo toast slide-up + bounce */
 .evo-toast-enter-active { animation: evo-toast-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .evo-toast-leave-active  { transition: opacity 180ms ease, transform 180ms ease; }

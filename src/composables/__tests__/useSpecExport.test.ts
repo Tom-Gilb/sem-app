@@ -14,7 +14,8 @@ const FULL_SPEC: SpecBlock = {
       type: 'Function',
       level: 'Product',
       description: 'An example function',
-      successCriteria: 'Works correctly',
+      // DD-004 (2026-05-14): successCriteria renamed → presenceTest.
+      presenceTest: 'Works correctly',
       functionOfValue: 'V.ExampleValue',
     },
   ],
@@ -52,7 +53,7 @@ describe('useSpecExport', () => {
     expect(output).toContain('Type: Function')
     expect(output).toContain('Level: Product')
     expect(output).toContain('Description: An example function')
-    expect(output).toContain('Success-Criteria: Works correctly')
+    expect(output).toContain('Presence-Test: Works correctly')
     expect(output).toContain('Function of Value: V.ExampleValue')
   })
 
@@ -322,7 +323,7 @@ function makeEvoStep(name: string): EvoStep {
     name,
     description: 'Test step description',
     linkedValues: ['V.Test'],
-    linkedSolution: 'S.Test',
+    linkedSolutions: ['S.Test'],
     effortPercent: 10,
   }
 }
@@ -535,9 +536,9 @@ const PRIORITY_VC_RATIOS: Record<string, number> = {
 }
 
 const PRIORITY_STEPS: EvoStep[] = [
-  { name: 'Step.One', description: 'Implements S.One', linkedValues: ['V.Alpha'], linkedSolution: 'S.One', effortPercent: 30 },
-  { name: 'Step.Two', description: 'Implements S.Two', linkedValues: ['V.Beta'],  linkedSolution: 'S.Two', effortPercent: 40 },
-  { name: 'Step.Three', description: 'Implements S.Three', linkedValues: ['V.Alpha'], linkedSolution: 'S.Three', effortPercent: 20 },
+  { name: 'Step.One',   description: 'Implements S.One',   linkedValues: ['V.Alpha'], linkedSolutions: ['S.One'],   effortPercent: 30 },
+  { name: 'Step.Two',   description: 'Implements S.Two',   linkedValues: ['V.Beta'],  linkedSolutions: ['S.Two'],   effortPercent: 40 },
+  { name: 'Step.Three', description: 'Implements S.Three', linkedValues: ['V.Alpha'], linkedSolutions: ['S.Three'], effortPercent: 20 },
 ]
 
 const PRIORITY_TASKS: Record<string, TaskSuggestion[]> = {
@@ -688,12 +689,12 @@ describe('exportPrioritisedPlan', () => {
 
   // ── Ranked Evo Plan fallback: no steps match solutions ────────────────────────
 
-  test('Ranked Evo Plan falls back to listing all steps when no linkedSolution matches', () => {
+  test('Ranked Evo Plan falls back to listing all steps when no linkedSolutions match', () => {
     // Spec: S.Evo9.PrioritisedPlanExport — fallback to listing all steps when no step
-    // has a linkedSolution matching any solution ID in the VDT (e.g. when steps are
-    // from a different spec context).
+    // has a linkedSolutions entry matching any solution ID in the VDT (e.g. when steps
+    // are from a different spec context).
     const stepsNoMatch: EvoStep[] = [
-      { name: 'Step.Unmatched', description: 'No solution link', linkedValues: ['V.Alpha'], linkedSolution: 'S.Nonexistent', effortPercent: 10 },
+      { name: 'Step.Unmatched', description: 'No solution link', linkedValues: ['V.Alpha'], linkedSolutions: ['S.Nonexistent'], effortPercent: 10 },
     ]
     const md = exportPrioritisedPlan(PRIORITY_SPEC, stepsNoMatch, {}, PRIORITY_MATRIX, PRIORITY_VC_RATIOS)
 

@@ -67,9 +67,12 @@ export function useCommandPalette(registry: PaletteEntry[]) {
     }
   }
 
-  /** Wire this to a root keydown listener */
+  /** Wire this to a root keydown listener.
+   *  ⌘F is the primary trigger (universal Find muscle memory); ⌘K is kept
+   *  as a silent alias for users with prior muscle memory. Both override
+   *  browser-native Find-in-page — the app's palette IS the canonical find. */
   function handleKey(e: KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F' || e.key === 'k' || e.key === 'K')) {
       e.preventDefault()
       isOpen.value ? close() : open()
       return

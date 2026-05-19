@@ -17,15 +17,21 @@
  */
 -->
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, nextTick, onUnmounted } from 'vue'
+import RightPanel from './RightPanel.vue'
+import CloseDot from './CloseDot.vue'
+import ScrollContainer from './ScrollContainer.vue'
+// DD-001 (2026-05-13).
+import SaveGlyph from './icons/SaveGlyph.vue'
+import GetGlyph from './icons/GetGlyph.vue'
+import EditGlyph from './icons/EditGlyph.vue'
 import {
   usePlanModel,
   renamePlanModel,
   deletePlanModel,
   importPlanModel,
-  exportPlanModel,
-  exportAllPlanModelsBackup,
   importPlanModelsBackup,
+  exportPlanModel,
   type PlanModel,
 } from '../composables/usePlanModel'
 
@@ -38,12 +44,19 @@ const { currentModel, allModels } = usePlanModel()
 
 // ── Inline rename ─────────────────────────────────────────────────────────────
 
-const editingId   = ref<string | null>(null)
-const editingName = ref('')
+const editingId      = ref<string | null>(null)
+const editingName    = ref('')
+const renameInputEl  = ref<HTMLInputElement | null>(null)
 
 function startRename(model: PlanModel): void {
-  editingId.value   = model.id
-  editingName.value = model.name
+  editingId.value    = model.id
+  editingName.value  = model.name
+  // Same pattern as startTitleEdit() in App.vue — explicit nextTick focus so
+  // the input is in the DOM and focused before the user's first keypress lands.
+  nextTick(() => {
+    renameInputEl.value?.focus()
+    renameInputEl.value?.select()
+  })
 }
 
 function commitRename(id: string): void {
@@ -92,41 +105,23 @@ function handleFileImport(event: Event): void {
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
-      const data  = JSON.parse(e.target?.result as string)
+      const data = JSON.parse(e.target?.result as string)
+
+      // Full backup file (semAppBackup: true) — restore all models it contains.
+      if ((data as Record<string, unknown>).semAppBackup) {
+        const count = importPlanModelsBackup(data)
+        fileError.value = count === 0
+          ? 'Backup loaded — all models were already present (nothing new added).'
+          : `✓ ${count} model${count === 1 ? '' : 's'} restored from backup.`
+        return
+      }
+
+      // Single-model export — import and show in list for user to Load.
       const model = importPlanModel(data)
       if (!model) { fileError.value = 'Not a valid Plan Model .json.'; return }
       // Imported — now shown in the list. User can Load it explicitly.
     } catch {
       fileError.value = 'Could not parse the file.'
-    }
-  }
-  reader.readAsText(file)
-  input.value = ''
-}
-
-// ── Security Backup ───────────────────────────────────────────────────────────
-
-const backupRestoreMessage = ref('')
-const backupRestoreError   = ref('')
-
-function handleBackupRestore(event: Event): void {
-  backupRestoreMessage.value = ''
-  backupRestoreError.value   = ''
-  const input = event.target as HTMLInputElement
-  const file  = input.files?.[0]
-  if (!file) return
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    try {
-      const data  = JSON.parse(e.target?.result as string)
-      const count = importPlanModelsBackup(data)
-      if (count === 0) {
-        backupRestoreError.value = 'No new models found in this backup (all may already exist).'
-      } else {
-        backupRestoreMessage.value = `✓ ${count} model${count !== 1 ? 's' : ''} restored.`
-      }
-    } catch {
-      backupRestoreError.value = 'Could not read the backup file.'
     }
   }
   reader.readAsText(file)
@@ -144,16 +139,16 @@ function formatDate(iso: string): string {
 
 <template>
   <Teleport to="body">
-    <!-- Backdrop -->
+    <!-- Backdrop — z-[10200] sits above SelectionDefiner pill+panel (z-[10100]) -->
     <div
-      class="fixed inset-0 z-[480] bg-black/30"
+      class="fixed inset-0 z-[10200] bg-black/30"
       aria-hidden="true"
       @click="emit('close')"
     />
 
-    <!-- Drawer -->
-    <div
-      class="fixed right-0 top-0 h-full w-80 bg-white shadow-xl z-[490] flex flex-col"
+    <!-- Drawer — z-[10201] so close/Load buttons are never intercepted -->
+    <RightPanel
+      class="w-80 bg-white shadow-xl z-[10201] flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-label="Planning Models"
@@ -164,17 +159,15 @@ function formatDate(iso: string): string {
           <h2 class="text-sm font-semibold text-gray-900">Planning Models</h2>
           <p class="text-[11px] text-gray-400">{{ allModels.length }} saved</p>
         </div>
-        <button
-          type="button"
-          class="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400
-                 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
-          aria-label="Close planning models panel"
-          @click="emit('close')"
-        >×</button>
+        <CloseDot
+        title="Close"
+        aria-label="Close planning models panel"
+        @click="emit('close')"
+      />
       </div>
 
       <!-- Body -->
-      <div class="flex-1 overflow-y-auto">
+      <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full">
 
         <!-- Empty state -->
         <div
@@ -203,10 +196,10 @@ function formatDate(iso: string): string {
               <!-- Inline rename input -->
               <template v-if="editingId === model.id">
                 <input
+                  ref="renameInputEl"
                   v-model="editingName"
                   class="flex-1 min-w-0 text-sm font-semibold rounded border border-blue-300 px-2 py-0.5
                          focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                  autofocus
                   @keydown.enter="commitRename(model.id)"
                   @keydown.escape="cancelRename"
                   @blur="commitRename(model.id)"
@@ -249,8 +242,10 @@ function formatDate(iso: string): string {
                        bg-indigo-600 text-white text-xs font-semibold
                        hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
                 @click="emit('load', model)"
+                title="Load this plan — `[*]→*` get from vessel"
               >
-                📂 Load
+                <GetGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
+                <span>Load</span>
               </button>
 
               <!-- Export -->
@@ -260,10 +255,11 @@ function formatDate(iso: string): string {
                 class="flex items-center justify-center min-h-[36px] px-2.5 rounded-md border border-gray-200 bg-white
                        text-gray-500 text-xs hover:bg-gray-50
                        focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
-                title="Export as .json"
+                title="Export as .json — `*→[*]` save to file"
+                aria-label="Export plan model as .json"
                 @click="exportPlanModel"
               >
-                💾
+                <SaveGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
               </button>
 
               <!-- Rename -->
@@ -276,7 +272,7 @@ function formatDate(iso: string): string {
                 title="Rename"
                 @click="editingId === model.id ? cancelRename() : startRename(model)"
               >
-                ✏️
+                <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit plan model" />
               </button>
 
               <!-- Delete -->
@@ -305,7 +301,7 @@ function formatDate(iso: string): string {
             class="flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 border-dashed border-gray-200
                    cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors text-xs text-gray-500"
           >
-            <span aria-hidden="true">📁</span>
+            <GetGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" />
             <span>Choose a Plan Model .json</span>
             <input
               type="file"
@@ -317,61 +313,8 @@ function formatDate(iso: string): string {
           <p v-if="fileError" class="mt-1.5 text-xs text-red-600" role="alert">{{ fileError }}</p>
         </div>
 
-        <!-- Security Backup section -->
-        <div class="px-4 py-4 border-t-2 border-indigo-100 bg-indigo-50/40">
-          <div class="flex items-center gap-1.5 mb-1">
-            <span aria-hidden="true" class="text-base">🛡️</span>
-            <p class="text-[11px] font-bold text-indigo-700 uppercase tracking-wide">Security Backup</p>
-          </div>
-          <p class="text-[11px] text-indigo-500 mb-3 leading-relaxed">
-            Exports <strong>all {{ allModels.length }} model{{ allModels.length !== 1 ? 's' : '' }}</strong>
-            in one file. Store in iCloud Drive, your Obsidian vault, or email it to yourself.
-            Independent of your account — safe from any login or data loss.
-          </p>
 
-          <!-- Export all -->
-          <button
-            type="button"
-            class="w-full flex items-center justify-center gap-2 min-h-[40px] rounded-lg
-                   bg-indigo-600 text-white text-xs font-semibold
-                   hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400
-                   transition-colors mb-2"
-            :disabled="allModels.length === 0"
-            :class="allModels.length === 0 ? 'opacity-40 cursor-not-allowed' : ''"
-            aria-label="Export full backup of all models"
-            @click="exportAllPlanModelsBackup()"
-          >
-            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-            Export Full Backup (.json)
-          </button>
-
-          <!-- Restore from backup -->
-          <label
-            class="flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 border-dashed border-indigo-200
-                   cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors text-xs text-indigo-600"
-          >
-            <svg class="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-            </svg>
-            <span>Restore from backup file…</span>
-            <input
-              type="file"
-              accept=".json,application/json"
-              class="sr-only"
-              @change="handleBackupRestore"
-            />
-          </label>
-          <p v-if="backupRestoreMessage" class="mt-1.5 text-xs text-green-700 font-medium" role="status">
-            {{ backupRestoreMessage }}
-          </p>
-          <p v-if="backupRestoreError" class="mt-1.5 text-xs text-red-600" role="alert">
-            {{ backupRestoreError }}
-          </p>
-        </div>
-
-      </div>
-    </div>
+      </ScrollContainer>
+    </RightPanel>
   </Teleport>
 </template>

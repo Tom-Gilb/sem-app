@@ -1,8 +1,298 @@
 import { defineConfig } from 'vitest/config'
+import { loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import type { Plugin } from 'vite'
 
-export default defineConfig({
-  plugins: [vue()],
+/**
+ * Vault path — Planguage Glossary directory.
+ * This plugin runs only in dev mode; the endpoint is unavailable in production builds.
+ */
+const VAULT_GLOSSARY = '/Users/Tomgilbs/Documents/MyVault/10.Standard/2.Glossary/PlanguageGlossary'
+
+// ── Term normalisation helpers ─────────────────────────────────────────────
+
+/**
+ * Parse an inline YAML array string like `[a, "b", 'c d']` into items.
+ * Returns [] for empty arrays or non-array values.
+ */
+function parseYamlInlineArray(value: string): string[] {
+  const v = value.trim()
+  if (!v.startsWith('[') || !v.endsWith(']')) return []
+  const inner = v.slice(1, -1)
+  if (!inner.trim()) return []
+
+  const items: string[] = []
+  let current = ''
+  let inQuote: '"' | "'" | null = null
+  for (const ch of inner) {
+    if ((ch === '"' || ch === "'") && !inQuote) { inQuote = ch; continue }
+    if (ch === inQuote) { inQuote = null; continue }
+    if (ch === ',' && !inQuote) {
+      const t = current.trim()
+      if (t) items.push(t)
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  const last = current.trim()
+  if (last) items.push(last)
+  return items
+}
+
+/**
+ * Build a synonym/alias → filename index by scanning all glossary .md files.
+ * Reads both `synonyms:` and `aliases:` inline YAML array fields from frontmatter.
+ * Called lazily on the first synonym-lookup miss; result is cached in the closure.
+ */
+function buildSynonymIndex(files: string[]): Map<string, string> {
+  const index = new Map<string, string>()
+  for (const file of files) {
+    if (!file.endsWith('.md') || file.startsWith('00-')) continue
+    try {
+      const content = readFileSync(join(VAULT_GLOSSARY, file), 'utf-8')
+      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/)
+      if (!fmMatch) continue
+      const fm = fmMatch[1]
+
+      const extractField = (field: string): string[] => {
+        const m = fm.match(new RegExp(`^${field}:\\s*(.+)$`, 'm'))
+        return m ? parseYamlInlineArray(m[1]) : []
+      }
+
+      for (const term of [...extractField('synonyms'), ...extractField('aliases')]) {
+        // Skip bare concept-number entries like "*168"
+        if (/^\*\d+[a-z]?$/.test(term.trim())) continue
+        const key = term.toLowerCase().trim().replace(/\s+/g, '-')
+        if (key && !index.has(key)) index.set(key, file)
+      }
+    } catch {
+      // skip unreadable files
+    }
+  }
+  return index
+}
+
+/** Strip leading English articles (a / an / the) from a space-separated term. */
+function stripArticles(s: string): string {
+  return s.replace(/^(?:a|an|the)\s+/i, '').trim()
+}
+
+/**
+ * Generate plural → singular candidates for a hyphen-normalised term.
+ * Applies common English inflection rules to the whole term and to the
+ * first / last hyphen-segment (handles "systems-level" → "system-level").
+ */
+function singularCandidates(hyphenated: string): string[] {
+  const deflect = (s: string): string[] => {
+    if (s.endsWith('ies') && s.length > 4) return [s.slice(0, -3) + 'y']   // policies → policy
+    if (s.endsWith('ses') && s.length > 5) return [s.slice(0, -2)]          // processes → process
+    if (s.endsWith('es')  && s.length > 4) return [s.slice(0, -2)]          // examples → exampl
+    if (s.endsWith('s')   && s.length > 3) return [s.slice(0, -1)]          // systems  → system
+    return []
+  }
+  const seen = new Set<string>()
+  for (const c of deflect(hyphenated))
+    if (c !== hyphenated) seen.add(c)
+  const parts = hyphenated.split('-')
+  if (parts.length > 1) {
+    for (const c of deflect(parts[0])) {                                     // systems-level → system-level
+      const cand = [c, ...parts.slice(1)].join('-')
+      if (cand !== hyphenated) seen.add(cand)
+    }
+    for (const c of deflect(parts[parts.length - 1])) {
+      const cand = [...parts.slice(0, -1), c].join('-')
+      if (cand !== hyphenated) seen.add(cand)
+    }
+  }
+  return [...seen]
+}
+
+/**
+ * Find up to `limit` glossary files whose stem partially overlaps `prefix`.
+ * Requires at least 4 chars of shared prefix (stem.startsWith(p) or p.startsWith(stem)).
+ * Used to populate X-Near-Match-Options for "Did you mean?" suggestions.
+ */
+function findNearMatchOptions(prefix: string, files: string[], limit = 3): string[] {
+  const p = prefix.toLowerCase()
+  if (p.length < 3) return []
+  const results: string[] = []
+  for (const f of files) {
+    if (!f.endsWith('.md') || f.startsWith('00-')) continue
+    const stem = f.toLowerCase().split('.')[0]
+    if (stem === p) continue
+    const overlapLen = Math.min(stem.length, p.length)
+    if (overlapLen >= 4 && (stem.startsWith(p) || p.startsWith(stem))) {
+      const raw = f.replace(/\.\d+[a-z]?\.md$/, '').replace(/-/g, ' ')
+      results.push(raw.charAt(0).toUpperCase() + raw.slice(1))
+      if (results.length >= limit) break
+    }
+  }
+  return results
+}
+
+/**
+ * Vite dev-server plugin: serves glossary markdown files at /api/glossary?term=<TermName>.
+ *
+ * Resolution order (first hit wins):
+ *   1. Direct file-name prefix match          "systems"      → no match
+ *   2. Synonym / alias index                  "gain"         → Benefit.009.md  (X-Synonym-Of)
+ *   3. Strip leading articles, retry 1+2      "a system"     → System.NNN.md   (X-Synonym-Of)
+ *   4. Singularize candidates, retry 1+2      "systems"      → System.NNN.md   (X-Synonym-Of)
+ *   5. Derived-form resolution                "measurement"  → Measure.NNN.md  (X-Synonym-Of)
+ *        Input starts with a glossary stem ≥5 chars; longest stem wins.
+ *        Handles -ment, -tion, -ing, -er, -ness, -ity, -al, -ive suffixes, etc.
+ *   6. Near-match prefix scan → 404 + X-Near-Match-Options header
+ *
+ * Auto-resolved terms (steps 3–5) set X-Synonym-Of to the canonical concept name
+ * so the UI shows an attribution badge ("↩ Matched as: System").
+ */
+function glossaryPlugin(): Plugin {
+  return {
+    name: 'vite-plugin-glossary',
+    apply: 'serve',
+    configureServer(server) {
+      let _synonymIndex: Map<string, string> | null = null
+
+      server.middlewares.use('/api/glossary', (req, res) => {
+        try {
+          const url  = new URL(req.url ?? '', 'http://localhost')
+          const term = url.searchParams.get('term')?.trim()
+          if (!term) { res.statusCode = 400; res.end('Missing ?term= parameter'); return }
+
+          let files: string[]
+          try { files = readdirSync(VAULT_GLOSSARY) }
+          catch { res.statusCode = 503; res.end('Vault glossary directory not accessible'); return }
+
+          // ── Scoped helpers ───────────────────────────────────────────────
+
+          function tryResolve(key: string): { file: string; isExplicitSynonym: boolean } | null {
+            const lk     = key.toLowerCase()
+            const direct = files.find(f => f.toLowerCase().startsWith(lk + '.'))
+            if (direct) return { file: direct, isExplicitSynonym: false }
+            if (!_synonymIndex) _synonymIndex = buildSynonymIndex(files)
+            const synFile = _synonymIndex.get(lk)
+            return synFile ? { file: synFile, isExplicitSynonym: true } : null
+          }
+
+          function getCanonicalName(file: string, content: string): string {
+            const m = content.match(/^english_name:\s*["']?([^"'\n]+)["']?/m)
+            if (m) return m[1].trim()
+            const raw = file.replace(/\.\d+[a-z]?\.md$/, '').replace(/-/g, ' ')
+            return raw.charAt(0).toUpperCase() + raw.slice(1)
+          }
+
+          function serve(file: string, autoResolved: boolean, isExplicitSynonym: boolean): void {
+            const content = readFileSync(join(VAULT_GLOSSARY, file), 'utf-8')
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+            res.setHeader('Cache-Control', 'no-store')
+            // Set X-Synonym-Of for explicit synonyms and for all auto-normalized forms
+            if (isExplicitSynonym || autoResolved) {
+              res.setHeader('X-Synonym-Of', getCanonicalName(file, content))
+            }
+            res.end(content)
+          }
+
+          // ── Resolution pipeline ──────────────────────────────────────────
+
+          const base = term.replace(/\s+/g, '-')
+
+          // 1 + 2: Original term — direct match then synonym index
+          let hit = tryResolve(base)
+          if (hit) { serve(hit.file, false, hit.isExplicitSynonym); return }
+
+          // 3: Strip leading articles (a / an / the) then retry
+          const deArticled = stripArticles(base.replace(/-/g, ' ')).replace(/\s+/g, '-')
+          if (deArticled !== base) {
+            hit = tryResolve(deArticled)
+            if (hit) { serve(hit.file, true, hit.isExplicitSynonym); return }
+          }
+
+          // 4: Singularize candidates (systems→system, policies→policy, etc.) then retry
+          const searchBase = deArticled !== base ? deArticled : base
+          for (const candidate of singularCandidates(searchBase)) {
+            hit = tryResolve(candidate)
+            if (hit) { serve(hit.file, true, hit.isExplicitSynonym); return }
+          }
+
+          // 5: Derived-form resolution — "measurement" → Measure, "requirements" → Requirement
+          //    Resolves when the search base starts with a known glossary stem (≥5 chars).
+          //    Longest matching stem wins (most specific concept takes priority).
+          const derivedFile = files
+            .filter(f => {
+              if (!f.endsWith('.md') || f.startsWith('00-')) return false
+              const stem = f.toLowerCase().split('.')[0]
+              return stem.length >= 5
+                && searchBase.length > stem.length
+                && searchBase.startsWith(stem)
+            })
+            .sort((a, b) =>
+              b.toLowerCase().split('.')[0].length - a.toLowerCase().split('.')[0].length,
+            )[0]
+          if (derivedFile) { serve(derivedFile, true, false); return }
+
+          // 6: Near-match prefix scan — 404 with suggestions in header
+          const suggestions = findNearMatchOptions(searchBase, files)
+          res.statusCode = 404
+          if (suggestions.length > 0) res.setHeader('X-Near-Match-Options', suggestions.join(','))
+          res.end(`No glossary entry for "${term}"`)
+
+        } catch {
+          res.statusCode = 500
+          res.end('Internal error reading glossary')
+        }
+      })
+    },
+  }
+}
+
+export default defineConfig(({ mode }) => {
+  // loadEnv reads .env, .env.local, .env.[mode], .env.[mode].local in order.
+  // In Vercel production builds VITE_OLLAMA_MODEL is never set, so the alias
+  // is skipped and the real @anthropic-ai/sdk is bundled.
+  const env = loadEnv(mode, process.cwd(), '')
+  const useOllama = Boolean(env.VITE_OLLAMA_MODEL)
+
+  return {
+  plugins: [vue(), glossaryPlugin()],
+  resolve: {
+    alias: useOllama ? {
+      // Local dev only — route all SDK imports to the Ollama drop-in adapter
+      // so no Anthropic API key or internet access is needed during development.
+      // The more-specific deep path must come first.
+      '@anthropic-ai/sdk/resources/beta/messages/messages': resolve(__dirname, 'src/lib/ollamaAdapter.ts'),
+      '@anthropic-ai/sdk': resolve(__dirname, 'src/lib/ollamaAdapter.ts'),
+    } : {},
+  },
+  optimizeDeps: {
+    exclude: [
+      // mermaid is loaded as an IIFE script tag from /public/mermaid.min.js —
+      // it is never imported via ESM, so esbuild must not try to pre-bundle it.
+      // Including it in the dep scan causes esbuild to crash (mermaid uses
+      // dynamic chunk imports that break when the entry point changes), which
+      // prevents ALL deps (including vue) from being written to .vite/deps,
+      // making the app fail to start.
+      'mermaid',
+
+      // pdfjs-dist/legacy/build/pdf.js is a webpack UMD bundle. esbuild cannot
+      // reliably pre-bundle UMD files with dynamic __webpack_require__ chunk
+      // imports — same failure mode as mermaid above. Excluding it from
+      // optimisation lets Vite serve it directly from node_modules via /@fs/
+      // with an on-the-fly CJS→ESM shim, which works fine.
+      'pdfjs-dist',
+
+      // When Ollama mode is active, @anthropic-ai/sdk is aliased to
+      // ollamaAdapter.ts (a local source file that routes to localhost:11434).
+      // If esbuild pre-bundles the real npm package into .vite/deps/ first,
+      // Vite serves that cached bundle instead of resolving through the alias —
+      // silently bypassing the adapter and sending live requests to
+      // api.anthropic.com, which returns 401 (invalid x-api-key).
+      // Excluding it forces Vite to always resolve the alias at request time.
+      ...(useOllama ? ['@anthropic-ai/sdk'] : []),
+    ],
+  },
   server: {
     port: 5173,
     strictPort: true, // fail rather than silently move to another port
@@ -17,4 +307,5 @@ export default defineConfig({
       reporter: ['text', 'json'],
     },
   },
+  }
 })

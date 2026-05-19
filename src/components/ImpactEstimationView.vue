@@ -33,7 +33,7 @@ import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { useImpactSuggestions } from '../composables/useImpactSuggestions'
 import { useExpectedValue } from '../composables/useExpectedValue'
 import { getImpactColour, getVCColour, interpretImpact } from '../utils/impactColour'
-import { extractStakeholders, impactLevel, STAKEHOLDER_PATTERNS } from '../utils/stakeholderExtract'
+import { extractAllStakeholders, impactLevel } from '../utils/stakeholderExtract'
 import type { VEntry, SEntry } from '../types/spec'
 import type { ImpactMatrix } from '../types/impact'
 import LoadingProgress from './LoadingProgress.vue'
@@ -174,28 +174,145 @@ function totalCellStyle(solutionId: string): string {
 
 // ── View mode toggle ─────────────────────────────────────────────────────────
 
-const viewMode = ref<'impact' | 'confidence'>('impact')
+const viewMode = ref<'impact' | 'confidence' | 'stakeholders'>('impact')
 
-// ── Feature #59: Stakeholder matrix ──────────────────────────────────────────
+// ── Density toggle (2026-05-12 redesign) ─────────────────────────────────────
+// "Comfortable" — default, generous padding for presentation use
+// "Compact"     — tighter padding for dense matrices (10+ columns)
+const density = ref<'comfortable' | 'compact'>('comfortable')
 
-const stakeholderView = ref(false)
+// ── Hover highlight (2026-05-12 redesign) ────────────────────────────────────
+// Tracks the currently-hovered row + column so we can dim the rest. Subtle
+// — boosts focus without being noisy. Empty string ⇒ no highlight.
+const hoverRow = ref<string>('')
+const hoverCol = ref<string>('')
+
+// ── Hero summary (2026-05-12 redesign) ──────────────────────────────────────
+// Headline numbers shown above the table — the "what's the answer" answer.
+
+const winningSolution = computed<string>(() => rankedSolutions.value[0] ?? '')
+const runnerUpSolution = computed<string>(() => rankedSolutions.value[1] ?? '')
+
+const totalCalendarWeeks = computed<number>(() =>
+  props.solutions.reduce((s, sol) => s + (calendarCosts[sol.id] ?? 0), 0),
+)
+const totalCapitalCost = computed<number>(() =>
+  props.solutions.reduce((s, sol) => s + (capitalCosts[sol.id] ?? 0), 0),
+)
+const grandTotalImpact = computed<number>(() =>
+  props.solutions.reduce((s, sol) => s + totalImpact(sol.id), 0),
+)
+const bestEfficiency = computed<string>(() =>
+  winningSolution.value ? formatEfficiency(winningSolution.value) : '–',
+)
+
+/** Find the solution description by id (for the hero card) */
+function solutionDescription(id: string): string {
+  return props.solutions.find((s) => s.id === id)?.description ?? id
+}
+
+/** Medal emoji for top 3 ranks; empty string otherwise */
+function medalFor(rank: number): string {
+  if (rank === 1) return '🥇'
+  if (rank === 2) return '🥈'
+  if (rank === 3) return '🥉'
+  return ''
+}
+
+// ── Bold cell visuals (2026-05-12 redesign) ─────────────────────────────────
+// Replaces the "tinted bg + tiny coloured bar at the bottom" look with a
+// single saturated colour fill keyed to impact strength. The bar was
+// competing with the number for attention; folding it into the cell colour
+// makes the matrix readable at a glance from across a room.
 
 /**
- * Stakeholders detected across all V. entry descriptions.
+ * Background fill for an impact cell. Saturation scales with |value|:
+ *   0          : white (no estimate)
+ *   1–29       : light red    (#fee2e2)
+ *   30–59      : amber tint   (#fde68a)
+ *   60–79      : green tint   (#bbf7d0)
+ *   ≥ 80       : strong green (#86efac)
+ *   negative   : strong red   (#fca5a5)
+ * Plus a coloured left bar for instant traffic-light scanning.
+ */
+function boldCellBg(value: number | undefined): string {
+  const v = value ?? 0
+  if (v === 0) return '#ffffff'
+  if (v < 0) return '#fca5a5'
+  if (v >= 80) return '#86efac'
+  if (v >= 60) return '#bbf7d0'
+  if (v >= 30) return '#fde68a'
+  return '#fecaca'
+}
+
+/** Foreground (number) colour — dark on light fills, white on saturated fills */
+function boldCellFg(value: number | undefined): string {
+  const v = value ?? 0
+  if (v === 0) return '#9ca3af'   // gray-400
+  return '#0f172a'                 // slate-900 — high contrast on every fill above
+}
+
+/** Combined inline style for a redesigned data cell */
+function boldDataCellStyle(valueId: string, solutionId: string): string {
+  const v = impactMatrix[valueId]?.[solutionId]
+  const bg = boldCellBg(v)
+  const fg = boldCellFg(v)
+  const colour = getImpactColour(v ?? 0)
+  const overlay = confidenceOverlayStyle(solutionId)
+  const winning = solutionId === winningSolution.value
+    ? 'box-shadow:inset 0 0 0 2px rgba(234,179,8,0.45)'
+    : ''
+  const dimmed  = (hoverRow.value && hoverRow.value !== valueId) ||
+                  (hoverCol.value && hoverCol.value !== solutionId)
+    ? 'opacity:0.45;'
+    : ''
+  return [
+    `background:${bg}`,
+    `color:${fg}`,
+    `border-left:4px solid ${colour}`,
+    overlay,
+    winning,
+    dimmed,
+  ].filter(Boolean).join(';')
+}
+
+/** Inline style for a header cell of the winning column */
+function colHeaderStyle(solutionId: string): string {
+  const winning = solutionId === winningSolution.value
+  return winning
+    ? 'background:linear-gradient(180deg,#fbbf24 0%,#1f2937 35%);box-shadow:inset 0 0 0 2px #fbbf24'
+    : ''
+}
+
+// ── Feature #59: Stakeholder matrix ──────────────────────────────────────────
+// stakeholderView is derived from viewMode so clicking the Stakeholders button
+// replaces the VDT matrix (rather than appending below the fold).
+// Legacy boolean kept as computed for any template bindings that still use it.
+
+/**
+ * Stakeholders detected across all spec text — F. + V. + S. descriptions plus
+ * solutions list — so a stakeholder mentioned in any part of the spec is found.
+ * Also runs contextual extraction for "for X" / "help X" phrases.
  */
 const detectedStakeholders = computed(() => {
-  if (!props.values.length) return []
-  const allText = props.values.map(v => v.description).join(' ')
-  return STAKEHOLDER_PATTERNS.filter(s =>
-    s.keywords.some(k => allText.toLowerCase().includes(k)),
-  )
+  if (!props.values.length && !props.solutions.length) return []
+  const allText = [
+    ...props.values.map(v => v.description),
+    ...props.solutions.map(s => s.description),
+  ].join(' ')
+  return extractAllStakeholders(allText)
 })
 
 /**
- * Returns a cell text for display in the matrix combining description + id.
+ * Returns the natural-language description for impact scoring.
+ *
+ * Bug fix 2026-05-12: drop the `${v.id}` prefix so spec-ID single letters
+ * ("V", "S", "F") cannot accidentally satisfy keyword matches against
+ * contextual stakeholders. Only natural-language description text counts
+ * for impact scoring — keeps the matrix in lock-step with PrioritisedPlanView.
  */
 function vEntryText(v: VEntry): string {
-  return `${v.id} ${v.description}`
+  return v.description
 }
 
 /**
@@ -460,8 +577,7 @@ const {
 
 // ── Copy table to clipboard ───────────────────────────────────────────────────
 
-const copied        = ref(false)   // Notes / rich-text copy
-const copiedKeynote = ref(false)   // Keynote TSV copy
+const copied = ref(false)   // rich-text copy (text/html + text/plain TSV via ClipboardItem)
 
 /**
  * Builds the TSV (tab-separated) representation of the table.
@@ -469,18 +585,21 @@ const copiedKeynote = ref(false)   // Keynote TSV copy
  * standalone Keynote copy payload.
  */
 function buildTSV(): string {
-  const solIds = props.solutions.map((s) => s.id)
+  // Use .description (natural language with spaces) not .id (camelCase slug) so
+  // Keynote and Numbers can wrap cell text when columns are narrow.
+  // IDs are kept only for matrix/cost lookups — never appear as visible labels.
+  const sols = props.solutions
   const rows: string[][] = [
-    ['Value / Solution', ...solIds],
+    ['Value / Solution', ...sols.map((s) => s.description)],
     ...props.values.map((val) => [
-      val.id,
-      ...solIds.map((sid) => String(impactMatrix[val.id]?.[sid] ?? 0)),
+      val.description,
+      ...sols.map((s) => String(impactMatrix[val.id]?.[s.id] ?? 0)),
     ]),
-    ['Calendar (weeks)', ...solIds.map((sid) => String(calendarCosts[sid] ?? 0))],
-    ['Capital ($k)',     ...solIds.map((sid) => String(capitalCosts[sid]  ?? 0))],
-    ['Total Impact',    ...solIds.map((sid) => String(totalImpact(sid)))],
-    ['Means Efficiency',...solIds.map((sid) => formatEfficiency(sid))],
-    ['Rank',            ...solIds.map((sid) => `#${rankOf(sid)}`)],
+    ['Calendar (weeks)', ...sols.map((s) => String(calendarCosts[s.id] ?? 0))],
+    ['Capital ($k)',     ...sols.map((s) => String(capitalCosts[s.id]  ?? 0))],
+    ['Total Impact',    ...sols.map((s) => String(totalImpact(s.id)))],
+    ['Means Efficiency',...sols.map((s) => formatEfficiency(s.id))],
+    ['Rank',            ...sols.map((s) => `#${rankOf(s.id)}`)],
   ]
   return rows.map((r) => r.join('\t')).join('\n')
 }
@@ -491,8 +610,6 @@ function buildTSV(): string {
  * A TSV plain-text fallback is also written for apps that prefer plain text.
  */
 async function copyForNotes(): Promise<void> {
-  const solIds = props.solutions.map((s) => s.id)
-
   // ── Inline-style helpers (mirror the cell colour spec) ───────────────────
   function inlineCellStyle(v: number): string {
     const colour = getImpactColour(v)
@@ -502,69 +619,72 @@ async function copyForNotes(): Promise<void> {
   }
 
   const BASE  = 'font-family:system-ui,-apple-system,Helvetica Neue,sans-serif;font-size:13px;border-collapse:collapse'
-  const TH_H  = 'background:#1f2937;color:#ffffff;padding:6px 12px;text-align:center;white-space:nowrap;font-size:12px'
-  const TH_H1 = 'background:#1f2937;color:#ffffff;padding:6px 12px;text-align:left;white-space:nowrap;font-size:12px'
+  // white-space:normal on all header/label cells so text wraps when columns are narrow
+  const TH_H  = 'background:#1f2937;color:#ffffff;padding:6px 12px;text-align:center;white-space:normal;font-size:12px'
+  const TH_H1 = 'background:#1f2937;color:#ffffff;padding:6px 12px;text-align:left;white-space:normal;font-size:12px'
   const TD_C  = 'text-align:center;padding:5px 8px;font-size:13px;border:1px solid #e5e7eb'
-  const TH_R  = 'text-align:left;padding:5px 12px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid #e5e7eb'
+  const TH_R  = 'text-align:left;padding:5px 12px;font-size:12px;font-weight:600;white-space:normal;border:1px solid #e5e7eb'
 
   // ── Build HTML table ──────────────────────────────────────────────────────
   // Wrap in a complete HTML document — required by Mac Notes, Keynote, and Word
   // to accept the clipboard as rich-text rather than plain text.
   let table = `<table style="${BASE}">`
 
-  // Header row
+  const sols = props.solutions
+
+  // Header row — use description text so column headers wrap in Keynote/Numbers
   table += `<thead><tr><th style="${TH_H1}">Value / Solution</th>`
-  for (const sid of solIds) table += `<th style="${TH_H}">${sid}</th>`
+  for (const s of sols) table += `<th style="${TH_H}">${s.description}</th>`
   table += `</tr></thead>`
 
   // All rows go in <tbody> — Mac Notes strips <tfoot> and only renders <tbody> content.
   table += `<tbody>`
 
-  // Value × solution data rows
+  // Value × solution data rows — use description for row labels, ids for lookup
   for (const val of props.values) {
-    table += `<tr><th style="${TH_R}">${val.id}</th>`
-    for (const sid of solIds) {
-      const v = impactMatrix[val.id]?.[sid] ?? 0
+    table += `<tr><th style="${TH_R}">${val.description}</th>`
+    for (const s of sols) {
+      const v = impactMatrix[val.id]?.[s.id] ?? 0
       table += `<td style="${TD_C};${inlineCellStyle(v)}">${v}</td>`
     }
     table += `</tr>`
   }
 
   // Visual separator row between value cells and cost/summary rows
-  const colSpan = solIds.length + 1
+  const colSpan = sols.length + 1
   table += `<tr><td colspan="${colSpan}" style="padding:0;height:4px;background:#e5e7eb"></td></tr>`
 
   // Calendar time
   table += `<tr style="border-top:1px solid #bfdbfe">`
   table += `<th style="${TH_R};color:#1d4ed8">⏱ Calendar (weeks)</th>`
-  for (const sid of solIds) {
-    table += `<td style="${TD_C};background:#eff6ff;color:#1e40af">${calendarCosts[sid] ?? 0}</td>`
+  for (const s of sols) {
+    table += `<td style="${TD_C};background:#eff6ff;color:#1e40af">${calendarCosts[s.id] ?? 0}</td>`
   }
   table += `</tr>`
 
   // Capital cost
   table += `<tr>`
   table += `<th style="${TH_R};color:#7c3aed">💰 Capital ($k)</th>`
-  for (const sid of solIds) {
-    table += `<td style="${TD_C};background:#f5f3ff;color:#6d28d9">${capitalCosts[sid] ?? 0}</td>`
+  for (const s of sols) {
+    table += `<td style="${TD_C};background:#f5f3ff;color:#6d28d9">${capitalCosts[s.id] ?? 0}</td>`
   }
   table += `</tr>`
 
   // Total impact
   table += `<tr style="border-top:1px solid #d1d5db">`
   table += `<th style="${TH_R}">Σ Value Impact</th>`
-  for (const sid of solIds) {
-    table += `<td style="${TD_C};background:#f9fafb">${totalImpact(sid)}</td>`
+  for (const s of sols) {
+    table += `<td style="${TD_C};background:#f9fafb">${totalImpact(s.id)}</td>`
   }
   table += `</tr>`
 
   // Means efficiency + rank
   table += `<tr style="border-top:2px solid #6b7280">`
   table += `<th style="${TH_R};font-weight:700">Means Efficiency</th>`
-  for (const sid of solIds) {
-    const top = rankOf(sid) === 1
+  for (const s of sols) {
+    const top = rankOf(s.id) === 1
     table += `<td style="${TD_C};font-weight:700;background:${top ? '#f0fdf4' : '#f9fafb'};color:${top ? '#15803d' : '#111827'}">`
-    table += `${formatEfficiency(sid)}&nbsp;<span style="font-size:11px;color:${top ? '#16a34a' : '#9ca3af'}">#${rankOf(sid)}</span></td>`
+    table += `${formatEfficiency(s.id)}&nbsp;<span style="font-size:11px;color:${top ? '#16a34a' : '#9ca3af'}">#${rankOf(s.id)}</span></td>`
   }
   table += `</tr>`
 
@@ -596,22 +716,6 @@ async function copyForNotes(): Promise<void> {
   }
 }
 
-/**
- * Copies the table as plain tab-separated text only.
- *
- * How to use in Keynote:
- *   1. Insert a table on your slide  (Insert → Table)
- *   2. Click the top-left cell
- *   3. ⌘V — Keynote fills all cells from the TSV data
- */
-async function copyForKeynote(): Promise<void> {
-  const tsv = buildTSV()
-  try {
-    await navigator.clipboard.writeText(tsv)
-    copiedKeynote.value = true
-    setTimeout(() => { copiedKeynote.value = false }, 2500)
-  } catch { /* silent */ }
-}
 
 // ── Public API for parent (App.vue reads this at export time) ─────────────────
 /**
@@ -675,6 +779,91 @@ defineExpose({
 
     <template v-else>
 
+      <!-- ── Hero summary banner (2026-05-12 redesign) ─────────────────────
+           Big, bold, presentational header that answers the question
+           "what's the answer?" before the user even reads the matrix.
+           Three tiles: WINNER (gold gradient), TOTAL IMPACT (blue),
+           INVESTMENT (slate). Each tile is a click-target — clicking
+           the winner card scrolls to its column highlight in the table. -->
+      <div
+        class="mb-5 grid grid-cols-1 sm:grid-cols-3 gap-3"
+        aria-label="Impact estimation summary"
+        data-testid="iet-hero-banner"
+      >
+        <!-- Winner tile -->
+        <div
+          class="relative overflow-hidden rounded-xl shadow-lg p-4 text-white"
+          style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 60%,#92400e 100%)"
+          :aria-label="`Winning solution: ${winningSolution || 'none yet'}`"
+        >
+          <div class="text-[11px] uppercase tracking-wider opacity-80 font-bold">🏆 Winner</div>
+          <div class="mt-1 text-2xl font-extrabold leading-tight" :title="solutionDescription(winningSolution)">
+            {{ winningSolution || '—' }}
+          </div>
+          <div class="text-xs opacity-90 line-clamp-2 mt-0.5" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+            {{ solutionDescription(winningSolution) }}
+          </div>
+          <div class="mt-3 flex items-baseline gap-3">
+            <div>
+              <div class="text-[10px] uppercase tracking-wider opacity-75 font-semibold">Efficiency</div>
+              <div class="text-2xl font-bold leading-none">{{ bestEfficiency }}</div>
+            </div>
+            <div v-if="runnerUpSolution" class="ml-auto text-right">
+              <div class="text-[10px] uppercase tracking-wider opacity-75 font-semibold">🥈 Runner-up</div>
+              <div class="text-sm font-bold leading-tight">{{ runnerUpSolution }}</div>
+            </div>
+          </div>
+          <!-- decorative ribbon -->
+          <div class="absolute -right-4 -top-4 opacity-15 text-7xl font-black select-none pointer-events-none">★</div>
+        </div>
+
+        <!-- Total Impact tile -->
+        <div
+          class="rounded-xl shadow-md p-4 text-white"
+          style="background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 60%,#2563eb 100%)"
+          aria-label="Aggregate impact summary"
+        >
+          <div class="text-[11px] uppercase tracking-wider opacity-80 font-bold">📊 Σ Coverage</div>
+          <div class="mt-1 text-3xl font-extrabold leading-tight">{{ grandTotalImpact }}</div>
+          <div class="text-xs opacity-85 mt-0.5">total impact across all V × S</div>
+          <div class="mt-3 flex items-center gap-4 text-xs">
+            <div>
+              <div class="text-[10px] uppercase tracking-wider opacity-75 font-semibold">Values</div>
+              <div class="text-base font-bold leading-none">{{ values.length }}</div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase tracking-wider opacity-75 font-semibold">Solutions</div>
+              <div class="text-base font-bold leading-none">{{ solutions.length }}</div>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase tracking-wider opacity-75 font-semibold">Cells</div>
+              <div class="text-base font-bold leading-none">{{ values.length * solutions.length }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Investment tile -->
+        <div
+          class="rounded-xl shadow-md p-4 text-white"
+          style="background:linear-gradient(135deg,#0f172a 0%,#334155 60%,#475569 100%)"
+          aria-label="Investment cost summary"
+        >
+          <div class="text-[11px] uppercase tracking-wider opacity-80 font-bold">💰 Investment</div>
+          <div class="mt-1 flex items-baseline gap-2">
+            <span class="text-3xl font-extrabold leading-tight">${{ totalCapitalCost }}k</span>
+            <span class="text-base font-bold opacity-80">+ {{ totalCalendarWeeks }}w</span>
+          </div>
+          <div class="text-xs opacity-85 mt-0.5">across {{ solutions.length }} solutions</div>
+          <div class="mt-3 text-xs">
+            <span class="opacity-75">avg per solution:</span>
+            <span class="font-bold ml-1">
+              ${{ solutions.length ? (totalCapitalCost / solutions.length).toFixed(1) : 0 }}k
+              · {{ solutions.length ? (totalCalendarWeeks / solutions.length).toFixed(1) : 0 }}w
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- View mode toggle: Impact | Confidence -->
       <div class="mb-3 flex flex-wrap items-center gap-2" aria-label="View mode toggle">
         <span class="text-xs font-semibold text-gray-600">View:</span>
@@ -703,15 +892,15 @@ defineExpose({
           >Confidence</button>
         </div>
 
-        <!-- Feature #59 — Stakeholders toggle -->
+        <!-- Feature #59 — Stakeholders view mode (replaces VDT matrix when active) -->
         <button
           type="button"
           class="min-h-[44px] px-4 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          :class="stakeholderView ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-          :aria-pressed="stakeholderView"
+          :class="viewMode === 'stakeholders' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+          :aria-pressed="viewMode === 'stakeholders'"
           aria-label="Stakeholder matrix view"
           data-testid="toggle-stakeholders"
-          @click="stakeholderView = !stakeholderView"
+          @click="viewMode = viewMode === 'stakeholders' ? 'impact' : 'stakeholders'"
         >Stakeholders</button>
 
         <!-- Feature #39 — Log Actuals toggle -->
@@ -737,6 +926,34 @@ defineExpose({
         >
           📐 EV
         </button>
+
+        <!-- Density toggle (2026-05-12 redesign) — Comfortable | Compact -->
+        <div class="ml-auto inline-flex rounded-lg border border-gray-200 overflow-hidden" role="group" aria-label="Table density">
+          <button
+            type="button"
+            :class="[
+              'h-11 px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-500',
+              density === 'comfortable' ? 'bg-slate-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            ]"
+            :aria-pressed="density === 'comfortable'"
+            aria-label="Comfortable density (default)"
+            data-testid="density-comfortable"
+            title="Comfortable — generous spacing, presentation-ready"
+            @click="density = 'comfortable'"
+          >▤ Comfy</button>
+          <button
+            type="button"
+            :class="[
+              'h-11 px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-500',
+              density === 'compact' ? 'bg-slate-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            ]"
+            :aria-pressed="density === 'compact'"
+            aria-label="Compact density (dense matrices)"
+            data-testid="density-compact"
+            title="Compact — fits more columns on screen"
+            @click="density = 'compact'"
+          >▦ Dense</button>
+        </div>
       </div>
 
       <!-- Colour legend + Regenerate -->
@@ -764,11 +981,12 @@ defineExpose({
         <!-- Actions: Copy (Notes) + Copy (Keynote) + Regenerate -->
         <div class="flex flex-wrap items-center gap-2">
 
-          <!-- Copy for Notes / Pages / Word — rich HTML table -->
+          <!-- Single copy — writes text/html (coloured table) + text/plain (TSV) simultaneously -->
           <button
             type="button"
             class="flex items-center gap-2 min-h-[44px] px-3 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-            :aria-label="copied ? 'Copied!' : 'Copy coloured table for Mac Notes / Pages'"
+            :aria-label="copied ? 'Copied!' : 'Copy impact table — pastes as coloured table in Notes, Pages, Keynote'"
+            :title="'Pastes as a coloured table in Notes, Pages, and Keynote'"
             @click="copyForNotes"
           >
             <svg v-if="copied" class="h-4 w-4 text-green-600 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -778,26 +996,7 @@ defineExpose({
               <path d="M8 2a2 2 0 00-2 2v1H5a2 2 0 00-2 2v9a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H8zm0 2h4v1H8V4zm-3 3h10v9H5V7z"/>
             </svg>
             <span :class="copied ? 'text-green-600 font-semibold' : ''">
-              {{ copied ? 'Copied!' : '📝 Copy (Notes)' }}
-            </span>
-          </button>
-
-          <!-- Copy for Keynote — TSV only, paste into existing table cells -->
-          <button
-            type="button"
-            class="flex items-center gap-2 min-h-[44px] px-3 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors"
-            :aria-label="copiedKeynote ? 'Copied!' : 'Copy as tab-separated data for Keynote table cells'"
-            :title="'Keynote: Insert a table → click first cell → ⌘V'"
-            @click="copyForKeynote"
-          >
-            <svg v-if="copiedKeynote" class="h-4 w-4 text-green-600 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-            </svg>
-            <svg v-else class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M5 4a1 1 0 011-1h8a1 1 0 011 1v1h1a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2h1V4zm2 0v1h6V4H7zM4 7v9h12V7H4zm2 2h2v2H6V9zm4 0h2v2h-2V9zm4 0h2v2h-2V9z" clip-rule="evenodd"/>
-            </svg>
-            <span :class="copiedKeynote ? 'text-green-600 font-semibold' : ''">
-              {{ copiedKeynote ? 'Copied!' : '📊 Copy (Keynote)' }}
+              {{ copied ? 'Copied!' : '📋 Copy' }}
             </span>
           </button>
 
@@ -813,38 +1012,79 @@ defineExpose({
         </div>
       </div>
 
-      <!-- VDT table — compact layout: vertical column headers keep each column ~60px wide -->
-      <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm mb-6">
+      <!-- VDT table — bold redesign (2026-05-12 v2):
+           – column headers stack a RANK BADGE (medal for top 3) above ID
+             above 2-line description; winning column gets a gold gradient
+           – cells use SOLID colour fills keyed to impact strength (no more
+             tiny competing bar inside the cell) so the matrix reads at a
+             glance from across a room
+           – footer rows (Σ, V/C, Efficiency) get bigger, bolder numbers
+             and the winning column is outlined in gold
+           – density toggle drives padding + column width
+           – v-show hides (not unmounts) the table when Stakeholders view is active -->
+      <div v-show="viewMode !== 'stakeholders'" class="overflow-x-auto rounded-xl border border-gray-300 shadow-md mb-6 bg-white">
         <table
-          class="w-auto border-collapse text-sm bg-white"
+          class="w-auto border-collapse bg-white"
+          :class="density === 'compact' ? 'text-xs' : 'text-sm'"
           role="table"
           aria-label="Impact estimation matrix — rows are values, columns are solutions"
         >
-          <!-- Column headers — rotated 90° to minimise column width -->
+          <!-- Column headers — rank badge + ID + description; winner = gold -->
           <thead>
             <tr role="row">
               <th
                 scope="col"
-                class="sticky left-0 z-10 bg-gray-800 text-white font-semibold px-3 py-2 min-w-[110px] text-left align-bottom text-xs"
+                class="sticky left-0 z-20 bg-gradient-to-b from-slate-800 to-slate-900 text-white font-bold uppercase tracking-wider text-left align-bottom"
+                :class="density === 'compact' ? 'px-3 py-2 min-w-[180px] text-[11px]' : 'px-4 py-3 min-w-[220px] text-xs'"
                 role="columnheader"
-              >V. / S.</th>
+              >Value × Solution</th>
               <th
                 v-for="sol in solutions"
                 :key="sol.id"
                 scope="col"
-                class="bg-gray-800 px-1 pb-2 pt-1 align-bottom"
-                style="width:60px;min-width:60px"
+                class="bg-slate-800 align-bottom relative cursor-pointer transition-colors hover:bg-slate-700"
+                :class="density === 'compact' ? 'px-1 pb-2 pt-1' : 'px-2 pb-3 pt-2'"
+                :style="(density === 'compact'
+                  ? 'width:110px;min-width:110px;'
+                  : 'width:140px;min-width:140px;') + colHeaderStyle(sol.id)"
                 role="columnheader"
-                :aria-label="`Solution: ${sol.id}`"
+                :aria-label="`Solution: ${sol.id}, rank ${rankOf(sol.id)}`"
+                @mouseenter="hoverCol = sol.id"
+                @mouseleave="hoverCol = ''"
               >
-                <!-- Vertical text: reading direction bottom → top -->
-                <div
-                  class="text-white font-semibold text-xs mx-auto"
-                  style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;max-height:120px;overflow:hidden;text-overflow:ellipsis"
-                  :title="sol.id"
-                >{{ sol.id }}</div>
+                <div class="flex flex-col items-center text-center gap-1">
+                  <!-- Rank badge — medal for top 3, # for the rest -->
+                  <span
+                    class="inline-flex items-center justify-center rounded-full font-extrabold leading-none"
+                    :class="[
+                      density === 'compact' ? 'h-5 min-w-[20px] px-1.5 text-[10px]' : 'h-6 min-w-[24px] px-2 text-xs',
+                      rankOf(sol.id) === 1 ? 'bg-yellow-400 text-slate-900 shadow' :
+                      rankOf(sol.id) === 2 ? 'bg-gray-300 text-slate-800' :
+                      rankOf(sol.id) === 3 ? 'bg-orange-300 text-slate-800' :
+                      'bg-slate-600 text-slate-200',
+                    ]"
+                    :title="`Rank #${rankOf(sol.id)} by Means Efficiency`"
+                  >
+                    <span v-if="medalFor(rankOf(sol.id))" class="mr-0.5">{{ medalFor(rankOf(sol.id)) }}</span>
+                    <span>#{{ rankOf(sol.id) }}</span>
+                  </span>
+                  <!-- ID — bold, white -->
+                  <span
+                    class="text-white font-extrabold leading-tight"
+                    :class="density === 'compact' ? 'text-[11px]' : 'text-xs'"
+                    :title="sol.id"
+                  >{{ sol.id }}</span>
+                  <!-- Description — softer, 2-line clamp -->
+                  <span
+                    v-if="sol.description"
+                    class="text-slate-300 font-normal leading-snug"
+                    :class="density === 'compact' ? 'text-[10px]' : 'text-[11px]'"
+                    :title="sol.description"
+                    style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis"
+                  >{{ sol.description }}</span>
+                </div>
                 <!-- Feature #39 — Actuals input -->
-                <div v-if="actualsMode" class="mt-1 flex justify-center">
+                <div v-if="actualsMode" class="mt-2 flex justify-center">
                   <input
                     type="number"
                     min="0"
@@ -853,7 +1093,7 @@ defineExpose({
                     placeholder="–"
                     :value="actuals[sol.id] ?? ''"
                     :aria-label="`Actual impact % for ${sol.id}`"
-                    class="w-16 h-9 text-xs rounded border border-blue-300 text-center bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    class="w-20 h-9 text-xs rounded border border-blue-300 text-center bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     @input="onActualInput(sol.id, $event)"
                   />
                 </div>
@@ -881,20 +1121,33 @@ defineExpose({
               v-for="(val, rowIdx) in values"
               :key="val.id"
               role="row"
-              :class="rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
+              :class="rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'"
+              @mouseenter="hoverRow = val.id"
+              @mouseleave="hoverRow = ''"
             >
-              <!-- Sticky row header -->
+              <!-- Sticky row header — wider (220 px) so V. descriptions
+                   wrap to two lines instead of being truncated at 105 px -->
               <th
                 scope="row"
-                class="sticky left-0 z-10 bg-inherit text-left px-3 py-1.5 font-medium text-gray-900 text-xs"
+                class="sticky left-0 z-10 bg-inherit text-left font-medium text-slate-900 align-top border-r border-slate-200"
+                :class="density === 'compact'
+                  ? 'px-3 py-1.5 text-xs'
+                  : 'px-4 py-2.5 text-sm'"
                 role="rowheader"
                 :title="val.description || val.id"
+                :style="density === 'compact'
+                  ? 'min-width:180px;max-width:220px'
+                  : 'min-width:220px;max-width:260px'"
               >
-                <div class="truncate max-w-[105px]">{{ val.id }}</div>
+                <div class="flex items-center gap-1.5">
+                  <span class="inline-block w-1 self-stretch rounded bg-indigo-400" aria-hidden="true"></span>
+                  <span class="font-bold text-slate-900 leading-tight">{{ val.id }}</span>
+                </div>
                 <div
                   v-if="val.description"
-                  class="font-normal text-gray-400 truncate max-w-[105px]"
-                  style="font-size:10px"
+                  class="font-normal text-slate-500 leading-snug mt-0.5"
+                  :class="density === 'compact' ? 'text-[10px]' : 'text-[11px]'"
+                  style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis"
                 >{{ val.description }}</div>
 
                 <!-- Feature #98 — Probability slider (shown in EV mode) -->
@@ -919,16 +1172,19 @@ defineExpose({
                 </div>
               </th>
 
-              <!-- Impact % cells — colour-coded, bar chart, tooltip -->
+              <!-- Impact % cells — bold solid-colour fill, big number,
+                   no separate bar (the cell IS the bar). Hover dims other
+                   rows/cols. Winning column gets a gold inset shadow. -->
               <td
                 v-for="sol in solutions"
                 :key="sol.id"
-                class="p-0.5 text-center"
+                class="text-center transition-opacity"
+                :class="density === 'compact' ? 'p-0.5' : 'p-1'"
                 role="cell"
-                :style="dataCellStyle(val.id, sol.id)"
+                :style="boldDataCellStyle(val.id, sol.id)"
                 :data-confidence="viewMode === 'confidence' ? confidenceLevel(sol.id) : undefined"
-                @mouseenter="showTooltip($event, val.id, sol.id)"
-                @mouseleave="hideTooltip"
+                @mouseenter="hoverCol = sol.id; showTooltip($event, val.id, sol.id)"
+                @mouseleave="hoverCol = ''; hideTooltip()"
                 @focusin="showTooltip($event as unknown as MouseEvent, val.id, sol.id)"
                 @focusout="hideTooltip"
               >
@@ -940,15 +1196,15 @@ defineExpose({
                   type="number"
                   min="-100"
                   max="100"
-                  class="w-10 rounded border border-transparent bg-transparent px-0.5 py-0.5 text-center text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-white focus:bg-white"
+                  class="rounded border border-transparent bg-transparent text-center font-extrabold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-white focus:bg-white/90"
+                  :class="density === 'compact'
+                    ? 'w-12 px-0.5 py-0.5 text-sm'
+                    : 'w-16 px-1 py-1 text-base'"
                   :value="impactMatrix[val.id]?.[sol.id] ?? 0"
                   :aria-label="`Impact of ${sol.id} on ${val.id} (percent)`"
+                  :style="`color:${boldCellFg(impactMatrix[val.id]?.[sol.id])}`"
                   @input="onCellInput(val.id, sol.id, $event)"
                 />
-                <!-- Mini horizontal bar — width proportional to |value| -->
-                <div class="px-0.5">
-                  <div :style="barStyle(impactMatrix[val.id]?.[sol.id])"></div>
-                </div>
               </td>
 
               <!-- Feature #98 — EV cell at the right of the row -->
@@ -964,26 +1220,37 @@ defineExpose({
             </tr>
           </tbody>
 
-          <!-- Footer: costs + totals + efficiency + V/C -->
+          <!-- Footer: costs + totals + efficiency + V/C
+               Redesigned 2026-05-12: bigger numbers, winning column outlined
+               in gold, ranking medal alongside Efficiency. -->
           <tfoot>
             <!-- Calendar Time row -->
-            <tr role="row" class="border-t border-gray-200 bg-blue-50">
+            <tr role="row" class="border-t-2 border-slate-200 bg-blue-50">
               <th
                 scope="row"
-                class="sticky left-0 z-10 bg-blue-50 text-left px-3 py-1.5 font-semibold text-blue-800 text-xs whitespace-nowrap"
+                class="sticky left-0 z-10 bg-blue-50 text-left font-bold text-blue-900 whitespace-nowrap border-r border-blue-200"
+                :class="density === 'compact' ? 'px-3 py-1 text-[11px]' : 'px-4 py-2 text-xs'"
                 role="rowheader"
-              >⏱ Weeks</th>
+              >
+                ⏱ Weeks
+                <div class="font-normal text-blue-500/70 mt-0.5" style="font-size:10px">
+                  Σ {{ totalCalendarWeeks }}w
+                </div>
+              </th>
               <td
                 v-for="sol in solutions"
                 :key="sol.id"
-                class="p-0.5 text-center"
+                class="text-center"
+                :class="density === 'compact' ? 'p-0.5' : 'p-1'"
+                :style="sol.id === winningSolution ? 'box-shadow:inset 0 0 0 2px rgba(234,179,8,0.45)' : ''"
                 role="cell"
               >
                 <input
                   type="number"
                   min="0"
                   step="0.5"
-                  class="w-10 rounded border border-blue-200 bg-white px-0.5 py-0.5 text-center text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  class="rounded border border-blue-200 bg-white text-center font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="density === 'compact' ? 'w-12 px-0.5 py-0.5 text-xs' : 'w-16 px-1 py-1 text-sm'"
                   :value="calendarCosts[sol.id] ?? ''"
                   :aria-label="`Calendar time for ${sol.id} in weeks`"
                   placeholder="0"
@@ -993,23 +1260,32 @@ defineExpose({
             </tr>
 
             <!-- Capital Cost row -->
-            <tr role="row" class="border-t border-gray-100 bg-purple-50">
+            <tr role="row" class="border-t border-blue-100 bg-purple-50">
               <th
                 scope="row"
-                class="sticky left-0 z-10 bg-purple-50 text-left px-3 py-1.5 font-semibold text-purple-800 text-xs whitespace-nowrap"
+                class="sticky left-0 z-10 bg-purple-50 text-left font-bold text-purple-900 whitespace-nowrap border-r border-purple-200"
+                :class="density === 'compact' ? 'px-3 py-1 text-[11px]' : 'px-4 py-2 text-xs'"
                 role="rowheader"
-              >💰 $k</th>
+              >
+                💰 $k
+                <div class="font-normal text-purple-500/70 mt-0.5" style="font-size:10px">
+                  Σ ${{ totalCapitalCost }}k
+                </div>
+              </th>
               <td
                 v-for="sol in solutions"
                 :key="sol.id"
-                class="p-0.5 text-center"
+                class="text-center"
+                :class="density === 'compact' ? 'p-0.5' : 'p-1'"
+                :style="sol.id === winningSolution ? 'box-shadow:inset 0 0 0 2px rgba(234,179,8,0.45)' : ''"
                 role="cell"
               >
                 <input
                   type="number"
                   min="0"
                   step="1"
-                  class="w-10 rounded border border-purple-200 bg-white px-0.5 py-0.5 text-center text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  class="rounded border border-purple-200 bg-white text-center font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  :class="density === 'compact' ? 'w-12 px-0.5 py-0.5 text-xs' : 'w-16 px-1 py-1 text-sm'"
                   :value="capitalCosts[sol.id] ?? ''"
                   :aria-label="`Capital cost for ${sol.id} in thousands`"
                   placeholder="0"
@@ -1018,51 +1294,58 @@ defineExpose({
               </td>
             </tr>
 
-            <!-- Value Impact Sum row — colour-coded -->
-            <tr role="row" class="border-t border-gray-200">
+            <!-- Value Impact Sum row — bigger, bolder -->
+            <tr role="row" class="border-t-2 border-slate-300">
               <th
                 scope="row"
-                class="sticky left-0 z-10 bg-gray-50 text-left px-3 py-1.5 font-semibold text-gray-700 text-xs whitespace-nowrap"
+                class="sticky left-0 z-10 bg-slate-100 text-left font-bold text-slate-700 whitespace-nowrap border-r border-slate-300"
+                :class="density === 'compact' ? 'px-3 py-1 text-[11px]' : 'px-4 py-2 text-xs'"
                 role="rowheader"
-              >Σ Impact</th>
-              <td
-                v-for="sol in solutions"
-                :key="sol.id"
-                class="p-1 text-center text-xs font-semibold"
-                role="cell"
-                :style="totalCellStyle(sol.id)"
-              >{{ totalImpact(sol.id) }}</td>
-            </tr>
-
-            <!-- V/C Ratio row — colour-coded pill badge -->
-            <tr role="row" class="border-t border-gray-200 bg-gray-50">
-              <th
-                scope="row"
-                class="sticky left-0 z-10 bg-gray-50 text-left px-3 py-1.5 font-semibold text-gray-700 text-xs whitespace-nowrap"
-                role="rowheader"
-                aria-label="Value to cost ratio row"
               >
-                V/C
-                <div class="font-normal text-gray-400" style="font-size:10px">val ÷ claim</div>
+                Σ Impact
+                <div class="font-normal text-slate-400 mt-0.5" style="font-size:10px">total {{ grandTotalImpact }}</div>
               </th>
               <td
                 v-for="sol in solutions"
                 :key="sol.id"
-                class="p-1 text-center"
+                class="text-center font-extrabold"
+                :class="density === 'compact' ? 'p-1 text-base' : 'p-2 text-lg'"
+                role="cell"
+                :style="totalCellStyle(sol.id) + (sol.id === winningSolution ? ';box-shadow:inset 0 0 0 2px rgba(234,179,8,0.45)' : '')"
+              >{{ totalImpact(sol.id) }}</td>
+            </tr>
+
+            <!-- V/C Ratio row — colour-coded pill badge -->
+            <tr role="row" class="border-t border-slate-200 bg-slate-50">
+              <th
+                scope="row"
+                class="sticky left-0 z-10 bg-slate-50 text-left font-bold text-slate-700 whitespace-nowrap border-r border-slate-200"
+                :class="density === 'compact' ? 'px-3 py-1 text-[11px]' : 'px-4 py-2 text-xs'"
+                role="rowheader"
+                aria-label="Value to cost ratio row"
+              >
+                V/C
+                <div class="font-normal text-slate-400 mt-0.5" style="font-size:10px">val ÷ claim</div>
+              </th>
+              <td
+                v-for="sol in solutions"
+                :key="sol.id"
+                class="text-center"
+                :class="density === 'compact' ? 'p-0.5' : 'p-1'"
+                :style="sol.id === winningSolution ? 'box-shadow:inset 0 0 0 2px rgba(234,179,8,0.45)' : ''"
                 role="cell"
               >
-                <div class="flex items-center justify-center gap-1">
-                  <!-- Colour dot -->
+                <div class="flex items-center justify-center gap-1.5">
                   <span
-                    class="inline-block w-2 h-2 rounded-full shrink-0"
+                    class="inline-block rounded-full shrink-0"
+                    :class="density === 'compact' ? 'w-2 h-2' : 'w-2.5 h-2.5'"
                     :style="`background-color:${getVCColour(vcRatios[sol.id] ?? 0)}`"
                     aria-hidden="true"
                   ></span>
-                  <span class="text-xs font-semibold text-gray-800">
+                  <span class="font-bold text-slate-800" :class="density === 'compact' ? 'text-xs' : 'text-sm'">
                     {{ formatVCRatio(sol.id) }}
                   </span>
                 </div>
-                <!-- Feature #39 — vs actual delta -->
                 <div
                   v-if="actualDelta(sol.id) !== null"
                   :class="actualDelta(sol.id)! >= 0 ? 'text-green-600' : 'text-red-600'"
@@ -1074,25 +1357,39 @@ defineExpose({
               </td>
             </tr>
 
-            <!-- Means Efficiency row -->
-            <tr role="row" class="border-t-2 border-gray-300 bg-gray-100">
+            <!-- Means Efficiency row — the headline number, biggest of all -->
+            <tr role="row" class="border-t-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200">
               <th
                 scope="row"
-                class="sticky left-0 z-10 bg-gray-100 text-left px-3 py-1.5 font-bold text-gray-900 text-xs whitespace-nowrap"
+                class="sticky left-0 z-10 text-left font-extrabold text-slate-900 whitespace-nowrap border-r border-slate-300 bg-gradient-to-b from-slate-100 to-slate-200"
+                :class="density === 'compact' ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm'"
                 role="rowheader"
                 aria-label="Means efficiency row"
               >
                 Efficiency
-                <div class="font-normal text-gray-400" style="font-size:10px">Σ ÷ (wks + $k)</div>
+                <div class="font-normal text-slate-500 mt-0.5" style="font-size:10px">Σ ÷ (wks + $k)</div>
               </th>
               <td
                 v-for="sol in solutions"
                 :key="sol.id"
-                class="p-1 text-center"
+                class="text-center"
+                :class="density === 'compact' ? 'p-1' : 'p-2'"
+                :style="sol.id === winningSolution
+                  ? 'background:linear-gradient(180deg,#fef3c7 0%,#fde68a 100%);box-shadow:inset 0 0 0 2px rgba(234,179,8,0.55)'
+                  : ''"
                 role="cell"
               >
-                <div class="font-bold text-gray-900 text-xs">{{ formatEfficiency(sol.id) }}</div>
-                <div class="text-gray-500 mt-0.5" style="font-size:10px">#{{ rankOf(sol.id) }}</div>
+                <div
+                  class="font-black text-slate-900 leading-none"
+                  :class="density === 'compact' ? 'text-base' : 'text-xl'"
+                >{{ formatEfficiency(sol.id) }}</div>
+                <div class="mt-1 inline-flex items-center justify-center gap-1">
+                  <span v-if="medalFor(rankOf(sol.id))" class="text-base leading-none">{{ medalFor(rankOf(sol.id)) }}</span>
+                  <span
+                    class="font-bold text-slate-600"
+                    :class="density === 'compact' ? 'text-[10px]' : 'text-[11px]'"
+                  >#{{ rankOf(sol.id) }}</span>
+                </div>
               </td>
             </tr>
           </tfoot>
@@ -1120,7 +1417,8 @@ defineExpose({
       </div>
 
       <!-- ── Feature #59: Stakeholder impact matrix ───────────────────────── -->
-      <div v-if="stakeholderView" class="overflow-x-auto mt-4 mb-6" aria-label="Stakeholder impact matrix">
+      <!-- Shown as the PRIMARY content when viewMode === 'stakeholders' (replaces the VDT table above). -->
+      <div v-if="viewMode === 'stakeholders'" class="overflow-x-auto mt-4 mb-6" aria-label="Stakeholder impact matrix">
         <!-- Empty state -->
         <p
           v-if="detectedStakeholders.length === 0"

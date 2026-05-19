@@ -78,7 +78,7 @@ export function useSpecSentiment(blocks: SpecBlock[]) {
     const out: SentimentResult[] = []
     for (const block of blocks) {
       for (const f of block.functions) {
-        const text = [f.id, f.description, f.successCriteria].join(' ')
+        const text = [f.id, f.description, f.presenceTest || f.successCriteria].join(' ')
         const { score, label, keywords } = analyseText(text)
         out.push({ block, label, score, keywords, entryId: f.id, entryType: 'Function' })
       }

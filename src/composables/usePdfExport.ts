@@ -74,9 +74,9 @@ export function usePdfExport() {
       addText(f.id, margin, 10, [30, 30, 30], true)
       addSpacing(1)
       addText(f.description, margin + 4, 8)
-      if (f.successCriteria) {
+      if (f.presenceTest || f.successCriteria) {
         addSpacing(1)
-        addText(`Success Criteria: ${f.successCriteria}`, margin + 4, 8, [80, 80, 80])
+        addText(`Presence Test: ${f.presenceTest || f.successCriteria}`, margin + 4, 8, [80, 80, 80])
       }
       addSpacing(4)
     }

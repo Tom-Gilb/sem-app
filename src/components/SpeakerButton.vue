@@ -1,9 +1,12 @@
-<!-- SpeakerButton.vue — floating text-to-speech output toggle.
-     Position: fixed bottom-24 right-6 — stacked below DictateButton (bottom-36 right-6).
-     Always visible on every screen; greyed when SpeechSynthesis unavailable. -->
+<!-- SpeakerButton.vue — text-to-speech toggle.
+     2026-05-13: removed self-positioning (`fixed bottom-2 left-6 z-[370]`).
+     Positioning is now owned by the parent (the persistent right-side FAB
+     cluster in App.vue, stacked above ⚡ Actions). Tom: "the mic and speaker
+     need to be on the surface at all times right side above actions and not
+     colliding with it". -->
 
 <script setup lang="ts">
-import { speakerSupported, speaking, paused, stopSpeaking, togglePause } from '../composables/useSpeaker'
+import { speakerSupported, speaking, paused, stopSpeaking } from '../composables/useSpeaker'
 
 const props = defineProps<{
   /** Text to speak when the button is pressed (caller passes stage-appropriate content) */
@@ -23,7 +26,7 @@ function handleClick(): void {
 </script>
 
 <template>
-  <!-- Always visible on every screen. Disabled (greyed) when browser has no SpeechSynthesis. -->
+  <!-- Disabled (greyed) when browser has no SpeechSynthesis. -->
   <button
     type="button"
     :disabled="!speakerSupported"
@@ -36,10 +39,8 @@ function handleClick(): void {
         : speaking
           ? 'Reading aloud — click to stop'
           : 'Click to read current content aloud'"
-    class="fixed bottom-24 right-6 z-[370] flex items-center gap-1.5 px-3 py-2
-           rounded-full shadow-lg text-sm font-medium select-none
-           transition-colors duration-150
-           focus:outline-none focus:ring-2 focus:ring-offset-2"
+    class="flex items-center gap-1.5 px-3 py-2 rounded-full shadow-lg text-sm font-medium select-none
+           transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2"
     :class="!speakerSupported
       ? 'bg-white text-gray-300 border border-gray-100 cursor-not-allowed'
       : speaking

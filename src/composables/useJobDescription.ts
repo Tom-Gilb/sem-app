@@ -3,6 +3,7 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
 import type { SpecBlock } from '../types/spec'
+import { ollamaChat } from '../lib/ollamaChat'
 
 export interface JobDescription {
   roleSummary: string
@@ -90,7 +91,7 @@ export function useJobDescription(blocks: SpecBlock[], apiKey: string) {
 
   async function generate(): Promise<void> {
     generating.value = true
-    const isMock = !apiKey || import.meta.env.VITE_MOCK_MODE === 'true'
+    const isMock = (!apiKey && !import.meta.env.VITE_OLLAMA_MODEL) || import.meta.env.VITE_MOCK_MODE === 'true'
     try {
       if (isMock) {
         jd.value = buildMockJD(blocks)
@@ -111,22 +112,7 @@ F. entries: ${JSON.stringify(allFunctions.map(f => ({ id: f.id, description: f.d
 V. entries: ${JSON.stringify(allValues.map(v => ({ id: v.id, description: v.description, goal: v.goal })))}
 S. entries: ${JSON.stringify(allSolutions.map(s => ({ id: s.id, description: s.description })))}`
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5',
-          max_tokens: 2048,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      })
-      if (!response.ok) throw new Error(`API error: ${response.status}`)
-      const data = await response.json() as { content?: Array<{ type: string; text?: string }> }
-      const text = data.content?.find(c => c.type === 'text')?.text ?? '{}'
+      const text = await ollamaChat({ max_tokens: 2048, messages: [{ role: 'user', content: prompt }] })
       const parsed = JSON.parse(text) as {
         roleSummary: string
         responsibilities: string[]

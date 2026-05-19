@@ -5,7 +5,7 @@
 // Spec: S.MarkdownSerialiserSchema / F.ImplementMarkdownExportModule / F.SupportTaskDecomposition
 //       F.EstimateImpactAndPrioritise
 
-import type { SpecBlock, FEntry, VEntry, SEntry } from '../types/spec'
+import type { SpecBlock, FEntry, VEntry, SEntry, CEntry } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import type { TaskSuggestion } from '../types/task'
 import type { ImpactMatrix } from '../types/impact'
@@ -23,7 +23,10 @@ function serialiseFEntry(entry: FEntry): string {
     `Type: ${entry.type || PLACEHOLDER('Type')}`,
     `Level: ${entry.level || PLACEHOLDER('Level')}`,
     `Description: ${entry.description || PLACEHOLDER('Description')}`,
-    `Success-Criteria: ${entry.successCriteria || PLACEHOLDER('Success-Criteria')}`,
+    // DD-004 (Tom 2026-05-14, "REPURPOSE: NOT AS SUCCESS. AS PRESENCE OR ABSENCE
+    // OF THE DEFINED FUNCTION."): successCriteria → presenceTest. Read presenceTest
+    // first; fall back to legacy successCriteria so older saved specs still serialise.
+    `Presence-Test: ${entry.presenceTest || entry.successCriteria || PLACEHOLDER('Presence-Test')}`,
     `Function of Value: ${entry.functionOfValue || PLACEHOLDER('Function of Value')}`,
   ].join('\n')
 }
@@ -55,6 +58,21 @@ function serialiseSEntry(entry: SEntry): string {
     `Impact: ${entry.impact || PLACEHOLDER('Impact')}`,
     `Function: ${entry.function || PLACEHOLDER('Function')}`,
   ].join('\n')
+}
+
+// DD-006: Binary Constraint entries (C.)
+// Field order follows Template_Write_Constraint.md: Description, Scope, Rationale, Source.
+function serialiseCEntry(entry: CEntry): string {
+  const lines = [
+    `#### ${entry.id}`,
+    `Type: ${entry.type || PLACEHOLDER('Type')}`,
+    `Level: ${entry.level || PLACEHOLDER('Level')}`,
+    `Description: ${entry.description || PLACEHOLDER('Description')}`,
+    `Scope: ${entry.scope || PLACEHOLDER('Scope')}`,
+    `Rationale: ${entry.rationale || PLACEHOLDER('Rationale')}`,
+  ]
+  if (entry.source) lines.push(`Source: ${entry.source}`)
+  return lines.join('\n')
 }
 
 /**
@@ -89,6 +107,9 @@ export function useSpecExport() {
     }
     for (const entry of spec.solutions) {
       sections.push(serialiseSEntry(entry))
+    }
+    for (const entry of spec.constraints ?? []) {
+      sections.push(serialiseCEntry(entry))
     }
 
     return sections.join('\n\n')
@@ -179,7 +200,7 @@ function serialiseFEntryPlain(entry: FEntry): string {
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
     `  ${_pad('Description:')} ${entry.description}`,
-    `  ${_pad('Success:')}   ${entry.successCriteria}`,
+    `  ${_pad('Presence:')}  ${entry.presenceTest || entry.successCriteria || ''}`,
     `  ${_pad('Delivers:')}  ${entry.functionOfValue}`,
   ].join('\n')
 }
@@ -210,6 +231,19 @@ function serialiseSEntryPlain(entry: SEntry): string {
   ].join('\n')
 }
 
+function serialiseCEntryPlain(entry: CEntry): string {
+  const lines = [
+    entry.id,
+    `  ${_pad('Type:')}      ${entry.type}`,
+    `  ${_pad('Level:')}     ${entry.level}`,
+    `  ${_pad('Description:')} ${entry.description}`,
+    `  ${_pad('Scope:')}     ${entry.scope}`,
+    `  ${_pad('Rationale:')} ${entry.rationale}`,
+  ]
+  if (entry.source) lines.push(`  ${_pad('Source:')}    ${entry.source}`)
+  return lines.join('\n')
+}
+
 const _HR = '─'.repeat(48)
 
 /**
@@ -232,6 +266,11 @@ export function serialisePlainText(spec: SpecBlock): string {
   if (spec.solutions.length) {
     parts.push(`SOLUTIONS\n${_HR}`)
     parts.push(spec.solutions.map(serialiseSEntryPlain).join('\n\n'))
+  }
+
+  if ((spec.constraints ?? []).length) {
+    parts.push(`CONSTRAINTS\n${_HR}`)
+    parts.push((spec.constraints ?? []).map(serialiseCEntryPlain).join('\n\n'))
   }
 
   return parts.join('\n\n')
@@ -281,10 +320,14 @@ function buildRankedEvoPlanSection(
 ): string {
   const lines: string[] = ['## Ranked Evo Plan']
 
-  // Index steps by linkedSolution so we can look them up by solution ID
+  // Index steps by each linkedSolutions entry — a step spanning multiple solutions
+  // appears under all of them so export rendering picks it up regardless of which
+  // solution ID is used as the lookup key.
   const stepBySolution: Record<string, EvoStep> = {}
   for (const step of steps) {
-    stepBySolution[step.linkedSolution] = step
+    for (const solId of step.linkedSolutions ?? []) {
+      stepBySolution[solId] = step
+    }
   }
 
   let rank = 1

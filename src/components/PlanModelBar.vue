@@ -7,17 +7,22 @@
        load(PlanModel) — user recalled a model; parent should restore the spec. -->
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onUnmounted } from 'vue'
+import ScrollContainer from './ScrollContainer.vue'
+import CloseDot from './CloseDot.vue'
+// DD-001 (2026-05-13) — Save and Get glyphs replace 💾 / 📂 / 📥 everywhere.
+import SaveGlyph from './icons/SaveGlyph.vue'
+import GetGlyph from './icons/GetGlyph.vue'
+// 2026-05-14 — Tom's standing instruction: apply the same hover-`?` split-button
+// pattern (proven on Priority) to Save/Get buttons so users can click the glyph
+// half to read the "About the Save Glyph" essay (SaveGlyphHistoryPanel).
+import SaveGetActionButton from './SaveGetActionButton.vue'
 import {
   usePlanModel,
   exportPlanModel,
   setPlanName,
   setPlanVersion,
-  loadPlanByTag,
-  loadPlanByDate,
   importPlanModel,
-  allPlanTags,
-  planVersionsForTag,
   type PlanModel,
 } from '../composables/usePlanModel'
 
@@ -25,18 +30,38 @@ const emit = defineEmits<{
   load: [model: PlanModel]
   compare: []
   save: []
+  /**
+   * User clicked one of the people chips (🔑 Owner / 💡 Planner / ⌨️ Scribe).
+   * Parent should open the PlanOwnerPanel and pre-select the matching tab.
+   * Replaces the legacy inline owner editor that used to live inside this bar.
+   */
+  'open-people': [tab: 'owners' | 'planners' | 'scribes']
+  /**
+   * User clicked the glyph half of any Save/Get split-button in this bar.
+   * Parent should open the SaveGlyphHistoryPanel essay modal.
+   */
+  'open-save-glyph-history': []
 }>()
 
-const { currentModel } = usePlanModel()
+const { currentModel, allModels } = usePlanModel()
 
 // ── Inline name editing ───────────────────────────────────────────────────────
 
-const editingName = ref(false)
-const nameInput = ref('')
+const editingName    = ref(false)
+const nameInput      = ref('')
+const nameInputEl    = ref<HTMLInputElement | null>(null)
 
 function startEditName(): void {
-  nameInput.value = currentModel.value?.name ?? ''
-  editingName.value = true
+  nameInput.value    = currentModel.value?.name ?? ''
+  editingName.value  = true
+  // autofocus alone is unreliable on dynamically-inserted Vue elements —
+  // use explicit nextTick focus so the input has DOM presence before the
+  // user's first keypress arrives (prevents the letter landing on a stale
+  // focus target such as the adjacent Export button).
+  nextTick(() => {
+    nameInputEl.value?.focus()
+    nameInputEl.value?.select()
+  })
 }
 
 function commitName(): void {
@@ -99,44 +124,44 @@ const elapsedMinutes = computed((): number => {
   return Math.floor((now.value - new Date(ts).getTime()) / 60_000)
 })
 
+// ── Owner pin (read-only contact card) ───────────────────────────────────────
+// 2026-05-12 Tom: the old in-bar inline owner editor (ownerPanelOpen,
+// startEditOwner, commitOwner, cancelOwner + six per-field refs) was deleted.
+// All owner / planner / scribe editing now happens in the single canonical
+// `PlanOwnerPanel` (3-tab Plan Responsibilities). The 📌 pin is retained as a
+// read-only quick-view of owner contact data; its "Edit" / "add them now"
+// affordances emit `open-people` so the user always lands in the proper panel.
+
+const ownerPinOpen = ref(false)
+
+function toggleOwnerPin(): void {
+  ownerPinOpen.value  = !ownerPinOpen.value
+  loadPanelOpen.value = false
+}
+
 // ── Load panel ────────────────────────────────────────────────────────────────
 
 const loadPanelOpen = ref(false)
 
-// Recall by tag + version or date
-const recallTag = ref('')
-const recallVersion = ref('')
-const recallDate = ref('')
-const recallError = ref('')
-const recallMode = ref<'version' | 'date'>('version')
+// Live search filter — matches name, tag slug, or version
+const modelSearch = ref('')
 
-const availableTags = computed(() => allPlanTags())
-const versionsForTag = computed(() =>
-  recallTag.value ? planVersionsForTag(recallTag.value) : [],
-)
+const filteredModels = computed((): PlanModel[] => {
+  const q = modelSearch.value.toLowerCase().trim()
+  const models = allModels.value as PlanModel[]
+  if (!q) return models
+  return models.filter(
+    (m) =>
+      m.name.toLowerCase().includes(q) ||
+      m.tag.toLowerCase().includes(q) ||
+      m.version.toLowerCase().includes(q),
+  )
+})
 
-function handleRecall(): void {
-  recallError.value = ''
-  if (!recallTag.value.trim()) {
-    recallError.value = 'Enter a plan tag to recall.'
-    return
-  }
-  let found: PlanModel | null = null
-  if (recallMode.value === 'version') {
-    found = loadPlanByTag(recallTag.value.trim(), recallVersion.value.trim() || undefined)
-  } else {
-    if (!recallDate.value) {
-      recallError.value = 'Select a date to recall by.'
-      return
-    }
-    found = loadPlanByDate(recallTag.value.trim(), recallDate.value)
-  }
-  if (!found) {
-    recallError.value = `No saved model found for tag "${recallTag.value}"${recallMode.value === 'version' && recallVersion.value ? ` v${recallVersion.value}` : ''}.`
-    return
-  }
+function selectModel(model: PlanModel): void {
   loadPanelOpen.value = false
-  emit('load', found)
+  modelSearch.value   = ''
+  emit('load', model)
 }
 
 // Import from .json file
@@ -169,6 +194,18 @@ function handleFileImport(event: Event): void {
 </script>
 
 <template>
+  <!-- Empty fallback — shown when no plan model is active yet.
+       Keeps the bar slot visible so the layout never collapses. -->
+  <div
+    v-if="!currentModel"
+    class="w-full max-w-2xl mx-auto mb-4"
+  >
+    <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 text-slate-400">
+      <span class="text-sm leading-none" aria-hidden="true">📋</span>
+      <span class="text-sm italic">No plan model active</span>
+    </div>
+  </div>
+
   <div
     v-if="currentModel"
     class="w-full max-w-2xl mx-auto mb-4"
@@ -186,10 +223,10 @@ function handleFileImport(event: Event): void {
       <div class="flex-1 min-w-0 flex items-center gap-1">
         <template v-if="editingName">
           <input
+            ref="nameInputEl"
             v-model="nameInput"
             class="flex-1 min-w-0 bg-slate-700 text-white text-sm font-semibold rounded px-2 py-0.5
                    focus:outline-none focus:ring-2 focus:ring-blue-400"
-            autofocus
             @keydown.enter="commitName"
             @keydown.escape="cancelEditName"
             @blur="commitName"
@@ -262,37 +299,144 @@ function handleFileImport(event: Event): void {
         🔪 {{ currentModel.sharpenRounds }}
       </span>
 
-      <!-- Tag display -->
-      <span class="flex-shrink-0 text-[10px] text-slate-400 font-mono hidden sm:block">
-        #{{ currentModel.tag }}
-      </span>
+      <!-- People chips group — all three (🔑 Owner / 💡 Planner / ⌨️ Scribe)
+           are ALWAYS rendered as actual clickable buttons. Each emits
+           'open-people' with the matching tab name so the parent can open the
+           full Plan Responsibilities panel pre-selected on that tab.
 
-      <!-- Action buttons -->
+           Tom 2026-05-12: "clicking on owner on black ident bar does not give
+           the window with all 3 options, and it does not display all 3 scribe
+           owner planner". Diagnosis: the chips were wired correctly, but the
+           empty-state styling (`bg-white/8 text-slate-400`) on slate-800 was
+           so low-contrast that an unset Owner chip read as static text and
+           Tom couldn't see/click it. Fix: keep the named state crisp, but
+           the empty state now uses a dashed indigo border + indigo text + a
+           "+ Add" affordance suffix so the chip is unambiguously a button. -->
+
+      <!-- Owner chip (🔑) -->
+      <button
+        type="button"
+        class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium
+               transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+        :class="currentModel.owners?.[0]?.name
+          ? 'bg-white/15 text-white hover:bg-white/25'
+          : 'border border-dashed border-indigo-400/70 text-indigo-200 hover:bg-white/15 hover:text-white hover:border-white/70'"
+        :title="currentModel.owners?.[0]?.name
+          ? `Owner: ${currentModel.owners[0].name} — click to open Plan Responsibilities`
+          : 'No Owner set — click to add'"
+        aria-label="Plan Owners"
+        data-testid="planmodelbar-owner-chip"
+        @click="emit('open-people', 'owners')"
+      >
+        <span aria-hidden="true">🔑</span>
+        <span>{{ currentModel.owners?.[0]?.name || 'Owner' }}</span>
+        <span
+          v-if="!currentModel.owners?.[0]?.name"
+          class="text-[10px] font-bold text-indigo-300"
+          aria-hidden="true"
+        >+</span>
+        <span v-if="currentModel.owners?.length > 1" class="text-white/60 text-[10px]">+{{ currentModel.owners.length - 1 }}</span>
+      </button>
+
+      <!-- Planner chip (💡) -->
+      <button
+        type="button"
+        class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium
+               transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+        :class="currentModel.planners?.[0]?.name
+          ? 'bg-white/15 text-white hover:bg-white/25'
+          : 'border border-dashed border-indigo-400/70 text-indigo-200 hover:bg-white/15 hover:text-white hover:border-white/70'"
+        :title="currentModel.planners?.[0]?.name
+          ? `Planner: ${currentModel.planners[0].name} — click to open Plan Responsibilities`
+          : 'No Planner set — click to add'"
+        aria-label="Plan Planners"
+        data-testid="planmodelbar-planner-chip"
+        @click="emit('open-people', 'planners')"
+      >
+        <span aria-hidden="true">💡</span>
+        <span>{{ currentModel.planners?.[0]?.name || 'Planner' }}</span>
+        <span
+          v-if="!currentModel.planners?.[0]?.name"
+          class="text-[10px] font-bold text-indigo-300"
+          aria-hidden="true"
+        >+</span>
+        <span v-if="currentModel.planners?.length > 1" class="text-white/60 text-[10px]">+{{ currentModel.planners.length - 1 }}</span>
+      </button>
+
+      <!-- Scribe chip (⌨️) -->
+      <button
+        type="button"
+        class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium
+               transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+        :class="currentModel.scribes?.[0]?.name
+          ? 'bg-white/15 text-white hover:bg-white/25'
+          : 'border border-dashed border-indigo-400/70 text-indigo-200 hover:bg-white/15 hover:text-white hover:border-white/70'"
+        :title="currentModel.scribes?.[0]?.isDefault
+          ? `Scribe (default — ${currentModel.scribes[0].name || 'tap to set your name'}) — click to open Plan Responsibilities`
+          : currentModel.scribes?.[0]?.name
+            ? `Scribe: ${currentModel.scribes[0].name} — click to open Plan Responsibilities`
+            : 'No Scribe set — click to add'"
+        aria-label="Plan Scribes"
+        data-testid="planmodelbar-scribe-chip"
+        @click="emit('open-people', 'scribes')"
+      >
+        <span aria-hidden="true">⌨️</span>
+        <span>{{ currentModel.scribes?.[0]?.name || 'Scribe' }}</span>
+        <span
+          v-if="!currentModel.scribes?.[0]?.name"
+          class="text-[10px] font-bold text-indigo-300"
+          aria-hidden="true"
+        >+</span>
+        <span
+          v-if="currentModel.scribes?.[0]?.isDefault"
+          class="text-white/40 text-[9px] leading-none"
+        >(default)</span>
+        <span v-if="currentModel.scribes?.length > 1" class="text-white/60 text-[10px]">+{{ currentModel.scribes.length - 1 }}</span>
+      </button>
+
+      <!-- Owner pin — quick read-only contact card (📌); kept for historical parity -->
+      <button
+        type="button"
+        class="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded
+               transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+        :class="ownerPinOpen ? 'text-amber-300 bg-white/15' : 'text-slate-500 hover:text-amber-300 hover:bg-white/10'"
+        title="Owner Data — view contact details"
+        aria-label="View owner data"
+        @click="toggleOwnerPin"
+      >
+        <span class="text-xs leading-none" aria-hidden="true">📌</span>
+      </button>
+
+      <!-- Action buttons — icon + short label to keep bar compact -->
       <div class="flex items-center gap-1 flex-shrink-0 ml-auto">
-        <!-- Export -->
         <button
           type="button"
           class="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
                  text-slate-300 hover:text-white hover:bg-slate-700
                  focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
-          title="Export plan model as .json"
+          title="Export plan model as .json — `*→[*]` save to file"
+          aria-label="Export plan model as .json"
           @click="exportPlanModel"
         >
-          💾 Export
+          <SaveGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
         </button>
-        <!-- Load -->
-        <button
-          type="button"
-          class="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
-                 text-slate-300 hover:text-white hover:bg-slate-700
-                 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
-          :class="loadPanelOpen ? 'bg-slate-700 text-white' : ''"
-          title="Load a saved plan model"
-          @click="loadPanelOpen = !loadPanelOpen"
-        >
-          📂 Load
-        </button>
-        <!-- Compare -->
+        <!-- 2026-05-14: split-button — glyph half opens "About the Get Glyph"
+             essay (SaveGlyphHistoryPanel), action half opens the Plans panel. -->
+        <SaveGetActionButton
+          kind="get"
+          label="Plans"
+          action-title="Replace with another plan — `[*]→*` get from vessel"
+          action-aria-label="Open Plans panel"
+          :chrome-class="loadPanelOpen
+            ? 'bg-slate-700 text-white'
+            : 'bg-transparent text-slate-300 hover:text-white'"
+          rounded-class="rounded"
+          height-class="h-6"
+          text-size-class="text-[11px]"
+          glyph-size-class="h-3"
+          @info="emit('open-save-glyph-history')"
+          @action="loadPanelOpen = !loadPanelOpen; ownerPinOpen = false"
+        />
         <button
           type="button"
           class="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
@@ -301,7 +445,7 @@ function handleFileImport(event: Event): void {
           title="Compare this model with others"
           @click="emit('compare')"
         >
-          📊 Compare
+          📊
         </button>
       </div>
     </div>
@@ -312,23 +456,114 @@ function handleFileImport(event: Event): void {
       <span v-if="elapsedMinutes >= 2" class="text-amber-500 font-medium">
         · {{ elapsedMinutes }} min of activity not yet saved
       </span>
-      <button
+      <!-- 2026-05-14: split-button — glyph half opens "About the Save Glyph"
+           essay; action half triggers the actual Save now. -->
+      <SaveGetActionButton
         v-if="elapsedMinutes >= 2"
-        type="button"
-        class="ml-auto flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500 text-white text-[11px] font-semibold
-               hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors"
-        title="Save current spec state now"
-        @click="emit('save')"
-      >
-        💾 Save now
-      </button>
+        kind="save"
+        label="Save now"
+        action-title="Save current spec state now — `*→[*]` place into vessel"
+        action-aria-label="Save now"
+        chrome-class="ml-auto bg-amber-500 text-white"
+        rounded-class="rounded"
+        height-class="h-6"
+        text-size-class="text-[11px]"
+        glyph-size-class="h-3"
+        hint-bg-class="bg-amber-700"
+        hint-text-class="text-white"
+        @info="emit('open-save-glyph-history')"
+        @action="emit('save')"
+      />
     </div>
+
+    <!-- Owner pin card — read-only contact view -->
+    <div
+      v-if="ownerPinOpen"
+      class="mt-1 rounded-xl border border-amber-200 bg-amber-50 shadow-sm overflow-hidden"
+    >
+      <!-- Header -->
+      <div class="flex items-center justify-between px-4 py-2.5 bg-amber-100 border-b border-amber-200">
+        <div class="flex items-center gap-2">
+          <span class="text-sm" aria-hidden="true">📌</span>
+          <span class="text-xs font-bold text-amber-800 uppercase tracking-wide">Owner Data</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="text-[11px] font-semibold text-amber-600 hover:text-amber-900 underline
+                   focus:outline-none focus:ring-2 focus:ring-amber-400 rounded"
+            title="Open Plan Responsibilities to edit"
+            @click="ownerPinOpen = false; emit('open-people', 'owners')"
+          >
+            Edit
+          </button>
+          <CloseDot
+        title="Close this window"
+        aria-label="Close Owner Data"
+        @click="ownerPinOpen = false"
+      />
+        </div>
+      </div>
+
+      <!-- Fields — shows all owners (first owner in full, rest as compact rows) -->
+      <div class="px-4 py-3 space-y-2">
+        <template v-if="currentModel.owners?.length">
+          <div v-for="(o, i) in currentModel.owners" :key="o.id" :class="i > 0 ? 'border-t border-gray-100 pt-2' : ''">
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <span class="text-sm font-semibold text-slate-800">{{ o.name }}</span>
+              <span v-if="o.responsibility" class="text-[11px] text-amber-700 font-medium">{{ o.responsibility }}</span>
+            </div>
+            <div v-if="o.organization" class="flex items-baseline gap-2 mt-0.5">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide w-[4.5rem] flex-shrink-0">Org</span>
+              <span class="text-xs text-slate-700">{{ o.organization }}</span>
+            </div>
+            <div v-if="o.email" class="flex items-baseline gap-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide w-[4.5rem] flex-shrink-0">Email</span>
+              <a :href="`mailto:${o.email}`" class="text-xs text-blue-600 hover:underline break-all">{{ o.email }}</a>
+            </div>
+            <div v-if="o.phone" class="flex items-baseline gap-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide w-[4.5rem] flex-shrink-0">Phone</span>
+              <a :href="`tel:${o.phone}`" class="text-xs text-blue-600 hover:underline">{{ o.phone }}</a>
+            </div>
+          </div>
+        </template>
+
+        <!-- Empty state -->
+        <p v-else class="text-xs text-slate-400 italic">
+          No owner details yet —
+          <button
+            type="button"
+            class="text-blue-500 hover:underline focus:outline-none"
+            @click="ownerPinOpen = false; emit('open-people', 'owners')"
+          >add them now</button>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Legacy inline owner editor REMOVED 2026-05-12. All owner / planner /
+         scribe editing now lives in the single canonical `PlanOwnerPanel`
+         (3-tab Plan Responsibilities). The 📌 pin above remains as a
+         read-only contact-card quick-view of the first owner. -->
 
     <!-- Load panel (collapsible) -->
     <div
       v-if="loadPanelOpen"
-      class="mt-1 px-4 py-4 rounded-xl border border-slate-200 bg-white shadow-md space-y-5"
+      class="mt-1 rounded-xl border border-slate-200 bg-white shadow-md overflow-hidden"
     >
+      <!-- Header with explicit close button -->
+      <div class="flex items-center justify-between px-4 py-2.5 bg-slate-100 border-b border-slate-200">
+        <div class="flex items-center gap-2 text-slate-700">
+          <GetGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
+          <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">Plans</span>
+        </div>
+        <CloseDot
+        title="Close this window"
+        aria-label="Close Plans panel"
+        @click="loadPanelOpen = false"
+      />
+      </div>
+
+      <div class="px-4 py-4 space-y-5">
       <!-- ── Import from file ── -->
       <div>
         <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Import from file</p>
@@ -336,7 +571,7 @@ function handleFileImport(event: Event): void {
           class="flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-slate-300
                  cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm text-slate-600"
         >
-          <span aria-hidden="true">📁</span>
+          <GetGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" />
           <span>Choose a Plan Model .json file</span>
           <input
             type="file"
@@ -351,99 +586,93 @@ function handleFileImport(event: Event): void {
       <!-- Divider -->
       <div class="flex items-center gap-3">
         <div class="flex-1 border-t border-slate-200" />
-        <span class="text-[11px] text-slate-400 font-medium">or recall by tag</span>
+        <span class="text-[11px] text-slate-400 font-medium">Or select from this list of previous plans, below</span>
         <div class="flex-1 border-t border-slate-200" />
       </div>
 
-      <!-- ── Recall by tag + version / date ── -->
-      <div class="space-y-3">
-        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Recall saved model</p>
+      <!-- ── Saved model picker ── -->
+      <div class="space-y-2">
+        <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Saved Models</p>
 
-        <!-- Tag field -->
-        <div>
-          <label class="block text-xs text-slate-500 mb-1" for="recall-tag">Plan Tag</label>
-          <input
-            id="recall-tag"
-            v-model="recallTag"
-            list="plan-tags-list"
-            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-            placeholder="e.g. sem-app-plan"
-          />
-          <datalist id="plan-tags-list">
-            <option v-for="t in availableTags" :key="t" :value="t" />
-          </datalist>
-        </div>
+        <!-- No models saved yet -->
+        <p
+          v-if="allModels.length === 0"
+          class="text-xs text-slate-400 text-center py-4"
+        >No saved models yet</p>
 
-        <!-- Mode toggle -->
-        <div class="flex gap-2">
-          <button
-            type="button"
-            class="flex-1 py-1.5 rounded-lg border text-xs font-medium transition-colors
-                   focus:outline-none focus:ring-2 focus:ring-blue-400"
-            :class="recallMode === 'version'
-              ? 'bg-blue-600 border-blue-600 text-white'
-              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
-            @click="recallMode = 'version'"
+        <template v-else>
+          <!-- Search / filter input -->
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"
+                  aria-hidden="true">🔍</span>
+            <input
+              v-model="modelSearch"
+              type="search"
+              class="w-full rounded-lg border border-slate-200 pl-8 pr-3 py-2 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+              placeholder="Search by name, version…"
+              aria-label="Search saved models"
+            />
+          </div>
+
+          <!-- Filtered list -->
+          <ScrollContainer
+            outer-class="rounded-lg border border-slate-200 relative"
+            inner-class="divide-y divide-slate-100"
+            inner-style="max-height: 220px"
+            :no-pill="true"
+            role="listbox"
+            aria-label="Saved models"
           >
-            By version
-          </button>
-          <button
-            type="button"
-            class="flex-1 py-1.5 rounded-lg border text-xs font-medium transition-colors
-                   focus:outline-none focus:ring-2 focus:ring-blue-400"
-            :class="recallMode === 'date'
-              ? 'bg-blue-600 border-blue-600 text-white'
-              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
-            @click="recallMode = 'date'"
-          >
-            By date
-          </button>
-        </div>
+            <!-- No results -->
+            <p
+              v-if="filteredModels.length === 0"
+              class="px-3 py-4 text-xs text-slate-400 text-center"
+            >No models match "{{ modelSearch }}"</p>
 
-        <!-- Version field -->
-        <div v-if="recallMode === 'version'">
-          <label class="block text-xs text-slate-500 mb-1" for="recall-version">
-            Version <span class="text-slate-400">(leave blank for latest)</span>
-          </label>
-          <input
-            id="recall-version"
-            v-model="recallVersion"
-            list="plan-versions-list"
-            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono
-                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-            placeholder="e.g. 0.3"
-          />
-          <datalist id="plan-versions-list">
-            <option v-for="m in versionsForTag" :key="m.version" :value="m.version" />
-          </datalist>
-        </div>
+            <!-- Model rows -->
+            <button
+              v-for="model in filteredModels"
+              :key="model.id"
+              type="button"
+              role="option"
+              :aria-selected="currentModel?.id === model.id"
+              class="w-full text-left flex items-center gap-3 px-3 py-2.5
+                     hover:bg-blue-50 focus:outline-none focus:bg-blue-50
+                     transition-colors"
+              :class="currentModel?.id === model.id ? 'bg-blue-50' : ''"
+              @click="selectModel(model)"
+            >
+              <!-- Active indicator dot -->
+              <span
+                class="flex-shrink-0 h-2 w-2 rounded-full"
+                :class="currentModel?.id === model.id ? 'bg-blue-500' : 'bg-slate-200'"
+                aria-hidden="true"
+              />
 
-        <!-- Date field -->
-        <div v-else>
-          <label class="block text-xs text-slate-500 mb-1" for="recall-date">Date saved</label>
-          <input
-            id="recall-date"
-            v-model="recallDate"
-            type="date"
-            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-          />
-        </div>
+              <!-- Name + meta -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-sm font-medium text-slate-800 truncate">{{ model.name }}</span>
+                  <span class="flex-shrink-0 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded
+                               bg-slate-700 text-white">v{{ model.version }}</span>
+                  <span v-if="currentModel?.id === model.id"
+                        class="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded
+                               bg-blue-500 text-white">active</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                  {{ new Date(model.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) }}
+                  <template v-if="model.sharpenRounds > 0"> · 🔪 {{ model.sharpenRounds }}</template>
+                </p>
+              </div>
 
-        <p v-if="recallError" class="text-xs text-red-600" role="alert">{{ recallError }}</p>
-
-        <button
-          type="button"
-          class="w-full flex items-center justify-center min-h-[44px] rounded-lg
-                 bg-blue-600 text-white text-sm font-semibold
-                 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2
-                 transition-colors"
-          @click="handleRecall"
-        >
-          Load Plan Model
-        </button>
+              <!-- Load chevron -->
+              <span class="flex-shrink-0 text-slate-400 text-sm" aria-hidden="true">›</span>
+            </button>
+          </ScrollContainer>
+        </template>
       </div>
+      </div><!-- /inner padded area -->
     </div>
   </div>
 </template>

@@ -15,15 +15,16 @@ import type { SpecBlock } from '../spec'
 describe('S.EvoStep3.SpecBlockInterface — no optional fields contract', () => {
 
   it('spec: all required F entry fields are strings (not undefined-able)', () => {
-    // S.EvoStep3.SpecBlockInterface: FEntry must have { id, type, level, description, successCriteria, functionOfValue }
+    // S.EvoStep3.SpecBlockInterface: FEntry must have { id, type, level, description, presenceTest, functionOfValue }
     // All typed as string — no optional fields. TypeScript interface must not have ? on any listed field.
     // This test verifies the interface is usable without optional field syntax at the call site.
+    // DD-004 (2026-05-14): successCriteria renamed → presenceTest (binary presence/absence test).
     const entry = {
       id: 'F.Test',
       type: 'Function',
       level: 'Product',
       description: 'desc',
-      successCriteria: 'crit',
+      presenceTest: 'F.Test capability is present in the deployed system',
       functionOfValue: 'V.Test',
     }
     // If the interface has optional fields not listed in the spec (e.g. relatedSpecs?),

@@ -62,12 +62,20 @@ describe('SpecHistory.vue', () => {
     expect(wrapper.text()).toContain('No previous versions yet')
   })
 
-  it('renders versions with correct label', () => {
+  it('renders versions with correct label (latest visible, older behind disclosure)', async () => {
     addVersion(makeSpec('Spec A'), 'Generated')
     addVersion(makeSpec('Spec B'), 'Make Ambitious')
     const wrapper = mount(SpecHistory)
-    expect(wrapper.text()).toContain('Generated')
+    // Both share an empty plan name so they bucket into one "Untitled" group.
+    // Newest (Make Ambitious) is the always-visible Latest card; the older
+    // (Generated) sits behind a "Show 1 older version" disclosure.
     expect(wrapper.text()).toContain('Make Ambitious')
+    expect(wrapper.text()).not.toContain('Generated')
+    // Open the disclosure and confirm the older label becomes visible.
+    const toggle = wrapper.find('button[aria-expanded="false"]')
+    expect(toggle.exists()).toBe(true)
+    await toggle.trigger('click')
+    expect(wrapper.text()).toContain('Generated')
   })
 
   it('renders version with timestamp', () => {
@@ -114,5 +122,28 @@ describe('SpecHistory.vue', () => {
     addVersion(makeSpec('Some spec'), 'Lean Plan')
     const wrapper = mount(SpecHistory)
     expect(wrapper.text()).not.toContain('No previous versions yet')
+  })
+
+  // 2026-05-13 regression — Tom: "could not restore Improve overall or earlier
+  // versions". The fix extends the `restore` emit signature to carry the
+  // snapshot's planName + planOwners so the parent can switch the active
+  // PlanModel identity to match what the user just restored. This test pins
+  // that signature so the parent's plan-model-switch branch can never silently
+  // regress to the old (spec, plan) shape that left the bar showing the
+  // wrong plan name.
+  it('Restore emits planName and planOwners alongside spec and plan', async () => {
+    const spec = makeSpec('Improve overall')
+    addVersion(spec, 'Generated', null, 'Improve overall', ['Tom Gilb', 'Kai Gilb'])
+    const wrapper = mount(SpecHistory)
+
+    const btn = wrapper.find('button[aria-label*="Restore"]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+
+    const emitted = wrapper.emitted('restore')!
+    expect(emitted).toHaveLength(1)
+    const [, , planName, planOwners] = emitted[0]
+    expect(planName, 'planName must propagate so parent can switch the active PlanModel').toBe('Improve overall')
+    expect(planOwners as string[], 'planOwners must propagate for downstream search').toEqual(['Tom Gilb', 'Kai Gilb'])
   })
 })

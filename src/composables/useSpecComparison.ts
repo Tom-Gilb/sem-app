@@ -27,7 +27,7 @@ export interface ComparisonResult {
 }
 
 // Fields compared for each entry type
-const F_FIELDS: (keyof FEntry)[] = ['description', 'successCriteria', 'functionOfValue', 'level']
+const F_FIELDS: (keyof FEntry)[] = ['description', 'presenceTest', 'functionOfValue', 'level']
 const V_FIELDS: (keyof VEntry)[] = ['description', 'scale', 'meter', 'goal', 'tolerable', 'status', 'level', 'valueOfFunction']
 const S_FIELDS: (keyof SEntry)[] = ['description', 'impact', 'function', 'level']
 

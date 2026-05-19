@@ -11,16 +11,16 @@
   />
 
   <!-- Slide-in panel -->
-  <div
-    class="fixed right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl z-[400] flex flex-col"
+  <RightPanel
+    class="w-full max-w-sm bg-white shadow-2xl z-[400] flex flex-col"
     role="dialog"
     aria-modal="true"
-    aria-label="Project Dashboard"
+    aria-label="Spec History"
   >
     <!-- Header -->
     <div class="flex items-center justify-between px-4 border-b border-gray-100 min-h-[56px] gap-2">
       <div class="flex items-center gap-2 min-w-0">
-        <h2 class="text-sm font-semibold text-gray-900 truncate">📊 Project Dashboard</h2>
+        <h2 class="text-sm font-semibold text-gray-900 truncate">📋 Spec History</h2>
         <span
           v-if="props.entries.length > 0"
           class="inline-flex items-center justify-center rounded-full bg-slate-200 text-slate-700
@@ -30,19 +30,15 @@
           {{ props.entries.length }}
         </span>
       </div>
-      <button
-        type="button"
-        class="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400
-               hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded shrink-0"
-        aria-label="Close project dashboard"
+      <CloseDot
+        title="Close"
+        aria-label="Close spec history"
         @click="props.onClose()"
-      >
-        ×
-      </button>
+      />
     </div>
 
     <!-- Body -->
-    <div class="flex-1 overflow-y-auto">
+    <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full">
       <!-- Empty state -->
       <div
         v-if="props.entries.length === 0"
@@ -58,8 +54,7 @@
         <li
           v-for="entry in props.entries"
           :key="entry.id"
-          class="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors"
-          @click="handleRestore(entry)"
+          class="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
         >
           <!-- Left: name + time -->
           <div class="flex-1 min-w-0">
@@ -119,7 +114,7 @@
           </button>
         </li>
       </ul>
-    </div>
+    </ScrollContainer>
 
     <!-- Feature #93 — Trends section -->
     <div class="border-t border-gray-100 px-4 py-3">
@@ -253,7 +248,7 @@
           </label>
 
           <!-- Scrollable table -->
-          <div class="overflow-y-auto max-h-96 rounded border border-slate-200 bg-white text-[11px]">
+          <ScrollContainer outer-class="rounded border border-slate-200 bg-white relative" inner-class="text-[11px]" inner-style="max-height: 24rem" :no-pill="true">
             <table class="w-full border-collapse">
               <thead class="sticky top-0 bg-slate-100 z-10">
                 <tr>
@@ -306,7 +301,7 @@
                 </template>
               </tbody>
             </table>
-          </div>
+          </ScrollContainer>
 
           <!-- Copy button -->
           <button
@@ -321,13 +316,16 @@
         </template>
       </div>
     </div>
-  </div>
+  </RightPanel>
 </template>
 
 <script setup lang="ts">
 // Feature #50 — ProjectDashboard component
 // Feature #74 — Spec comparison additions
 import { ref, computed } from 'vue'
+import RightPanel from './RightPanel.vue'
+import CloseDot from './CloseDot.vue'
+import ScrollContainer from './ScrollContainer.vue'
 import type { DashboardEntry } from '../composables/useProjectDashboard'
 import type { SpecBlock } from '../types/spec'
 import { useSpecComparison } from '../composables/useSpecComparison'
