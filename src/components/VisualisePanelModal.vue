@@ -35,6 +35,7 @@ import EfficiencyDiagram from './EfficiencyDiagram.vue'
 import SpecHeatLane    from './SpecHeatLane.vue'
 import SpecTechRadar   from './SpecTechRadar.vue'
 import SpecTogafView   from './SpecTogafView.vue'
+import EvoSimulatorView from './EvoSimulatorView.vue'
 
 const props = defineProps<{
   spec:           SpecBlock | null
@@ -75,7 +76,7 @@ const emit = defineEmits<{
 }>()
 
 // ── Tab state ──────────────────────────────────────────────────────────────
-type Tab = 'flow' | 'efficiency' | 'radar' | 'arch' | 'deps' | 'risk' | 'finance' | 'swimlane'
+type Tab = 'flow' | 'efficiency' | 'radar' | 'arch' | 'deps' | 'risk' | 'finance' | 'swimlane' | 'simulator'
 const activeTab = ref<Tab>(props.initialTab ?? 'flow')
 
 const tabs: { key: Tab; label: string; description: string }[] = [
@@ -87,6 +88,7 @@ const tabs: { key: Tab; label: string; description: string }[] = [
   { key: 'risk',       label: 'Risk Matrix', description: 'Functions by probability × impact heuristic'             },
   { key: 'finance',    label: 'Finance',     description: 'Value targets: tolerable vs goal as progress bars'       },
   { key: 'swimlane',   label: 'Swimlane',    description: 'Evo steps × spec entries heat-map stage map'            },
+  { key: 'simulator',  label: '▶ Simulator', description: 'Animated delivery timeline with cumulative value chart'  },
 ]
 
 // Mini SVG thumbnails — statically mirror each visualization type.
@@ -225,6 +227,24 @@ const VIZ_THUMBS: Record<Tab, string> = {
     <rect x="29" y="38" width="15" height="6"  rx="1.5" fill="#d8b4fe"/>
     <rect x="46" y="38" width="15" height="6"  rx="1.5" fill="#c084fc"/>
     <rect x="63" y="38" width="15" height="6"  rx="1.5" fill="#d8b4fe"/>
+  </svg>`,
+
+  // Simulator: horizontal bars filling left-to-right + cumulative value curve (red→amber→green gradient)
+  simulator: `<svg viewBox="0 0 80 44" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="display:block">
+    <text x="2" y="6" font-size="3" font-family="system-ui,sans-serif" fill="#94a3b8">Step 1</text>
+    <rect x="15" y="2" width="20" height="4" rx="1" fill="#fee2e2"/>
+    <rect x="15" y="2" width="10" height="4" rx="1" fill="#ef4444"/>
+    <text x="2" y="15" font-size="3" font-family="system-ui,sans-serif" fill="#94a3b8">Step 2</text>
+    <rect x="15" y="11" width="20" height="4" rx="1" fill="#fef3c7"/>
+    <rect x="15" y="11" width="15" height="4" rx="1" fill="#f59e0b"/>
+    <text x="2" y="24" font-size="3" font-family="system-ui,sans-serif" fill="#94a3b8">Step 3</text>
+    <rect x="15" y="20" width="20" height="4" rx="1" fill="#dcfce7"/>
+    <rect x="15" y="20" width="20" height="4" rx="1" fill="#22c55e"/>
+    <text x="2" y="33" font-size="3" font-family="system-ui,sans-serif" fill="#94a3b8">Value</text>
+    <path d="M 15 31 Q 25 28 35 20 T 62 12" stroke="#7c3aed" stroke-width="1.5" fill="none"/>
+    <circle cx="15" cy="31" r="1" fill="#7c3aed"/>
+    <circle cx="35" cy="20" r="1" fill="#7c3aed"/>
+    <circle cx="62" cy="12" r="1" fill="#7c3aed"/>
   </svg>`,
 
   // Efficiency: 3 zones (green cost cards | orange solution cards | violet value nodes) + bezier edges
@@ -848,18 +868,6 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
           <span class="block w-7 h-[15px] flex-shrink-0" v-html="VIZ_THUMBS[tab.key]" />
           <span class="text-[10px] font-semibold tracking-wide whitespace-nowrap">{{ tab.label }}</span>
         </button>
-        <span class="w-px h-4 bg-slate-200 mx-1 flex-shrink-0" aria-hidden="true" />
-        <button
-          type="button"
-          class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 flex-shrink-0
-                 text-slate-400 hover:text-violet-700 hover:bg-violet-50 transition-colors duration-100
-                 focus:outline-none focus:ring-1 focus:ring-violet-400 focus:ring-offset-1"
-          aria-label="Open Evo Simulator — animated delivery timeline"
-          @click="emit('open-evo-simulator')"
-        >
-          <span class="text-sm leading-none">▶</span>
-          <span class="text-[10px] font-semibold tracking-wide whitespace-nowrap">Simulate</span>
-        </button>
       </div>
 
       <!-- ── Tab content ── -->
@@ -1079,6 +1087,17 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
               :tasks-by-step="tasksByStep ?? {}"
               :embedded="true"
               :on-close="() => { activeTab = 'flow' }"
+            />
+          </div>
+
+          <!-- ▶ Simulator — animated delivery timeline with cumulative value chart.
+               Rendered inline within the tab, not as a separate Teleport modal.
+               All animation state is managed by useEvoSimulation composable. -->
+          <div v-else-if="activeTab === 'simulator'" class="flex flex-col h-full">
+            <EvoSimulatorView
+              :steps="confirmedSteps"
+              :vc-ratios="props.vcRatios ?? {}"
+              @close="activeTab = 'flow'"
             />
           </div>
 

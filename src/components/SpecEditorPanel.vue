@@ -186,6 +186,7 @@ const tabCounts = computed(() => ({
 
 const expandedId  = ref<string | null>(props.initialEntryId ?? null)
 const keptFlash   = ref(new Set<string>())   // IDs showing "✓ Kept" briefly after collapse
+const showSafetyBanner = ref(true)           // Safety Net Banner — uncommitted changes reminder
 
 function toggleExpand(id: string): void {
   if (expandedId.value === id) {
@@ -369,7 +370,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
       aria-label="Spec Editor"
     >
       <!-- ── Header ────────────────────────────────────────────────────────── -->
-      <div class="shrink-0 flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-indigo-800 to-violet-700 border-b border-indigo-900/60">
+      <div class="shrink-0 flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-indigo-800 to-violet-700 border-b border-indigo-900/60 z-50 relative">
         <!-- Title -->
         <span class="text-sm font-bold text-white tracking-wide shrink-0 flex items-center gap-1.5">
           <EditGlyph size="compact" class="h-3.5 w-auto shrink-0" aria-hidden="true" /> Spec Editor
@@ -558,37 +559,53 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
           @action="emit('open-global-priority')"
           @info="emit('open-priority-info')"
         />
-        <!-- Save button — hidden in master mode when there is nothing to commit
-             (close auto-saves; the ghost "No changes yet" disabled button was
-             invisible at opacity-40 and confused Tom 2026-05-15). -->
-        <button
-          v-show="editMode === 'draft' || hasChanges"
-          type="button"
-          class="shrink-0 h-9 px-4 rounded-lg text-sm font-semibold transition-all"
-          :class="editMode === 'master'
-            ? 'bg-rose-500 hover:bg-rose-400 text-white'
-            : 'bg-emerald-500 hover:bg-emerald-400 text-white'"
-          @click="editMode === 'master' ? handleCommitMaster() : handleSaveDraft()"
-        >
-          <span class="inline-flex items-center gap-1.5">
-            <!-- Show the SaveGlyph only for the idle draft-save state — the
-                 ✅ / ✏️ feedback states keep their existing affirmation. -->
-            <SaveGlyph
-              v-if="saveLabelState.kind === 'draft-idle'"
-              size="compact"
-              class="h-3 w-auto"
-              aria-hidden="true"
-            />
-            <span>{{ saveLabelState.text }}</span>
-          </span>
-        </button>
+        <!-- Action buttons: Revert + Commit/Save + Close (right side group).
+             Tom 2026-05-27: "All control pins are at top lines, never floating bottom left or right."
+             Prominent commit button (2nd button) with larger size and bright color. -->
+        <div class="flex items-center gap-1.5 shrink-0 border-l border-white/20 pl-3">
+          <!-- Revert Last Round — undo recent edits (shows when changes exist) -->
+          <button
+            v-if="hasChanges && editMode === 'master'"
+            type="button"
+            class="shrink-0 h-8 px-3 rounded-lg text-xs font-medium transition-all
+                   bg-white/15 hover:bg-white/25 text-white"
+            title="Revert the most recent round of edits"
+            aria-label="Revert last round of changes"
+            @click="revertAll"
+          >
+            <span class="inline-flex items-center gap-1.5">
+              <span aria-hidden="true">↩</span>
+              <span>Revert Last</span>
+            </span>
+          </button>
 
-        <!-- Close — universal CloseDot per "Universal Close-Button Rule".
-             Separated from the Save button by a thin divider + "close" text hint so
-             the close affordance is immediately findable.
-             Tom 2026-05-18: "no clear close for editor — a universal rule close on all screens." -->
-        <div class="flex items-center gap-1.5 shrink-0 border-l border-white/20 pl-3 ml-1">
-          <span class="text-[10px] font-semibold text-white/60 hidden sm:inline select-none" aria-hidden="true">close</span>
+          <!-- Commit/Save button — PROMINENT (large, right-aligned, second button).
+               Hidden in master mode when nothing to commit. Draft mode shows "Save Version". -->
+          <button
+            v-show="editMode === 'draft' || hasChanges"
+            type="button"
+            class="shrink-0 h-10 px-5 rounded-lg text-sm font-bold transition-all shadow-lg"
+            :class="editMode === 'master'
+              ? 'bg-rose-500 hover:bg-rose-400 text-white'
+              : 'bg-emerald-500 hover:bg-emerald-400 text-white'"
+            :title="editMode === 'master' ? 'Commit changes to master plan' : 'Save as a named version'"
+            @click="editMode === 'master' ? handleCommitMaster() : handleSaveDraft()"
+          >
+            <span class="inline-flex items-center gap-2">
+              <!-- Show the SaveGlyph only for the idle draft-save state — the
+                   ✅ / ✏️ feedback states keep their existing affirmation. -->
+              <SaveGlyph
+                v-if="saveLabelState.kind === 'draft-idle'"
+                size="compact"
+                class="h-3.5 w-auto"
+                aria-hidden="true"
+              />
+              <span>{{ saveLabelState.text }}</span>
+            </span>
+          </button>
+
+          <!-- Close — universal CloseDot per "Universal Close-Button Rule".
+               Tom 2026-05-18: "no clear close for editor — a universal rule close on all screens." -->
           <CloseDot
             variant="on-dark"
             :title="editMode === 'master' && hasChanges ? 'Save & Close' : 'Close editor'"
@@ -658,7 +675,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
       </Transition>
 
       <!-- ── Level hint bar ─────────────────────────────────────────────────── -->
-      <div class="shrink-0 flex items-center gap-3 px-5 py-1.5 bg-amber-500/10 border-b border-amber-500/20">
+      <div class="shrink-0 flex items-center gap-3 px-5 py-1.5 bg-amber-500/10 border-b border-amber-500/20 z-40 relative">
         <span class="text-amber-300 text-[10px] font-semibold uppercase tracking-wide">Edit Depth {{ editLevel }} — {{ EDIT_LEVEL_LABELS[editLevel] }}</span>
         <span class="text-amber-400/70 text-[10px]">{{ EDIT_LEVEL_HINTS[editLevel] }}</span>
         <!-- ℹ️ About the Edit Glyph — visible always, not buried in the header -->
@@ -679,6 +696,49 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
           >↩ Revert All</button>
         </div>
       </div>
+
+      <!-- ── Safety Net Banner — uncommitted changes warning ───────────────────── -->
+      <!-- Shows when there are changes, with edit count on right and safety message.
+           Close button (✕) dismisses the banner. Amber styling indicates caution. -->
+      <Transition
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="max-h-0 opacity-0"
+        enter-to-class="max-h-16 opacity-100"
+        leave-active-class="transition-all duration-150 ease-in"
+        leave-from-class="max-h-16 opacity-100"
+        leave-to-class="max-h-0 opacity-0"
+      >
+        <div
+          v-if="hasChanges && showSafetyBanner"
+          class="shrink-0 flex items-center gap-3 px-5 py-2.5 bg-amber-50 border-b border-amber-200 z-40 relative"
+          role="status"
+          aria-live="polite"
+          aria-label="Uncommitted changes safety reminder"
+        >
+          <!-- Safety message -->
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-amber-900 font-medium">
+              <span class="font-semibold">{{ changedCount }} change{{ changedCount !== 1 ? 's' : '' }} pending.</span>
+              Changes auto-incorporate when you close the editor—or save to master now to commit formally.
+            </p>
+          </div>
+          <!-- Edit count badge on right -->
+          <div class="shrink-0 flex items-center gap-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-lg bg-amber-100 text-amber-900 text-xs font-bold">
+              {{ changedCount }} {{ changedCount === 1 ? 'edit' : 'edits' }}
+            </span>
+            <!-- Close button (dismiss banner) -->
+            <button
+              type="button"
+              class="shrink-0 h-6 w-6 flex items-center justify-center rounded-md hover:bg-amber-100 text-amber-400 transition-colors focus:outline-none focus:ring-1 focus:ring-amber-400"
+              aria-label="Dismiss safety reminder"
+              @click="showSafetyBanner = false"
+            >
+              <span class="text-[14px] font-bold">✕</span>
+            </button>
+          </div>
+        </div>
+      </Transition>
 
       <!-- ── Tabs ───────────────────────────────────────────────────────────── -->
       <div class="shrink-0 flex items-center gap-0 border-b border-gray-800 bg-gray-900 px-4 pt-2">
@@ -760,7 +820,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
 
       <!-- ── Entry cards ────────────────────────────────────────────────────── -->
       <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full bg-gray-50">
-        <div v-if="workingSpec" class="p-4 space-y-2 max-w-4xl mx-auto">
+        <div v-if="workingSpec" class="p-6 space-y-2 max-w-4xl mx-auto">
 
           <!-- ── FUNCTIONS tab ──────────────────────────────────────────────── -->
           <template v-if="activeTab === 'functions'">

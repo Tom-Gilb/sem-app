@@ -123,44 +123,24 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
 </script>
 
 <template>
-  <!-- Backdrop + modal -->
-  <Teleport to="body">
-    <div
-      class="fixed inset-0 z-[450] flex items-end sm:items-center justify-center p-0 sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Evo Simulator — animated delivery timeline"
-    >
-      <!-- Backdrop -->
-      <div
-        class="fixed inset-0 bg-black/60 backdrop-blur-sm"
-        aria-hidden="true"
-        @click="emit('close')"
-      />
-
-      <!-- Panel -->
-      <div
-        class="relative w-full sm:max-w-3xl max-h-[95dvh]
-               bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl
-               border border-violet-200 flex flex-col overflow-hidden"
-      >
-        <!-- Header -->
-        <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-violet-700 to-indigo-600 flex-shrink-0 rounded-t-2xl sm:rounded-t-2xl">
-          <div>
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-              <span aria-hidden="true">▶</span> Evo Simulator
-            </h2>
-            <p class="text-xs text-violet-200 mt-0.5">Watch how value accumulates across your delivery steps</p>
-          </div>
-          <CloseDot
+  <div class="flex flex-col h-full bg-white">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-violet-700 to-indigo-600 flex-shrink-0">
+      <div>
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <span aria-hidden="true">▶</span> Evo Simulator
+        </h2>
+        <p class="text-xs text-violet-200 mt-0.5">Watch how value accumulates across your delivery steps</p>
+      </div>
+      <CloseDot
         variant="on-dark"
         title="Close"
         aria-label="Close Evo Simulator"
         @click="emit('close')"
       />
-        </div>
+    </div>
 
-        <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full">
+    <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full bg-white">
         <!-- No plan state -->
         <div v-if="!hasSteps" class="px-5 py-12 flex flex-col items-center gap-3 text-center">
           <span class="text-4xl" aria-hidden="true">📋</span>
@@ -381,9 +361,7 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
               <span class="inline-block w-3 h-3 rounded-sm" style="background:#22c55e" aria-hidden="true" />Later steps
             </span>
           </div>
-        </template>
-        </ScrollContainer>
-      </div>
-    </div>
-  </Teleport>
+    </template>
+    </ScrollContainer>
+  </div>
 </template>
