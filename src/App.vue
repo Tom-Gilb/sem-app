@@ -3196,7 +3196,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
        each render their own dedicated surface (Phase 3 Evo Step). 'full'
        drops the cover so the existing app surface shows through. The Menu
        pin stays visible in all modes so the user can always navigate. -->
-  <template v-if="aperture.enabled.value">
+  <template v-if="false"><!-- Aperture disabled: experimental feature, not part of main app -->
     <!-- 'plan' — naked aperture (the default home) -->
     <Aperture
       v-if="aperture.view.value === 'plan'"
