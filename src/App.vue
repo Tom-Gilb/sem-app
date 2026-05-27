@@ -101,6 +101,8 @@ import SymbolFamilyPanel from './components/SymbolFamilyPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
 import ModelHistory from './components/ModelHistory.vue'
+import GlyphDataPanel from './components/GlyphDataPanel.vue'
+import type { PlGlyphType } from './components/icons/PlTypeIcon.vue'
 import SaveGlyph from './components/icons/SaveGlyph.vue'
 import EditGlyph from './components/icons/EditGlyph.vue'
 import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
@@ -634,6 +636,15 @@ const modelDashboardOpen = ref(false)
 // P7 (2026-05-27): Model History panel — all PlanModel records (plan + model mode).
 // z-[492/493] — above SystemModelDashboard (488/489) and ArrowInfoPanel (490/491).
 const modelHistoryOpen = ref(false)
+
+// P2 (2026-05-27): GlyphDataPanel — full reference card for any Planguage glyph.
+// z-[494/495] — above ModelHistory (492/493). Triggered by interactive PlTypeIcon click.
+const glyphPanelType  = ref<PlGlyphType | null>(null)
+const glyphPanelOpen  = ref(false)
+function openGlyphPanel(type: PlGlyphType): void {
+  glyphPanelType.value = type
+  glyphPanelOpen.value = true
+}
 
 /** True when the active plan model is in 'model' mode (not plan mode). */
 const isModelMode = computed(() => planModel.value?.workingMode === 'model')
@@ -3044,6 +3055,7 @@ registerExclusiveSurface('symbolFamily',      symbolFamilyOpen)
 registerExclusiveSurface('valueFlow',         valueFlowOpen)
 registerExclusiveSurface('modelDashboard',    modelDashboardOpen)
 registerExclusiveSurface('modelHistory',      modelHistoryOpen)
+registerExclusiveSurface('glyphDataPanel',    glyphPanelOpen)
 registerExclusiveSurface('planHealthStatus',  planHealthStatusOpen)
 registerExclusiveSurface('planHealthAdmin',   planHealthAdminOpen)
 registerExclusiveSurface('history',           historyOpen)
@@ -4007,6 +4019,15 @@ function handleApertureLoadPlan(model: PlanModel): void {
     @open-model-dashboard="(m) => { modelHistoryOpen = false; handleRestoreModel(m); modelDashboardOpen = true }"
   />
 
+  <!-- GlyphDataPanel (P2, 2026-05-27) — full Planguage glyph reference card. z-[494/495].
+       Triggered by ArrowInfoPanel's "open-glyph" emit, or by interactive PlTypeIcon clicks. -->
+  <GlyphDataPanel
+    v-if="glyphPanelOpen && glyphPanelType"
+    :pl-type="glyphPanelType"
+    @close="glyphPanelOpen = false"
+    @show-glyph="(t) => { glyphPanelType = t }"
+  />
+
   <!-- Spec Direct Relations — right-side drawer (Tom 2026-05-16) -->
   <SpecDirectRelations
     v-if="sdrOpen && currentSpec"
@@ -4141,6 +4162,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
         <ValueCounter
           :current-stage="planningStage"
           @go-to-stage="handleStageBarNav"
+          @open-glyph="openGlyphPanel"
         />
       </div>
 

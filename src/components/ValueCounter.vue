@@ -62,6 +62,11 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   /** User clicked a stage pill — parent should navigate to this stage. */
   'go-to-stage': [stage: number]
+  /**
+   * User clicked a FROM/TO glyph button in ArrowInfoPanel.
+   * Bubbled to App.vue to open GlyphDataPanel (P2, 2026-05-27).
+   */
+  'open-glyph': [plType: PlGlyphType]
 }>()
 
 // ── Stage definitions ──────────────────────────────────────────────────────────
@@ -316,7 +321,7 @@ function arrowStyle(idx: number): Record<string, string> {
   <ArrowInfoPanel
     :arrow-idx="openArrowIdx"
     @close="closeArrow()"
-    @open-glyph="(_type) => { /* future: open glyph detail panel */ }"
+    @open-glyph="(type) => emit('open-glyph', type)"
   />
 </template>
 
