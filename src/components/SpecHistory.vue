@@ -499,28 +499,32 @@ function handleRestore(id: string): void {
             :class="colours(latestVersion.label).dot"
             aria-hidden="true"
           />
-          <div class="flex-1 min-w-0 space-y-0.5">
+          <div class="flex-1 min-w-0 space-y-1">
+            <!-- Title — primary identity anchor, largest element in the card -->
+            <p
+              class="text-[14px] font-extrabold text-gray-900 leading-tight"
+              :title="planLabel(latestVersion)"
+            >
+              {{ planLabel(latestVersion) }}
+            </p>
+            <!-- Owner — second most important, clearly coloured -->
+            <p
+              v-if="ownerLabel(latestVersion)"
+              class="text-[12px] font-semibold text-indigo-700 truncate leading-snug"
+              :title="ownerLabel(latestVersion)"
+            >
+              {{ ownerLabel(latestVersion) }}
+            </p>
+            <!-- Metadata row: badge · timestamp -->
             <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Latest</span>
-              <span class="text-[11px] text-gray-500">{{ formatTs(latestVersion.timestamp) }}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Latest</span>
+              <span class="text-[10px] text-gray-400">{{ formatTs(latestVersion.timestamp) }}</span>
               <span
                 class="text-[10px] rounded-full px-1.5 py-0.5 font-medium"
                 :class="colours(latestVersion.label).badge"
               >{{ latestVersion.label }}</span>
             </div>
-            <p
-              class="text-[12px] font-bold text-gray-800 truncate"
-              :title="planLabel(latestVersion)"
-            >
-              📁 {{ planLabel(latestVersion) }}
-            </p>
-            <p
-              v-if="ownerLabel(latestVersion)"
-              class="text-[10px] text-gray-400 truncate"
-              :title="ownerLabel(latestVersion)"
-            >
-              {{ ownerLabel(latestVersion) }}
-            </p>
+            <!-- Counts + topic -->
             <p class="text-[11px] text-indigo-700 leading-snug">
               {{ readableCounts(latestVersion.summary) }}
             </p>
@@ -610,27 +614,30 @@ function handleRestore(id: string): void {
                 aria-hidden="true"
               />
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[10px] text-gray-500">{{ formatTs(v.timestamp) }}</span>
+                <!-- Title — primary identity -->
+                <p
+                  class="text-[12px] font-bold text-gray-800 truncate leading-snug"
+                  :title="planLabel(v)"
+                >
+                  {{ planLabel(v) }}
+                </p>
+                <!-- Owner — second anchor -->
+                <p
+                  v-if="ownerLabel(v)"
+                  class="text-[10px] font-semibold text-indigo-600 truncate leading-snug"
+                  :title="ownerLabel(v)"
+                >
+                  {{ ownerLabel(v) }}
+                </p>
+                <!-- Metadata row -->
+                <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+                  <span class="text-[9px] text-gray-400">{{ formatTs(v.timestamp) }}</span>
                   <span
                     class="text-[9px] rounded-full px-1.5 py-0.5 font-medium"
                     :class="colours(v.label).badge"
                   >{{ v.label }}</span>
                   <span class="text-[9px] text-gray-400">{{ readableCounts(v.summary) }}</span>
                 </div>
-                <p
-                  class="text-[10px] font-semibold text-gray-700 truncate leading-snug"
-                  :title="planLabel(v)"
-                >
-                  📁 {{ planLabel(v) }}
-                </p>
-                <p
-                  v-if="ownerLabel(v)"
-                  class="text-[9px] text-gray-400 truncate leading-snug"
-                  :title="ownerLabel(v)"
-                >
-                  {{ ownerLabel(v) }}
-                </p>
                 <p
                   v-if="summaryTopic(v.summary)"
                   class="text-[10px] text-gray-500 truncate leading-snug"

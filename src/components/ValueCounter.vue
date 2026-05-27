@@ -24,12 +24,10 @@ const STAGES = [
   { label: 'Export', stage: 5 },
 ] as const
 
-/** Show as soon as a spec exists (stage 1+) or when planning has progressed to stage 2+.
- *  This keeps the progress trail visible even after a session key bump drops the user
- *  back to stage 1 — they can still see where they are and what comes next. */
-const shouldShow = computed(
-  () => props.currentStage >= 2 || (props.hasSpec ?? false),
-)
+/** Always show — Tom 2026-05-27: "put in always". The 5-stage trail is the
+ *  user's primary orientation anchor; hiding it until a spec exists just removes
+ *  useful context at the exact moment the user needs it most (stage 1 onboarding). */
+const shouldShow = computed(() => true)
 
 function status(stepStage: number): 'done' | 'current' | 'future' {
   if (props.prioritisedExported) return 'done'
@@ -47,7 +45,7 @@ function connectorDone(stepIndex: number): boolean {
 <template>
   <div
     v-if="shouldShow"
-    class="w-full max-w-2xl mx-auto px-4 mb-3"
+    class="w-full max-w-2xl mx-auto px-4 mb-4 mt-1"
     role="status"
     aria-label="Planning progress"
   >
@@ -57,27 +55,27 @@ function connectorDone(stepIndex: number): boolean {
         <!-- Connector line (all except first) -->
         <div
           v-if="idx > 0"
-          class="flex-1 h-px mx-1.5 transition-colors duration-500"
+          class="flex-1 h-0.5 mx-2 transition-colors duration-500"
           :class="connectorDone(idx) ? 'bg-emerald-400' : 'bg-gray-200'"
           aria-hidden="true"
         />
 
         <!-- Step: dot + label -->
-        <div class="flex flex-col items-center gap-1 flex-shrink-0">
+        <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
           <!-- Dot -->
           <div
-            class="w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300"
+            class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm"
             :class="{
-              'bg-emerald-500':                         status(step.stage) === 'done',
-              'bg-indigo-500 ring-2 ring-indigo-200':   status(step.stage) === 'current',
-              'bg-gray-200':                            status(step.stage) === 'future',
+              'bg-emerald-500':                              status(step.stage) === 'done',
+              'bg-indigo-500 ring-3 ring-indigo-200 shadow-indigo-200': status(step.stage) === 'current',
+              'bg-gray-200':                                 status(step.stage) === 'future',
             }"
             :aria-label="`${step.label}: ${status(step.stage)}`"
           >
             <!-- Checkmark for done -->
             <svg
               v-if="status(step.stage) === 'done'"
-              class="w-2.5 h-2.5 text-white"
+              class="w-3.5 h-3.5 text-white"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"
               aria-hidden="true"
             >
@@ -86,13 +84,13 @@ function connectorDone(stepIndex: number): boolean {
             <!-- Pulse dot for current -->
             <div
               v-else-if="status(step.stage) === 'current'"
-              class="w-1.5 h-1.5 rounded-full bg-white"
+              class="w-2 h-2 rounded-full bg-white"
               aria-hidden="true"
             />
           </div>
           <!-- Label -->
           <span
-            class="text-[9px] font-semibold leading-none tracking-wide"
+            class="text-[11px] font-bold leading-none tracking-wide"
             :class="{
               'text-emerald-600': status(step.stage) === 'done',
               'text-indigo-600':  status(step.stage) === 'current',

@@ -31,6 +31,7 @@ import ClarifyView from './components/ClarifyView.vue'
 import ThinkingIndicator from './components/ThinkingIndicator.vue'
 import CelebrationEffect from './components/CelebrationEffect.vue'
 import ValueCounter from './components/ValueCounter.vue'
+import PlanningStageBar from './components/PlanningStageBar.vue'
 import CollaborationCursors from './components/CollaborationCursors.vue'
 import FocusModeBackdrop from './components/FocusModeBackdrop.vue'
 import ComparisonMode from './components/ComparisonMode.vue'
@@ -3752,6 +3753,42 @@ function handleApertureLoadPlan(model: PlanModel): void {
           :title="startOverConfirmPending ? 'Click again to confirm — clears all current work' : 'Restart Afresh (clear everything)'"
           @click="requestStartOver"
         >↺ {{ startOverConfirmPending ? 'Sure?' : 'New' }}</button>
+
+        <!-- ── Control pins — 🎤 Mic · 🔊 Speaker · ⚡ Actions ──────────────────
+             Control-pins rule 2026-05-26: always at TOP, never floating bottom.
+             Integrated directly into the Plan Crest action row so they are DOM
+             children of the bar, not a floating overlay on top of it.
+             compact=true → icon-only (32×32px) so these three don't overflow
+             the bar on normal window widths.
+             When no plan is loaded (planModel=null) the Plan Crest bar is hidden;
+             the floating fallback cluster (fixed top-4 right-4, v-if="!planModel")
+             covers that edge case with full-label buttons. -->
+        <span class="h-5 w-px bg-white/20 mx-0.5 shrink-0" aria-hidden="true" />
+        <DictateButton
+          :active="dictationActive"
+          :supported="dictationSupported"
+          :compact="true"
+          @toggle="toggleDictation()"
+        />
+        <SpeakerButton
+          :text="speakerText"
+          :compact="true"
+          @speak="handleSpeak"
+        />
+        <button
+          type="button"
+          :aria-expanded="menuOpen"
+          aria-haspopup="true"
+          aria-label="Open Actions menu (⌘A)"
+          title="Actions menu — press ⌘A from anywhere"
+          class="w-8 h-8 flex items-center justify-center rounded-lg text-base
+                 text-white select-none transition-all
+                 focus:outline-none focus:ring-2 focus:ring-white/70"
+          :class="menuOpen ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'"
+          @click="toggleMenu"
+        >
+          <span aria-hidden="true">⚡</span>
+        </button>
         </div>
       </div>
     </div>
@@ -3943,7 +3980,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <div
-    class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-16 px-4 md:pr-40"
+    class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-16 px-4 md:pr-40
+           overflow-x-clip"
     :class="view === 'app' && planModel ? (planDNAOpen ? 'pt-[20rem]' : 'pt-32') : 'pt-8'"
   >
 
@@ -4044,6 +4082,26 @@ function handleApertureLoadPlan(model: PlanModel): void {
          HMR-preserved ref (Tom mid-Kai-demo: even reload didn't drop him out
          of sign-in because HMR kept the old ref alive). -->
     <template v-else>
+
+      <!-- ── 11-stage planning workflow tile bar ─────────────────────────────
+           PlanningStageBar — rebuilt 2026-05-27 from screenshot evidence.
+           Full-width, dark background strip with 11 clickable stage tiles.
+           Sits at the very top of the main content area, below Plan Crest bar.
+           navigate event updates `stage` directly using the same ref the rest
+           of the app uses for stage transitions.
+           Breakout wrapper: parent has px-4 md:pr-40 constraints; the stage bar
+           must span full viewport width. -ml-4 shifts left edge to viewport edge;
+           w-[calc(100%+2rem)] and md:w-[calc(100%+11rem)] add back the total
+           horizontal padding so the right edge also reaches the viewport edge.
+           overflow-x-clip on the parent div prevents page-level scroll. -->
+      <div class="-ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]">
+        <PlanningStageBar
+          :current-stage="stage"
+          :has-spec="!!currentSpec"
+          :has-plan="confirmedSteps.length > 0"
+          @navigate="stage = $event"
+        />
+      </div>
 
       <!-- Session restore banner — shown when no auth nav bar (Supabase not configured) -->
       <div
@@ -4368,13 +4426,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
         />
       </div>
 
-      <!-- Feature #15: Workflow progress indicator — shows 5 named stages (Spec→Plan→Impact→Tasks→Export) -->
-      <ValueCounter
-        :confirmed-steps="confirmedSteps"
-        :current-stage="stage"
-        :prioritised-exported="!!prioritisedMarkdown"
-        :has-spec="!!currentSpec"
-      />
+      <!-- Feature #15: Workflow progress indicator — replaced by PlanningStageBar (11-stage tile bar).
+           ValueCounter kept as import for potential future use in compact contexts. -->
 
       <!-- Feature #17: Comparison Mode — replaces normal workflow when active -->
       <ComparisonMode
@@ -4884,12 +4937,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
          Primary forward action. Disappears when there is no obvious next step.
          Teleported to <body> to guarantee it renders in the root stacking context
          and can never be obscured by any ancestor's stacking context.
-         Button layout: ⚡ Actions menu sits at right-6 bottom-6 (always visible).
-         Ask Anything FAB sits at right-6 bottom-20 (80 px, above Actions top ~68 px);
-         expanded coach panel opens upward from right-6 bottom-20 at z-[521].
-         Next Step pill sits at left-6 bottom-52 (left side, primary forward action).
-         Right-side drawers (RightPanel) stop at bottom-20, so Actions is never
-         obscured; Ask Anything FAB may visually overlap panel bottoms (z-[520] wins). -->
+         Button layout: ⚡ Actions + Mic + Speaker sit at top-4 right-4 (control-pins rule
+         2026-05-26 — all control pins at TOP, never floating bottom).
+         Next Step pill sits at left-6 bottom-52 (left side, primary forward action). -->
     <!-- Next Step pill — hidden when PlanOwnerPanel is open to prevent left-side overlap. -->
     <Teleport to="body">
       <button
@@ -4908,82 +4958,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
       </button>
     </Teleport>
 
-    <!-- 🆘 Reset UI / Panic Button — added 2026-05-13 after Tom: "both I and users
-         might not know cmd r so is there a visible reset or panic button?".
-         Always-visible escape hatch from any stuck UI state. Sits at z-[10500],
-         ABOVE every drawer (z-10001) and the FAB cluster (z-9999), so it remains
-         clickable even when the History drawer / Plan Targets / Spec Editor /
-         any other modal is open AND its own close affordance has frozen under
-         HMR or a runtime throw. Mirror position of ⚡ Actions (right side) on
-         the LEFT so they read as a paired affordance pair — "open more"
-         (right) vs. "close everything" (left). Single click calls
-         `_closeAllOverlays()` which sets every modal/drawer/panel ref back to
-         false. Muted slate by default, turns red on hover so it never shouts
-         in the calm state but is unmistakably "the emergency exit" once you
-         look at it. -->
-    <Teleport to="body">
-      <!-- ALWAYS visible — NO v-if. The Reset pill is the escape hatch of last
-           resort. It must work even when view='loading' (Supabase init hung),
-           or when an invisible overlay is blocking clicks on every other
-           affordance. panicReset() force-sets view to 'app' as part of its
-           clear so pressing it from a stuck loading view jumps you straight
-           to the working home screen. 2026-05-13 — Tom in the demo: "reset
-           buttondisapeared! health icon there but unrespnsive in progress
-           help, fix nothing working, demo" — the v-if="view === 'app'" guard
-           that used to gate this button was the cause; removed. -->
-      <!-- Position: bottom-LEFT (left-4). 2026-05-14 — Tom: "move reset button
-           to left, it is on top of our text" — bottom-center placement (used
-           2026-05-13 to escape a collision with the Plan Responsibilities save
-           button) was sitting on top of body text in normal reading flow.
-           Bottom-left clears reading text and reads as an off-to-the-side
-           emergency exit (consistent with macOS / iOS "back / cancel = left"
-           convention). The PlanOwnerPanel save-button collision that drove the
-           original move-to-center is no longer reproducible (panel layout
-           shifted in subsequent edits). If it re-occurs, the right fix is to
-           raise the panel footer's z-index, not to re-center the Reset pill.
-           bottom-left is now free of every known fixed affordance: FAB cluster
-           is bottom-right, Define-result-card centers on selection, Sharpen
-           dropdown anchors to its trigger. -->
-      <!-- 2026-05-14 — pill now TOGGLES the Fresh Start menu instead of
-           single-click panic-resetting. Direct panic-reset is still reachable
-           inside the menu as "Just close stuck UI" (option 4). The 🆘 glyph
-           is retained per Tom: "keep the sos" — the emergency-exit identity
-           is preserved, the menu just gives the user 3 less-destructive
-           options ABOVE the panic option. -->
-      <button
-        type="button"
-        class="fixed bottom-16 left-4 z-[2147483647] flex items-center gap-1.5 px-3 py-2
-               rounded-full text-xs font-semibold select-none cursor-pointer
-               bg-red-600 text-white shadow-2xl ring-2 ring-white/60
-               hover:bg-red-700 hover:scale-110
-               active:bg-red-800 active:scale-95
-               transition-all duration-150
-               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400"
-        style="pointer-events: auto;"
-        :aria-label="freshStartOpen ? 'Close Fresh Start menu' : 'Fresh Start — open menu with 4 reset options'"
-        :title="freshStartOpen
-          ? 'Close Fresh Start menu'
-          : 'Fresh Start — Blank Canvas, Save and Stop, Cancel Recent Changes, or Just close stuck UI'"
-        @click="freshStartOpen = !freshStartOpen"
-      >
-        <span aria-hidden="true">🆘</span>
-        <span>Fresh Start</span>
-        <!-- Shortcut chips — Tom 2026-05-18: "put cmd r and esc ON the button"
-             Visible at all times so the keyboard backups are self-advertising.
-             Esc fires panicReset when loading is stuck (no memory needed).
-             ⌘R is the browser reload — session is auto-saved so no data lost. -->
-        <span class="flex items-center gap-0.5 ml-1" aria-hidden="true">
-          <kbd class="text-[9px] font-mono leading-none px-1 py-0.5 rounded
-                      bg-white/25 ring-1 ring-white/50">Esc</kbd>
-          <kbd class="text-[9px] font-mono leading-none px-1 py-0.5 rounded
-                      bg-white/25 ring-1 ring-white/50">⌘R</kbd>
-        </span>
-      </button>
-    </Teleport>
+    <!-- 🆘 Fresh Start pill REMOVED 2026-05-27 — control-pins rule ("ALL CONTROL PINS
+         ARE AT TOP LINES, NEVER FLOATING BOTTOM LEFT OR RIGHT", Tom 2026-05-26).
+         Fresh Start is now accessible via ⚡ Actions menu → Planning → 🆘 Fresh Start.
+         Panic-reset (Tier 2 Esc) remains as keyboard-only fallback for stuck-UI cases. -->
 
-    <!-- Fresh Start menu (2026-05-14) — pops upward from the 🆘 pill at
-         bottom-left, registered as an exclusive surface so opening it
-         auto-closes any other open full-screen panel. -->
+    <!-- Fresh Start menu (2026-05-14) — opened from ⚡ Actions menu entry.
+         Registered as an exclusive surface so opening it auto-closes all other panels. -->
     <FreshStartMenu
       :open="freshStartOpen"
       :history="specHistory"
@@ -5018,21 +4999,56 @@ function handleApertureLoadPlan(model: PlanModel): void {
         @click="menuOpen = false; renamePopoverOpen = false"
       />
 
-      <!-- ── ⋯ Menu — single entry point for all secondary actions.
-           Flex-column container: button sits at bottom; popover stacks above it inside
-           the same container — NO element overflows, eliminating the old inset-0 /
-           pointer-events-none hack that caused Safari to swallow all button clicks.
-           (Safari clips pointer-event hit-testing at the stacking-context boundary of
-           a fixed inset-0 pointer-events-none element, making pointer-events-auto on
-           children unreliable — same class of bug as overflow-hidden + border-radius.)
+      <!-- ── Control Pins cluster — ⚡ Actions / 🎤 Mic / 🔊 Speaker.
+           Control-pins rule 2026-05-26: ALL control pins live at TOP, never floating
+           bottom-left or bottom-right (Tom: "ALL CONTROL PINS ARE AT TOP LINES").
+           Buttons row appears first; popovers (menu, rename) drop DOWN below the row.
            Container sits at z-[9999] — above the z-[375] click-outside backdrop.
            Hidden when any full-screen modal is open (comparison, plan-input, plan-models). -->
       <div
-        v-if="view === 'app' && !comparisonOpen && !planInputOpen && !modelsOpen && !wizardOpen && !historyOpen"
-        class="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-2"
+        v-if="view === 'app' && !planModel && !comparisonOpen && !planInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
+        class="fixed top-4 right-4 z-[9999] flex flex-col items-end gap-2"
       >
 
-      <!-- Rename / Owner popover — flex item stacked above the button -->
+      <!-- 🎤 Mic + 🔊 Speaker + ⚡ Actions — control pins, always visible at top-right.
+           Tom 2026-05-13: "mic and speaker need to be on the surface at all times."
+           Tom 2026-05-26: control-pins rule — at TOP, never bottom-left or -right.
+           Placed FIRST so they anchor the top of the dropdown column. -->
+      <div class="flex items-center gap-2">
+        <DictateButton
+          :active="dictationActive"
+          :supported="dictationSupported"
+          @toggle="toggleDictation()"
+        />
+        <SpeakerButton
+          :text="speakerText"
+          @speak="handleSpeak"
+        />
+        <button
+          type="button"
+          :aria-expanded="menuOpen"
+          aria-haspopup="true"
+          aria-label="Open Actions menu (⌘A)"
+          title="Actions menu — press ⌘A from anywhere"
+          :class="[
+            'flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-xl select-none',
+            'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-400 transition-all duration-200',
+            menuOpen
+              ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-300/60 scale-105'
+              : 'bg-gradient-to-br from-violet-500 to-indigo-500 text-white hover:from-violet-600 hover:to-indigo-600 hover:scale-105 shadow-violet-300/40'
+          ]"
+          @click="toggleMenu"
+        >
+          <span aria-hidden="true" class="text-lg leading-none transition-transform duration-200" :class="menuOpen ? 'rotate-90' : ''">⚡</span>
+          <span class="text-sm font-bold tracking-wide">Actions</span>
+          <kbd class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded
+                      bg-white/20 text-white/90 font-mono text-[10px] leading-none
+                      ring-1 ring-white/30">⌘A</kbd>
+          <span aria-hidden="true" class="text-xs opacity-70 transition-transform duration-200" :class="menuOpen ? 'rotate-180' : ''">▾</span>
+        </button>
+      </div>
+
+      <!-- Rename / Owner popover — opens below the control pins row -->
       <div
         v-if="renamePopoverOpen"
         class="w-72 rounded-xl bg-white shadow-2xl border border-indigo-100 p-3 space-y-2"
@@ -5248,6 +5264,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
             :aria-label="startOverConfirmPending ? 'Confirm Restart Afresh' : 'Restart Afresh'"
             @click="requestStartOver(); !startOverConfirmPending && (menuOpen = false)"
           >🔄 {{ startOverConfirmPending ? 'Confirm Restart?' : 'Restart Afresh' }}</button>
+          <!-- 🆘 Fresh Start — replaces the bottom-left SOS pill (control-pins rule 2026-05-26).
+               Opens FreshStartMenu with 4 graduated reset options.
+               Esc (Tier 2) still handles full panic-reset as a keyboard-only fallback. -->
+          <button
+            type="button"
+            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
+                   text-red-600 hover:bg-red-50
+                   focus:outline-none focus:bg-red-50 transition-colors font-medium"
+            @click="freshStartOpen = true; menuOpen = false"
+          >🆘 Fresh Start</button>
           <button
             type="button"
             class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
@@ -5473,57 +5499,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
         </div>
       </div><!-- /outer menu popover -->
 
-      <!-- 🎤 Mic + 🔊 Speaker — always on surface, right side, above Actions.
-           Tom 2026-05-13: "the mic and speaker options are hidden in actions,
-           they need to be on the surface at all times right side above actions
-           and not colliding with it". They were only in the Actions menu; this
-           moves them to the persistent FAB cluster stacked above ⚡ Actions so
-           they're always one tap away without opening a menu.
-           DictateButton / SpeakerButton no longer self-position (`fixed …`
-           removed from those components 2026-05-13) — this flex-col parent
-           handles their layout. -->
-      <DictateButton
-        :active="dictationActive"
-        :supported="dictationSupported"
-        @toggle="toggleDictation()"
-      />
-      <SpeakerButton
-        :text="speakerText"
-        @speak="handleSpeak"
-      />
-
-      <!-- ⚡ Actions Menu toggle button. The "(⌘A)" suffix on the label
-           teaches the keyboard shortcut at the point of use (Tom 2026-05-12:
-           "Put command K in parenthesis after Actions in button to teach
-           shortcut, It would be even better if it were command A for
-           Actions"). The shortcut is wired in `_onGlobalKeydown` and is
-           skipped when the user is typing in an input/textarea so native
-           Select-All keeps working. -->
-      <button
-        type="button"
-        :aria-expanded="menuOpen"
-        aria-haspopup="true"
-        aria-label="Open Actions menu (⌘A)"
-        title="Actions menu — press ⌘A from anywhere"
-        :class="[
-          'flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl select-none',
-          'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-400 transition-all duration-200',
-          menuOpen
-            ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-300/60 scale-105'
-            : 'bg-gradient-to-br from-violet-500 to-indigo-500 text-white hover:from-violet-600 hover:to-indigo-600 hover:scale-105 shadow-violet-300/40'
-        ]"
-        @click="toggleMenu"
-      >
-        <span aria-hidden="true" class="text-lg leading-none transition-transform duration-200" :class="menuOpen ? 'rotate-90' : ''">⚡</span>
-        <span class="text-sm font-bold tracking-wide">Actions</span>
-        <!-- Shortcut hint pill — visually quiet so the label still reads as
-             "Actions" at a glance, but the keybinding is right there to learn. -->
-        <kbd class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded
-                    bg-white/20 text-white/90 font-mono text-[10px] leading-none
-                    ring-1 ring-white/30">⌘A</kbd>
-        <span aria-hidden="true" class="text-xs opacity-70 transition-transform duration-200" :class="menuOpen ? 'rotate-180' : ''">▾</span>
-      </button>
-      </div><!-- /button + popover flex-column container -->
+      </div><!-- /control-pins + dropdowns container -->
     </Teleport>
 
     <!-- 💡 SelectionDefiner — global floating "Illuminate" pill + result panel.
@@ -5555,9 +5531,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
          CloseDot in its own header. Z-bumps (310 → 497) didn't help, which
          means the eater isn't a transparent layer at z 300-495 — it's higher.
          Confirmed: the persistent ⋯ Actions FAB container is
-         `fixed bottom-6 right-6 z-[9999]` and stays mounted while History
-         is open (its `v-if` only excludes comparison / plan-input / models /
-         wizard — not historyOpen). The FAB cluster's `<Teleport>` is
+         `fixed top-4 right-4 z-[9999]` (moved from bottom-right 2026-05-27) and
+         stays mounted while History is open (its `v-if` only excludes comparison /
+         plan-input / models / wizard — not historyOpen). The FAB cluster's `<Teleport>` is
          declared BEFORE History in App.vue, but z-9999 > z-497 so the
          cluster's bounding box wins the hit-test in the right edge of the
          viewport — and any rename / owner popover inside that cluster, plus

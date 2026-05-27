@@ -11,6 +11,8 @@ import { speakerSupported, speaking, paused, stopSpeaking } from '../composables
 const props = defineProps<{
   /** Text to speak when the button is pressed (caller passes stage-appropriate content) */
   text: string
+  /** compact=true → icon-only pill (no label). Use inside tight bars. */
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{ speak: [text: string] }>()
@@ -39,16 +41,20 @@ function handleClick(): void {
         : speaking
           ? 'Reading aloud — click to stop'
           : 'Click to read current content aloud'"
-    class="flex items-center gap-1.5 px-3 py-2 rounded-full shadow-lg text-sm font-medium select-none
-           transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2"
-    :class="!speakerSupported
-      ? 'bg-white text-gray-300 border border-gray-100 cursor-not-allowed'
-      : speaking
-        ? 'bg-emerald-500 text-white focus:ring-emerald-400 animate-pulse'
-        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-emerald-400'"
+    :class="[
+      props.compact
+        ? 'w-8 h-8 justify-center rounded-lg shadow-none border-0 text-base px-0 py-0'
+        : 'flex items-center gap-1.5 px-3 py-2 rounded-full shadow-lg text-sm font-medium',
+      !speakerSupported
+        ? 'bg-white/10 text-white/30 cursor-not-allowed'
+        : speaking
+          ? (props.compact ? 'bg-emerald-500/80 text-white animate-pulse focus:ring-emerald-400' : 'bg-emerald-500 text-white focus:ring-emerald-400 animate-pulse')
+          : (props.compact ? 'bg-white/10 text-white hover:bg-white/20 focus:ring-emerald-400' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-emerald-400'),
+      'flex items-center select-none transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2',
+    ]"
     @click="handleClick"
   >
     <span aria-hidden="true">{{ speaking ? '⏹' : '🔊' }}</span>
-    {{ speaking ? 'Stop' : 'Read aloud' }}
+    <span v-if="!props.compact">{{ speaking ? 'Stop' : 'Read aloud' }}</span>
   </button>
 </template>
