@@ -69,18 +69,19 @@ const STAGES: Array<{
   stage: number
   label: string
   plType: PlGlyphType
+  title: string
 }> = [
-  { stage: 1,  label: 'Stakes',     plType: 'stakeholder' },
-  { stage: 2,  label: 'Solutions',  plType: 'solution'    },
-  { stage: 3,  label: 'Sharpen',    plType: 'function'    },
-  { stage: 4,  label: 'Impacts',    plType: 'value'       },
-  { stage: 5,  label: 'Refine',     plType: 'constraint'  },
-  { stage: 6,  label: 'Evo Steps',  plType: 'evo-step'    },
-  { stage: 7,  label: 'Evo Impact', plType: 'value'       },
-  { stage: 8,  label: 'Tasks',      plType: 'task'        },
-  { stage: 9,  label: 'Study-Act',  plType: 'evo-step'    },
-  { stage: 10, label: 'Plan',       plType: 'resource'    },
-  { stage: 11, label: 'Export',     plType: 'constraint'  },
+  { stage: 1,  label: 'Stakes',     plType: 'stakeholder', title: 'Stage 1 · Stakes — Who and what needs results. Identify all stakeholders: people, systems, laws, data. Inanimate stakeholders (GDPR, databases) are equally valid. Their needs define success.' },
+  { stage: 2,  label: 'Solutions',  plType: 'solution',    title: 'Stage 2 · Solutions — How we will deliver value. Define candidate designs, strategies, and means that address stakeholder needs. Solutions are evaluated against Values and Constraints.' },
+  { stage: 3,  label: 'Sharpen',    plType: 'function',    title: 'Stage 3 · Sharpen — What the system does. Clarify functions — binary capabilities that are either present or absent. Sharpen each to a precise presence test with no thresholds inside.' },
+  { stage: 4,  label: 'Impacts',    plType: 'value',       title: 'Stage 4 · Impacts — How well we must perform. Define and quantify values with Scale, Meter, Tolerable, and Goal levels. Each value drives prioritisation by Value divided by Cost.' },
+  { stage: 5,  label: 'Refine',     plType: 'constraint',  title: 'Stage 5 · Refine — Hard boundaries that must not be violated. Constraints are binary requirements: regulatory, budget, resource, or logical limits. Solutions must respect every constraint.' },
+  { stage: 6,  label: 'Evo Steps',  plType: 'evo-step',    title: 'Stage 6 · Evo Steps — Incremental delivery cycles. Each Evo Step delivers measurable stakeholder value. Steps within a stage are sequentially independent — VDT picks freely.' },
+  { stage: 7,  label: 'Evo Impact', plType: 'value',       title: 'Stage 7 · Evo Impact — Measure the impact of each Evo Step against Values. Which steps deliver the highest Value divided by Cost? This is the Planguage VDT prioritisation engine.' },
+  { stage: 8,  label: 'Tasks',      plType: 'task',        title: 'Stage 8 · Tasks — Concrete work items for each Evo Step. Tasks are the engineering activities that implement solutions and produce deliverable results for stakeholders.' },
+  { stage: 9,  label: 'Study-Act',  plType: 'evo-step',    title: 'Stage 9 · Study-Act — Learn from delivery. Measure actual results against Value goals, update the plan. This is the Deming PDSA Study and Act steps applied to Planguage Evo.' },
+  { stage: 10, label: 'Plan',       plType: 'resource',    title: 'Stage 10 · Plan — Assign resources and schedule Evo Steps. Define who does what, with what budget, and in what sequence across the delivery lifecycle.' },
+  { stage: 11, label: 'Export',     plType: 'constraint',  title: 'Stage 11 · Export — Share and publish the plan. Export the full Planguage specification as a formatted document, coloured HTML table, or JSON for Tom\'s Twin and downstream tools.' },
 ]
 
 // ── Stage state helpers ────────────────────────────────────────────────────────
@@ -161,7 +162,7 @@ function arrowStyle(idx: number): Record<string, string> {
   >
     <ScrollContainer
       outer-class="relative w-full"
-      inner-class="flex items-end gap-2 px-6 pb-1 min-w-max mx-auto"
+      inner-class="flex items-end gap-3 px-8 pb-1 min-w-max w-full justify-center"
       :no-pill="true"
     >
       <template v-for="(step, idx) in STAGES" :key="step.stage">
@@ -175,8 +176,17 @@ function arrowStyle(idx: number): Record<string, string> {
           :style="{ ...pillStyle(step.stage), width: '96px', height: '96px', borderRadius: '16px' }"
           :aria-label="`Navigate to stage ${step.stage}: ${step.label} (${stageStatus(step.stage)})`"
           :aria-current="step.stage === currentStage ? 'step' : undefined"
+          :title="step.title"
           @click="navigateToStage(step.stage)"
         >
+          <!-- Stage Halo — pulsating white ring on active stage (3s breathing animation) -->
+          <div
+            v-if="step.stage === currentStage"
+            class="stage-halo absolute inset-0 pointer-events-none"
+            style="border-radius: 16px; box-shadow: 0 0 0 3px rgba(255,255,255,0.85);"
+            aria-hidden="true"
+          />
+
           <!-- Number badge (top-left) -->
           <span
             class="absolute top-1.5 left-2 text-[13px] font-extrabold leading-none
@@ -206,42 +216,43 @@ function arrowStyle(idx: number): Record<string, string> {
         <button
           v-if="idx < STAGES.length - 1"
           type="button"
-          class="shrink-0 flex items-center justify-center
+          class="relative shrink-0 flex items-center justify-center
                  hover:scale-110 active:scale-95 transition-transform
                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded
                  group"
-          style="width:40px; height:44px;"
-          :aria-label="`${step.label} to ${STAGES[idx + 1].label} transition — click for details`"
+          style="width:64px; height:52px;"
+          :aria-label="`${step.label} to ${STAGES[idx + 1].label} transition — click for Planguage history and details`"
+          :title="`Stage ${step.stage}→${step.stage + 1}: ${step.label} flows into ${STAGES[idx + 1].label}. Each planning stage deepens your specification. Click for historical context, Planguage meaning, and a fun fact about this transition.`"
           @click="openArrow(idx)"
         >
           <svg
-            viewBox="0 0 40 44"
-            width="40"
-            height="44"
+            viewBox="0 0 64 52"
+            width="64"
+            height="52"
             fill="none"
             :style="arrowStyle(idx)"
             aria-hidden="true"
           >
-            <!-- Shaft -->
+            <!-- Shaft — longer for bigger canvas -->
             <line
-              x1="2" y1="22" x2="24" y2="22"
+              x1="2" y1="26" x2="42" y2="26"
               :stroke="arrowData[idx].from"
               :stroke-width="arrowData[idx].w"
               stroke-linecap="round"
             />
             <!-- Concave swept-back arrowhead -->
             <path
-              d="M 18,4 L 38,22 L 18,40 Q 28,22 18,4 Z"
+              d="M 34,6 L 62,26 L 34,46 Q 50,26 34,6 Z"
               :fill="arrowData[idx].to"
             />
           </svg>
-          <!-- Hover tooltip -->
+          <!-- Hover tooltip — stage transition label -->
           <span
-            class="absolute pointer-events-none -top-7 left-1/2 -translate-x-1/2
-                   bg-white/90 text-gray-800 text-[10px] font-medium
-                   rounded px-1.5 py-0.5 shadow whitespace-nowrap
+            class="absolute pointer-events-none -top-8 left-1/2 -translate-x-1/2
+                   bg-[#0f172a]/95 text-white text-[10px] font-medium
+                   rounded-md px-2 py-1 shadow-lg whitespace-nowrap
                    opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          >✦ Arrow Info</span>
+          >✦ {{ step.label }} → {{ STAGES[idx + 1].label }}</span>
         </button>
 
       </template>
@@ -255,3 +266,18 @@ function arrowStyle(idx: number): Record<string, string> {
     @open-glyph="(_type) => { /* future: open glyph detail panel */ }"
   />
 </template>
+
+<style scoped>
+/* Stage Halo — pulsating white ring on current active stage pill.
+   Tom Gilb 2026-05-24: "slow relaxing pulsating halo."
+   Design log r06 · Visual Treatments table (SEMappHandbook p.33).
+   scale 1.00 → 1.12 → 1.00, opacity 0.70 → 0.15 → 0.70, 3s ease-in-out. */
+@keyframes stage-halo {
+  0%   { transform: scale(1.00); opacity: 0.70; }
+  50%  { transform: scale(1.12); opacity: 0.15; }
+  100% { transform: scale(1.00); opacity: 0.70; }
+}
+.stage-halo {
+  animation: stage-halo 3s ease-in-out infinite;
+}
+</style>
