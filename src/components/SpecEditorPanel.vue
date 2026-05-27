@@ -1168,6 +1168,63 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                   </div>
                 </template>
 
+                <!-- ✨ Draft missing fields button (edit level 2+, if incomplete) -->
+                <div v-if="editLevel >= 2 && isValueIncomplete(entry)" class="space-y-3">
+                  <button
+                    type="button"
+                    class="w-full flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-sm font-semibold transition-all
+                           text-violet-700 hover:text-violet-900 hover:bg-violet-50 bg-violet-50 border border-violet-200"
+                    :disabled="draftingEntryId.value === entry.id || draftLoading.value"
+                    @click="handleDraftSingleValue(entry.id)"
+                  >
+                    <span v-if="draftingEntryId.value === entry.id" aria-hidden="true">⟳</span>
+                    <span v-else aria-hidden="true">✨</span>
+                    {{ draftingEntryId.value === entry.id ? 'Drafting...' : 'Draft missing fields' }}
+                  </button>
+
+                  <!-- Inline suggest panel — shows after draft completes -->
+                  <Transition
+                    enter-active-class="transition-all duration-200"
+                    enter-from-class="max-h-0 opacity-0"
+                    enter-to-class="max-h-96 opacity-100"
+                    leave-active-class="transition-all duration-150"
+                    leave-from-class="max-h-96 opacity-100"
+                    leave-to-class="max-h-0 opacity-0"
+                  >
+                    <div v-if="draftResults.has(entry.id)" class="rounded-lg bg-indigo-50 border border-indigo-200 p-3 space-y-2">
+                      <p class="text-[10px] font-bold text-indigo-700 uppercase tracking-wide">Draft suggestions</p>
+                      <div v-for="field of ['scale', 'tolerable', 'wish'] as const" :key="field" class="space-y-1">
+                        <div class="flex items-start gap-2">
+                          <div class="flex-1 min-w-0">
+                            <p class="text-[10px] font-semibold text-indigo-600">{{ field }}</p>
+                            <p class="text-xs text-indigo-700 font-medium">{{ draftResults.get(entry.id)?.[field] || '—' }}</p>
+                          </div>
+                          <div class="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              title="Accept (confident)"
+                              class="h-6 w-6 flex items-center justify-center rounded-md text-[13px] font-bold text-emerald-600 hover:bg-emerald-100 transition-colors"
+                              @click="acceptDraftField(entry.id, field, false)"
+                            >✓</button>
+                            <button
+                              type="button"
+                              title="Accept with ? (uncertain)"
+                              class="h-6 w-6 flex items-center justify-center rounded-md text-[13px] font-bold text-amber-600 hover:bg-amber-100 transition-colors"
+                              @click="acceptDraftField(entry.id, field, true)"
+                            >❓</button>
+                            <button
+                              type="button"
+                              title="Skip"
+                              class="h-6 w-6 flex items-center justify-center rounded-md text-[13px] font-bold text-slate-400 hover:bg-slate-200 transition-colors"
+                              @click="draftResults.delete(entry.id)"
+                            >✕</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Transition>
+                </div>
+
                 <!-- Entry actions: Done (always) + Revert (when changed) — same pattern as Functions tab -->
                 <div class="flex items-center justify-between gap-2">
                   <!-- ◈ Flow — show this entry highlighted in the Value Flow diagram -->
