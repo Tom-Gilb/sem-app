@@ -24,6 +24,7 @@ import {
   defineTerm,
   defineCurrentSelection,
   closeDefine,
+  cancelDefine,
   DEFINE_TYPE_LABELS,
   DEFINE_TYPE_COLOURS,
 } from '../composables/useDefine'
@@ -702,14 +703,36 @@ function escapeHtml(s: string): string {
                The pin button + tab structure already communicate that more content exists.
                audit-ignore: scroll — documented opt-out, see comment above. -->
           <div class="flex-1 min-h-0 overflow-y-auto px-4 py-4">
-            <!-- Loading state -->
-            <div v-if="loading" class="flex items-center gap-3" role="status" aria-live="polite">
-              <div class="h-5 w-5 flex-shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600" aria-hidden="true" />
-              <span class="text-sm text-slate-500">Looking up definition…</span>
+            <!-- Loading state — Cancel button always visible so user is never trapped.
+                 Design log r09 2026-05-27: Tom reported "illuminating in eternal spin".
+                 Root causes: (1) 15s cloud timeout feels eternal — reduced to 8s.
+                 (2) HMR can leave _loading=true after hot-reload. Fix: cancelDefine()
+                 gives the user an immediate escape hatch regardless of cause. -->
+            <div v-if="loading" class="space-y-3" role="status" aria-live="polite">
+              <div class="flex items-center gap-3">
+                <div class="h-5 w-5 flex-shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600" aria-hidden="true" />
+                <span class="text-sm text-slate-500">Looking up definition…</span>
+              </div>
+              <button
+                type="button"
+                class="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2
+                       transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-violet-400"
+                aria-label="Cancel Illuminate lookup"
+                @click="cancelDefine()"
+              >✕ Cancel</button>
             </div>
 
-            <!-- Error state -->
-            <p v-else-if="error" class="text-sm text-red-600" role="alert">{{ error }}</p>
+            <!-- Error state — Retry button so user can try again without re-selecting. -->
+            <div v-else-if="error" class="space-y-2">
+              <p class="text-sm text-red-600" role="alert">{{ error }}</p>
+              <button
+                type="button"
+                class="text-xs text-violet-600 hover:text-violet-800 underline underline-offset-2
+                       transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-violet-400"
+                aria-label="Retry Illuminate lookup"
+                @click="defineTerm(term, props.spec)"
+              >↻ Try again</button>
+            </div>
 
             <!-- Result -->
             <template v-else-if="result">

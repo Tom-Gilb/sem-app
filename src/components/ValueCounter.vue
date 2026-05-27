@@ -1,6 +1,7 @@
 <!--
   ValueCounter.vue — 11-stage Planguage planning workflow bar.
   Rebuilt 2026-05-27 from design log r04–r37 + Planguage Spec Type Glyphs PDF v7.
+  r07 2026-05-27: Active stage label bar (✦ ACTIVE, floats over glyph) + glyph bob animation.
 
   11 stages (left to right), each a 96×96px dark pill with:
     - Stage number badge (top-left, black/60 bg)
@@ -155,14 +156,32 @@ function arrowStyle(idx: number): Record<string, string> {
 
 <template>
   <!-- Full-width dark strip — parent handles breakout wrapper for px constraints. -->
+  <!-- Design log r08 2026-05-27: `relative` added for absolute-positioned prev/next
+       navigation buttons. Tom: "I cannot see how to progress from this stage.
+       General rule: we can always go back and forth and clear buttons will enable it." -->
   <nav
-    class="w-full bg-[#0f172a] py-3"
+    class="relative w-full bg-[#0f172a] py-3"
     aria-label="Planning stages"
     role="navigation"
   >
+    <!-- ◀ Prev stage — left edge overlay, gradient fade into dark bar -->
+    <button
+      v-if="currentStage > 1"
+      type="button"
+      class="absolute left-0 top-0 bottom-0 z-20 flex items-center px-3
+             bg-gradient-to-r from-[#0f172a] via-[#0f172a]/80 to-transparent
+             text-white/70 hover:text-amber-300 transition-colors duration-200
+             focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+      :aria-label="`Previous stage: ${STAGES[currentStage - 2].label}`"
+      :title="`◀ Stage ${currentStage - 1} · ${STAGES[currentStage - 2].label} — click or use arrow keys`"
+      @click="navigateToStage(currentStage - 1)"
+    >
+      <span class="text-2xl leading-none font-bold" aria-hidden="true">◀</span>
+    </button>
+
     <ScrollContainer
       outer-class="relative w-full"
-      inner-class="flex items-end gap-3 px-8 pb-1 min-w-max w-full justify-center"
+      inner-class="flex items-end gap-3 pl-16 pr-16 pb-1 min-w-max w-full justify-center"
       :no-pill="true"
     >
       <template v-for="(step, idx) in STAGES" :key="step.stage">
@@ -195,13 +214,32 @@ function arrowStyle(idx: number): Record<string, string> {
             aria-hidden="true"
           >{{ step.stage }}</span>
 
-          <!-- Planguage type glyph — translated right+down per design log r18 -->
+          <!-- Active stage label bar — floats over the glyph with slow animation.
+               Design log r07 · Tom Gilb 2026-05-27: "text in a bar on the step glyph…
+               slow movement of it and maybe some sort of halo around it."
+               z-20 ensures it renders above the halo ring (z-10). -->
           <div
-            class="flex items-center justify-center translate-x-1 translate-y-2"
-            :style="glowStyle(step.stage)"
+            v-if="step.stage === currentStage"
+            class="active-label-bar absolute z-20 pointer-events-none"
+            style="top: 36px; left: 50%;"
             aria-hidden="true"
           >
-            <PlTypeIcon :pl-type="step.plType" size="xl" />
+            <span
+              class="text-[8px] font-extrabold uppercase tracking-[0.12em] text-white
+                     bg-white/25 rounded-full px-2 py-0.5 whitespace-nowrap
+                     ring-1 ring-white/50"
+            >✦ ACTIVE</span>
+          </div>
+
+          <!-- Planguage type glyph — bob wrapper active only, translated r18 -->
+          <div :class="step.stage === currentStage ? 'glyph-bob' : ''">
+            <div
+              class="flex items-center justify-center translate-x-1 translate-y-2"
+              :style="glowStyle(step.stage)"
+              aria-hidden="true"
+            >
+              <PlTypeIcon :pl-type="step.plType" size="xl" />
+            </div>
           </div>
 
           <!-- Stage label -->
@@ -257,6 +295,21 @@ function arrowStyle(idx: number): Record<string, string> {
 
       </template>
     </ScrollContainer>
+
+    <!-- ▶ Next stage — right edge overlay, gradient fade into dark bar -->
+    <button
+      v-if="currentStage < STAGES.length"
+      type="button"
+      class="absolute right-0 top-0 bottom-0 z-20 flex items-center px-3
+             bg-gradient-to-l from-[#0f172a] via-[#0f172a]/80 to-transparent
+             text-white/70 hover:text-amber-300 transition-colors duration-200
+             focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+      :aria-label="`Next stage: ${STAGES[currentStage].label}`"
+      :title="`▶ Stage ${currentStage + 1} · ${STAGES[currentStage].label} — click to advance`"
+      @click="navigateToStage(currentStage + 1)"
+    >
+      <span class="text-2xl leading-none font-bold" aria-hidden="true">▶</span>
+    </button>
   </nav>
 
   <!-- Arrow info panel (Teleported to body) -->
@@ -279,5 +332,30 @@ function arrowStyle(idx: number): Record<string, string> {
 }
 .stage-halo {
   animation: stage-halo 3s ease-in-out infinite;
+}
+
+/* Active label bar — slow float over the glyph (Design log r07).
+   Tom Gilb 2026-05-27: "text in a bar on the step glyph … slow movement."
+   translateX(-50%) centres the pill horizontally; translateY bobs ±5px over 3s.
+   Phase offset from stage-halo (2.5s) to avoid synchronised motion. */
+@keyframes active-bar-float {
+  0%   { transform: translateX(-50%) translateY(0px); }
+  50%  { transform: translateX(-50%) translateY(-5px); }
+  100% { transform: translateX(-50%) translateY(0px); }
+}
+.active-label-bar {
+  animation: active-bar-float 3s ease-in-out infinite;
+}
+
+/* Glyph bob — gentle vertical bob on active stage glyph (Design log r07).
+   2.5s cycle, slight phase offset from label bar, ±3px travel.
+   Wraps the translate-x-1 translate-y-2 inner div so class transforms are unaffected. */
+@keyframes glyph-bob {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-3px); }
+  100% { transform: translateY(0px); }
+}
+.glyph-bob {
+  animation: glyph-bob 2.5s ease-in-out infinite;
 }
 </style>

@@ -100,6 +100,7 @@ import SaveGlyphHistoryPanel from './components/SaveGlyphHistoryPanel.vue'
 import SymbolFamilyPanel from './components/SymbolFamilyPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
+import ModelHistory from './components/ModelHistory.vue'
 import SaveGlyph from './components/icons/SaveGlyph.vue'
 import EditGlyph from './components/icons/EditGlyph.vue'
 import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
@@ -629,6 +630,10 @@ const valueFlowOpen = ref(false)
 // Shown when the active PlanModel has workingMode === 'model'.
 // z-[488/489] — same tier as ValueFlow (exclusive surface handles mutual exclusion).
 const modelDashboardOpen = ref(false)
+
+// P7 (2026-05-27): Model History panel — all PlanModel records (plan + model mode).
+// z-[492/493] — above SystemModelDashboard (488/489) and ArrowInfoPanel (490/491).
+const modelHistoryOpen = ref(false)
 
 /** True when the active plan model is in 'model' mode (not plan mode). */
 const isModelMode = computed(() => planModel.value?.workingMode === 'model')
@@ -2124,7 +2129,10 @@ function resumeLastModel(): void {
  * without bumping the version. Triggered by "💾 Save now" in PlanModelBar.
  */
 function savePlanNow(): void {
-  if (currentSpec.value) savePlanSnapshot(currentSpec.value)
+  if (currentSpec.value) {
+    savePlanSnapshot(currentSpec.value)
+    showToast('💾 Version checkpoint saved to Plan History', 2500)
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3035,6 +3043,7 @@ registerExclusiveSurface('editInfo',          editInfoOpen)
 registerExclusiveSurface('symbolFamily',      symbolFamilyOpen)
 registerExclusiveSurface('valueFlow',         valueFlowOpen)
 registerExclusiveSurface('modelDashboard',    modelDashboardOpen)
+registerExclusiveSurface('modelHistory',      modelHistoryOpen)
 registerExclusiveSurface('planHealthStatus',  planHealthStatusOpen)
 registerExclusiveSurface('planHealthAdmin',   planHealthAdminOpen)
 registerExclusiveSurface('history',           historyOpen)
@@ -3780,27 +3789,39 @@ function handleApertureLoadPlan(model: PlanModel): void {
              the floating fallback cluster (fixed top-4 right-4, v-if="!planModel")
              covers that edge case with full-label buttons. -->
         <span class="h-5 w-px bg-white/20 mx-0.5 shrink-0" aria-hidden="true" />
-        <DictateButton
-          :active="dictationActive"
-          :supported="dictationSupported"
-          :compact="true"
-          @toggle="toggleDictation()"
-        />
-        <SpeakerButton
-          :text="speakerText"
-          :compact="true"
-          @speak="handleSpeak"
-        />
+        <!-- P5 (2026-05-27): data-crest-tip wrappers on inline icon-only buttons.
+             span.inline-flex needed because DictateButton/SpeakerButton are components
+             (can't add data-* to a component root directly from parent). -->
+        <span class="inline-flex" data-crest-tip="🎤 Dictate — speak to fill the form (⌘M)">
+          <DictateButton
+            :active="dictationActive"
+            :supported="dictationSupported"
+            :compact="true"
+            @toggle="toggleDictation()"
+          />
+        </span>
+        <span class="inline-flex" data-crest-tip="🔊 Read Aloud — hear the current plan content">
+          <SpeakerButton
+            :text="speakerText"
+            :compact="true"
+            @speak="handleSpeak"
+          />
+        </span>
+        <!-- Design log r08 2026-05-27: amber/yellow styling + text-xl icon.
+             Tom: "mic spkt action buttons need more contrast, more yellow maybe bigger icon." -->
         <button
           type="button"
           :aria-expanded="menuOpen"
           aria-haspopup="true"
           aria-label="Open Actions menu (⌘A)"
           title="Actions menu — press ⌘A from anywhere"
-          class="w-8 h-8 flex items-center justify-center rounded-lg text-base
-                 text-white select-none transition-all
-                 focus:outline-none focus:ring-2 focus:ring-white/70"
-          :class="menuOpen ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'"
+          data-crest-tip="⚡ Actions — plan management, saves, exports & shortcuts (⌘A)"
+          class="w-9 h-9 flex items-center justify-center rounded-lg text-xl
+                 select-none transition-all
+                 focus:outline-none focus:ring-2 focus:ring-amber-300"
+          :class="menuOpen
+            ? 'bg-amber-300 text-amber-900 ring-2 ring-amber-200'
+            : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
           @click="toggleMenu"
         >
           <span aria-hidden="true">⚡</span>
@@ -3976,6 +3997,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
     @close="modelDashboardOpen = false"
     @derive-plan="(_ids) => { modelDashboardOpen = false; setWorkingMode('plan') }"
     @switch-to-plan="modelDashboardOpen = false; setWorkingMode('plan')"
+  />
+
+  <!-- Model History (P7, 2026-05-27) — all PlanModel records, plan + model mode. z-[492/493]. -->
+  <ModelHistory
+    v-if="modelHistoryOpen"
+    @close="modelHistoryOpen = false"
+    @load-model="(m) => { modelHistoryOpen = false; handleRestoreModel(m) }"
+    @open-model-dashboard="(m) => { modelHistoryOpen = false; handleRestoreModel(m); modelDashboardOpen = true }"
   />
 
   <!-- Spec Direct Relations — right-side drawer (Tom 2026-05-16) -->
@@ -5017,16 +5046,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
            Buttons row appears first; popovers (menu, rename) drop DOWN below the row.
            Container sits at z-[9999] — above the z-[375] click-outside backdrop.
            Hidden when any full-screen modal is open (comparison, plan-input, plan-models). -->
+      <!-- Design log r08 2026-05-27: Moved outside !planModel guard so the menu
+           dropdown renders when planModel exists (compact Plan Crest bar case).
+           Previously: cluster was v-if="!planModel" so clicking the compact
+           ⚡ button in the Plan Crest bar toggled menuOpen but the dropdown
+           never rendered (it was hidden inside the !planModel cluster). Fix:
+           allow cluster to render when menuOpen||renamePopoverOpen even if
+           planModel exists. Buttons row is v-if="!planModel" to prevent
+           duplication (they're already in the Plan Crest bar when plan loaded). -->
       <div
-        v-if="view === 'app' && !planModel && !comparisonOpen && !planInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
-        class="fixed top-4 right-4 z-[9999] flex flex-col items-end gap-2"
+        v-if="view === 'app' && (!planModel || menuOpen || renamePopoverOpen) && !comparisonOpen && !planInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
+        :class="['fixed z-[9999] flex flex-col items-end gap-2', planModel ? 'top-10 right-4' : 'top-4 right-4']"
       >
 
-      <!-- 🎤 Mic + 🔊 Speaker + ⚡ Actions — control pins, always visible at top-right.
+      <!-- 🎤 Mic + 🔊 Speaker + ⚡ Actions — control pins (no-plan state only).
+           When planModel exists these buttons live in the Plan Crest bar instead.
            Tom 2026-05-13: "mic and speaker need to be on the surface at all times."
-           Tom 2026-05-26: control-pins rule — at TOP, never bottom-left or -right.
-           Placed FIRST so they anchor the top of the dropdown column. -->
-      <div class="flex items-center gap-2">
+           Tom 2026-05-26: control-pins rule — at TOP, never bottom-left or -right. -->
+      <div v-if="!planModel" class="flex items-center gap-2">
         <DictateButton
           :active="dictationActive"
           :supported="dictationSupported"
@@ -5183,6 +5220,15 @@ function handleApertureLoadPlan(model: PlanModel): void {
             aria-label="Replay"
             @click="startReplay(confirmedSteps); menuOpen = false"
           >🔁 Replay</button>
+          <!-- P7 (2026-05-27): Model History button — opens panel for all saved records. -->
+          <button
+            type="button"
+            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
+                   text-gray-700 hover:bg-gray-50
+                   focus:outline-none focus:bg-gray-50 transition-colors"
+            title="All saved plans and system models"
+            @click="modelHistoryOpen = true; menuOpen = false"
+          >🗂️ Model History</button>
         </div>
 
         <!-- Edit — spec editing and AI improvement actions.
@@ -5237,6 +5283,18 @@ function handleApertureLoadPlan(model: PlanModel): void {
             :disabled="!_allPlanModels.length"
             @click="modelsOpen = true; menuOpen = false; renamePopoverOpen = false"
           >📋 Start with a Previous Plan</button>
+          <!-- 💾 Save version checkpoint — manual snapshot with toast feedback.
+               Design log r08 2026-05-27: Tom reported "save version did not
+               react, give any feedback." Calls savePlanNow() which emits
+               showToast('💾 Version checkpoint saved…', 2500). -->
+          <button
+            type="button"
+            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg font-medium
+                   text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed
+                   focus:outline-none focus:bg-emerald-50 transition-colors"
+            :disabled="!currentSpec"
+            @click="savePlanNow(); menuOpen = false"
+          >💾 Save version checkpoint</button>
           <button
             type="button"
             class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
@@ -5760,5 +5818,62 @@ function handleApertureLoadPlan(model: PlanModel): void {
 }
 @media (prefers-reduced-motion: reduce) {
   .plan-title-shimmer { animation: none; }
+}
+
+/* ── Crest Tip — CSS-only tooltip system for Plan Crest elements. ─────────────
+   P5 (2026-05-27): any element with data-crest-tip="..." shows a styled
+   tooltip below on hover/focus. No JS, no event handlers — pure CSS.
+   Usage: <span data-crest-tip="Tooltip text goes here">button label</span>
+   Design: dark slate-800 panel, indigo border, downward from crest bar.
+   The Plan Crest sits at z-[300]; tooltip at z-[400] clears it.
+   Arrow (::before) points up toward the triggering element. */
+[data-crest-tip] {
+  position: relative;
+}
+[data-crest-tip]::after {
+  content: attr(data-crest-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 260px;
+  white-space: normal;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #e2e8f0;
+  background: #1e293b;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  z-index: 400;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  text-align: center;
+}
+[data-crest-tip]::before {
+  content: '';
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: #1e293b;
+  z-index: 401;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+[data-crest-tip]:hover::after,
+[data-crest-tip]:hover::before,
+[data-crest-tip]:focus-visible::after,
+[data-crest-tip]:focus-visible::before {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-crest-tip]::after,
+  [data-crest-tip]::before { transition: none; }
 }
 </style>

@@ -78,8 +78,11 @@ const _IS_LOCAL_OLLAMA = !!(
   import.meta.env.VITE_OLLAMA_MODEL ||
   import.meta.env.VITE_OLLAMA_BASE_URL
 )
-const ILLUMINATE_TIMEOUT_MS  = _IS_LOCAL_OLLAMA ? 45_000 : 15_000
-const ILLUMINATE_WATCHDOG_MS = ILLUMINATE_TIMEOUT_MS + 10_000
+// Cloud timeout reduced 15 s → 8 s (2026-05-27 r09): cloud API typically responds
+// in 2-4 s; 15 s was too long to be comfortable. 8 s still gives 2× headroom.
+// Ollama stays at 45 s (CPU inference can take 6-12 s under load).
+const ILLUMINATE_TIMEOUT_MS  = _IS_LOCAL_OLLAMA ? 45_000 : 8_000
+const ILLUMINATE_WATCHDOG_MS = ILLUMINATE_TIMEOUT_MS + 5_000   // 13 s cloud, 50 s Ollama
 
 // ── Watchdog timer ────────────────────────────────────────────────────────
 // Absolute last-resort: if _loading is still true after ILLUMINATE_WATCHDOG_MS
@@ -273,6 +276,19 @@ export function closeDefine(): void {
   _error.value   = ''
   _term.value    = ''
   _loading.value = false   // safety reset — clears any stuck loading state (HMR or mid-flight close)
+}
+
+/**
+ * Cancel an in-flight Illuminate call without closing the panel.
+ * Increments _currentCallId so the in-flight promise discards its result.
+ * Sets an error message so the user sees feedback and can retry.
+ * Design log r09 2026-05-27: added so loading state always has an escape hatch.
+ */
+export function cancelDefine(): void {
+  _clearWatchdog()
+  ++_currentCallId   // make in-flight call stale — its finally still runs but result is discarded
+  _loading.value = false
+  _error.value   = 'Cancelled — select a term and click Illuminate, or type one below'
 }
 
 /**

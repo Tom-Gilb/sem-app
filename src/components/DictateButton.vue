@@ -33,13 +33,15 @@ const emit = defineEmits<{ toggle: [] }>()
         : 'Click, press F5, or say «Turn on Mic» to start'"
     :class="[
       props.compact
-        ? 'w-8 h-8 justify-center rounded-lg shadow-none border-0 text-base px-0 py-0'
+        ? 'w-9 h-9 justify-center rounded-lg shadow-none border-0 text-xl px-0 py-0'
         : 'flex items-center gap-1.5 px-3 py-2 rounded-full shadow-lg text-sm font-medium',
       !supported
         ? 'bg-white/10 text-white/30 cursor-not-allowed'
         : active
           ? (props.compact ? 'bg-red-500/80 text-white animate-pulse focus:ring-red-400' : 'bg-red-500 text-white focus:ring-red-400 animate-pulse')
-          : (props.compact ? 'bg-white/10 text-white hover:bg-white/20 focus:ring-indigo-400' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-indigo-400'),
+          : (props.compact
+              ? 'bg-amber-400/80 text-amber-900 hover:bg-amber-400 focus:ring-amber-300'
+              : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-indigo-400'),
       'flex items-center select-none transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2',
     ]"
     @click="supported && emit('toggle')"

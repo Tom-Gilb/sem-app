@@ -43,6 +43,11 @@ import {
 /** Iter 2.5 parser flag (opt-in via ?parser=iter25 in the URL, or
  *  localStorage 'sem-app:parser:iter25:v1' = '1'). Reversible. */
 const PARSER_ITER25_KEY = 'sem-app:parser:iter25:v1'
+
+/** P8 — canonical draft key (write + restore-on-mount).
+ *  Previously was 'sem-app:form-draft:v1' (write-only, never read back).
+ *  Renamed to 'sem-app:raw-input-draft' (2026-05-27) and restore added. */
+const DRAFT_KEY = 'sem-app:raw-input-draft'
 function _readIter25(): boolean {
   if (typeof window === 'undefined') return false
   try {
@@ -85,7 +90,16 @@ const emit = defineEmits<{
 const { setSubmitting, setHasSubmitted } = useEntryForm()
 
 // Auto-focus the main textarea on mount so voice goes straight in.
+// P8 (2026-05-27): also restore any saved draft — was write-only before this fix.
 onMounted(() => {
+  // Restore draft BEFORE focus so the textarea is populated when the cursor lands.
+  try {
+    const saved = localStorage.getItem(DRAFT_KEY)
+    if (saved && !rawInput.value) {
+      rawInput.value = saved
+    }
+  } catch { /* localStorage unavailable (private browsing / quota) */ }
+
   nextTick(() => {
     (document.getElementById('sem-raw-input') as HTMLTextAreaElement | null)?.focus()
   })
@@ -155,7 +169,7 @@ function onFork(id: ForkId): void {
   if (id === 'saveThis') {
     const draft = rawInput.value.trim()
     if (draft) {
-      try { localStorage.setItem('sem-app:form-draft:v1', draft) } catch { /* quota */ }
+      try { localStorage.setItem(DRAFT_KEY, draft) } catch { /* quota */ }
       showToast('Draft saved — go ahead to generate your spec')
     } else {
       showToast('Nothing to save yet — type your project idea first')
@@ -2606,6 +2620,30 @@ defineExpose({ loadAndParse })
         </p>
       </section>
 
+      <!-- ── S·E·M Connector: S → E ─────────────────────────────────────────────
+           P4 (2026-05-27): parse arrow (S→E, indigo dashed) + augment arrow
+           (E→S, emerald dashed). Visual teaching of the Planguage Ends-Means chain.
+           aria-hidden: purely decorative — screen readers skip this. -->
+      <div class="flex items-center gap-3 py-0.5" aria-hidden="true" role="presentation">
+        <div class="flex-1 border-t border-dashed border-gray-100" />
+        <div class="flex flex-col items-center gap-0.5 shrink-0">
+          <div class="flex items-center gap-1">
+            <span class="text-[9px] font-extrabold font-mono text-indigo-300 select-none">S</span>
+            <svg width="40" height="14" viewBox="0 0 40 14" fill="none" aria-hidden="true">
+              <!-- Parse arrow: S → E (top, indigo dashed, left-to-right) -->
+              <line x1="0" y1="4" x2="30" y2="4" stroke="#a5b4fc" stroke-width="1.5" stroke-dasharray="3 2" stroke-linecap="round"/>
+              <path d="M 27,1.5 L 31,4 L 27,6.5" stroke="#a5b4fc" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+              <!-- Augment arrow: E → S (bottom, emerald dashed, right-to-left) -->
+              <line x1="40" y1="10" x2="10" y2="10" stroke="#6ee7b7" stroke-width="1" stroke-dasharray="2 2" stroke-linecap="round"/>
+              <path d="M 13,7.5 L 9,10 L 13,12.5" stroke="#6ee7b7" stroke-width="1" fill="none" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-[9px] font-extrabold font-mono text-emerald-300 select-none">E</span>
+          </div>
+          <span class="text-[7px] text-gray-200 tracking-[0.12em] leading-none select-none">PARSE · AUGMENT</span>
+        </div>
+        <div class="flex-1 border-t border-dashed border-gray-100" />
+      </div>
+
       <!-- ── How Well (Values / Goals) ───────────────────────────────────────── -->
       <section aria-labelledby="section-what">
         <h2 id="section-what" class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
@@ -2735,6 +2773,29 @@ defineExpose({ loadAndParse })
           At least one goal is required to generate a spec.
         </p>
       </section>
+
+      <!-- ── S·E·M Connector: E → M ─────────────────────────────────────────────
+           Same visual language as S→E connector above. Emerald→amber palette reflects
+           the color shift: Values (emerald) → Means (amber / warm). -->
+      <div class="flex items-center gap-3 py-0.5" aria-hidden="true" role="presentation">
+        <div class="flex-1 border-t border-dashed border-gray-100" />
+        <div class="flex flex-col items-center gap-0.5 shrink-0">
+          <div class="flex items-center gap-1">
+            <span class="text-[9px] font-extrabold font-mono text-emerald-300 select-none">E</span>
+            <svg width="40" height="14" viewBox="0 0 40 14" fill="none" aria-hidden="true">
+              <!-- Parse arrow: E → M (top, emerald dashed, left-to-right) -->
+              <line x1="0" y1="4" x2="30" y2="4" stroke="#6ee7b7" stroke-width="1.5" stroke-dasharray="3 2" stroke-linecap="round"/>
+              <path d="M 27,1.5 L 31,4 L 27,6.5" stroke="#6ee7b7" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+              <!-- Augment arrow: M → E (bottom, amber dashed, right-to-left) -->
+              <line x1="40" y1="10" x2="10" y2="10" stroke="#fcd34d" stroke-width="1" stroke-dasharray="2 2" stroke-linecap="round"/>
+              <path d="M 13,7.5 L 9,10 L 13,12.5" stroke="#fcd34d" stroke-width="1" fill="none" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-[9px] font-extrabold font-mono text-amber-300 select-none">M</span>
+          </div>
+          <span class="text-[7px] text-gray-200 tracking-[0.12em] leading-none select-none">PARSE · AUGMENT</span>
+        </div>
+        <div class="flex-1 border-t border-dashed border-gray-100" />
+      </div>
 
       <!-- ── How (Means / Strategies) ──────────────────────────────────────── -->
       <section aria-labelledby="section-how">
