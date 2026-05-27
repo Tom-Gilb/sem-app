@@ -161,7 +161,7 @@ function arrowStyle(idx: number): Record<string, string> {
   >
     <ScrollContainer
       outer-class="relative w-full"
-      inner-class="flex items-end px-4 pb-1 min-w-max mx-auto"
+      inner-class="flex items-end gap-2 px-6 pb-1 min-w-max mx-auto"
       :no-pill="true"
     >
       <template v-for="(step, idx) in STAGES" :key="step.stage">
@@ -196,8 +196,8 @@ function arrowStyle(idx: number): Record<string, string> {
 
           <!-- Stage label -->
           <span
-            class="absolute bottom-2 left-0 right-0 text-center text-[11px]
-                   font-bold leading-none tracking-wide truncate px-1"
+            class="absolute bottom-1.5 left-0 right-0 text-center text-[10px]
+                   font-bold leading-tight tracking-wide whitespace-normal px-1"
             :class="labelClass(step.stage)"
           >{{ step.label }}</span>
         </button>

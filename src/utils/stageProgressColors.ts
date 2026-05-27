@@ -34,9 +34,9 @@ export function pillProgressColor(
 ): string {
   const clamped = Math.max(0, Math.min(STAGE_COUNT - 1, pos))
   const hue = 239 - ((239 - 160) / (STAGE_COUNT - 1)) * clamped
-  if (state === 'current') return `hsl(${hue.toFixed(1)}, 72%, 36%)`
-  if (state === 'done')    return `hsl(${hue.toFixed(1)}, 58%, 28%)`
-  return                          `hsl(${hue.toFixed(1)}, 44%, 20%)`
+  if (state === 'current') return `hsl(${hue.toFixed(1)}, 72%, 50%)`
+  if (state === 'done')    return `hsl(${hue.toFixed(1)}, 62%, 40%)`
+  return                          `hsl(${hue.toFixed(1)}, 50%, 30%)`
 }
 
 /**
