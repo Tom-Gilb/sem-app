@@ -27,6 +27,8 @@ import { incrementManualEditCount, usePlanModel } from '../composables/usePlanMo
 import { recordEditProvenance } from '../composables/useEntryProvenance'
 import { CONCEPT_HINTS } from '../data/conceptHints'
 import { useEvoPlan } from '../composables/useEvoPlan'
+import { useDraftValueSpec, type DraftResult } from '../composables/useDraftValueSpec'
+import { isValueIncomplete, missingFieldsLabel } from '../utils/specHelpers'
 
 // ── Edit Depth icon + short-label lookup ──────────────────────────────────────
 // Supplementary metadata for the rich depth-picker dropdown.
@@ -188,6 +190,14 @@ const expandedId  = ref<string | null>(props.initialEntryId ?? null)
 const keptFlash   = ref(new Set<string>())   // IDs showing "✓ Kept" briefly after collapse
 const showSafetyBanner = ref(true)           // Safety Net Banner — uncommitted changes reminder
 
+// ── AI Draft Value Specs ──────────────────────────────────────────────────────
+const { draftOne: draftValueOne, draftAllIncomplete, loading: draftLoading } = useDraftValueSpec()
+const draftingEntryId = ref<string | null>(null)              // Which entry is currently drafting
+const draftResults = ref<Map<string, DraftResult>>(new Map()) // Per-entry draft results
+const bulkDraftResults = ref<Map<string, DraftResult>>(new Map()) // Bulk draft results
+const showBulkReview = ref(false)                              // Show bulk review modal
+const activeDraftTab = ref<'single' | 'bulk'>('single')        // Which draft panel is active
+
 function toggleExpand(id: string): void {
   if (expandedId.value === id) {
     // Collapsing — if entry was changed, flash "✓ Kept" for 2s
@@ -327,6 +337,94 @@ function pickTarget(id: string, name: string): void {
 function originalDesc(id: string): string {
   const orig = getOriginalEntry(id)
   return orig?.description ?? ''
+}
+
+// ── AI Draft Value Specs ──────────────────────────────────────────────────────
+
+/**
+ * Draft missing fields for a single Value entry.
+ * Shows result in inline suggest panel for per-field accept/skip.
+ */
+async function handleDraftSingleValue(entryId: string): Promise<void> {
+  const entry = workingSpec.value?.values.find(v => v.id === entryId)
+  if (!entry) return
+
+  draftingEntryId.value = entryId
+  try {
+    const result = await draftValueOne(entry, workingSpec.value!)
+    draftResults.value.set(entryId, result)
+    activeDraftTab.value = 'single'
+  } catch (err) {
+    console.error(`Draft failed for ${entryId}:`, err)
+  } finally {
+    draftingEntryId.value = null
+  }
+}
+
+/**
+ * Accept a single drafted field with optional uncertainty marker.
+ * uncertain=true appends " ?" to indicate provisional value.
+ */
+function acceptDraftField(
+  entryId: string,
+  fieldName: 'scale' | 'tolerable' | 'wish',
+  uncertain: boolean,
+): void {
+  const result = draftResults.value.get(entryId)
+  if (!result) return
+
+  const idx = workingSpec.value?.values.findIndex(v => v.id === entryId) ?? -1
+  if (idx < 0) return
+
+  let value = result[fieldName]
+  if (uncertain && value) {
+    value = value.endsWith('?') ? value : `${value} ?`
+  }
+
+  updateVEntry(idx, { [fieldName]: value })
+  draftResults.value.delete(entryId)
+}
+
+/**
+ * Bulk draft all incomplete Values.
+ */
+async function handleDraftAllIncomplete(): Promise<void> {
+  if (!workingSpec.value) return
+  const incompleteCount = workingSpec.value.values.filter(v => isValueIncomplete(v)).length
+  if (incompleteCount === 0) return
+
+  try {
+    const results = await draftAllIncomplete(workingSpec.value)
+    bulkDraftResults.value = new Map(Object.entries(results))
+    showBulkReview.value = true
+    activeDraftTab.value = 'bulk'
+  } catch (err) {
+    console.error('Bulk draft failed:', err)
+  }
+}
+
+/**
+ * Accept all drafted fields from bulk review (with optional uncertainty).
+ */
+function acceptAllDrafts(uncertain: boolean): void {
+  for (const [entryId, result] of bulkDraftResults.value.entries()) {
+    const idx = workingSpec.value?.values.findIndex(v => v.id === entryId) ?? -1
+    if (idx < 0) continue
+
+    const updates: Record<string, string> = {}
+    for (const field of ['scale', 'tolerable', 'wish'] as const) {
+      let value = result[field]
+      if (uncertain && value) {
+        value = value.endsWith('?') ? value : `${value} ?`
+      }
+      updates[field] = value
+    }
+
+    updateVEntry(idx, updates)
+  }
+
+  bulkDraftResults.value.clear()
+  showBulkReview.value = false
 }
 
 // ── Edit mode label colours ───────────────────────────────────────────────────
@@ -988,6 +1086,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                   class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold transition-colors"
                   :class="keptFlash.has(entry.id) ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'"
                 >{{ keptFlash.has(entry.id) ? '✓ Kept' : 'EDITED' }}</span>
+                <span v-if="isValueIncomplete(entry)" class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700" :title="`Missing: ${missingFieldsLabel(entry)}`">● Incomplete</span>
                 <!-- Expand/collapse — type-colored glyph pill -->
                 <span
                   class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide transition-colors"
