@@ -1057,6 +1057,21 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
 
           <!-- ── VALUES tab ─────────────────────────────────────────────────── -->
           <template v-if="activeTab === 'values'">
+            <!-- Bulk draft button (header) — shows when incomplete values exist -->
+            <div v-if="workingSpec.values.some(v => isValueIncomplete(v))" class="mb-4 flex items-center justify-between gap-2">
+              <span class="text-[11px] font-semibold text-gray-500 uppercase">Values</span>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-all
+                       text-violet-700 hover:text-violet-900 hover:bg-violet-50 bg-violet-50 border border-violet-200"
+                :disabled="draftLoading.value"
+                @click="handleDraftAllIncomplete"
+              >
+                <span v-if="draftLoading.value" aria-hidden="true">⟳</span>
+                <span v-else aria-hidden="true">✨</span>
+                {{ draftLoading.value ? 'Drafting...' : `Draft ${workingSpec.values.filter(v => isValueIncomplete(v)).length} Incomplete` }}
+              </button>
+            </div>
             <div
               v-for="(entry, idx) in workingSpec.values"
               :key="entry.id"
@@ -1631,6 +1646,96 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
         <span v-if="editMode === 'master'" class="text-rose-400 font-semibold">⚠ MASTER MODE — changes overwrite the live plan</span>
         <span v-else class="text-emerald-400">DRAFT — master plan is safe until you commit</span>
       </div>
+
+      <!-- ── Bulk draft review modal ─────────────────────────────────────────── -->
+      <Transition
+        enter-active-class="transition-all duration-200"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-all duration-150"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showBulkReview && bulkDraftResults.size > 0"
+          class="fixed inset-0 z-[700] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          @click="showBulkReview = false"
+        >
+          <div
+            class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col overflow-hidden"
+            @click.stop
+          >
+            <!-- Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-violet-50 shrink-0">
+              <div>
+                <h3 class="text-lg font-bold text-gray-900">Review Draft Results</h3>
+                <p class="text-xs text-gray-500 mt-0.5">{{ bulkDraftResults.size }} incomplete {{ bulkDraftResults.size === 1 ? 'value' : 'values' }}</p>
+              </div>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center h-7 w-7 rounded-full hover:bg-gray-200 transition-colors text-gray-500"
+                @click="showBulkReview = false"
+              >✕</button>
+            </div>
+
+            <!-- Content — scrollable list of draft results -->
+            <ScrollContainer outer-class="flex-1 min-h-0" inner-class="h-full">
+              <div class="p-4 space-y-3">
+                <div
+                  v-for="[entryId, result] of bulkDraftResults"
+                  :key="entryId"
+                  class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2"
+                >
+                  <!-- Entry ID header -->
+                  <p class="text-xs font-bold text-gray-700">{{ entryId }}</p>
+
+                  <!-- Per-field row with checkbox -->
+                  <div v-for="field of ['scale', 'tolerable', 'wish'] as const" :key="field" class="flex items-center gap-2 py-1.5">
+                    <!-- Field label + value -->
+                    <div class="flex-1 min-w-0">
+                      <p class="text-[10px] font-semibold text-gray-600">{{ field }}</p>
+                      <p class="text-xs text-gray-700">{{ result[field] || '—' }}</p>
+                    </div>
+                    <!-- Checkbox (include in accept) -->
+                    <input
+                      type="checkbox"
+                      :checked="true"
+                      class="shrink-0 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+            </ScrollContainer>
+
+            <!-- Footer — action buttons -->
+            <div class="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
+              <!-- Uncertainty toggle -->
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-semibold text-gray-600">Mark uncertain:</span>
+                <button
+                  type="button"
+                  class="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors"
+                  :class="activeDraftTab === 'bulk' ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-600 hover:bg-amber-100 hover:text-amber-700'"
+                  @click="activeDraftTab = activeDraftTab === 'bulk' ? 'bulk' : 'bulk'"
+                >?</button>
+              </div>
+              <!-- Action buttons -->
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="h-9 px-4 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                  @click="showBulkReview = false"
+                >Cancel</button>
+                <button
+                  type="button"
+                  class="h-9 px-4 rounded-lg text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                  @click="acceptAllDrafts(activeDraftTab === 'bulk')"
+                >Accept All</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </div>
   </Teleport>
 </template>
