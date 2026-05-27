@@ -98,6 +98,8 @@ import { usePlanHealth, type PlanHealthContext } from './composables/usePlanHeal
 import CopyrightPanel from './components/CopyrightPanel.vue'
 import SaveGlyphHistoryPanel from './components/SaveGlyphHistoryPanel.vue'
 import SymbolFamilyPanel from './components/SymbolFamilyPanel.vue'
+import ActionsHubPanel from './components/ActionsHubPanel.vue'
+import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
 import ModelHistory from './components/ModelHistory.vue'
@@ -583,6 +585,8 @@ function _closeSpecEditor(): void {
 }
 // --- Feature #197: Tool Info ---
 const toolInfoPanelOpen   = ref(false)
+// --- SEM Metadata scoreboard panel ---
+const semMetadataPanelOpen = ref(false)
 const { getMeta: _getToolMeta } = useToolInfo()
 const { markCommitted: _markSpecCommitted } = useSpecEditor()
 // --- Copyright & Attribution ---
@@ -3062,6 +3066,59 @@ registerExclusiveSurface('history',           historyOpen)
 // Fresh Start menu — popover. Registered so opening it auto-closes other
 // surfaces and vice versa (consistent with the Single-Surface universal rule).
 registerExclusiveSurface('freshStart',         freshStartOpen)
+registerExclusiveSurface('semMetadataPanel',  semMetadataPanelOpen)
+// actionsHub uses menuOpen so it participates in the exclusive surface system
+registerExclusiveSurface('actionsHub',        menuOpen)
+
+// ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
+// Replaces the old inline text dropdown. Each tile in ActionsHubPanel emits
+// an action ID string; this function opens the corresponding panel or calls
+// the relevant function. menuOpen is set to false by the hub emitting 'close'
+// BEFORE this handler fires for most actions (startOver is the exception).
+function handleAction(id: string): void {
+  switch (id) {
+    // ── QUALITY ────────────────────────────────────────────────────────────
+    case 'planHealthStatus': planHealthStatusOpen.value = true; break
+    case 'planHealthAdmin':  planHealthAdminOpen.value  = true; break
+    case 'conflicts':        conflictAnalysisOpen.value = true; break
+    // ── PLANNING ───────────────────────────────────────────────────────────
+    case 'planTargets':      planTargetsOpen.value      = true; break
+    case 'globalPriority':   globalPriorityOpen.value   = true; break
+    case 'planOwners':       planPeopleTab.value = 'owners';   planOwnerPanelOpen.value = true; break
+    case 'planners':         planPeopleTab.value = 'planners'; planOwnerPanelOpen.value = true; break
+    case 'scribes':          planPeopleTab.value = 'scribes';  planOwnerPanelOpen.value = true; break
+    case 'specOwners':       govPanelOpen.value         = true; break
+    // ── EXPLORE ────────────────────────────────────────────────────────────
+    case 'evoSim':           evoSimulatorOpen.value     = true; break
+    case 'replay':           startReplay(confirmedSteps.value); break
+    case 'visualise':        visualiseOpen.value        = true; break
+    case 'heatLane':         heatLaneOpen.value         = true; break
+    case 'present':          presentationOpen.value     = true; break
+    case 'modelHistory':     modelHistoryOpen.value     = true; break
+    // ── MANAGE ─────────────────────────────────────────────────────────────
+    case 'sharpen':          handleSharpenPlan();               break
+    case 'improve':          improveCurrentVersion();            break
+    case 'resumeLast':       resumeLastModel();                  break
+    case 'previousPlan':     modelsOpen.value = true; renamePopoverOpen.value = false; break
+    case 'saveCheckpoint':   savePlanNow();                      break
+    case 'planHistory':      historyOpen.value          = true; break
+    case 'specHistory':      dashboardOpen.value        = true; break
+    case 'renamePlan':       openRenamePopover();                break
+    case 'startOver':        requestStartOver();                  break
+    case 'freshStart':       freshStartOpen.value       = true; break
+    case 'savePlan':         downloadPlan();                     break
+    case 'emailPlan':        emailPlan();                        break
+    case 'restorePlans':     openRestorePicker();                break
+    case 'backup':           backupAllModels();                  break
+    // ── ABOUT ──────────────────────────────────────────────────────────────
+    case 'toolInfo':         toolInfoPanelOpen.value    = true; break
+    case 'semMetadata':      semMetadataPanelOpen.value = true; break
+    case 'copyright':        copyrightPanelOpen.value   = true; break
+    case 'saveGlyph':        saveGlyphHistoryOpen.value = true; break
+    case 'priorityGlyph':    priorityInfoOpen.value     = true; break
+    case 'editGlyph':        editInfoOpen.value         = true; break
+  }
+}
 
 // ── Fresh Start menu handlers (2026-05-14) ───────────────────────────────────
 // The menu emits four discrete actions; App.vue wraps each with a
@@ -3898,6 +3955,30 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :plan-model="planModel"
     :spec="currentSpec"
     @close="toolInfoPanelOpen = false"
+  />
+
+  <!-- SEM Metadata scoreboard — fuchsia/rose right drawer, z-[490] -->
+  <SemMetadataPanel
+    v-if="view === 'app' && semMetadataPanelOpen"
+    @close="semMetadataPanelOpen = false"
+  />
+
+  <!-- ActionsHub — tile grid replacing the old text dropdown, z-[380].
+       Controlled by menuOpen (same ref as before; toggleMenu() still fires).
+       The old inline dropdown block has been removed from the Teleport cluster. -->
+  <ActionsHubPanel
+    v-if="view === 'app' && menuOpen"
+    :has-plan="!!planModel"
+    :has-spec="!!currentSpec"
+    :has-confirmed-steps="confirmedSteps.length > 0"
+    :has-multiple-models="_allPlanModels.length > 0"
+    :has-spec-history="specHistory.length > 0"
+    :has-dashboard-entries="dashboardEntries.length > 0"
+    :dictation-active="dictationActive"
+    :speaking="speaking"
+    :start-over-pending="startOverConfirmPending"
+    @close="menuOpen = false"
+    @action="handleAction"
   />
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->
@@ -5182,414 +5263,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
         </div>
       </div>
 
-      <!-- Menu popover — flex item stacked above the button.
-           position:relative keeps the "scroll more" absolute indicator anchored inside. -->
-      <div
-        v-if="menuOpen"
-        class="relative w-56 rounded-2xl bg-white shadow-2xl border border-gray-100"
-        role="dialog"
-        aria-label="Detail menu"
-      >
-        <!-- Inner: the actual scrollable area, rounded so content clips to corners -->
-        <div
-          ref="menuScrollEl"
-          class="overflow-y-auto rounded-2xl"
-          style="max-height: min(520px, calc(100dvh - 8rem))"
-          @scroll.passive="_checkMenuScroll"
-        >
-        <!-- Visualise — first section so it's visible without scrolling -->
-        <div class="px-3 pt-3 pb-2">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Visualise</p>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec"
-            aria-label="Present"
-            @click="presentationOpen = true; menuOpen = false"
-          >🖥️ Present</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec"
-            @click="visualiseOpen = true; menuOpen = false"
-          >🗺️ Diagrams &amp; Visuals</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec"
-            @click="heatLaneOpen = true; menuOpen = false"
-          >🗺️ Value Stage Map</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="confirmedSteps.length === 0"
-            @click="evoSimulatorOpen = true; menuOpen = false"
-          >▶ Evo Simulator</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="confirmedSteps.length === 0"
-            aria-label="Replay"
-            @click="startReplay(confirmedSteps); menuOpen = false"
-          >🔁 Replay</button>
-          <!-- P7 (2026-05-27): Model History button — opens panel for all saved records. -->
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            title="All saved plans and system models"
-            @click="modelHistoryOpen = true; menuOpen = false"
-          >🗂️ Model History</button>
-        </div>
-
-        <!-- Edit — spec editing and AI improvement actions.
-             Tom 2026-05-18: "sharpening button and any similar should be in the edit group." -->
-        <div class="border-t border-gray-100 px-3 py-2">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Edit</p>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec"
-            @click="specEditorOpen = true; menuOpen = false"
-          ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /> Spec Editor</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec"
-            @click="handleSharpenPlan()"
-          >🔪 Sharpen Plan</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec || stage === 1"
-            @click="improveCurrentVersion(); menuOpen = false"
-          >⚙ Improve This Version</button>
-        </div>
-
-        <!-- Planning -->
-        <div class="border-t border-gray-100 px-3 py-2">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Planning</p>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!_allPlanModels.length"
-            @click="resumeLastModel(); menuOpen = false"
-          >
-            <GetGlyph size="compact" class="h-3 w-auto shrink-0 text-emerald-600" aria-hidden="true" />
-            <span>Resume Last</span>
-          </button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!_allPlanModels.length"
-            @click="modelsOpen = true; menuOpen = false; renamePopoverOpen = false"
-          >📋 Start with a Previous Plan</button>
-          <!-- 💾 Save version checkpoint — manual snapshot with toast feedback.
-               Design log r08 2026-05-27: Tom reported "save version did not
-               react, give any feedback." Calls savePlanNow() which emits
-               showToast('💾 Version checkpoint saved…', 2500). -->
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg font-medium
-                   text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-emerald-50 transition-colors"
-            :disabled="!currentSpec"
-            @click="savePlanNow(); menuOpen = false"
-          >💾 Save version checkpoint</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="specHistory.length === 0"
-            @click="historyOpen = true; menuOpen = false"
-          >🕐 Plan History
-            <span
-              v-if="specHistory.length > 0"
-              class="ml-auto text-[10px] font-bold rounded-full bg-red-500 text-white
-                     min-w-[1.1rem] h-[1.1rem] flex items-center justify-center px-0.5"
-            >{{ specHistory.length }}</span>
-          </button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            @click="dashboardOpen = true; menuOpen = false"
-          >📋 Spec History
-            <span
-              v-if="dashboardEntries.length > 0"
-              class="ml-auto text-[10px] font-bold rounded-full bg-slate-400 text-white
-                     min-w-[1.1rem] h-[1.1rem] flex items-center justify-center px-0.5"
-            >{{ dashboardEntries.length }}</span>
-          </button>
-          <button
-            type="button"
-            :class="[
-              'w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg',
-              'focus:outline-none focus:bg-gray-50 transition-colors',
-              startOverConfirmPending
-                ? 'text-red-600 font-semibold bg-red-50 hover:bg-red-100 animate-pulse'
-                : 'text-gray-700 hover:bg-gray-50'
-            ]"
-            :aria-label="startOverConfirmPending ? 'Confirm Restart Afresh' : 'Restart Afresh'"
-            @click="requestStartOver(); !startOverConfirmPending && (menuOpen = false)"
-          >🔄 {{ startOverConfirmPending ? 'Confirm Restart?' : 'Restart Afresh' }}</button>
-          <!-- 🆘 Fresh Start — replaces the bottom-left SOS pill (control-pins rule 2026-05-26).
-               Opens FreshStartMenu with 4 graduated reset options.
-               Esc (Tier 2) still handles full panic-reset as a keyboard-only fallback. -->
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-red-600 hover:bg-red-50
-                   focus:outline-none focus:bg-red-50 transition-colors font-medium"
-            @click="freshStartOpen = true; menuOpen = false"
-          >🆘 Fresh Start</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel"
-            @click="openRenamePopover(); menuOpen = false"
-          >✏ Rename Plan</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel"
-            @click="planPeopleTab = 'owners'; planOwnerPanelOpen = true; menuOpen = false"
-          >👤 Plan Owners</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel"
-            @click="planPeopleTab = 'planners'; planOwnerPanelOpen = true; menuOpen = false"
-          >✍️ Planners</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel"
-            @click="planPeopleTab = 'scribes'; planOwnerPanelOpen = true; menuOpen = false"
-          >⌨️ Scribes</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel"
-            @click="govPanelOpen = true; menuOpen = false"
-          >👥 Spec Owners &amp; Governance</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
-            @click="planTargetsOpen = true; menuOpen = false"
-          >🎯 Plan Targets</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel || !currentSpec"
-            @click="globalPriorityOpen = true; menuOpen = false"
-          ><PriorityTripleGlyph size="compact" class="h-4 w-auto shrink-0" aria-label="" /> Global Priority</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel || !currentSpec"
-            @click="planHealthStatusOpen = true; menuOpen = false"
-          >🩺 Plan Health Status</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel || !currentSpec"
-            @click="planHealthAdminOpen = true; menuOpen = false"
-          >⚙️ Plan Health Administration</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!planModel"
-            @click="toolInfoPanelOpen = true; menuOpen = false"
-          >ℹ Tool Info</button>
-        </div>
-
-        <!-- Manage Plan Models -->
-        <div class="border-t border-gray-100 px-3 py-2">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Manage Plan Models</p>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec"
-            @click="downloadPlan(); menuOpen = false"
-          >⬇ Save Plan</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec"
-            @click="emailPlan(); menuOpen = false"
-          >✉ Email Plan</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
-            @click="openRestorePicker(); menuOpen = false"
-          >↑ Restore Plans</button>
-        </div>
-
-        <!-- Voice -->
-        <div class="border-t border-gray-100 px-3 py-2">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Voice</p>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :class="dictationActive ? 'text-red-600 font-medium' : ''"
-            :disabled="!dictationSupported"
-            @click="toggleDictation()"
-          >{{ dictationActive ? '🔴 Mic Off' : '🎤 Turn On Mic' }}</button>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :class="speaking ? 'text-emerald-600 font-medium' : ''"
-            :disabled="!speakerSupported"
-            @click="speaking ? stopSpeaking() : handleSpeak(speakerText)"
-          >{{ speaking ? '⏹ Stop Reading' : '🔊 Read Aloud' }}</button>
-        </div>
-
-        <!-- Analyse -->
-        <div class="border-t border-gray-100 px-3 py-2">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Analyse</p>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!currentSpec || currentSpec.functions.filter(f => f.level === 'Stakeholder').length < 2"
-            @click="conflictAnalysisOpen = true; menuOpen = false"
-          >⚠ Conflicts</button>
-        </div>
-
-        <!-- Backup -->
-        <div class="border-t border-gray-100 px-3 py-2">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Backup</p>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed
-                   focus:outline-none focus:bg-gray-50 transition-colors"
-            :disabled="!_allPlanModels.length"
-            @click="backupAllModels(); menuOpen = false"
-          >🛡 Backup SEM App</button>
-        </div>
-
-        <!-- About -->
-        <div class="border-t border-gray-100 px-3 py-2 pb-3">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">About</p>
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
-            @click="copyrightPanelOpen = true; menuOpen = false"
-          >© Copyright &amp; Attribution</button>
-          <!-- DD-001 (2026-05-13) — opens the "About the Save Glyph" essay panel.
-               The glyph itself sits at the start of the row as a 14-px-tall SVG
-               (renders via currentColor so it picks up the gray-700 row colour),
-               so users see the icon they will be reading about. -->
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
-            @click="saveGlyphHistoryOpen = true; menuOpen = false"
-          >
-            <SaveGlyph size="compact" class="h-4 w-auto shrink-0 text-emerald-600" />
-            <span>About the Save Glyph</span>
-            <span class="ml-auto text-[10px] text-gray-400 font-mono">*→[*]</span>
-          </button>
-          <!-- DD-002 (2026-05-13) — opens the "About the Priority Glyph" essay panel.
-               The triple glyph itself sits at the start of the row as a 14-px-tall
-               SVG (renders via currentColor so it picks up the gray-700 row colour),
-               so users see the icon they will be reading about. -->
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
-            @click="priorityInfoOpen = true; menuOpen = false"
-          >
-            <PriorityTripleGlyph size="compact" class="h-4 w-auto shrink-0 text-amber-700" />
-            <span>About the Priority Glyph</span>
-            <span class="ml-auto text-[10px] text-gray-400 font-mono">[A&gt;B&gt;C]</span>
-          </button>
-          <!-- About the Edit Glyph — opens the [*]→[**] essay panel. -->
-          <button
-            type="button"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded-lg
-                   text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
-            @click="editInfoOpen = true; menuOpen = false"
-          >
-            <EditGlyph size="compact" class="h-4 w-auto shrink-0 text-slate-700" />
-            <span>About the Edit Glyph</span>
-            <span class="ml-auto text-[10px] text-gray-400 font-mono">[*]→[**]</span>
-          </button>
-        </div>
-        </div><!-- /inner scrollable -->
-
-        <!-- Scroll-more indicator overlay (sibling of inner scrollable, so overflow:hidden doesn't clip it) -->
-        <div
-          v-if="menuHasMore"
-          class="absolute bottom-0 left-0 right-0 h-12 pointer-events-none rounded-b-2xl overflow-hidden"
-          aria-hidden="true"
-        >
-          <div class="absolute inset-0" style="background: linear-gradient(to top, white 30%, transparent 100%)" />
-          <div class="absolute bottom-2 left-0 right-0 flex justify-center">
-            <div class="flex items-center gap-1 rounded-full bg-gray-800 text-white text-[10px] font-semibold px-2.5 py-1 shadow-lg animate-bounce">
-              <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z" clip-rule="evenodd" />
-              </svg>
-              <span>scroll</span>
-            </div>
-          </div>
-        </div>
-      </div><!-- /outer menu popover -->
+      <!-- ActionsHubPanel tile grid is mounted separately (registered in template near ToolInfoPanel). -->
 
       </div><!-- /control-pins + dropdowns container -->
     </Teleport>

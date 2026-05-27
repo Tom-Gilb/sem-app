@@ -1779,7 +1779,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         @click="emit('open-visualise', { tab: item.tab })"
       >
         <span class="block w-7 h-[15px] flex-shrink-0" v-html="VIZ_THUMBS[item.tab]" />
-        <span class="text-[10px] font-semibold tracking-wide whitespace-nowrap">{{ item.label }}</span>
+        <span class="text-xs font-semibold tracking-wide whitespace-nowrap">{{ item.label }}</span>
       </button>
       <span class="w-px h-4 bg-slate-200 mx-1 flex-shrink-0" aria-hidden="true" />
       <button
@@ -1787,11 +1787,11 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5
                text-slate-400 hover:text-green-700 hover:bg-green-50
                transition-colors duration-100"
-        aria-label="Open Evo Simulator"
+        aria-label="Open Evo Value Animation"
         @click="emit('open-evo-simulator')"
       >
-        <span class="text-sm leading-none">▶</span>
-        <span class="text-[10px] font-semibold tracking-wide">Simulate</span>
+        <span class="text-sm leading-none">📈</span>
+        <span class="text-xs font-semibold tracking-wide">Simulate</span>
       </button>
     </div>
 
@@ -1813,7 +1813,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           @click="activeEvoMenu = activeEvoMenu === group.id ? null : group.id"
         >
           <span class="text-sm leading-none select-none">{{ group.emoji }}</span>
-          <span class="text-[10px] font-semibold tracking-wide ml-1 whitespace-nowrap">{{ group.label }}</span>
+          <span class="text-xs font-semibold tracking-wide ml-1 whitespace-nowrap">{{ group.label }}</span>
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
             style="height:0.6rem;width:0.6rem;flex-shrink:0;opacity:0.4;margin-left:0.1rem"
           ><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z" /></svg>

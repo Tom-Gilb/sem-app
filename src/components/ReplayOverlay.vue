@@ -26,12 +26,12 @@ function stopReplay(): void {
     class="fixed inset-0 z-[400] bg-black/60 flex items-center justify-center pointer-events-none"
     role="dialog"
     aria-modal="true"
-    aria-label="Value Delivery Replay"
+    aria-label="Evo Step Sequence Animation"
   >
     <!-- Centre card -->
     <div class="pointer-events-auto bg-white rounded-2xl shadow-2xl p-8 w-[480px] max-w-[90vw]">
       <!-- Title -->
-      <h2 class="text-lg font-bold text-gray-900 mb-4">Value Delivery Replay</h2>
+      <h2 class="text-lg font-bold text-gray-900 mb-4">Evo Step Sequence Animation</h2>
 
       <!-- Value counter -->
       <p class="text-5xl font-bold text-emerald-600 mb-3 tabular-nums">

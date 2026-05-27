@@ -472,25 +472,25 @@ const DATE_FIELDS = [
                   <p class="text-sm font-semibold text-gray-800 truncate">{{ person.name || '(unnamed — tap ✏️ to set your name)' }}</p>
                   <span
                     v-if="person.isDefault"
-                    class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide
+                    class="shrink-0 px-2.5 py-1 rounded text-sm font-bold uppercase tracking-wide
                            bg-amber-100 text-amber-700 border border-amber-200"
                   >default</span>
                 </div>
                 <!-- Responsibility -->
-                <p v-if="person.responsibility" class="text-[11px] text-indigo-600 leading-snug">{{ person.responsibility }}</p>
-                <p v-else-if="person.isDefault && !person.name" class="text-[10px] text-amber-600 leading-snug">Tap ✏️ to set your name — saved for future plans</p>
+                <p v-if="person.responsibility" class="text-sm text-indigo-600 leading-snug">{{ person.responsibility }}</p>
+                <p v-else-if="person.isDefault && !person.name" class="text-xs text-amber-600 leading-snug">Tap ✏️ to set your name — saved for future plans</p>
                 <!-- Contact details — email, phone, org, location -->
-                <p v-if="person.email" class="text-[10px] text-gray-500 leading-snug">
+                <p v-if="person.email" class="text-sm text-gray-500 leading-snug">
                   <span class="text-gray-300 mr-0.5">✉</span>{{ person.email }}
                 </p>
-                <p v-if="person.phone" class="text-[10px] text-gray-500 leading-snug">
+                <p v-if="person.phone" class="text-sm text-gray-500 leading-snug">
                   <span class="text-gray-300 mr-0.5">📞</span>{{ person.phone }}
                 </p>
-                <p v-if="person.organization || person.location" class="text-[10px] text-gray-400 leading-snug truncate">
+                <p v-if="person.organization || person.location" class="text-sm text-gray-400 leading-snug truncate">
                   {{ [person.organization, person.location].filter(Boolean).join(' · ') }}
                 </p>
                 <!-- Dates — made more visible (gray-400 not gray-300) -->
-                <p v-if="_dateLabel(person)" class="text-[10px] text-indigo-400 leading-snug">
+                <p v-if="_dateLabel(person)" class="text-sm text-indigo-400 leading-snug">
                   📅 {{ _dateLabel(person) }}
                 </p>
               </div>

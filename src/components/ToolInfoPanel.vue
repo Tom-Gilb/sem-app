@@ -122,14 +122,14 @@ function submitUrl(): void {
     <RightPanel
       class="z-[490] w-96 bg-white shadow-2xl border-l border-indigo-100 flex flex-col overflow-hidden"
       role="dialog"
-      aria-label="Tool Info"
+      aria-label="Current Plan Metadata"
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-3
                   bg-gradient-to-r from-indigo-700 to-violet-600 text-white shrink-0">
         <div class="flex items-center gap-2">
           <span class="text-base">ℹ</span>
-          <span class="text-sm font-semibold">About This Plan</span>
+          <span class="text-sm font-bold uppercase tracking-wider">Current Plan Metadata</span>
         </div>
         <CloseDot
         variant="on-dark"

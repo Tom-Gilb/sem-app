@@ -128,14 +128,14 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
     <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-violet-700 to-indigo-600 flex-shrink-0">
       <div>
         <h2 class="text-base font-bold text-white flex items-center gap-2">
-          <span aria-hidden="true">▶</span> Evo Simulator
+          <span aria-hidden="true">📈</span> Evo Value Animation
         </h2>
-        <p class="text-xs text-violet-200 mt-0.5">Watch how value accumulates across your delivery steps</p>
+        <p class="text-xs text-violet-200 mt-0.5">Cumulative value delivery animated across 26 weeks</p>
       </div>
       <CloseDot
         variant="on-dark"
         title="Close"
-        aria-label="Close Evo Simulator"
+        aria-label="Close Evo Value Animation"
         @click="emit('close')"
       />
     </div>
@@ -168,11 +168,11 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
                 <!-- Step label row -->
                 <div class="flex items-center gap-2 mb-1">
                   <span
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0"
                     :style="stepBadgeStyle(i, layouts.length)"
                   >{{ i + 1 }}</span>
-                  <span class="text-[11px] font-medium text-slate-700 truncate">{{ layout.step.description }}</span>
-                  <span class="text-[9px] text-slate-400 ml-auto flex-shrink-0">{{ layout.step.effortPercent }}%</span>
+                  <span class="text-sm font-medium text-slate-700 truncate">{{ layout.step.description }}</span>
+                  <span class="text-xs text-slate-400 ml-auto flex-shrink-0">{{ layout.step.effortPercent }}%</span>
                 </div>
 
                 <!-- Bar track -->

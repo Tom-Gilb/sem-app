@@ -253,18 +253,18 @@ function areaChip(area: string): string {
                 </div>
                 <!-- Contact details -->
                 <div class="space-y-0.5">
-                  <p v-if="owner.email" class="text-[11px] text-gray-500 truncate">
+                  <p v-if="owner.email" class="text-sm text-gray-500 truncate">
                     ✉ {{ owner.email }}
                   </p>
-                  <p v-if="owner.phone" class="text-[11px] text-gray-500">
+                  <p v-if="owner.phone" class="text-sm text-gray-500">
                     ☎ {{ owner.phone }}
                   </p>
-                  <p v-if="owner.organization || owner.location" class="text-[11px] text-gray-500 truncate">
+                  <p v-if="owner.organization || owner.location" class="text-sm text-gray-500 truncate">
                     <span v-if="owner.organization">{{ owner.organization }}</span>
                     <span v-if="owner.organization && owner.location"> · </span>
                     <span v-if="owner.location">{{ owner.location }}</span>
                   </p>
-                  <p v-if="owner.responsibility" class="text-[11px] text-gray-600 mt-1 italic leading-snug">
+                  <p v-if="owner.responsibility" class="text-sm text-gray-600 mt-1 italic leading-snug">
                     "{{ owner.responsibility }}"
                   </p>
                 </div>

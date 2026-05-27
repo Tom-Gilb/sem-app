@@ -58,7 +58,7 @@ function handleActivity(): void {
           'transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
         ]
       : [
-          'fixed top-0 right-0 bottom-20',
+          'fixed top-7 right-0 bottom-20',
           'transition-all duration-300',
         ]"
     @pointerdown="handleActivity"
