@@ -122,6 +122,7 @@ import {
   savePlanSnapshot,
   renamePlanModel,
   updatePlanOwner,
+  addOwner,
   exportAllPlanModelsBackup,
   importPlanModelsBackup,
   getDeviceUserName,
@@ -773,7 +774,7 @@ function onHistoryRestore(
   spec: SpecBlock,
   plan: EvoStepPlan | null,
   planName: string = '',
-  _planOwners: string[] = [],
+  historyOwners: string[] = [],
 ): void {
   // 2026-05-13 (fifth fix) — close History BEFORE doing any restore work.
   // Tom: "it responded to saas users and brought it in then went dead can
@@ -814,6 +815,26 @@ function onHistoryRestore(
     } else {
       // Snapshot has no plan name (very old entry) — fall back to legacy behaviour
       _ensurePlanModel(spec)
+    }
+
+    // ── Restore owners from the history snapshot if the plan model has none ──
+    // Bug fix 2026-05-28: historyOwners was received but never applied, so
+    // restoring a snapshot always wiped the team. Now: if the restored plan
+    // model has no owners AND the snapshot carried owner names, reinstate them
+    // as minimal PlanOwner objects (name only; other fields blank — the user
+    // can fill them in via Plan Owner Panel). Guard: never overwrites existing
+    // owners so a subsequent load of the same plan name doesn't clobber
+    // owners that were manually set after the snapshot was taken.
+    if (historyOwners.length > 0 && planModel.value && planModel.value.owners.length === 0) {
+      const today = new Date().toISOString().slice(0, 10)
+      for (const name of historyOwners) {
+        if (name.trim()) {
+          addOwner({
+            name: name.trim(), email: '', phone: '', organization: '',
+            location: '', responsibility: '', startDate: today, endDate: '',
+          })
+        }
+      }
     }
 
     if (plan) {

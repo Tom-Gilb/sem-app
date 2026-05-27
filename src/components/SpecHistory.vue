@@ -392,6 +392,44 @@ const olderVersions = computed<SpecVersion[]>(() =>
 
 const totalVisibleVersions = computed<number>(() => filteredVersions.value.length)
 
+// ── People Finder ──────────────────────────────────────────────────────────
+// Scans ALL history entries AND all plan models for owner/planner/scribe names.
+// Shows them as clickable pills that populate the search box — so Tom can find
+// "Simon" and "Susan" even if the LATEST history entry has no owner data.
+// (Bug: onHistoryRestore used to discard _planOwners; now fixed in App.vue.
+//  But for data already in localStorage this finder is the recovery path.)
+
+type FoundPerson = { name: string; role: 'owner' | 'planner' | 'scribe' }
+
+const peopleFound = computed<FoundPerson[]>(() => {
+  const seen  = new Set<string>()
+  const out: FoundPerson[] = []
+
+  function push(name: string, role: FoundPerson['role']) {
+    const n = name.trim()
+    if (!n || seen.has(n)) return
+    seen.add(n)
+    out.push({ name: n, role })
+  }
+
+  // Scan every saved plan model (owners, planners, scribes)
+  for (const m of allModels.value) {
+    for (const o of (m.owners  ?? [])) push(o.name, 'owner')
+    for (const p of (m.planners ?? [])) push(p.name, 'planner')
+    for (const s of (m.scribes  ?? [])) {
+      // Skip the default device-user scribe (it's a placeholder, not a real name)
+      if (!s.isDefault) push(s.name, 'scribe')
+    }
+  }
+
+  // Scan every history snapshot for owner names saved at snapshot time
+  for (const v of history.value) {
+    for (const name of (v.planOwners ?? [])) push(name, 'owner')
+  }
+
+  return out
+})
+
 /** Owner label (e.g. "by Tom Gilb, Kai Gilb") for a single version. */
 function ownerLabel(v: SpecVersion): string {
   return v.planOwners && v.planOwners.length > 0
@@ -456,6 +494,36 @@ function handleRestore(id: string): void {
       >
         {{ totalVisibleVersions }} match{{ totalVisibleVersions === 1 ? '' : 'es' }}
       </p>
+
+      <!-- ── People Finder — scan all plans + history for known names ───────
+           Shows every owner/planner/scribe name found anywhere in storage.
+           Clicking a pill searches for that person across all history entries.
+           This recovers names (e.g. "Simon", "Susan") even when the LATEST
+           snapshot has no owner data — and after the onHistoryRestore bug
+           fix owners are now carried through restores going forward.
+           Color code: indigo = owner · emerald = planner · amber = scribe -->
+      <div v-if="peopleFound.length > 0" class="mt-2">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">
+          👥 People in your data
+        </p>
+        <div class="flex flex-wrap gap-1">
+          <button
+            v-for="p in peopleFound"
+            :key="p.name"
+            type="button"
+            class="inline-flex items-center text-[11px] font-medium rounded-full px-2.5 py-0.5
+                   transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400
+                   hover:scale-105 active:scale-95"
+            :class="{
+              'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 ring-1 ring-indigo-200': p.role === 'owner',
+              'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 ring-1 ring-emerald-200': p.role === 'planner',
+              'bg-amber-100 text-amber-700 hover:bg-amber-200 ring-1 ring-amber-200': p.role === 'scribe',
+            }"
+            :title="`${p.role === 'owner' ? '🔑 Owner' : p.role === 'planner' ? '🧑 Planner' : '📝 Scribe'}: ${p.name} — click to search history for this person`"
+            @click="searchQuery = p.name"
+          >{{ p.name }}</button>
+        </div>
+      </div>
     </div>
 
     <!-- ── Scrollable group list ─────────────────────────────────────────── -->
