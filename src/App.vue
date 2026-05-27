@@ -3117,6 +3117,12 @@ function handleAction(id: string): void {
     case 'saveGlyph':        saveGlyphHistoryOpen.value = true; break
     case 'priorityGlyph':    priorityInfoOpen.value     = true; break
     case 'editGlyph':        editInfoOpen.value         = true; break
+    // ── VISUALIZE (extra) ──────────────────────────────────────────────────
+    case 'systemModel':      modelDashboardOpen.value   = true; break
+    // ── EDIT (extra) ───────────────────────────────────────────────────────
+    case 'specEditor':       specEditorOpen.value       = true; break
+    // ── VOICE ──────────────────────────────────────────────────────────────
+    case 'dictation':        toggleDictation();                 break
   }
 }
 
