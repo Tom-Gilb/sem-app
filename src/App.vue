@@ -375,11 +375,15 @@ const evoSimulatorOpen       = ref(false)
 const conflictAnalysisOpen   = ref(false)
 const collaboratorOpen       = ref(false)
 
-// Close menu and rename popover on Escape
+// Close menu, rename popover, and history on Escape.
+// Belt-and-suspenders: _onGlobalKeydown also fires closeActiveSurface() on Escape,
+// but that handler is registered later and renamePopoverOpen is not an exclusive surface.
+// historyOpen added 2026-05-28 after bug "history would not close" (screenshot at 01:04).
 function _onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape') {
     menuOpen.value = false
     renamePopoverOpen.value = false
+    historyOpen.value = false
   }
 }
 onMounted(() => window.addEventListener('keydown', _onKeydown))
