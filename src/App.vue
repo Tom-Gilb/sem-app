@@ -3798,7 +3798,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :initial-entry-id="_editorEntryId || undefined"
     :return-to="_editorReturnTo || undefined"
     @close="_closeSpecEditor"
-    @commit-master="(editedSpec) => { _markSpecCommitted(); currentSpec = editedSpec; _closeSpecEditor() }"
+    @commit-master="(editedSpec) => { _markSpecCommitted(); currentSpec = editedSpec; _closeSpecEditor(); showToast('✅ Changes committed to Master Plan', 3000) }"
     @open-global-priority="globalPriorityOpen = true"
     @open-edit-info="editInfoOpen = true"
     @back-to-value-flow="_handleBackToValueFlow"
