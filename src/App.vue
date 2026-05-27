@@ -31,7 +31,8 @@ import ClarifyView from './components/ClarifyView.vue'
 import ThinkingIndicator from './components/ThinkingIndicator.vue'
 import CelebrationEffect from './components/CelebrationEffect.vue'
 import ValueCounter from './components/ValueCounter.vue'
-import PlanningStageBar from './components/PlanningStageBar.vue'
+// PlanningStageBar superseded by ValueCounter rebuild 2026-05-27 (design log r37)
+// import PlanningStageBar from './components/PlanningStageBar.vue'
 import CollaborationCursors from './components/CollaborationCursors.vue'
 import FocusModeBackdrop from './components/FocusModeBackdrop.vue'
 import ComparisonMode from './components/ComparisonMode.vue'
@@ -937,6 +938,21 @@ const { conflicts: collabConflicts, clearConflicts: clearCollabConflicts } = use
 // CE workflow stages: 1 = spec, 2 = evo plan, 3 = tasks, 4 = impact, 5 = export
 type Stage = 1 | 2 | 3 | 4 | 5
 const stage = ref<Stage>(1)
+
+// --- Planguage planning bar stage (1–11) ---
+// Separate from the 5-stage app machine. ValueCounter uses this for its
+// 11-stage display. DD-007: stages are never locked — navigation always proceeds.
+const planningStage = ref<number>(1)
+
+/** Called when user clicks a stage pill in ValueCounter. */
+function handleStageBarNav(n: number): void {
+  if (n >= 2 && !currentSpec.value) {
+    showToast('💡 Add a spec at Stakes first to get the most from later stages — but you can always explore ahead', 4000)
+  } else if (n >= 7 && confirmedSteps.value.length === 0) {
+    showToast('💡 Define Evo Steps (stage 6) first to measure value impact — but feel free to look ahead', 4000)
+  }
+  planningStage.value = n  // stages never locked (DD-007)
+}
 
 // formResetKey — incremented by startFresh() to force a full SEMEntryForm remount,
 // resetting its internal 'input'|'review' sub-stage back to 'input'.
@@ -4083,23 +4099,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
          of sign-in because HMR kept the old ref alive). -->
     <template v-else>
 
-      <!-- ── 11-stage planning workflow tile bar ─────────────────────────────
-           PlanningStageBar — rebuilt 2026-05-27 from screenshot evidence.
-           Full-width, dark background strip with 11 clickable stage tiles.
-           Sits at the very top of the main content area, below Plan Crest bar.
-           navigate event updates `stage` directly using the same ref the rest
-           of the app uses for stage transitions.
-           Breakout wrapper: parent has px-4 md:pr-40 constraints; the stage bar
-           must span full viewport width. -ml-4 shifts left edge to viewport edge;
-           w-[calc(100%+2rem)] and md:w-[calc(100%+11rem)] add back the total
-           horizontal padding so the right edge also reaches the viewport edge.
+      <!-- ── 11-stage Planguage planning bar ──────────────────────────────────
+           ValueCounter — rebuilt 2026-05-27 with official PlTypeIcon glyphs
+           (Planguage Spec Type Glyphs v7, Tom+Kai Gilb+Claudian 2026-05-16).
+           96px dark pills with indigo→emerald hue sweep. 10 concave arrows.
+           Arrow clicks open ArrowInfoPanel (history + Planguage + fun fact).
+           DD-007: stages never locked — navigation always proceeds.
+           Breakout wrapper: parent has px-4 md:pr-40 constraints; the bar
+           must span full viewport width. -ml-4 + w-[calc(100%+Xrem)] breaks out.
            overflow-x-clip on the parent div prevents page-level scroll. -->
       <div class="-ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]">
-        <PlanningStageBar
-          :current-stage="stage"
-          :has-spec="!!currentSpec"
-          :has-plan="confirmedSteps.length > 0"
-          @navigate="stage = $event"
+        <ValueCounter
+          :current-stage="planningStage"
+          @go-to-stage="handleStageBarNav"
         />
       </div>
 
