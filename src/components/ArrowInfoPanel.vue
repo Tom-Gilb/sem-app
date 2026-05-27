@@ -173,9 +173,13 @@ const SECTION_TINTS = [
           </div>
 
           <!-- ── Scrollable body ─────────────────────────────────────── -->
+          <!-- h-full on inner-class: outer is flex-1 min-h-0 (bounded by 90vh panel),
+               inner needs h-full so overflow-y-auto has a constrained height to scroll within.
+               Without h-full the inner div grows to content height → no scroll occurs.
+               Fix for "info for stage arrows do not scroll" (Tom 2026-05-28). -->
           <ScrollContainer
             outer-class="flex-1 min-h-0 relative"
-            inner-class="px-4 py-4 space-y-3"
+            inner-class="h-full px-4 py-4 space-y-3"
             :no-pill="false"
           >
             <!-- Info sections -->

@@ -67,6 +67,7 @@ import { useAnalyticsEvents } from './composables/useAnalyticsEvents'
 import { useSurveyGate } from './composables/useSurveyGate'
 import { useDictation } from './composables/useDictation'
 import { speak, stopSpeaking, speakerSupported, speaking } from './composables/useSpeaker'
+import { useArrowInfoPanel } from './composables/useArrowInfoPanel'
 import SurveyGateModal from './components/SurveyGateModal.vue'
 import DictateButton from './components/DictateButton.vue'
 import SpeakerButton from './components/SpeakerButton.vue'
@@ -375,15 +376,19 @@ const evoSimulatorOpen       = ref(false)
 const conflictAnalysisOpen   = ref(false)
 const collaboratorOpen       = ref(false)
 
-// Close menu, rename popover, and history on Escape.
+// Close menu, rename popover, history, and ArrowInfoPanel on Escape.
 // Belt-and-suspenders: _onGlobalKeydown also fires closeActiveSurface() on Escape,
-// but that handler is registered later and renamePopoverOpen is not an exclusive surface.
-// historyOpen added 2026-05-28 after bug "history would not close" (screenshot at 01:04).
+// but that handler is registered later and renamePopoverOpen / openArrowIdx are not
+// exclusive surfaces (boolean-ref requirement not met by number|null).
+// historyOpen   added 2026-05-28 — bug "history would not close".
+// closeArrowInfo added 2026-05-28 — bug "Escape does not work" (ArrowInfoPanel stuck).
+const { closeArrow: closeArrowInfo } = useArrowInfoPanel()
 function _onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape') {
     menuOpen.value = false
     renamePopoverOpen.value = false
     historyOpen.value = false
+    closeArrowInfo()   // ArrowInfoPanel uses number|null state — not in exclusive registry
   }
 }
 onMounted(() => window.addEventListener('keydown', _onKeydown))
@@ -423,6 +428,23 @@ function backupAllModels(): void {
 
 function openRestorePicker(): void {
   restoreFileInputRef.value?.click()
+}
+
+/**
+ * Code Snapshot — copies a Terminal git archive command to the clipboard and
+ * shows a toast so Tom knows exactly how to create a local ZIP of the source code.
+ * The code is already committed to GitHub; this provides an extra local backup.
+ * Rationale: web apps cannot invoke shell commands directly; the clipboard is the
+ * bridge between the browser and the user's Terminal. (2026-05-28)
+ */
+function showCodeSnapshotTip(): void {
+  const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+  const cmd    = `cd ~/Developer/sem-app && git archive HEAD --format=zip --output=~/Desktop/sem-app-${today}.zip && echo "✅ Saved to Desktop"`
+  navigator.clipboard.writeText(cmd).catch(() => {/* clipboard denied — toast still shows */})
+  showToast(
+    `💻 Command copied to clipboard! Open Terminal → ⌘V → Enter → ZIP saves to Desktop as sem-app-${today}.zip`,
+    10_000,
+  )
 }
 
 function handleRestoreFile(event: Event): void {
@@ -3114,6 +3136,7 @@ function handleAction(id: string): void {
     case 'emailPlan':        emailPlan();                        break
     case 'restorePlans':     openRestorePicker();                break
     case 'backup':           backupAllModels();                  break
+    case 'codeSnapshot':     showCodeSnapshotTip();              break
     // ── ABOUT ──────────────────────────────────────────────────────────────
     case 'toolInfo':         toolInfoPanelOpen.value    = true; break
     case 'semMetadata':      semMetadataPanelOpen.value = true; break
@@ -3843,20 +3866,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
           >{{ specHistory.length }}</span>
         </div>
 
-        <!-- ↺ Restart Afresh — double-confirm guard -->
+        <!-- 🆘 SOS / Restart Afresh — always red so it's instantly findable.
+             Double-confirm guard: first click → 'Sure?', second click → clears everything.
+             Control-pins-at-top rule: lives in the crest bar, never floating. -->
         <button
           type="button"
           :class="[
-            'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all',
-            'focus:outline-none focus:ring-2 focus:ring-white/80',
+            'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-extrabold transition-all',
+            'focus:outline-none focus:ring-2 focus:ring-red-300',
             startOverConfirmPending
-              ? 'bg-red-500 text-white ring-2 ring-red-300 animate-pulse scale-105'
-              : 'bg-white/10 text-white hover:bg-white/20 ring-1 ring-white/30 hover:ring-white/60',
+              ? 'bg-red-500 text-white ring-2 ring-red-200 animate-pulse scale-110 shadow-[0_0_12px_rgba(239,68,68,0.7)]'
+              : 'bg-red-600/80 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300 hover:scale-105',
           ]"
-          :aria-label="startOverConfirmPending ? 'Confirm restart — clears all current work' : 'Restart Afresh'"
-          :title="startOverConfirmPending ? 'Click again to confirm — clears all current work' : 'Restart Afresh (clear everything)'"
+          :aria-label="startOverConfirmPending ? 'Confirm restart — clears all current work' : 'SOS — Restart Afresh or panic reset'"
+          :title="startOverConfirmPending ? 'Click again to confirm — clears everything and starts fresh' : '🆘 SOS — click once for restart prompt · open ⚡ Actions > Manage for more options'"
           @click="requestStartOver"
-        >↺ {{ startOverConfirmPending ? 'Sure?' : 'New' }}</button>
+        >{{ startOverConfirmPending ? '⚠️ Sure?' : '🆘' }}</button>
 
         <!-- ── Control pins — 🎤 Mic · 🔊 Speaker · ⚡ Actions ──────────────────
              Control-pins rule 2026-05-26: always at TOP, never floating bottom.

@@ -201,12 +201,13 @@ const allSections = computed<SectionDef[]>(() => [
   // ── 10. BACKUP ─────────────────────────────────────────────────────────────
   {
     key: 'backup', label: 'BACKUP', emoji: '🛡',
-    blurb: 'Export, import and protect all your plan data.',
+    blurb: 'Export, import and protect all your plan data and source code.',
     tiles: [
-      { id: 'savePlan',     label: 'Save Plan',      emoji: '⬇',  thumb: 'savePlan',     tip: 'Download the current spec as a JSON file',        disabled: !props.hasSpec },
-      { id: 'emailPlan',    label: 'Email Plan',     emoji: '✉',  thumb: 'emailPlan',    tip: 'Send the current spec via email',                 disabled: !props.hasSpec },
-      { id: 'restorePlans', label: 'Restore Plans',  emoji: '↑',  thumb: 'restorePlans', tip: 'Import a previously saved JSON backup' },
-      { id: 'backup',       label: 'Backup SEM App', emoji: '🛡',  thumb: 'backup',       tip: 'Backup all plan models to a single JSON file',    disabled: !props.hasMultipleModels },
+      { id: 'savePlan',      label: 'Save Plan',       emoji: '⬇',  thumb: 'savePlan',     tip: 'Download the current spec as a JSON file',              disabled: !props.hasSpec },
+      { id: 'emailPlan',     label: 'Email Plan',      emoji: '✉',  thumb: 'emailPlan',    tip: 'Send the current spec via email',                       disabled: !props.hasSpec },
+      { id: 'restorePlans',  label: 'Restore Plans',   emoji: '↑',  thumb: 'restorePlans', tip: 'Import a previously saved JSON backup' },
+      { id: 'backup',        label: 'Backup SEM App',  emoji: '🛡',  thumb: 'backup',       tip: 'Backup all plan models to a single JSON file',          disabled: !props.hasMultipleModels },
+      { id: 'codeSnapshot',  label: 'Code Snapshot',   emoji: '💻', thumb: 'backup',       tip: 'Copy the Terminal command to ZIP the full source code to your Desktop' },
     ],
   },
 
