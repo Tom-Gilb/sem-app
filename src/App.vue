@@ -3663,8 +3663,20 @@ function handleApertureLoadPlan(model: PlanModel): void {
              button. One affordance, dual-coded status + action. See the
              `savedLabelClick` button above.) -->
 
-        <!-- Action cluster: Find · History · New — uniform pill styling -->
+        <!-- Action cluster: Edit Plan · Find · History · New — uniform pill styling -->
         <div class="flex items-center gap-2.5 shrink-0">
+
+        <!-- Edit Plan — opens Spec Editor -->
+        <button
+          v-if="planModel"
+          type="button"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
+                 bg-white text-violet-700 hover:bg-violet-50 shadow-sm
+                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
+          aria-label="Edit Plan"
+          title="Open Spec Editor"
+          @click="currentSpec = currentSpec ?? planModel.spec; specEditorOpen = true"
+        >Edit Plan</button>
         <!-- Find ⌘F — overrides browser's native Find-in-page because the
              SEM Find palette IS the canonical navigation surface. Tom
              2026-05-12: "Can Search shortcut be cmd F, and named Find
