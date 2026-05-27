@@ -2,28 +2,21 @@
   ValueCounter.vue — 11-stage Planguage planning workflow bar.
   Rebuilt 2026-05-27 from design log r04–r37 + Planguage Spec Type Glyphs PDF v7.
   r07 2026-05-27: Active stage label bar (✦ ACTIVE, floats over glyph) + glyph bob animation.
+  r08 2026-05-28: Horizontal scroll fix — native overflow-x-auto replaces ScrollContainer
+                  (ScrollContainer only does vertical); scroll-to-active on stage change.
+  r09 2026-05-28: Double-click stage tiles → StageInfoPanel (rich history/Planguage/examples).
+                  250 ms timer separates single-click (navigate) from double-click (info).
 
   11 stages (left to right), each a 96×96px dark pill with:
     - Stage number badge (top-left, black/60 bg)
     - Official Planguage type glyph (PlTypeIcon) with neon stage-color glow
     - Stage label below
+    - Single-click: navigate to that stage
+    - Double-click: open StageInfoPanel with full Planguage description + examples
   Connected by 10 concave swept-back arrows, each:
     - Stroke width 3→9px (increasing momentum)
     - Color from the indigo→emerald sweep at the arrow's position
-    - Clickable to open ArrowInfoPanel
-
-  Stage definitions:
-    1. Stakes    (stakeholder ←¶→)
-    2. Solutions (solution [*]→)
-    3. Sharpen   (function →O→)
-    4. Impacts   (value O--*-->)
-    5. Refine    (constraint [→O→])
-    6. Evo Steps (evo-step < ->+->)
-    7. Evo Impact(value O--*-->)
-    8. Tasks     (task →O→*)
-    9. Study-Act (evo-step < ->+->)
-   10. Plan      (resource →O)
-   11. Export    (constraint [→O→])
+    - Single-click: open ArrowInfoPanel (History / Planguage / Fun Fact)
 
   Architecture principles (Architectural Resilience Rule, 2026-05-27):
     - Stages defined as data (STAGES const), not hardcoded in template
@@ -31,17 +24,19 @@
     - PlTypeIcon is pure render — no click handling inside it
     - Arrow clicks handled by ValueCounter, not by icon components
     - Never locked: DD-007 — stages are cyclic workspace views, not sequential gates
-    - ScrollContainer wraps the overflow — no raw overflow-x-auto here
+    - Horizontal scroll: native overflow-x-auto on the inner flex div; auto-centers active stage
 
   Spec: F.ValueAccumulationCounter (#15).
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { computed } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import PlTypeIcon from './icons/PlTypeIcon.vue'
 import type { PlGlyphType } from './icons/PlTypeIcon.vue'
 import ArrowInfoPanel from './ArrowInfoPanel.vue'
-import ScrollContainer from './ScrollContainer.vue'
+import StageInfoPanel from './StageInfoPanel.vue'
+// ScrollContainer removed 2026-05-28: it wraps overflow-y-auto only; the stage bar
+// needs horizontal scroll. Native overflow-x-auto + scrollWrapRef used instead.
 import {
   pillProgressColor,
   stageProgressColor,
@@ -157,6 +152,56 @@ function arrowStyle(idx: number): Record<string, string> {
     opacity: state === 'future' ? '0.88' : '1',
   }
 }
+
+// ── Stage info panel (double-click) ───────────────────────────────────────────
+// Single-click = navigate; double-click = rich info panel for that stage.
+// 250 ms timer: on first click start timer; second click within window = dblclick.
+
+const openStageInfoIdx = ref<number | null>(null)
+let _clickTimer: ReturnType<typeof setTimeout> | null = null
+
+function handlePillClick(stage: number): void {
+  if (_clickTimer) {
+    // Second click arrived within 250 ms → treat as double-click → open info
+    clearTimeout(_clickTimer)
+    _clickTimer = null
+    openStageInfoIdx.value = stage
+  } else {
+    // First click — wait to see if a second arrives
+    _clickTimer = setTimeout(() => {
+      _clickTimer = null
+      navigateToStage(stage)  // single-click: navigate
+    }, 250)
+  }
+}
+
+function closeStageInfo(): void {
+  openStageInfoIdx.value = null
+}
+
+// ── Scroll-to-active ──────────────────────────────────────────────────────────
+// When currentStage changes, scroll the active pill into the center of the bar.
+// Uses a plain ref on the overflow-x-auto wrapper (not ScrollContainer, which
+// is vertical-only). Called on mount so the initial active tile is centered.
+
+const scrollWrapRef = ref<HTMLDivElement | null>(null)
+const pillRefs      = ref<HTMLButtonElement[]>([])
+
+function scrollToActive(): void {
+  nextTick(() => {
+    const wrapper = scrollWrapRef.value
+    if (!wrapper) return
+    const idx  = STAGES.findIndex(s => s.stage === props.currentStage)
+    const pill = pillRefs.value[idx]
+    if (!pill) return
+    // Center the pill within the scroll container
+    const target = pill.offsetLeft - wrapper.clientWidth / 2 + pill.offsetWidth / 2
+    wrapper.scrollTo({ left: Math.max(0, target), behavior: 'smooth' })
+  })
+}
+
+watch(() => props.currentStage, scrollToActive)
+onMounted(scrollToActive)
 </script>
 
 <template>
@@ -184,24 +229,31 @@ function arrowStyle(idx: number): Record<string, string> {
       <span class="text-2xl leading-none font-bold" aria-hidden="true">◀</span>
     </button>
 
-    <ScrollContainer
-      outer-class="relative w-full"
-      inner-class="flex items-end gap-3 pl-16 pr-16 pb-1 min-w-max w-full justify-center"
-      :no-pill="true"
+    <!-- Native overflow-x-auto: ScrollContainer only handles vertical scroll.
+         scrollWrapRef + pillRefs allow scrollToActive to center the active tile.
+         pr-20 ensures the last tile isn't hidden behind the ▶ Next button. -->
+    <div
+      ref="scrollWrapRef"
+      class="overflow-x-auto scrollbar-none w-full"
+      style="scroll-behavior: auto;"
     >
+      <div class="flex items-end gap-3 px-16 pb-1 min-w-max">
       <template v-for="(step, idx) in STAGES" :key="step.stage">
 
         <!-- ── Stage pill ───────────────────────────────────────────── -->
+        <!-- Single-click → navigate; Double-click → StageInfoPanel info.
+             250 ms timer in handlePillClick() separates the two actions. -->
         <button
+          :ref="(el) => { if (el) pillRefs[idx] = el as HTMLButtonElement }"
           type="button"
           class="relative flex flex-col items-center gap-1.5 shrink-0 focus:outline-none
                  focus-visible:ring-2 focus-visible:ring-white/60 rounded-2xl
                  transition-all duration-300 hover:scale-105 active:scale-95"
           :style="{ ...pillStyle(step.stage), width: '96px', height: '96px', borderRadius: '16px' }"
-          :aria-label="`Navigate to stage ${step.stage}: ${step.label} (${stageStatus(step.stage)})`"
+          :aria-label="`Stage ${step.stage}: ${step.label} — click to navigate, double-click for details`"
           :aria-current="step.stage === currentStage ? 'step' : undefined"
-          :title="step.title"
-          @click="navigateToStage(step.stage)"
+          :title="step.title + ' · Double-click for full Planguage description and examples.'"
+          @click="handlePillClick(step.stage)"
         >
           <!-- Stage Halo — pulsating white ring on active stage (3s breathing animation) -->
           <div
@@ -299,7 +351,8 @@ function arrowStyle(idx: number): Record<string, string> {
         </button>
 
       </template>
-    </ScrollContainer>
+      </div><!-- end min-w-max flex -->
+    </div><!-- end overflow-x-auto -->
 
     <!-- ▶ Next stage — right edge overlay, gradient fade into dark bar -->
     <button
@@ -321,6 +374,13 @@ function arrowStyle(idx: number): Record<string, string> {
   <ArrowInfoPanel
     :arrow-idx="openArrowIdx"
     @close="closeArrow()"
+    @open-glyph="(type) => emit('open-glyph', type)"
+  />
+
+  <!-- Stage info panel — opens on double-click of any stage tile (Teleported to body) -->
+  <StageInfoPanel
+    :stage-idx="openStageInfoIdx"
+    @close="closeStageInfo()"
     @open-glyph="(type) => emit('open-glyph', type)"
   />
 </template>
