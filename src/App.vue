@@ -158,6 +158,7 @@ import {
 import type { EvoStep, EvoStepPlan } from './types/evo-plan'
 import type { TaskSuggestion } from './types/task'
 import type { ImpactMatrix } from './types/impact'
+import { computeMockImpactSnapshot } from './composables/useImpactSuggestions'
 
 // --- Boot diagnostics (2026-05-12) ──────────────────────────────────────────
 // Tom reports the app starts but never advances past the loading view, even
@@ -1021,6 +1022,28 @@ function handleStageBarNav(n: number): void {
     showToast('💡 Define Evo Steps (stage 6) first to measure value impact — but feel free to look ahead', 4000)
   }
   planningStage.value = n  // stages never locked (DD-007)
+
+  // Navigate the main view (stage 1–5) to match the clicked planning stage.
+  // Pill clicks express navigation intent — not action intent (the CTA button handles actions).
+  // handleStageAction calls this first, then fires the action; double-navigation is idempotent.
+  switch (n) {
+    case 1: case 2: case 3: case 4:
+      goToStage1()      // Specify phase (Values / Solutions / Sharpen) → spec entry
+      break
+    case 5:
+      goToImpactStage() // Estimate Impacts → stage 3
+      break
+    case 6: case 7:
+      goToStage2()      // Evo Steps / Evo Simulator → stage 2
+      break
+    case 8:
+      goToTasksStage()  // Plan Tasks → stage 4
+      break
+    // 9 (Study Results), 10 (Review Plan): no dedicated main stage — toast above is sufficient
+    case 11:
+      exportFull()      // Export Plan → stage 5, auto-computes matrix if empty
+      break
+  }
 }
 
 /**
@@ -2480,9 +2503,24 @@ function goToTasksStage(): void {
 function exportFull(): void {
   if (!currentSpec.value) return
 
-  // Impact data is captured live by @matrix-updated events and by goToTasksStage()
-  // which snapshots the IET before ImpactEstimationView (stage 3) unmounts.
-  // By the time exportFull() fires (from stage 4 or 5), ietRef is null — that's expected.
+  // Impact data is normally captured via @matrix-updated events or by goToTasksStage()
+  // which snapshots the live IET before stage 3 unmounts.
+  // If the user skipped Impact Estimation entirely, the matrix is empty — auto-populate
+  // with deterministic mock values so the VDT table is never all-zeros on export.
+  if (
+    Object.keys(capturedImpactMatrix.value).length === 0 &&
+    currentSpec.value.values.length > 0 &&
+    currentSpec.value.solutions.length > 0
+  ) {
+    const snap = computeMockImpactSnapshot(
+      currentSpec.value.values,
+      currentSpec.value.solutions,
+    )
+    capturedImpactMatrix.value  = snap.matrix
+    capturedVCRatios.value      = snap.vcRatios
+    capturedCalendarCosts.value = snap.calendarCosts
+    capturedCapitalCosts.value  = snap.capitalCosts
+  }
 
   if (currentSpec.value) _ensurePlanModel(currentSpec.value) // keep bar visible on stage 5
   stage.value = 5

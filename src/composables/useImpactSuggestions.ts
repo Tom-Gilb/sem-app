@@ -392,3 +392,54 @@ No other text, no markdown fences.`
     loadSuggestions,
   }
 }
+
+/**
+ * Builds a complete mock impact snapshot for a given set of values and solutions
+ * WITHOUT mounting a component or calling any API.
+ *
+ * Used by exportFull() to auto-populate the V×S matrix when the user skips
+ * the Impact Estimation stage (stage 3) and goes straight to export.
+ * The deterministic hash ensures consistent results across calls with the same
+ * entry IDs — the same spec always produces the same colour pattern.
+ *
+ * @param values         V. entries from the current SpecBlock
+ * @param solutions      S. entries from the current SpecBlock
+ * @param resourceClaims Resource claim % per solutionId — defaults to 20 for all
+ * @returns { matrix, vcRatios, calendarCosts, capitalCosts } — same shape as
+ *          ImpactEstimationView.getSnapshot()
+ */
+export function computeMockImpactSnapshot(
+  values: VEntry[],
+  solutions: SEntry[],
+  resourceClaims: Record<string, number> = {},
+): {
+  matrix: ImpactMatrix
+  vcRatios: Record<string, number>
+  calendarCosts: Record<string, number>
+  capitalCosts: Record<string, number>
+} {
+  const matrix: ImpactMatrix = {}
+  const calendarCosts: Record<string, number> = {}
+  const capitalCosts: Record<string, number> = {}
+
+  for (const val of values) {
+    matrix[val.id] = {}
+    for (const sol of solutions) {
+      matrix[val.id][sol.id] = deterministicMockImpact(val.id, sol.id)
+    }
+  }
+  for (const sol of solutions) {
+    calendarCosts[sol.id] = deterministicMockCalendarWeeks(sol.id)
+    capitalCosts[sol.id]  = deterministicMockCapitalK(sol.id)
+  }
+
+  const valueIds = values.map((v) => v.id)
+  const vcRatios: Record<string, number> = {}
+  for (const sol of solutions) {
+    const claim = resourceClaims[sol.id] ?? 20
+    const vc = computeVCRatio(sol.id, valueIds, matrix, claim)
+    vcRatios[sol.id] = vc.ratio
+  }
+
+  return { matrix, vcRatios, calendarCosts, capitalCosts }
+}

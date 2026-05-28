@@ -235,11 +235,21 @@ function saveFormToTab(tab: TabKey): void {
 /** Default save target = whatever tab is currently active. */
 function saveForm(): void { saveFormToTab(activeTab.value) }
 
-function removePerson(id: string): void {
+// Pending removal confirmation — id of the person whose Remove button was clicked.
+// The actual removal only fires when the user confirms. Cleared on cancel or after remove.
+const pendingRemoveId = ref<string | null>(null)
+
+function requestRemove(id: string): void {
+  // Toggle: clicking Remove again cancels the pending confirmation
+  pendingRemoveId.value = pendingRemoveId.value === id ? null : id
+}
+
+function confirmRemove(id: string): void {
   if (activeTab.value === 'owners')        removeOwner(id)
   else if (activeTab.value === 'planners') removePlanner(id)
   else                                     removeScribe(id)
   if (editingId.value === id) cancelForm()
+  pendingRemoveId.value = null
 }
 
 // ── Date range display helper ─────────────────────────────────────────────────
@@ -502,11 +512,48 @@ const DATE_FIELDS = [
               >{{ editingId === person.id && formOpen ? '✕' : '' }}<EditGlyph v-if="!(editingId === person.id && formOpen)" size="compact" class="h-3 w-auto shrink-0" aria-label="Edit person" /></button>
               <button
                 type="button"
-                class="shrink-0 text-[10px] text-red-400 hover:text-red-600 px-1.5 py-1 rounded hover:bg-red-50 transition-colors"
-                :aria-label="`Remove ${person.name}`"
-                @click="removePerson(person.id)"
-              >Remove</button>
+                class="shrink-0 text-[10px] px-1.5 py-1 rounded transition-colors"
+                :class="pendingRemoveId === person.id
+                  ? 'text-red-600 bg-red-100 hover:bg-red-200'
+                  : 'text-red-400 hover:text-red-600 hover:bg-red-50'"
+                :aria-label="pendingRemoveId === person.id
+                  ? `Cancel removing ${person.name}`
+                  : `Remove ${person.name} — click to confirm`"
+                :title="pendingRemoveId === person.id
+                  ? 'Click again to cancel'
+                  : 'Click to remove — a confirmation will appear'"
+                @click="requestRemove(person.id)"
+              >{{ pendingRemoveId === person.id ? '✕ Cancel' : 'Remove' }}</button>
             </div>
+
+            <!-- Inline removal confirmation strip -->
+            <Transition
+              enter-active-class="transition-all duration-150 overflow-hidden"
+              leave-active-class="transition-all duration-150 overflow-hidden"
+              enter-from-class="max-h-0 opacity-0"
+              enter-to-class="max-h-20 opacity-100"
+              leave-from-class="max-h-20 opacity-100"
+              leave-to-class="max-h-0 opacity-0"
+            >
+              <div
+                v-if="pendingRemoveId === person.id"
+                class="px-3 py-2 bg-red-50 border-t border-red-100 flex items-center gap-2"
+                role="alert"
+                aria-live="assertive"
+              >
+                <span class="text-red-600 text-xs font-semibold flex-1">
+                  Remove <strong>{{ person.name || 'this person' }}</strong>? Cannot be undone.
+                </span>
+                <button
+                  type="button"
+                  class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded
+                         bg-red-500 text-white hover:bg-red-600 transition-colors"
+                  :aria-label="`Confirm remove ${person.name}`"
+                  title="Permanently remove this person from the plan"
+                  @click="confirmRemove(person.id)"
+                >Yes, remove</button>
+              </div>
+            </Transition>
 
             <!-- Inline edit form for this person -->
             <div v-if="formOpen && editingId === person.id" data-inline-edit-form class="px-3 pb-3 pt-2 bg-white border-t border-gray-100 space-y-2">
