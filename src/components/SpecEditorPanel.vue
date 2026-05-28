@@ -76,6 +76,16 @@ const props = defineProps<{
    * the real diagram, texts Back to Value Flow Diagram."
    */
   returnTo?: 'visualise' | 'valueFlow'
+  /**
+   * Current planning stage (1–11) from App.vue.
+   * Drives the stage navigation strip shown below the editor header so the
+   * user can see where they are in the planning cycle and navigate without
+   * closing the editor.
+   * Tom 2026-05-28: "the always in title nd step 1-11 are gone" (when Spec
+   * Editor is open, the stage bar in the main content is hidden behind this
+   * full-screen panel — this prop + nav strip replaces it inside the editor).
+   */
+  planningStage?: number
 }>()
 
 const emit = defineEmits<{
@@ -102,7 +112,40 @@ const emit = defineEmits<{
    * Tom 2026-05-16: "Show Value Flow Relation, next to Edit button… applies to F S etc"
    */
   'show-in-value-flow': [{ tab: 'functions' | 'values' | 'solutions'; entryId: string }]
+  /**
+   * User clicked ⚡ Actions inside the editor.
+   * App.vue opens ActionsHubPanel (menuOpen = true).
+   * The Single-Surface rule auto-closes the editor when the hub opens.
+   */
+  'open-actions': []
+  /**
+   * User clicked ← Back or → Next in the stage navigation strip.
+   * App.vue calls handleStageBarNav(n) so planningStage updates and the
+   * stage bar outside the editor stays in sync.
+   */
+  'navigate-stage': [n: number]
 }>()
+
+// ── Stage navigation data (mirrors ValueCounter STAGES labels) ────────────────
+// Defined here so the nav strip in the editor template is self-contained and
+// does not require importing ValueCounter internals.
+const EDITOR_STAGE_NAMES: Record<number, string> = {
+  1:  'Stakes',
+  2:  'Values',
+  3:  'Solutions',
+  4:  'Sharpen',
+  5:  'Impacts',
+  6:  'Evo Steps',
+  7:  'Evo Impact',
+  8:  'Tasks',
+  9:  'Study-Act',
+  10: 'Plan',
+  11: 'Export',
+}
+
+const currentStageName = computed(() =>
+  props.planningStage ? (EDITOR_STAGE_NAMES[props.planningStage] ?? `Stage ${props.planningStage}`) : null
+)
 
 // ── Composables ───────────────────────────────────────────────────────────────
 
@@ -711,6 +754,72 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
             @click="handleClose"
           />
         </div>
+      </div>
+
+      <!-- ── Stage navigation strip ─────────────────────────────────────────
+           Tom 2026-05-28: "the always in title nd step 1-11 are gone" and
+           "action is not working at all now" — when SpecEditorPanel is open
+           as fixed inset-0 z-[600] it covers the stage bar and ⚡ Actions
+           button in the main content. This strip gives access to both without
+           closing the editor.
+           Shows: ← Back | Stage N: Name | → Next | ⚡ Actions
+           Only rendered when planningStage prop is provided. -->
+      <div
+        v-if="props.planningStage != null"
+        class="shrink-0 flex items-center gap-1.5 px-4 py-1.5
+               bg-indigo-950/80 border-b border-indigo-800/40"
+      >
+        <!-- ← Back -->
+        <button
+          v-if="(props.planningStage ?? 1) > 1"
+          type="button"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium
+                 text-indigo-200 hover:text-white hover:bg-white/10
+                 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+          :title="`Go back to Stage ${(props.planningStage ?? 1) - 1}: ${EDITOR_STAGE_NAMES[(props.planningStage ?? 1) - 1] ?? ''}`"
+          :aria-label="`Go back to Stage ${(props.planningStage ?? 1) - 1}`"
+          @click="emit('navigate-stage', (props.planningStage ?? 1) - 1)"
+        >
+          ← Back
+        </button>
+
+        <!-- Stage indicator -->
+        <div class="flex-1 flex items-center justify-center gap-1.5 min-w-0">
+          <span class="text-[10px] font-semibold text-indigo-300 tracking-wide">
+            Stage {{ props.planningStage }} of 11
+          </span>
+          <span class="text-[10px] text-white/60">·</span>
+          <span class="text-[11px] font-bold text-white truncate">
+            {{ currentStageName }}
+          </span>
+        </div>
+
+        <!-- → Next -->
+        <button
+          v-if="(props.planningStage ?? 11) < 11"
+          type="button"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium
+                 text-indigo-200 hover:text-white hover:bg-white/10
+                 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+          :title="`Go to Stage ${(props.planningStage ?? 1) + 1}: ${EDITOR_STAGE_NAMES[(props.planningStage ?? 1) + 1] ?? ''}`"
+          :aria-label="`Go to Stage ${(props.planningStage ?? 1) + 1}`"
+          @click="emit('navigate-stage', (props.planningStage ?? 1) + 1)"
+        >
+          Next →
+        </button>
+
+        <!-- ⚡ Actions -->
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium
+                 text-amber-300 hover:text-white hover:bg-white/10
+                 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-400/40"
+          title="Open ⚡ Actions — plan management, saves, exports &amp; shortcuts"
+          aria-label="Open Actions hub"
+          @click="emit('open-actions')"
+        >
+          ⚡ Actions
+        </button>
       </div>
 
       <!-- ── Back to Value Flow Diagram strip ──────────────────────────────── -->

@@ -1021,6 +1021,31 @@ function handleStageBarNav(n: number): void {
   planningStage.value = n  // stages never locked (DD-007)
 }
 
+/**
+ * Primary action for the current planning stage — shown as a pill button in
+ * the stage breadcrumb row below the ValueCounter.
+ * Tom 2026-05-28: "when I select a step 1-11 it either needs to repeat that step
+ * (like generate solutions) or allow you to do step actions like 1. do this step
+ * based on current plan, or revert to previous state."
+ */
+const planningStageAction = computed<{ label: string; handler: () => void } | null>(() => {
+  if (!currentSpec.value && planningStage.value > 1) return null
+  switch (planningStage.value) {
+    case 1:  return { label: '✏️ Enter Stakes',        handler: () => goToStage1() }
+    case 2:  return { label: '0→* Edit Values',         handler: () => _openSpecEditor({ tab: 'values' }) }
+    case 3:  return { label: '[*] Edit Solutions',      handler: () => _openSpecEditor({ tab: 'solutions' }) }
+    case 4:  return { label: '✨ Sharpen Spec',         handler: () => { sharpenModalOpen.value = true } }
+    case 5:  return { label: '📊 Estimate Impacts',     handler: () => goToImpactStage() }
+    case 6:  return { label: '⚡ Generate Evo Steps',   handler: () => goToStage2() }
+    case 7:  return { label: '📈 Evo Simulator',        handler: () => { evoSimulatorOpen.value = true } }
+    case 8:  return { label: '✅ Plan Tasks',            handler: () => goToTasksStage() }
+    case 9:  return { label: '📋 Study Results',        handler: () => showToast('💡 Study-Act: measure actual value delivered vs your Goals, then loop back to update the spec', 4500) }
+    case 10: return { label: '🗂 Review Plan',           handler: () => showToast('💡 Plan stage: assign resources and schedule Evo Steps across the delivery lifecycle', 4500) }
+    case 11: return { label: '📤 Export Plan',          handler: () => exportFull() }
+    default: return null
+  }
+})
+
 // formResetKey — incremented by startFresh() to force a full SEMEntryForm remount,
 // resetting its internal 'input'|'review' sub-stage back to 'input'.
 const formResetKey = ref(0)
@@ -3996,12 +4021,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :initial-tab="_editorTab || undefined"
     :initial-entry-id="_editorEntryId || undefined"
     :return-to="_editorReturnTo || undefined"
+    :planning-stage="planningStage"
     @close="_closeSpecEditor"
     @commit-master="(editedSpec) => { _markSpecCommitted(); currentSpec = editedSpec; _closeSpecEditor(); showToast('✅ Changes committed to Master Plan', 3000) }"
     @open-global-priority="globalPriorityOpen = true"
+    @open-priority-info="priorityInfoOpen = true"
     @open-edit-info="editInfoOpen = true"
     @back-to-value-flow="_handleBackToValueFlow"
     @show-in-value-flow="_handleShowInValueFlow"
+    @open-actions="menuOpen = true"
+    @navigate-stage="handleStageBarNav"
   />
 
   <!-- Feature #197: Tool Info panel — right drawer, z-[490] -->
@@ -4312,7 +4341,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
            step backwards through the planning cycle without hunting for the right
            pill in the stage bar. ⚡ Actions surfaces the tile hub from anywhere.
            Shown only in 'app' view when a spec exists or the user is active. -->
-      <div class="flex items-center gap-2 mb-1 px-0.5">
+      <div class="flex items-center gap-2 mb-1 px-0.5 flex-wrap">
+        <!-- ← Back to previous stage -->
         <button
           v-if="planningStage > 1"
           type="button"
@@ -4326,7 +4356,41 @@ function handleApertureLoadPlan(model: PlanModel): void {
         >
           ← Back
         </button>
+
+        <!-- Stage-specific primary action button (Tom 2026-05-28: "repeat that step / do step actions") -->
+        <button
+          v-if="planningStageAction"
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
+                 text-sm font-semibold text-white
+                 bg-gradient-to-r from-indigo-500 to-violet-500
+                 hover:from-indigo-600 hover:to-violet-600
+                 shadow-sm hover:shadow-md transition-all duration-150 select-none"
+          :title="`${planningStageAction.label} — primary action for Stage ${planningStage}`"
+          :aria-label="planningStageAction.label"
+          @click="planningStageAction.handler()"
+        >
+          {{ planningStageAction.label }}
+        </button>
+
         <div class="flex-1" aria-hidden="true" />
+
+        <!-- → Next stage -->
+        <button
+          v-if="planningStage < 11"
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
+                 text-sm font-medium text-slate-500 hover:text-slate-800
+                 bg-white/60 hover:bg-white border border-slate-200 hover:border-slate-300
+                 shadow-sm transition-all duration-150 select-none"
+          :title="`Go to Stage ${planningStage + 1}`"
+          :aria-label="`Go to Stage ${planningStage + 1}`"
+          @click="handleStageBarNav(planningStage + 1)"
+        >
+          Next →
+        </button>
+
+        <!-- ⚡ Actions hub -->
         <button
           type="button"
           class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
