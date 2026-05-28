@@ -1026,10 +1026,19 @@ function handleStageBarNav(n: number): void {
  * Navigates to that stage AND executes the stage-specific action.
  * planningStageAction is a computed from planningStage — it updates synchronously
  * after handleStageBarNav sets planningStage.value, so the handler is correct.
+ * Fallback: if no action is available (no spec at stage >1), still navigate and
+ * explain what the user needs to do — never a silent no-op.
  */
 function handleStageAction(stage: number): void {
   handleStageBarNav(stage)
-  planningStageAction.value?.handler()
+  const action = planningStageAction.value
+  if (action) {
+    action.handler()
+  } else if (stage === 1) {
+    goToStage1()   // stage 1 always works — focus the Stakes input
+  } else {
+    showToast(`💡 Add a spec at Stakes first — then this stage action unlocks`, 3800)
+  }
 }
 
 /**
@@ -3985,7 +3994,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
             : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
           @click="toggleMenu"
         >
-          <span aria-hidden="true">⚡</span>
+          <!-- filter darkens the ⚡ emoji — native emoji is yellow/white,
+               invisible on amber background. brightness(0.1) renders it near-black. -->
+          <span aria-hidden="true" style="filter: brightness(0.1);">⚡</span>
         </button>
         </div>
       </div>

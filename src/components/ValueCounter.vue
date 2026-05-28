@@ -5,7 +5,10 @@
   r08 2026-05-28: Horizontal scroll fix — native overflow-x-auto replaces ScrollContainer
                   (ScrollContainer only does vertical); scroll-to-active on stage change.
   r09 2026-05-28: Double-click stage tiles → StageInfoPanel (rich history/Planguage/examples).
-                  250 ms timer separates single-click (navigate) from double-click (info).
+                  250 ms timer separates single-click (drama popup) from double-click (info).
+  r10 2026-05-28: Stage tile single-click → drama popup (stage-colored panel, neon glyph, CTA).
+                  Arrow/tile hover tooltips now say 'click for INFO' / 'dbl-click for INFO'.
+                  ⚡ emoji on amber button darkened via filter brightness(0.1).
 
   11 stages (left to right), each a 96×96px dark pill with:
     - Stage number badge (top-left, black/60 bg)
@@ -357,7 +360,7 @@ onUnmounted(() => {
       <template v-for="(step, idx) in STAGES" :key="step.stage">
 
         <!-- ── Stage pill ───────────────────────────────────────────── -->
-        <!-- Single-click → navigate; Double-click → StageInfoPanel info.
+        <!-- Single-click → drama popover (overview + CTA); Double-click → StageInfoPanel full INFO.
              250 ms timer in handlePillClick() separates the two actions. -->
         <button
           :ref="(el) => { if (el) pillRefs[idx] = el as HTMLButtonElement }"
@@ -366,9 +369,9 @@ onUnmounted(() => {
                  focus-visible:ring-2 focus-visible:ring-white/60 rounded-2xl
                  transition-all duration-300 hover:scale-105 active:scale-95"
           :style="{ ...pillStyle(step.stage), width: '96px', height: '96px', borderRadius: '16px' }"
-          :aria-label="`Stage ${step.stage}: ${step.label} — click to navigate, double-click for details`"
+          :aria-label="`Stage ${step.stage}: ${step.label} — click for overview · double-click for full INFO`"
           :aria-current="step.stage === currentStage ? 'step' : undefined"
-          :title="step.title + ' · Double-click for full Planguage description and examples.'"
+          :title="`${step.title} · click for overview · dbl-click for INFO`"
           @click="handlePillClick(step.stage)"
         >
           <!-- Stage Halo — pulsating white ring on active stage (3s breathing animation) -->
@@ -431,8 +434,8 @@ onUnmounted(() => {
                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded
                  group"
           style="width:64px; height:52px;"
-          :aria-label="`${step.label} to ${STAGES[idx + 1].label} transition — click for Planguage history and details`"
-          :title="`Stage ${step.stage}→${step.stage + 1}: ${step.label} flows into ${STAGES[idx + 1].label}. Each planning stage deepens your specification. Click for historical context, Planguage meaning, and a fun fact about this transition.`"
+          :aria-label="`${step.label} to ${STAGES[idx + 1].label} transition — click for INFO`"
+          :title="`Stage ${step.stage}→${step.stage + 1}: ${step.label} → ${STAGES[idx + 1].label} · click for INFO (history · Planguage · fun fact)`"
           @click="openArrow(idx)"
         >
           <svg
@@ -462,7 +465,7 @@ onUnmounted(() => {
                    bg-[#0f172a]/95 text-white text-[10px] font-medium
                    rounded-md px-2 py-1 shadow-lg whitespace-nowrap
                    opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          >✦ {{ step.label }} → {{ STAGES[idx + 1].label }}</span>
+          >✦ {{ step.label }} → {{ STAGES[idx + 1].label }} · click for INFO</span>
         </button>
 
       </template>
