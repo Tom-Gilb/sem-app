@@ -66,12 +66,14 @@ const filterText = ref('')
 // ── Data types ────────────────────────────────────────────────────────────────
 
 interface Tile {
-  id:        string
-  label:     string
-  emoji:     string
-  thumb:     ThumbType
-  tip:       string
-  disabled?: boolean
+  id:          string
+  label:       string
+  emoji:       string
+  thumb:       ThumbType
+  tip:         string
+  disabled?:   boolean
+  /** Shown instead of tip when the tile is disabled — explains WHY and how to unlock. DD-009. */
+  disabledTip?: string
 }
 
 interface SectionDef {
@@ -112,8 +114,8 @@ const allSections = computed<SectionDef[]>(() => [
     key: 'explore', label: 'EXPLORE', emoji: '🔭',
     blurb: 'Animate cumulative value delivery and step-by-step Evo sequences.',
     tiles: [
-      { id: 'evoSim',  label: 'Evo Value Animation',  emoji: '📈', thumb: 'evoSim',  tip: 'Animate value accumulation across all Evo steps', disabled: !props.hasConfirmedSteps },
-      { id: 'replay',  label: 'Evo Step Sequence',    emoji: '🔁', thumb: 'replay',  tip: 'Step-by-step replay of Evo delivery sequence',   disabled: !props.hasConfirmedSteps },
+      { id: 'evoSim',  label: 'Evo Value Animation',  emoji: '📈', thumb: 'evoSim',  tip: 'Animate value accumulation across all Evo steps', disabled: !props.hasConfirmedSteps, disabledTip: 'No Evo Steps yet. Go to Stage 6 (Evo Steps) and confirm at least one delivery step to unlock this.' },
+      { id: 'replay',  label: 'Evo Step Sequence',    emoji: '🔁', thumb: 'replay',  tip: 'Step-by-step replay of Evo delivery sequence',   disabled: !props.hasConfirmedSteps, disabledTip: 'No Evo Steps yet. Go to Stage 6 (Evo Steps) and confirm at least one delivery step to unlock this.' },
     ],
   },
 
@@ -360,7 +362,7 @@ function handleTile(tile: Tile): void {
                        focus:outline-none focus:ring-2 focus:ring-violet-400"
                 :class="[
                   tile.disabled
-                    ? 'bg-slate-50 border-slate-100 opacity-40 cursor-not-allowed'
+                    ? 'bg-slate-50 border-slate-100 opacity-60 cursor-default'
                     : tile.id === 'startOver' && startOverPending
                       ? 'bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer'
                       : 'bg-white border-slate-200 hover:border-violet-300 hover:shadow-sm cursor-pointer hover:bg-violet-50/40',
@@ -382,23 +384,28 @@ function handleTile(tile: Tile): void {
                   >{{ tile.label }}</span>
                 </div>
 
-                <!-- Tooltip (appears above tile on hover) -->
+                <!-- Tooltip — appears BELOW tile on hover (top-full avoids scroll-container clip).
+                     Enabled tiles: dark slate tip. Disabled tiles with disabledTip: amber warning
+                     explaining WHY disabled and how to unlock (DD-009 Zero-Training UI). -->
                 <Transition
                   enter-active-class="transition-all duration-150"
-                  enter-from-class="opacity-0 translate-y-1"
+                  enter-from-class="opacity-0 -translate-y-1"
                   enter-to-class="opacity-100 translate-y-0"
                   leave-active-class="transition-all duration-100"
                   leave-from-class="opacity-100"
                   leave-to-class="opacity-0"
                 >
                   <div
-                    v-if="hoveredId === tile.id && !tile.disabled"
-                    class="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10
-                           bg-slate-800 text-white text-[10px] rounded-lg px-2.5 py-1.5
-                           shadow-lg max-w-[180px] text-center whitespace-normal pointer-events-none"
+                    v-if="hoveredId === tile.id && (!tile.disabled || tile.disabledTip)"
+                    class="absolute top-full mt-1 left-1/2 -translate-x-1/2 z-20
+                           text-[10px] rounded-lg px-2.5 py-1.5
+                           shadow-lg max-w-[200px] text-center whitespace-normal pointer-events-none"
+                    :class="tile.disabled
+                      ? 'bg-amber-700 text-amber-50'
+                      : 'bg-slate-800 text-white'"
                     role="tooltip"
                   >
-                    {{ tile.tip }}
+                    {{ tile.disabled ? tile.disabledTip : tile.tip }}
                   </div>
                 </Transition>
               </button>
