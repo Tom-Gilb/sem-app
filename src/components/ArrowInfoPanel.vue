@@ -173,13 +173,16 @@ const SECTION_TINTS = [
           </div>
 
           <!-- ── Scrollable body ─────────────────────────────────────── -->
-          <!-- h-full on inner-class: outer is flex-1 min-h-0 (bounded by 90vh panel),
-               inner needs h-full so overflow-y-auto has a constrained height to scroll within.
-               Without h-full the inner div grows to content height → no scroll occurs.
-               Fix for "info for stage arrows do not scroll" (Tom 2026-05-28). -->
+          <!-- Nested-flex scroll pattern (DD-009-adjacent, 2026-05-28):
+               outer = flex flex-col flex-1 min-h-0 → gives the outer div a concrete
+               computed height (bounded by panel's max-h-[90vh] flex column).
+               inner = flex-1 min-h-0 → fills that height as a flex child, giving
+               overflow-y-auto a constrained container to scroll within.
+               h-full does NOT work here: nested flex items don't propagate concrete
+               heights to children via h-full unless the item itself sets height: explicitly. -->
           <ScrollContainer
-            outer-class="flex-1 min-h-0 relative"
-            inner-class="h-full px-4 py-4 space-y-3"
+            outer-class="flex-1 min-h-0 relative flex flex-col"
+            inner-class="flex-1 min-h-0 px-4 py-4 space-y-3"
             :no-pill="false"
           >
             <!-- Info sections -->
