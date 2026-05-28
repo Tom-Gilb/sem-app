@@ -173,16 +173,18 @@ const SECTION_TINTS = [
           </div>
 
           <!-- ── Scrollable body ─────────────────────────────────────── -->
-          <!-- Nested-flex scroll pattern (DD-009-adjacent, 2026-05-28):
-               outer = flex flex-col flex-1 min-h-0 → gives the outer div a concrete
-               computed height (bounded by panel's max-h-[90vh] flex column).
-               inner = flex-1 min-h-0 → fills that height as a flex child, giving
-               overflow-y-auto a constrained container to scroll within.
-               h-full does NOT work here: nested flex items don't propagate concrete
-               heights to children via h-full unless the item itself sets height: explicitly. -->
+          <!-- max-height on inner-style — the ONLY reliable scroll pattern when the panel
+               card uses max-h-[90vh] (not an explicit height).
+               h-full and flex-1 min-h-0 both require an explicitly-specified parent height
+               (flex algorithm gives a computed height, but CSS % resolution requires
+               an explicit one). max-height on the scrollable div is self-contained:
+               inner grows to content, caps at calc(90vh − fixed), scrolls.
+               160px = generous estimate of header (≈72px) + labels (≈34px) + swatch (8px)
+               + 2× outer panel padding (p-4). Safe buffer absorbs any line-wrap growth. -->
           <ScrollContainer
-            outer-class="flex-1 min-h-0 relative flex flex-col"
-            inner-class="flex-1 min-h-0 px-4 py-4 space-y-3"
+            outer-class="relative overflow-hidden"
+            inner-class="px-4 py-4 space-y-3"
+            inner-style="max-height: calc(90vh - 160px);"
             :no-pill="false"
           >
             <!-- Info sections -->

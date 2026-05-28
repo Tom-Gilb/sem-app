@@ -178,12 +178,18 @@ const SECTION_TINTS = [
           </div>
 
           <!-- ── Scrollable body ─────────────────────────────────────── -->
-          <!-- Nested-flex scroll pattern: same fix as ArrowInfoPanel (2026-05-28).
-               outer = flex flex-col gives a concrete height; inner = flex-1 min-h-0
-               fills it so overflow-y-auto has a constrained container. -->
+          <!-- max-height on inner-style — the ONLY reliable scroll pattern when the panel
+               card uses max-h-[90vh] (not an explicit height).
+               h-full and flex-1 min-h-0 both require an explicitly-specified parent height
+               (flex algorithm gives a computed height, but CSS % resolution requires
+               an explicit one). max-height on the scrollable div is self-contained:
+               inner grows to content, caps at calc(90vh − fixed), scrolls.
+               160px = generous estimate of header (≈72px) + tagline (≈34px)
+               + 2× outer panel padding (p-4). Safe buffer absorbs any line-wrap growth. -->
           <ScrollContainer
-            outer-class="flex-1 min-h-0 relative flex flex-col"
-            inner-class="flex-1 min-h-0 px-4 py-4 space-y-3"
+            outer-class="relative overflow-hidden"
+            inner-class="px-4 py-4 space-y-3"
+            inner-style="max-height: calc(90vh - 160px);"
             :no-pill="false"
           >
             <!-- Info sections -->
