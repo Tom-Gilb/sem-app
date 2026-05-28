@@ -30,11 +30,12 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import PlTypeIcon from './icons/PlTypeIcon.vue'
 import type { PlGlyphType } from './icons/PlTypeIcon.vue'
 import ArrowInfoPanel from './ArrowInfoPanel.vue'
 import StageInfoPanel from './StageInfoPanel.vue'
+import CloseDot from './CloseDot.vue'
 // ScrollContainer removed 2026-05-28: it wraps overflow-y-auto only; the stage bar
 // needs horizontal scroll. Native overflow-x-auto + scrollWrapRef used instead.
 import {
@@ -62,6 +63,11 @@ const emit = defineEmits<{
    * Bubbled to App.vue to open GlyphDataPanel (P2, 2026-05-27).
    */
   'open-glyph': [plType: PlGlyphType]
+  /**
+   * User clicked the primary CTA in the drama popup for a stage.
+   * App.vue handles the stage-specific action (navigate + trigger).
+   */
+  'stage-action': [stage: number]
 }>()
 
 // ── Stage definitions ──────────────────────────────────────────────────────────
@@ -84,6 +90,24 @@ const STAGES: Array<{
   { stage: 10, label: 'Plan',       plType: 'resource',    title: 'Stage 10 · Plan — Assign resources and schedule Evo Steps. Define who does what, with what budget, and in what sequence across the delivery lifecycle.' },
   { stage: 11, label: 'Export',     plType: 'constraint',  title: 'Stage 11 · Export — Share and publish the plan. Export the full Planguage specification as a formatted document, coloured HTML table, or JSON for Tom\'s Twin and downstream tools.' },
 ]
+
+// ── Stage drama-popup CTA labels ──────────────────────────────────────────────
+// Labels only — handlers live in App.vue (emits 'stage-action': [stage: number]).
+// Must stay in sync with planningStageAction computed in App.vue.
+
+const STAGE_CTAS: Record<number, string> = {
+  1:  '✏️ Enter Stakes',
+  2:  '0→* Edit Values',
+  3:  '[*] Edit Solutions',
+  4:  '✨ Sharpen Spec',
+  5:  '📊 Estimate Impacts',
+  6:  '⚡ Generate Evo Steps',
+  7:  '📈 Evo Simulator',
+  8:  '✅ Plan Tasks',
+  9:  '📋 Study Results',
+  10: '🗂 Review Plan',
+  11: '📤 Export Plan',
+}
 
 // ── Stage state helpers ────────────────────────────────────────────────────────
 
@@ -154,7 +178,7 @@ function arrowStyle(idx: number): Record<string, string> {
 }
 
 // ── Stage info panel (double-click) ───────────────────────────────────────────
-// Single-click = navigate; double-click = rich info panel for that stage.
+// Single-click = drama popover on the tile; double-click = full StageInfoPanel.
 // 250 ms timer: on first click start timer; second click within window = dblclick.
 
 const openStageInfoIdx = ref<number | null>(null)
@@ -162,21 +186,106 @@ let _clickTimer: ReturnType<typeof setTimeout> | null = null
 
 function handlePillClick(stage: number): void {
   if (_clickTimer) {
-    // Second click arrived within 250 ms → treat as double-click → open info
+    // Second click within 250 ms → double-click → open full info panel
     clearTimeout(_clickTimer)
     _clickTimer = null
+    closeDramaPopover()
     openStageInfoIdx.value = stage
   } else {
     // First click — wait to see if a second arrives
     _clickTimer = setTimeout(() => {
       _clickTimer = null
-      navigateToStage(stage)  // single-click: navigate
+      // Single-click: open drama popover on the tile (not navigate directly)
+      const idx = STAGES.findIndex(s => s.stage === stage)
+      const pill = pillRefs.value[idx]
+      popoverAnchorRect.value = pill ? pill.getBoundingClientRect() : null
+      activePopoverStage.value = stage
     }, 250)
   }
 }
 
 function closeStageInfo(): void {
   openStageInfoIdx.value = null
+}
+
+// ── Drama popover (single-click on stage tile) ────────────────────────────────
+// A dramatic, stage-colored animated popover Teleport'd to body so it renders
+// above the overflow-x-auto container without clipping.
+// Architecture: pure data-driven; positioning via getBoundingClientRect at click
+// time (captured into popoverAnchorRect). Twin-portable: no DOM assumptions.
+
+const activePopoverStage  = ref<number | null>(null)
+const popoverAnchorRect   = ref<DOMRect | null>(null)
+
+function closeDramaPopover(): void {
+  activePopoverStage.value = null
+  popoverAnchorRect.value  = null
+}
+
+const activePopoverData = computed(() =>
+  activePopoverStage.value !== null
+    ? (STAGES.find(s => s.stage === activePopoverStage.value) ?? null)
+    : null
+)
+
+const popoverHeaderGradient = computed((): string => {
+  if (activePopoverStage.value === null) return ''
+  const col = stageProgressColor(pos(activePopoverStage.value))
+  return `linear-gradient(135deg, ${col}cc 0%, ${col} 60%, ${col}dd 100%)`
+})
+
+const popoverGlowStyle = computed((): Record<string, string> => {
+  if (activePopoverStage.value === null) return {}
+  const col = stageProgressColor(pos(activePopoverStage.value))
+  return { filter: `drop-shadow(0 0 20px ${col}) drop-shadow(0 0 40px ${col}66)` }
+})
+
+const popoverStyle = computed((): Record<string, string> => {
+  const rect = popoverAnchorRect.value
+  if (!rect) return { display: 'none' }
+  const popW   = 308
+  const popH   = 400      // approximate — actual height is content-driven
+  const margin = 12
+  const vw     = typeof window !== 'undefined' ? window.innerWidth  : 1440
+  const vh     = typeof window !== 'undefined' ? window.innerHeight : 900
+
+  let left = rect.left + rect.width / 2 - popW / 2
+  left = Math.max(margin, Math.min(left, vw - popW - margin))
+
+  // Prefer above the pill; fall back to below if not enough room
+  let top = rect.top - popH - 16
+  if (top < margin) top = Math.min(rect.bottom + 16, vh - popH - margin)
+
+  return {
+    left:  `${Math.round(left)}px`,
+    top:   `${Math.round(top)}px`,
+    width: `${popW}px`,
+  }
+})
+
+function onStageCta(): void {
+  if (activePopoverStage.value === null) return
+  emit('stage-action', activePopoverStage.value)
+  closeDramaPopover()
+}
+
+function onNavigateThenClose(): void {
+  if (activePopoverStage.value === null) return
+  navigateToStage(activePopoverStage.value)
+  closeDramaPopover()
+}
+
+function onOpenFullInfo(): void {
+  if (activePopoverStage.value === null) return
+  openStageInfoIdx.value = activePopoverStage.value
+  closeDramaPopover()
+}
+
+// Escape key closes the drama popup
+function _onKeyDown(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && activePopoverStage.value !== null) {
+    closeDramaPopover()
+  }
 }
 
 // ── Scroll-to-active ──────────────────────────────────────────────────────────
@@ -201,7 +310,14 @@ function scrollToActive(): void {
 }
 
 watch(() => props.currentStage, scrollToActive)
-onMounted(scrollToActive)
+onMounted(() => {
+  scrollToActive()
+  window.addEventListener('keydown', _onKeyDown)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', _onKeyDown)
+  if (_clickTimer) clearTimeout(_clickTimer)
+})
 </script>
 
 <template>
@@ -369,6 +485,112 @@ onMounted(scrollToActive)
     </button>
   </nav>
 
+  <!-- ── Drama popover — single-click on stage tile ─────────────────────────
+       Teleported to body: avoids overflow-x-auto clipping.
+       Backdrop + popover rendered as two sibling children inside one Teleport.
+       Single-Surface rule: this is a small positional popover (not full-screen),
+       so registerExclusiveSurface is NOT required; Escape + backdrop close it. -->
+  <Teleport to="body">
+    <!-- Backdrop — semi-transparent, click closes the popover -->
+    <div
+      v-if="activePopoverStage !== null"
+      class="fixed inset-0 z-[800] bg-black/50 backdrop-blur-[2px]"
+      aria-hidden="true"
+      @click="closeDramaPopover()"
+    />
+
+    <!-- Drama popover panel -->
+    <Transition name="drama-pop">
+      <div
+        v-if="activePopoverStage !== null && popoverAnchorRect"
+        class="fixed z-[801] rounded-2xl overflow-hidden shadow-[0_8px_48px_rgba(0,0,0,0.7)]"
+        :style="popoverStyle"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`Stage ${activePopoverStage} — ${activePopoverData?.label}`"
+      >
+        <!-- ── Header: stage gradient, big number, CloseDot ── -->
+        <div
+          class="flex items-center justify-between px-4 pt-4 pb-3"
+          :style="{ background: popoverHeaderGradient }"
+        >
+          <!-- Big ghost number + stage name -->
+          <div class="flex items-center gap-3 min-w-0">
+            <span
+              class="text-[52px] font-black leading-none select-none shrink-0"
+              style="opacity: 0.22; color: #fff; line-height: 1;"
+              aria-hidden="true"
+            >{{ activePopoverStage }}</span>
+            <div class="min-w-0">
+              <div class="text-[10px] font-bold text-white/60 uppercase tracking-[0.14em] leading-none mb-1">
+                Stage {{ activePopoverStage }} of 11
+              </div>
+              <div class="text-[18px] font-extrabold text-white leading-tight truncate">
+                {{ activePopoverData?.label }}
+              </div>
+            </div>
+          </div>
+          <!-- CloseDot rule: at end (right) of parent flex header -->
+          <CloseDot @click="closeDramaPopover()" />
+        </div>
+
+        <!-- ── Body: glyph + description ── -->
+        <div class="bg-[#0d1526] px-5 py-5 flex flex-col items-center gap-4">
+          <!-- PlTypeIcon with dramatic neon glow -->
+          <div :style="popoverGlowStyle" class="py-1 transition-all duration-300">
+            <PlTypeIcon
+              :pl-type="activePopoverData?.plType ?? 'function'"
+              size="2xl"
+            />
+          </div>
+          <!-- Stage description text from STAGES[].title -->
+          <p class="text-[12.5px] text-slate-300 text-center leading-relaxed max-w-[264px]">
+            {{ activePopoverData?.title }}
+          </p>
+        </div>
+
+        <!-- ── Footer: action buttons ── -->
+        <div class="bg-[#08101e] px-4 pt-3 pb-4 flex flex-col gap-2">
+          <!-- Primary CTA — stage-colored gradient, big -->
+          <button
+            type="button"
+            class="w-full py-3 rounded-xl text-[13px] font-extrabold text-white
+                   tracking-wide shadow-lg transition-all duration-200
+                   hover:brightness-110 hover:scale-[1.02] active:scale-95
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            :style="{ background: popoverHeaderGradient }"
+            @click="onStageCta()"
+          >
+            {{ STAGE_CTAS[activePopoverStage ?? 0] ?? '⚡ Go to Stage' }}
+          </button>
+          <!-- Secondary row: navigate + full info -->
+          <div class="flex gap-2">
+            <button
+              type="button"
+              class="flex-1 py-2 rounded-xl text-[11px] font-bold text-slate-300
+                     bg-white/[0.07] hover:bg-white/[0.14] hover:text-white
+                     transition-all duration-200 active:scale-95
+                     focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+              @click="onNavigateThenClose()"
+            >
+              ▶ Go to Stage
+            </button>
+            <button
+              type="button"
+              class="flex-1 py-2 rounded-xl text-[11px] font-bold text-slate-300
+                     bg-white/[0.07] hover:bg-white/[0.14] hover:text-white
+                     transition-all duration-200 active:scale-95
+                     focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+              @click="onOpenFullInfo()"
+            >
+              Full Info →
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   <!-- Arrow info panel (Teleported to body) -->
   <ArrowInfoPanel
     :arrow-idx="openArrowIdx"
@@ -421,5 +643,24 @@ onMounted(scrollToActive)
 }
 .glyph-bob {
   animation: glyph-bob 2.5s ease-in-out infinite;
+}
+
+/* ── Drama popover entrance / exit ────────────────────────────────────────────
+   Springy scale-up from 82% with a slight upward drift (translateY 8px→0).
+   Exit: fast shrink + fade, moves up slightly (feels like it "snaps back").
+   cubic-bezier(0.175, 0.885, 0.32, 1.275) = back-out easing (subtle overshoot). */
+.drama-pop-enter-active {
+  transition: opacity 0.22s ease, transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.drama-pop-leave-active {
+  transition: opacity 0.14s ease-in, transform 0.14s ease-in;
+}
+.drama-pop-enter-from {
+  opacity: 0;
+  transform: scale(0.82) translateY(10px);
+}
+.drama-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.94) translateY(-6px);
 }
 </style>

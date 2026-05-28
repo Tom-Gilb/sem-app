@@ -1022,6 +1022,17 @@ function handleStageBarNav(n: number): void {
 }
 
 /**
+ * Called when user clicks the primary CTA in the ValueCounter drama popover.
+ * Navigates to that stage AND executes the stage-specific action.
+ * planningStageAction is a computed from planningStage — it updates synchronously
+ * after handleStageBarNav sets planningStage.value, so the handler is correct.
+ */
+function handleStageAction(stage: number): void {
+  handleStageBarNav(stage)
+  planningStageAction.value?.handler()
+}
+
+/**
  * Primary action for the current planning stage — shown as a pill button in
  * the stage breadcrumb row below the ValueCounter.
  * Tom 2026-05-28: "when I select a step 1-11 it either needs to repeat that step
@@ -4329,6 +4340,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           :current-stage="planningStage"
           @go-to-stage="handleStageBarNav"
           @open-glyph="openGlyphPanel"
+          @stage-action="handleStageAction"
         />
       </div>
 
