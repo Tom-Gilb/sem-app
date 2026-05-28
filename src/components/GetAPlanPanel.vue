@@ -320,6 +320,314 @@ async function handleMerge(): Promise<void> {
 function handleMergeUse():     void { if (mergeParsed.value) emit('imported', mergeParsed.value) }
 function handleMergeSharpen(): void { if (mergeParsed.value) emit('imported-and-sharpen', mergeParsed.value) }
 function handleMergeAddTo():   void { if (mergeParsed.value) emit('add-to', mergeParsed.value) }
+
+// ── Export: Copy & Email as colored HTML tables ────────────────────────────────
+// Colorful Exports Rule (2026-05-26): every export MUST be a colored HTML table.
+// Pattern mirrors PrioritisedPlanView.vue copyRich() / buildFullPlanClipboardHTML().
+// Inline styles only — sanitizers strip external <style> blocks.
+
+const _EF  = '-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif'
+const _ETB = `border-collapse:collapse;font-family:${_EF};font-size:13px;width:100%;margin-bottom:16px`
+const _ETD = 'padding:8px 12px;border:1px solid #e5e7eb;color:#374151;vertical-align:top;white-space:normal'
+const _ETA = `${_ETD};background:#f9fafb`
+
+function _eEsc(s: string | undefined | null): string {
+  if (!s) return ''
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+function _eTH(bg: string): string {
+  return `background:${bg};color:#fff;padding:8px 12px;font-size:12px;font-weight:700;text-align:left;white-space:normal`
+}
+function _eNow(): string {
+  const d = new Date()
+  return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+function _eReadInSource(): string {
+  if (readInMode.value === 'url')  return `URL: ${urlInput.value}`
+  if (readInMode.value === 'file') return `File: ${selectedFile.value?.name ?? 'unknown'}`
+  return 'Pasted text'
+}
+
+function _eHeaderTable(title: string, detail: string, source: string, ts: string): string {
+  return `<table style="${_ETB}"><tbody>
+    <tr>
+      <td style="background:#0f172a;color:#f1f5f9;padding:10px 14px;font-size:15px;font-weight:700;letter-spacing:-0.01em">
+        SEM — ${_eEsc(title)}
+      </td>
+      <td style="background:#0f172a;color:#94a3b8;padding:10px 14px;font-size:11px;text-align:right;white-space:nowrap;vertical-align:middle">
+        ${_eEsc(ts)}
+      </td>
+    </tr>
+    <tr>
+      <td style="background:#1e293b;color:#cbd5e1;padding:6px 14px;font-size:11px">${_eEsc(detail)}</td>
+      <td style="background:#1e293b;color:#64748b;padding:6px 14px;font-size:11px;text-align:right;white-space:nowrap">
+        Source: ${_eEsc(source)}
+      </td>
+    </tr>
+  </tbody></table>`
+}
+
+function _eFTable(spec: SpecBlock): string {
+  if (!spec.functions.length) return ''
+  const H = _eTH('#1d4ed8')
+  let t = `<table style="${_ETB}">
+    <caption style="text-align:left;padding:4px 0;font-size:11px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.05em">
+      F. Functions (${spec.functions.length})
+    </caption>
+    <thead><tr>
+      <th style="${H}">F. Function</th>
+      <th style="${H}">Presence Test</th>
+      <th style="${H}">For Value</th>
+    </tr></thead><tbody>`
+  spec.functions.forEach((f, i) => {
+    const td = i % 2 === 0 ? _ETD : _ETA
+    const pt = _eEsc(f.presenceTest ?? f.successCriteria)
+    t += `<tr>
+      <td style="${td};font-weight:600">${_eEsc(f.description)}</td>
+      <td style="${td}">${pt}</td>
+      <td style="${td}">${_eEsc(f.functionOfValue)}</td>
+    </tr>`
+  })
+  return t + '</tbody></table>'
+}
+
+function _eVTable(spec: SpecBlock): string {
+  if (!spec.values.length) return ''
+  const H = _eTH('#6d28d9')
+  let t = `<table style="${_ETB}">
+    <caption style="text-align:left;padding:4px 0;font-size:11px;font-weight:700;color:#6d28d9;text-transform:uppercase;letter-spacing:.05em">
+      V. Values (${spec.values.length})
+    </caption>
+    <thead><tr>
+      <th style="${H}">V. Value</th>
+      <th style="${H}">Scale</th>
+      <th style="${H}">Meter</th>
+      <th style="${H}">Status</th>
+      <th style="${H}">Tolerable</th>
+      <th style="${H}">Goal</th>
+    </tr></thead><tbody>`
+  spec.values.forEach((v, i) => {
+    const td = i % 2 === 0 ? _ETD : _ETA
+    t += `<tr>
+      <td style="${td};font-weight:600">${_eEsc(v.description)}</td>
+      <td style="${td}">${_eEsc(v.scale)}</td>
+      <td style="${td}">${_eEsc(v.meter)}</td>
+      <td style="${td}">${_eEsc(v.status)}</td>
+      <td style="${td}">${_eEsc(v.tolerable)}</td>
+      <td style="${td}">${_eEsc(v.goal)}</td>
+    </tr>`
+  })
+  return t + '</tbody></table>'
+}
+
+function _eSTable(spec: SpecBlock): string {
+  if (!spec.solutions.length) return ''
+  const H = _eTH('#c2410c')
+  let t = `<table style="${_ETB}">
+    <caption style="text-align:left;padding:4px 0;font-size:11px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:.05em">
+      S. Solutions (${spec.solutions.length})
+    </caption>
+    <thead><tr>
+      <th style="${H}">S. Solution</th>
+      <th style="${H}">Impact</th>
+      <th style="${H}">For Function</th>
+    </tr></thead><tbody>`
+  spec.solutions.forEach((s, i) => {
+    const td = i % 2 === 0 ? _ETD : _ETA
+    t += `<tr>
+      <td style="${td};font-weight:600">${_eEsc(s.description)}</td>
+      <td style="${td}">${_eEsc(s.impact)}</td>
+      <td style="${td}">${_eEsc(s.function)}</td>
+    </tr>`
+  })
+  return t + '</tbody></table>'
+}
+
+function _eOrigTable(rawText: string, sourceLabel: string): string {
+  if (!rawText.trim()) return ''
+  const H = _eTH('#374151')
+  return `<table style="${_ETB}">
+    <caption style="text-align:left;padding:4px 0;font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em">
+      Original Input — ${_eEsc(sourceLabel)}
+    </caption>
+    <thead><tr><th style="${H}">Original Text</th></tr></thead>
+    <tbody><tr>
+      <td style="${_ETD};white-space:pre-wrap;font-family:monospace;font-size:11px;max-width:600px">${_eEsc(rawText)}</td>
+    </tr></tbody>
+  </table>`
+}
+
+function _eWrap(body: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:${_EF};padding:16px;background:#fff;max-width:900px">${body}</body></html>`
+}
+
+type ExportSection = 'all' | 'F' | 'V' | 'S'
+
+// ── Read In export builders ────────────────────────────────────────────────────
+function _buildReadInHtml(spec: SpecBlock, section: ExportSection, ts: string): string {
+  const source = _eReadInSource()
+  const counts = `${spec.functions.length}F · ${spec.values.length}V · ${spec.solutions.length}S`
+  const detail = section === 'all' ? `Parse Results — ${counts}` :
+    section === 'F' ? `Functions (${spec.functions.length})` :
+    section === 'V' ? `Values (${spec.values.length})` :
+                      `Solutions (${spec.solutions.length})`
+  let body = _eHeaderTable('Parse Results', detail, source, ts)
+  if (section === 'all' || section === 'F') body += _eFTable(spec)
+  if (section === 'all' || section === 'V') body += _eVTable(spec)
+  if (section === 'all' || section === 'S') body += _eSTable(spec)
+  const rawText = readInMode.value === 'text' ? pastedText.value : ''
+  body += _eOrigTable(rawText, source)
+  return _eWrap(body)
+}
+
+function _buildReadInTsv(spec: SpecBlock, section: ExportSection, ts: string): string {
+  const source = _eReadInSource()
+  const lines: string[] = [`SEM Parse Results · ${ts} · Source: ${source}`, '']
+  if (section === 'all' || section === 'F') {
+    lines.push('── Functions ──')
+    spec.functions.forEach(f => {
+      lines.push(`F. ${f.description}`)
+      const pt = f.presenceTest ?? f.successCriteria
+      if (pt) lines.push(`   Presence test: ${pt}`)
+      if (f.functionOfValue) lines.push(`   For value: ${f.functionOfValue}`)
+    })
+    lines.push('')
+  }
+  if (section === 'all' || section === 'V') {
+    lines.push('── Values ──')
+    spec.values.forEach(v => {
+      lines.push(`V. ${v.description}`)
+      if (v.scale)     lines.push(`   Scale:     ${v.scale}`)
+      if (v.meter)     lines.push(`   Meter:     ${v.meter}`)
+      if (v.tolerable) lines.push(`   Tolerable: ${v.tolerable}`)
+      if (v.goal)      lines.push(`   Goal:      ${v.goal}`)
+    })
+    lines.push('')
+  }
+  if (section === 'all' || section === 'S') {
+    lines.push('── Solutions ──')
+    spec.solutions.forEach(s => {
+      lines.push(`S. ${s.description}`)
+      if (s.impact) lines.push(`   Impact: ${s.impact}`)
+    })
+  }
+  if (readInMode.value === 'text' && pastedText.value.trim()) {
+    lines.push('', '── Original Input ──', pastedText.value)
+  }
+  return lines.join('\n').trim()
+}
+
+// ── Merge export builders ──────────────────────────────────────────────────────
+function _buildMergeHtml(spec: SpecBlock, section: ExportSection, ts: string): string {
+  const source = mergeSourceLabels.value.join(' · ') || 'Merge'
+  const counts = `${spec.functions.length}F · ${spec.values.length}V · ${spec.solutions.length}S`
+  const detail = section === 'all' ? `Merge Results — ${counts}` :
+    section === 'F' ? `Functions (${spec.functions.length})` :
+    section === 'V' ? `Values (${spec.values.length})` :
+                      `Solutions (${spec.solutions.length})`
+  let body = _eHeaderTable('Merge Results', detail, source, ts)
+  if (section === 'all' || section === 'F') body += _eFTable(spec)
+  if (section === 'all' || section === 'V') body += _eVTable(spec)
+  if (section === 'all' || section === 'S') body += _eSTable(spec)
+  if (mergeFreeText.value.trim()) body += _eOrigTable(mergeFreeText.value, 'Free text input')
+  return _eWrap(body)
+}
+
+function _buildMergeTsv(spec: SpecBlock, section: ExportSection, ts: string): string {
+  const source = mergeSourceLabels.value.join(' · ') || 'Merge'
+  const lines: string[] = [`SEM Merge Results · ${ts} · Sources: ${source}`, '']
+  if (section === 'all' || section === 'F') {
+    lines.push('── Functions ──')
+    spec.functions.forEach(f => {
+      lines.push(`F. ${f.description}`)
+      const pt = f.presenceTest ?? f.successCriteria
+      if (pt) lines.push(`   Presence test: ${pt}`)
+      if (f.functionOfValue) lines.push(`   For value: ${f.functionOfValue}`)
+    })
+    lines.push('')
+  }
+  if (section === 'all' || section === 'V') {
+    lines.push('── Values ──')
+    spec.values.forEach(v => {
+      lines.push(`V. ${v.description}`)
+      if (v.scale)     lines.push(`   Scale:     ${v.scale}`)
+      if (v.meter)     lines.push(`   Meter:     ${v.meter}`)
+      if (v.tolerable) lines.push(`   Tolerable: ${v.tolerable}`)
+      if (v.goal)      lines.push(`   Goal:      ${v.goal}`)
+    })
+    lines.push('')
+  }
+  if (section === 'all' || section === 'S') {
+    lines.push('── Solutions ──')
+    spec.solutions.forEach(s => {
+      lines.push(`S. ${s.description}`)
+      if (s.impact) lines.push(`   Impact: ${s.impact}`)
+    })
+  }
+  if (mergeFreeText.value.trim()) {
+    lines.push('', '── Free text input ──', mergeFreeText.value)
+  }
+  return lines.join('\n').trim()
+}
+
+// ── Rich clipboard writer ──────────────────────────────────────────────────────
+// Writes text/html + text/plain together: HTML-capable apps (Mail, Keynote, Pages,
+// Notes) receive styled colored tables; plain-text apps get TSV fallback.
+const copiedExport = ref<string | null>(null)
+let _exportTimer: ReturnType<typeof setTimeout> | null = null
+
+async function _copyRich(key: string, html: string, tsv: string): Promise<void> {
+  try {
+    if (typeof ClipboardItem !== 'undefined') {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html':  new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([tsv],  { type: 'text/plain' }),
+        }),
+      ])
+    } else {
+      await navigator.clipboard.writeText(tsv)
+    }
+  } catch {
+    try { await navigator.clipboard.writeText(tsv) } catch { /* silent */ }
+  }
+  copiedExport.value = key
+  if (_exportTimer) clearTimeout(_exportTimer)
+  _exportTimer = setTimeout(() => { copiedExport.value = null }, 4000)
+}
+
+async function copyReadIn(section: ExportSection): Promise<void> {
+  if (!readInParsed.value) return
+  const ts = _eNow()
+  await _copyRich(`ri-${section}`, _buildReadInHtml(readInParsed.value, section, ts), _buildReadInTsv(readInParsed.value, section, ts))
+}
+
+async function emailReadIn(): Promise<void> {
+  if (!readInParsed.value) return
+  const ts = _eNow()
+  await _copyRich('ri-email', _buildReadInHtml(readInParsed.value, 'all', ts), _buildReadInTsv(readInParsed.value, 'all', ts))
+  const spec = readInParsed.value
+  const subj = encodeURIComponent(`SEM Parse Results — ${spec.functions.length}F ${spec.values.length}V ${spec.solutions.length}S · ${ts}`)
+  const body = encodeURIComponent('Planguage parse results are copied to your clipboard — open Mail, create a new message, and paste with ⌘V to insert the full-color tables.')
+  window.location.href = `mailto:?subject=${subj}&body=${body}`
+}
+
+async function copyMerge(section: ExportSection): Promise<void> {
+  if (!mergeParsed.value) return
+  const ts = _eNow()
+  await _copyRich(`mg-${section}`, _buildMergeHtml(mergeParsed.value, section, ts), _buildMergeTsv(mergeParsed.value, section, ts))
+}
+
+async function emailMerge(): Promise<void> {
+  if (!mergeParsed.value) return
+  const ts = _eNow()
+  await _copyRich('mg-email', _buildMergeHtml(mergeParsed.value, 'all', ts), _buildMergeTsv(mergeParsed.value, 'all', ts))
+  const spec = mergeParsed.value
+  const subj = encodeURIComponent(`SEM Merge Results — ${spec.functions.length}F ${spec.values.length}V ${spec.solutions.length}S · ${ts}`)
+  const body = encodeURIComponent('Planguage merge results are copied to your clipboard — open Mail, create a new message, and paste with ⌘V to insert the full-color tables.')
+  window.location.href = `mailto:?subject=${subj}&body=${body}`
+}
 </script>
 
 <template>
@@ -461,6 +769,94 @@ function handleMergeAddTo():   void { if (mergeParsed.value) emit('add-to', merg
                       <span aria-hidden="true">🔪</span> Use + Sharpen
                     </button>
                   </div>
+                </div>
+
+                <!-- ── Copy & Email export ── -->
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Copy &amp; Email Parse Results</p>
+
+                  <!-- All-3 row -->
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="flex-1 flex items-center justify-center gap-1.5 min-h-[40px] rounded-lg
+                             bg-slate-800 text-white text-xs font-semibold
+                             hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
+                             transition-colors"
+                      title="Copy all 3 components (Functions + Values + Solutions) as a colored HTML table — paste with ⌘V in Mail, Keynote, or Notes. Includes original input text and timestamp."
+                      :aria-label="copiedExport === 'ri-all' ? 'Copied!' : 'Copy all 3 components as colored HTML tables'"
+                      @click="copyReadIn('all')"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'ri-all' ? '✓' : '📋' }}</span>
+                      {{ copiedExport === 'ri-all' ? 'Copied!' : 'Copy All · F + V + S' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg
+                             bg-indigo-600 text-white text-xs font-semibold
+                             hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1
+                             transition-colors"
+                      title="Copy all results to clipboard as colored tables, then open Mail.app — paste with ⌘V in the email body for full-color tables. Subject line includes entry counts and timestamp."
+                      :aria-label="copiedExport === 'ri-email' ? 'Copied — Mail opening' : 'Email all parse results'"
+                      @click="emailReadIn"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'ri-email' ? '✓' : '✉️' }}</span>
+                      {{ copiedExport === 'ri-email' ? 'Opening Mail…' : 'Mail All' }}
+                    </button>
+                  </div>
+
+                  <!-- Individual component row -->
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="flex-1 flex items-center justify-center gap-1 min-h-[36px] rounded-lg
+                             border border-blue-300 bg-blue-50 text-blue-700 text-xs font-semibold
+                             hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
+                             transition-colors"
+                      :title="`Copy Functions only (${readInParsed?.functions.length ?? 0} entries) as a colored blue HTML table — paste with ⌘V. Includes original input and timestamp.`"
+                      :aria-label="copiedExport === 'ri-F' ? 'Functions copied' : 'Copy Functions only'"
+                      @click="copyReadIn('F')"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'ri-F' ? '✓' : 'F.' }}</span>
+                      {{ copiedExport === 'ri-F' ? 'Copied' : 'Functions' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="flex-1 flex items-center justify-center gap-1 min-h-[36px] rounded-lg
+                             border border-violet-300 bg-violet-50 text-violet-700 text-xs font-semibold
+                             hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-1
+                             transition-colors"
+                      :title="`Copy Values only (${readInParsed?.values.length ?? 0} entries) as a colored violet HTML table — paste with ⌘V. Includes Scale, Meter, Tolerable, Goal, original input, and timestamp.`"
+                      :aria-label="copiedExport === 'ri-V' ? 'Values copied' : 'Copy Values only'"
+                      @click="copyReadIn('V')"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'ri-V' ? '✓' : 'V.' }}</span>
+                      {{ copiedExport === 'ri-V' ? 'Copied' : 'Values' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="flex-1 flex items-center justify-center gap-1 min-h-[36px] rounded-lg
+                             border border-orange-300 bg-orange-50 text-orange-700 text-xs font-semibold
+                             hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-1
+                             transition-colors"
+                      :title="`Copy Solutions only (${readInParsed?.solutions.length ?? 0} entries) as a colored orange HTML table — paste with ⌘V. Includes Impact, For Function, original input, and timestamp.`"
+                      :aria-label="copiedExport === 'ri-S' ? 'Solutions copied' : 'Copy Solutions only'"
+                      @click="copyReadIn('S')"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'ri-S' ? '✓' : 'S.' }}</span>
+                      {{ copiedExport === 'ri-S' ? 'Copied' : 'Solutions' }}
+                    </button>
+                  </div>
+
+                  <!-- Confirmation hint -->
+                  <p
+                    v-if="copiedExport?.startsWith('ri-')"
+                    class="text-[11px] text-emerald-600 text-center"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    ✓ Copied — paste with ⌘V in Mail, Keynote, or Notes for full-color tables
+                  </p>
                 </div>
 
                 <!-- ── Preview (supplementary — below the CTAs) ── -->
@@ -1090,6 +1486,7 @@ function handleMergeAddTo():   void { if (mergeParsed.value) emit('add-to', merg
                     class="w-full flex items-center justify-center gap-2 min-h-[48px] rounded-xl
                            bg-emerald-600 text-white text-sm font-semibold
                            hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 transition-colors"
+                    title="Merge the result into your existing live plan — new entries are added alongside existing ones. No existing entries are removed."
                     @click="handleMergeAddTo"
                   >
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -1106,6 +1503,9 @@ function handleMergeAddTo():   void { if (mergeParsed.value) emit('add-to', merg
                       :class="props.hasCurrentPlan
                         ? 'bg-slate-600 text-white hover:bg-slate-700 focus:ring-slate-400'
                         : 'bg-violet-600 text-white hover:bg-violet-700 focus:ring-violet-400'"
+                      :title="props.hasCurrentPlan
+                        ? 'Replace your current live plan with the merged spec — your existing entries will be overwritten.'
+                        : 'Load the merged spec as your live plan and start working with it.'"
                       @click="handleMergeUse"
                     >
                       <span aria-hidden="true">{{ props.hasCurrentPlan ? '↩' : '✓' }}</span>
@@ -1116,12 +1516,102 @@ function handleMergeAddTo():   void { if (mergeParsed.value) emit('add-to', merg
                       class="flex-1 flex items-center justify-center gap-1.5 min-h-[48px]
                              rounded-xl bg-amber-500 text-white text-sm font-semibold
                              hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 transition-colors"
+                      title="Load the merged spec and immediately open the Sharpen panel to refine and improve it with AI."
                       @click="handleMergeSharpen"
                     >
                       <span aria-hidden="true">🔪</span> Use + Sharpen
                     </button>
                   </div>
                 </div>
+
+                <!-- ── Copy & Email export ── -->
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Copy &amp; Email Merge Results</p>
+
+                  <!-- All-3 row -->
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="flex-1 flex items-center justify-center gap-1.5 min-h-[40px] rounded-lg
+                             bg-slate-800 text-white text-xs font-semibold
+                             hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
+                             transition-colors"
+                      title="Copy all 3 merged components (Functions + Values + Solutions) as a colored HTML table — paste with ⌘V in Mail, Keynote, or Notes. Includes source labels and timestamp."
+                      :aria-label="copiedExport === 'mg-all' ? 'Copied!' : 'Copy all 3 merged components as colored HTML tables'"
+                      @click="copyMerge('all')"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'mg-all' ? '✓' : '📋' }}</span>
+                      {{ copiedExport === 'mg-all' ? 'Copied!' : 'Copy All · F + V + S' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg
+                             bg-violet-600 text-white text-xs font-semibold
+                             hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-1
+                             transition-colors"
+                      title="Copy all merge results to clipboard as colored tables, then open Mail.app — paste with ⌘V in the email body for full-color tables. Subject includes entry counts and timestamp."
+                      :aria-label="copiedExport === 'mg-email' ? 'Copied — Mail opening' : 'Email all merge results'"
+                      @click="emailMerge"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'mg-email' ? '✓' : '✉️' }}</span>
+                      {{ copiedExport === 'mg-email' ? 'Opening Mail…' : 'Mail All' }}
+                    </button>
+                  </div>
+
+                  <!-- Individual component row -->
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="flex-1 flex items-center justify-center gap-1 min-h-[36px] rounded-lg
+                             border border-blue-300 bg-blue-50 text-blue-700 text-xs font-semibold
+                             hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
+                             transition-colors"
+                      :title="`Copy merged Functions only (${mergeParsed?.functions.length ?? 0} entries) as a colored blue HTML table — paste with ⌘V. Includes source labels and timestamp.`"
+                      :aria-label="copiedExport === 'mg-F' ? 'Functions copied' : 'Copy merged Functions only'"
+                      @click="copyMerge('F')"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'mg-F' ? '✓' : 'F.' }}</span>
+                      {{ copiedExport === 'mg-F' ? 'Copied' : 'Functions' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="flex-1 flex items-center justify-center gap-1 min-h-[36px] rounded-lg
+                             border border-violet-300 bg-violet-50 text-violet-700 text-xs font-semibold
+                             hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-1
+                             transition-colors"
+                      :title="`Copy merged Values only (${mergeParsed?.values.length ?? 0} entries) as a colored violet HTML table — paste with ⌘V. Includes Scale, Meter, Tolerable, Goal, source labels, and timestamp.`"
+                      :aria-label="copiedExport === 'mg-V' ? 'Values copied' : 'Copy merged Values only'"
+                      @click="copyMerge('V')"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'mg-V' ? '✓' : 'V.' }}</span>
+                      {{ copiedExport === 'mg-V' ? 'Copied' : 'Values' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="flex-1 flex items-center justify-center gap-1 min-h-[36px] rounded-lg
+                             border border-orange-300 bg-orange-50 text-orange-700 text-xs font-semibold
+                             hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-1
+                             transition-colors"
+                      :title="`Copy merged Solutions only (${mergeParsed?.solutions.length ?? 0} entries) as a colored orange HTML table — paste with ⌘V. Includes Impact, For Function, source labels, and timestamp.`"
+                      :aria-label="copiedExport === 'mg-S' ? 'Solutions copied' : 'Copy merged Solutions only'"
+                      @click="copyMerge('S')"
+                    >
+                      <span aria-hidden="true">{{ copiedExport === 'mg-S' ? '✓' : 'S.' }}</span>
+                      {{ copiedExport === 'mg-S' ? 'Copied' : 'Solutions' }}
+                    </button>
+                  </div>
+
+                  <!-- Confirmation hint -->
+                  <p
+                    v-if="copiedExport?.startsWith('mg-')"
+                    class="text-[11px] text-emerald-600 text-center"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    ✓ Copied — paste with ⌘V in Mail, Keynote, or Notes for full-color tables
+                  </p>
+                </div>
+
               </div>
             </template>
 
