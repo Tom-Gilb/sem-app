@@ -18,6 +18,7 @@ import CloseDot from './CloseDot.vue'
 import { useConflictAnalysis, stakeholderCount } from '../composables/useConflictAnalysis'
 import type { SpecBlock } from '../types/spec'
 import type { Conflict } from '../composables/useConflictAnalysis'
+import AmuseMeButton from './AmuseMeButton.vue'
 
 const props = defineProps<{
   spec: SpecBlock
@@ -175,6 +176,8 @@ function emailAll(): void {
           <div class="w-8 h-8 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin" aria-hidden="true" />
           <p class="text-sm font-medium text-slate-600">Analysing stakeholder tensions…</p>
           <p class="text-xs text-slate-400">This takes a few seconds</p>
+          <!-- AmuseMeButton: conflict analysis can take 20–45s -->
+          <AmuseMeButton :is-loading="loading" class="w-full mt-2" />
         </div>
 
         <!-- Error state -->

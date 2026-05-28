@@ -10,6 +10,7 @@ import SpecOutput from './SpecOutput.vue'
 import { useSDK } from '../composables/useSDK'
 import { useSpecExport } from '../composables/useSpecExport'
 import type { SpecBlock } from '../types/spec'
+import AmuseMeButton from './AmuseMeButton.vue'
 
 const emit = defineEmits<{
   close: []
@@ -99,6 +100,8 @@ async function handleSubmitB(payload: { stakes: string; ends: string; means: str
             :raw-input="originalInputA"
           />
         </div>
+        <!-- AmuseMeButton: comparison spec A generation takes 20–60s -->
+        <AmuseMeButton :is-loading="loadingA" class="w-full mt-2" />
       </div>
 
       <!-- Panel B -->
@@ -120,6 +123,8 @@ async function handleSubmitB(payload: { stakes: string; ends: string; means: str
             :raw-input="originalInputB"
           />
         </div>
+        <!-- AmuseMeButton: comparison spec B generation takes 20–60s -->
+        <AmuseMeButton :is-loading="loadingB" class="w-full mt-2" />
       </div>
 
     </div>

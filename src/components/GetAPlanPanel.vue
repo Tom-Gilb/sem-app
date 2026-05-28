@@ -31,6 +31,7 @@ import type { SpecBlock } from '../types/spec'
 import LoadingProgress from './LoadingProgress.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
+import AmuseMeButton from './AmuseMeButton.vue'
 // DD-001 (2026-05-13).
 import SaveGlyph from './icons/SaveGlyph.vue'
 import GetGlyph from './icons/GetGlyph.vue'
@@ -730,6 +731,8 @@ function handleMergeAddTo():   void { if (mergeParsed.value) emit('add-to', merg
                 hint="can take up to 60s for large documents"
                 color="indigo"
               />
+              <!-- AmuseMeButton: plan parsing / URL extraction can take 30–60s -->
+              <AmuseMeButton :is-loading="planInputLoading" class="w-full mt-2" />
 
               <!-- Error message — shown in the input form so it's in context with the Parse button -->
               <p v-if="planInputError" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3" role="alert">
@@ -943,6 +946,8 @@ function handleMergeAddTo():   void { if (mergeParsed.value) emit('add-to', merg
               hint="can take up to 90s for many sources"
               color="indigo"
             />
+            <!-- AmuseMeButton: merging multiple plans can take 30–90s -->
+            <AmuseMeButton :is-loading="mergeLoading" class="w-full mt-2" />
 
             <p v-if="mergeError" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3" role="alert">
               {{ mergeError }}

@@ -24,6 +24,7 @@ import type { SpecBlock } from '../types/spec'
 import ScrollContainer from './ScrollContainer.vue'
 import PriorityActionButton from './PriorityActionButton.vue'
 import { useInputSafetyNet } from '../composables/useInputSafetyNet'
+import AmuseMeButton from './AmuseMeButton.vue'
 
 const props = defineProps<{
   spec: SpecBlock
@@ -813,6 +814,8 @@ function totalChanges(): number {
           <template v-else>Done</template>
         </p>
       </div>
+      <!-- AmuseMeButton: sharpening takes 8–30s; entertain the user while waiting -->
+      <AmuseMeButton v-if="!_showDone" :is-loading="loading" class="w-full" />
     </div>
 
     <!-- Body: Q&A (answering) — only shown when not in a done-flash -->
@@ -1110,6 +1113,8 @@ function totalChanges(): number {
           <template v-else>Done</template>
         </p>
       </div>
+      <!-- AmuseMeButton: sharpening takes 8–30s; entertain the user while waiting -->
+      <AmuseMeButton v-if="!_showDone" :is-loading="loading" class="w-full" />
     </div>
   </div>
 
@@ -1401,6 +1406,8 @@ function totalChanges(): number {
               <template v-else>Done</template>
             </p>
           </div>
+          <!-- AmuseMeButton: sharpening takes 8–30s; entertain the user while waiting -->
+          <AmuseMeButton v-if="!_showDone" :is-loading="loading" class="w-full" />
         </div>
 
         <!-- Modal body: Q&A — only when not in done-flash -->
@@ -1685,6 +1692,8 @@ function totalChanges(): number {
               <template v-else>Done</template>
             </p>
           </div>
+          <!-- AmuseMeButton: sharpening takes 8–30s; entertain the user while waiting -->
+          <AmuseMeButton v-if="!_showDone" :is-loading="loading" class="w-full" />
         </div>
 
       </div><!-- end card -->

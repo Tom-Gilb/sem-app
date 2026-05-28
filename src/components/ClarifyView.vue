@@ -12,6 +12,7 @@
 <script setup lang="ts">
 // UNIT_TYPE=Widget
 import { ref, watch, computed, onUnmounted } from 'vue'
+import AmuseMeButton from './AmuseMeButton.vue'
 
 const props = defineProps<{
   payload: { stakes: string; ends: string; means: string }
@@ -118,6 +119,8 @@ const generatingEstPct = computed(() =>
     >
       <span class="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600 inline-block" aria-hidden="true" />
       <span class="text-sm text-gray-500">Generating questions…</span>
+      <!-- AmuseMeButton: question generation can take 15–30s -->
+      <AmuseMeButton :is-loading="loading" class="w-full mt-3" />
     </div>
 
     <!-- Questions list -->
@@ -183,6 +186,8 @@ const generatingEstPct = computed(() =>
         </div>
         <p class="text-[11px] text-blue-400">~{{ generatingEstPct }}% · {{ generatingElapsed }}s elapsed</p>
       </div>
+      <!-- AmuseMeButton: spec generation from clarified answers takes 20–60s -->
+      <AmuseMeButton :is-loading="generating ?? false" class="w-full mt-3" />
     </div>
 
     <!-- Actions -->

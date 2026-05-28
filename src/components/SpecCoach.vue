@@ -19,6 +19,7 @@ import { useSpecCoach } from '../composables/useSpecCoach'
 import { useFocusMode } from '../composables/useFocusMode'
 import { useInputSafetyNet } from '../composables/useInputSafetyNet'
 import type { SpecBlock } from '../types/spec'
+import AmuseMeButton from './AmuseMeButton.vue'
 
 const PANEL_ID = 'spec-coach'
 
@@ -223,6 +224,8 @@ onUnmounted(() => { if (expanded.value) exit() })
             · · ·
           </span>
         </div>
+        <!-- AmuseMeButton: coach responses can take 20–40s -->
+        <AmuseMeButton v-if="loading" :is-loading="loading" class="w-full mt-2" />
 
         <!-- Error banner -->
         <div
