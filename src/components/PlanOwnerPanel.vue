@@ -426,30 +426,40 @@ const DATE_FIELDS = [
            Tom 2026-05-15: "feedback ([Steward] data is noted)".
            Lives between tabs and ScrollContainer so it is ALWAYS in view
            regardless of scroll position — v-if collapses it to zero height
-           when not showing. -->
-      <Transition
-        enter-active-class="transition-all duration-200 overflow-hidden"
-        leave-active-class="transition-all duration-300 overflow-hidden"
-        enter-from-class="max-h-0 opacity-0"
-        enter-to-class="max-h-16 opacity-100"
-        leave-from-class="max-h-16 opacity-100"
-        leave-to-class="max-h-0 opacity-0"
-      >
-        <div
-          v-if="justSavedVisible && lastSaved"
-          class="shrink-0 px-4 py-2.5 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2"
-          aria-live="polite"
-          role="status"
+           when not showing.
+           GRID BUG FIX 2026-05-29: the <Transition> renders nothing in the
+           DOM when v-if is false (Vue does not add a wrapper element for
+           <Transition>). Without a DOM node in row 3, CSS Grid auto-places the
+           ScrollContainer into row 3 (auto-height) instead of row 4 (1fr),
+           causing the panel body to expand to full content height, overflow the
+           max-height cap, and `overflow-hidden` clips the footer with the Save
+           button. Fix: wrap in a permanent <div> (always a grid child) so the
+           row-3 slot is always occupied, keeping ScrollContainer in row 4. -->
+      <div>
+        <Transition
+          enter-active-class="transition-all duration-200 overflow-hidden"
+          leave-active-class="transition-all duration-300 overflow-hidden"
+          enter-from-class="max-h-0 opacity-0"
+          enter-to-class="max-h-16 opacity-100"
+          leave-from-class="max-h-16 opacity-100"
+          leave-to-class="max-h-0 opacity-0"
         >
-          <span class="text-emerald-500 text-base leading-none" aria-hidden="true">✓</span>
-          <span class="text-emerald-800 text-sm font-semibold">
-            {{ lastSaved.name }} data is noted
-          </span>
-          <span class="ml-auto text-emerald-500/60 text-[10px] uppercase tracking-wide">
-            {{ TAB[lastSaved.tab].label }}
-          </span>
-        </div>
-      </Transition>
+          <div
+            v-if="justSavedVisible && lastSaved"
+            class="shrink-0 px-4 py-2.5 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2"
+            aria-live="polite"
+            role="status"
+          >
+            <span class="text-emerald-500 text-base leading-none" aria-hidden="true">✓</span>
+            <span class="text-emerald-800 text-sm font-semibold">
+              {{ lastSaved.name }} data is noted
+            </span>
+            <span class="ml-auto text-emerald-500/60 text-[10px] uppercase tracking-wide">
+              {{ TAB[lastSaved.tab].label }}
+            </span>
+          </div>
+        </Transition>
+      </div>
 
       <!-- Scrollable body — :no-pill because the panel has a sticky Save /
            Cancel footer immediately below; the bouncing dark pill would visually

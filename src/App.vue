@@ -2394,7 +2394,16 @@ async function doTranslate(
       addVersion(annotatedSpec, 'Generated', null, planModel.value?.name ?? '', _planOwnerNames())
       markdown.value = serialise(annotatedSpec)
       succeeded = true
-      scrollToSpec()
+      // Auto-advance to full plan view (stage 2) after spec generation from stage 1.
+      // Tom 2026-05-29: "we got stuck here and it did NOT go to spec and show them, stage 2."
+      // When already in stage 2+ (re-generation from plan view), just scroll to the output.
+      // goToPlanStage() calls _closeAllOverlays() + _ensurePlanModel() + stage.value = 2.
+      if (stage.value === 1) {
+        await nextTick()
+        goToPlanStage()
+      } else {
+        scrollToSpec()
+      }
       // Evo Step 10: log spec_generated event (3P.V.EntryFluency / 2S.V.PlannerConfidence)
       const allFieldsPresent = annotatedSpec.values.every(
         (v) => v.scale && v.meter && v.status && v.tolerable && v.goal,
