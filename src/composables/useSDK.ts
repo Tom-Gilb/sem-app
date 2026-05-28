@@ -14,8 +14,34 @@ import { parseApiError } from '../utils/parseApiError'
 let _client: Anthropic | null = null
 
 /**
+ * Module-level AbortController for the currently in-flight translate() call.
+ * The hung-generation watchdog in App.vue calls cancelCurrentTranslate() when
+ * the 100-second timer fires, which aborts the underlying fetch immediately.
+ * This prevents Safari from leaving a stalled TCP connection running in the
+ * background after the UI has already been reset.
+ */
+let _translateController: AbortController | null = null
+
+/**
+ * Hard-cancel any in-flight translate() call.
+ * Safe to call when no call is in flight (no-op).
+ * Called by the hung-generation watchdog in App.vue before _forceClearLoading().
+ */
+export function cancelCurrentTranslate(): void {
+  if (_translateController) {
+    _translateController.abort()
+    _translateController = null
+  }
+}
+
+/**
  * Returns the singleton Anthropic client, initialised lazily from the
  * VITE_ANTHROPIC_API_KEY environment variable.
+ *
+ * Timeout is 60 s — comfortably shorter than the 100-second watchdog so the
+ * SDK's own abort fires first, the catch block clears loading, and the watchdog
+ * never fires in normal operation. (Previous 90 s was too close to the watchdog
+ * and Safari's stalled-TCP behaviour caused the watchdog to fire first.)
  *
  * @throws {Error} if the API key environment variable is not set
  */
@@ -29,7 +55,7 @@ function getClient(): Anthropic {
     _client = new Anthropic({
       apiKey: apiKey ?? 'local',   // adapter ignores this in local mode
       dangerouslyAllowBrowser: true,
-      timeout: 90_000,
+      timeout: 60_000,             // 60 s — fires well before the 100 s watchdog
     })
   }
   return _client
@@ -348,6 +374,11 @@ export function useSDK() {
 
       _callStart = Date.now()
 
+      // Create a fresh AbortController for this call and expose it so the
+      // App.vue watchdog can hard-cancel the underlying fetch if needed.
+      const controller = new AbortController()
+      _translateController = controller
+
       const response = await client.beta.messages.create({
         model: MODEL_ID,
         // 4096 tokens comfortably fits a spec with 5 F + 5 V + 5 S entries
@@ -357,7 +388,7 @@ export function useSDK() {
         system: [systemBlock],
         messages: [{ role: 'user', content: userContent }],
         betas: ['prompt-caching-2024-07-31'],
-      })
+      }, { signal: controller.signal })
 
       // Detect truncation before attempting to parse — JSON cut mid-stream
       // produces a misleading "not valid JSON" error instead of the real cause.
@@ -396,6 +427,9 @@ export function useSDK() {
     } finally {
       loading.value = false
       stopLoading('sdk:translate')
+      // Clear the module-level controller reference — this call is done
+      // whether it succeeded, failed, or was aborted by the watchdog.
+      _translateController = null
     }
   }
 

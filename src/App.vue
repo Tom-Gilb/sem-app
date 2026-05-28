@@ -46,7 +46,7 @@ import SpecHeatLane from './components/SpecHeatLane.vue'
 import EvoSimulatorView from './components/EvoSimulatorView.vue'
 import ConflictAnalysisPanel from './components/ConflictAnalysisPanel.vue'
 import SpecCollaboratorPanel from './components/SpecCollaboratorPanel.vue'
-import { useSDK, buildMockSpec } from './composables/useSDK'
+import { useSDK, buildMockSpec, cancelCurrentTranslate } from './composables/useSDK'
 import { registerExclusiveSurface, closeActiveSurface } from './composables/useExclusiveSurfaces'
 import { registerActivityScroll } from './composables/useActivityScroll'
 import { useCollaborationCursors } from './composables/useCollaborationCursors'
@@ -1518,6 +1518,10 @@ watch(isLoading, (busy) => {
         sdkError: sdkError.value,
         stage: stage.value,
       })
+      // Hard-cancel the underlying fetch BEFORE clearing loading state.
+      // Without this, Safari keeps a stalled TCP connection running in the
+      // background even after the UI has been reset, blocking subsequent retries.
+      cancelCurrentTranslate()
       _forceClearLoading()
       _doTranslateInFlight = false   // watchdog must also release the in-flight guard
       sdkError.value = 'Generation took too long and was cancelled. Press Generate Spec again to retry, or 🆘 Reset to start fresh.'
