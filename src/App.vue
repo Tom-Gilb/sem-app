@@ -124,6 +124,8 @@ import {
   renamePlanModel,
   updatePlanOwner,
   addOwner,
+  addPlanner,
+  addScribe,
   exportAllPlanModelsBackup,
   importPlanModelsBackup,
   getDeviceUserName,
@@ -2363,7 +2365,21 @@ async function doTranslate(
         : spec
       currentSpec.value = annotatedSpec
       specGeneratedAt.value = new Date()   // Feature #177 — capture generation timestamp
+
+      // Preserve stewards across re-generation — Tom 2026-05-28: "save stewards were delete."
+      // initPlanModel() creates a blank team (owners:[], planners:[], scribes:[default]).
+      // Capture before the call; restore after so the team persists across spec iterations.
+      const _prevOwners   = planModel.value?.owners.map(o => ({ ...o })) ?? []
+      const _prevPlanners = planModel.value?.planners.map(p => ({ ...p })) ?? []
+      // Non-default scribes only — initPlanModel re-creates the default device-user scribe.
+      const _prevScribes  = (planModel.value?.scribes ?? []).filter(s => !s.isDefault).map(s => ({ ...s }))
+
       initPlanModel(annotatedSpec)         // Plan Model — auto-name from first F. entry, version 0.1
+
+      // Restore team (new IDs generated; all contact + role fields preserved).
+      for (const { id: _o, ...ownerData }   of _prevOwners)   addOwner(ownerData)
+      for (const { id: _p, ...plannerData } of _prevPlanners) addPlanner(plannerData)
+      for (const { id: _s, ...scribeData }  of _prevScribes)  addScribe(scribeData)
       // Phase 1 (Sources of Specs) — record initial AI-generation provenance for all entries
       if (planModel.value?.id) {
         const inputWords = countWords(`${payload.stakes} ${payload.ends} ${payload.means}`)

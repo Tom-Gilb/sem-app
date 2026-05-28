@@ -307,16 +307,30 @@ function handleBodyClick(ci: number, node: FlowNode): void {
   }
   if (!isClickable(ci, node)) return
   if (!node.specId || !node.tab) return
-  // Two-stage intent pattern — mirrors evo-step focusedStepName behavior:
-  //   First click (node not yet selected):  show indigo ring, no SDR.
-  //   Second click (node already selected): open SDR and clear selection.
-  // This eliminates accidental SDR opens from hover-into-hitbox or casual clicks.
+  // Single click on S/V/F = toggle selection ring only.
+  // SDR is opened exclusively by double-click (handleDblBodyClick) — never by
+  // repeated single clicks.  This prevents the flash-and-disappear that occurred
+  // when click2 opened SDR while the VFP backdrop was still in the same render
+  // batch, causing the dblclick to land on the backdrop and close SDR immediately.
   if (selectedNodeId.value === node.specId) {
-    selectedNodeId.value = null
-    emit('node-relations-click', { tab: node.tab, entryId: node.specId })
+    selectedNodeId.value = null   // deselect on re-click
   } else {
-    selectedNodeId.value = node.specId
+    selectedNodeId.value = node.specId  // select: indigo ring
   }
+}
+
+/** Double-click on an S/V/F node → open Spec Direct Relations directly.
+ *  The @dblclick.stop modifier prevents the event from bubbling to the SVG root
+ *  or any parent element, keeping the VFP backdrop from intercepting it.
+ *  Evo-step nodes (ci=1) keep the two-single-click model (focus → SDR). */
+function handleDblBodyClick(ci: number, node: FlowNode): void {
+  if (node.empty) return
+  if (ci === 0) { emit('go-to-tasks'); return }
+  if (ci === 1) return  // evo steps: two single-clicks; dblclick is a no-op here
+  if (!isClickable(ci, node)) return
+  if (!node.specId || !node.tab) return
+  selectedNodeId.value = null   // clear ring before SDR opens
+  emit('node-relations-click', { tab: node.tab, entryId: node.specId })
 }
 
 // ── Headline node (the rectangle corresponding to the vibrating red title) ────
@@ -1097,7 +1111,9 @@ const headlineSentence = computed<string>(() => {
              headline node gets a scale-pulse + red glow via vfd-headline-node class. -->
         <g :class="{ 'vfd-headline-node': isHeadline(node) }">
 
-          <!-- Body rect — click → SDR for S/V/F nodes; click → task focus for evo step nodes -->
+          <!-- Body rect — S/V/F nodes: click = select ring, dblclick = open SDR.
+               Evo-step (ci=1): click = focus step / click again = open SDR.
+               Task (ci=0): click = go to Task Decomposition. -->
           <rect
             :width="COL_W"
             :height="NODE_H"
@@ -1108,14 +1124,15 @@ const headlineSentence = computed<string>(() => {
             :stroke-opacity="node.empty ? 0.45 : 1"
             :stroke-dasharray="node.suggested ? '5 3' : undefined"
             :style="isInteractive(ci, node) ? 'cursor: pointer' : undefined"
-            :title="isSelectedNode(node)
-              ? 'Click again to open Spec Direct Relations'
-              : isClickable(ci, node)
-                ? 'Click to select · click again to open Spec Direct Relations'
-                : ci === 1 && !node.empty
-                  ? isFocusedStep(node) ? 'Click again to open Spec Direct Relations for this Evo Step' : 'Click to focus this Evo Step · click again to open Spec Direct Relations'
-                  : undefined"
+            :title="isClickable(ci, node)
+              ? isSelectedNode(node)
+                ? 'Double-click to open Spec Direct Relations · click to deselect'
+                : 'Click to select · double-click to open Spec Direct Relations'
+              : ci === 1 && !node.empty
+                ? isFocusedStep(node) ? 'Click again to open Spec Direct Relations for this Evo Step' : 'Click to focus this Evo Step · click again to open Spec Direct Relations'
+                : undefined"
             @click="handleBodyClick(ci, node)"
+            @dblclick.stop="handleDblBodyClick(ci, node)"
           />
 
           <!-- Accent left bar -->
