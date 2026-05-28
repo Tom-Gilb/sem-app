@@ -176,6 +176,15 @@ const hoveredNodeId = ref<string | null>(null)
  * effectiveFocusStep falls back to the first evo step when nothing is focused.
  */
 const focusedStepName = ref<string | null>(null)
+/**
+ * selectedNodeId — tracks which F/V/S node the user first-clicked.
+ * Two-stage intent pattern (mirrors the evo-step focusedStepName model):
+ *   First click  → select (indigo ring, no SDR)
+ *   Second click → open SDR and clear selection
+ * Prevents accidental SDR opens from casual browsing/hover-click.
+ * Tom 2026-05-28: "spec direct jumped out, fix stability."
+ */
+const selectedNodeId = ref<string | null>(null)
 
 const effectiveFocusStep = computed<string | null>(() => {
   const steps = props.evoSteps
@@ -264,6 +273,10 @@ function isClickable(ci: number, node: FlowNode): boolean {
 function isFocusedStep(node: FlowNode): boolean {
   return focusedStepName.value !== null && node.id === `s::${focusedStepName.value}`
 }
+/** True when this F/V/S node has been first-clicked and is waiting for a second click to open SDR. */
+function isSelectedNode(node: FlowNode): boolean {
+  return selectedNodeId.value !== null && node.specId === selectedNodeId.value
+}
 
 function handleTagClick(node: FlowNode): void {
   if (!node.specId || !node.tab) return
@@ -294,7 +307,16 @@ function handleBodyClick(ci: number, node: FlowNode): void {
   }
   if (!isClickable(ci, node)) return
   if (!node.specId || !node.tab) return
-  emit('node-relations-click', { tab: node.tab, entryId: node.specId })
+  // Two-stage intent pattern — mirrors evo-step focusedStepName behavior:
+  //   First click (node not yet selected):  show indigo ring, no SDR.
+  //   Second click (node already selected): open SDR and clear selection.
+  // This eliminates accidental SDR opens from hover-into-hitbox or casual clicks.
+  if (selectedNodeId.value === node.specId) {
+    selectedNodeId.value = null
+    emit('node-relations-click', { tab: node.tab, entryId: node.specId })
+  } else {
+    selectedNodeId.value = node.specId
+  }
 }
 
 // ── Headline node (the rectangle corresponding to the vibrating red title) ────
@@ -777,6 +799,7 @@ function accentFill(ci: number, node: FlowNode): string {
   if (isHighlighted(node)) return '#f59e0b'   // amber-500 — origin highlight left bar
   if (isHeadline(node))    return '#dc2626'   // red-600  — headline node left bar
   if (isFocusedStep(node)) return '#f59e0b'   // amber-500 — focused step accent
+  if (isSelectedNode(node)) return '#6366f1'  // indigo-500 — "click again for SDR" ring
   if (node.colour) return node.colour
   if (node.empty)  return '#cbd5e1'
   return COLS[ci].hdrFill
@@ -801,6 +824,8 @@ function nodeBoxFill(ci: number, node: FlowNode): string {
   if (node.empty)  return '#f1f5f9'
   // Focused evo step: amber-50 tint — signals "click again for SDR"
   if (isFocusedStep(node)) return '#fffbeb'   // amber-50
+  // Selected F/V/S node: indigo-50 tint — signals "click again for SDR"
+  if (isSelectedNode(node)) return '#eef2ff'  // indigo-50
   if (hoveredNodeId.value === node.id && isInteractive(ci, node))
     return HOVER_FILL[ci] ?? COLS[ci].nodeFill
   return COLS[ci].nodeFill
@@ -812,6 +837,8 @@ function nodeBoxStroke(ci: number, node: FlowNode): string {
   if (node.empty)  return '#e2e8f0'
   // Focused evo step (explicitly clicked): vivid amber ring — "click again for SDR"
   if (isFocusedStep(node)) return '#f59e0b'   // amber-500
+  // Selected F/V/S node: vivid indigo ring — "click again for SDR"
+  if (isSelectedNode(node)) return '#6366f1'  // indigo-500
   if (hoveredNodeId.value === node.id && isInteractive(ci, node))
     return COLS[ci].hdrFill
   return COLS[ci].nodeStroke
@@ -978,7 +1005,15 @@ const headlineSentence = computed<string>(() => {
       </marker>
     </defs>
 
-    <rect :width="svgWidth" :height="svgHeight" fill="#f8fafc" rx="10" />
+    <!-- Background rect — click away from nodes clears any pending node selection -->
+    <rect
+      :width="svgWidth"
+      :height="svgHeight"
+      fill="#f8fafc"
+      rx="10"
+      style="cursor: default"
+      @click="selectedNodeId = null"
+    />
 
     <!-- Edges (drawn first — behind nodes) -->
     <g>
@@ -1069,10 +1104,17 @@ const headlineSentence = computed<string>(() => {
             rx="7"
             :fill="nodeBoxFill(ci, node)"
             :stroke="nodeBoxStroke(ci, node)"
-            :stroke-width="isHighlighted(node) ? 3 : isHeadline(node) ? 2.5 : isFocusedStep(node) ? 2.5 : hoveredNodeId === node.id && isInteractive(ci, node) ? 2 : node.colour ? 1.8 : 1.4"
+            :stroke-width="isHighlighted(node) ? 3 : isHeadline(node) ? 2.5 : isFocusedStep(node) ? 2.5 : isSelectedNode(node) ? 2.5 : hoveredNodeId === node.id && isInteractive(ci, node) ? 2 : node.colour ? 1.8 : 1.4"
             :stroke-opacity="node.empty ? 0.45 : 1"
             :stroke-dasharray="node.suggested ? '5 3' : undefined"
             :style="isInteractive(ci, node) ? 'cursor: pointer' : undefined"
+            :title="isSelectedNode(node)
+              ? 'Click again to open Spec Direct Relations'
+              : isClickable(ci, node)
+                ? 'Click to select · click again to open Spec Direct Relations'
+                : ci === 1 && !node.empty
+                  ? isFocusedStep(node) ? 'Click again to open Spec Direct Relations for this Evo Step' : 'Click to focus this Evo Step · click again to open Spec Direct Relations'
+                  : undefined"
             @click="handleBodyClick(ci, node)"
           />
 
@@ -1211,26 +1253,22 @@ const headlineSentence = computed<string>(() => {
   line-height:    1.3;
 }
 
-/* ── Headline node focus — scale pulse + red glow ───────────────────────────── */
-/* Tom 2026-05-15 (fix): node was displaced because CSS transform on the outer  */
-/* <g> (which also carries the SVG transform="translate(x,y)" attribute) was    */
-/* overriding the positioning transform. Fixed by moving the class to an INNER  */
-/* <g> with no positioning transform — CSS animation now composes safely.       */
-/* Tom: "enlarge and colour, focus in a fun way" — the headline node now        */
-/* breathes: gently scales up and glows red in a 1.6s ease-in-out loop.        */
+/* ── Headline node — stable glow, NO scale animation ────────────────────────── */
+/* Previous: scale(1.02)→scale(1.07) animation caused two problems:             */
+/*   1. Shakiness — 7% scale expansion bled into adjacent nodes at 60 fps;      */
+/*      filter:drop-shadow on SVG <g> is GPU-expensive and causes frame jitter.  */
+/*   2. Accidental SDR opens — the expanding hitbox moved into the cursor's      */
+/*      position mid-pulse, turning a hover into an unintended click.            */
+/* Fix (2026-05-28): no scale change — stroke breathes instead. The node stays  */
+/* exactly its laid-out size so no neighbors are disturbed and the clickable     */
+/* area is stable throughout the animation cycle.                                */
 @keyframes vfd-node-focus {
-  0%,  100% {
-    transform: scale(1.02);
-    filter:    drop-shadow(0 0  4px rgba(220, 38, 38, 0.50));
-  }
-  50% {
-    transform: scale(1.07);
-    filter:    drop-shadow(0 0 14px rgba(220, 38, 38, 0.90));
-  }
+  0%,  100% { stroke-opacity: 0.65; }
+  50%        { stroke-opacity: 1.00; }
 }
-.vfd-headline-node {
-  transform-box:    fill-box;   /* scale from the node's own bounding-box centre */
-  transform-origin: center;
-  animation: vfd-node-focus 1.6s ease-in-out infinite;
+.vfd-headline-node rect:first-child {
+  animation:      vfd-node-focus 1.8s ease-in-out infinite;
+  stroke:         #dc2626 !important;
+  stroke-width:   3       !important;
 }
 </style>

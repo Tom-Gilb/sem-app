@@ -587,9 +587,11 @@ watch([currentId, currentTab], () => nextTick(() => nextTick(recalcArrows)))
        fixed inset-0 fullscreen modal to a right-side drawer. -->
   <Teleport to="body">
     <div class="fixed inset-0 z-[650] flex items-stretch justify-end">
-      <!-- Left dim overlay — click to close; chart stays dimly visible behind -->
+      <!-- Left dim overlay — click to close; chart stays dimly visible behind.
+           sdr-backdrop fades in over 0.22s so the user registers the dimming
+           as an intentional panel open, not a sudden context switch. -->
       <div
-        class="flex-1 cursor-pointer"
+        class="sdr-backdrop flex-1 cursor-pointer"
         style="background: rgba(10,8,28,0.38); backdrop-filter: blur(2px);"
         aria-label="Close Spec Direct Relations"
         @click="emit('close')"
@@ -817,6 +819,15 @@ watch([currentId, currentTab], () => nextTick(() => nextTick(recalcArrows)))
 </template>
 
 <style scoped>
+/* ── Backdrop fade-in — overlay dims smoothly so the open feels intentional ─── */
+.sdr-backdrop {
+  animation: sdr-backdrop-in 0.22s ease-out both;
+}
+@keyframes sdr-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* ── Panel entrance — slides in from the right ───────────────────────────────── */
 .sdr-panel {
   animation: sdr-panel-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
