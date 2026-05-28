@@ -86,6 +86,7 @@ import { SKILL_CATEGORIES, buildSkillsMatrix, skillCellStyle } from '../utils/sk
 import RiskRadar from './RiskRadar.vue'
 import EffortRing from './EffortRing.vue'
 import LoadingProgress from './LoadingProgress.vue'
+import AmuseMeButton from './AmuseMeButton.vue'
 import ConceptHint from './ConceptHint.vue'
 import { CONCEPT_HINTS } from '../data/conceptHints'
 import EditGlyph from './icons/EditGlyph.vue'
@@ -2942,6 +2943,11 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         :baseline="30"
         hint="Each Evo step delivers incremental value from your Solutions · can take up to 60s on slow networks"
         color="indigo"
+      />
+      <AmuseMeButton
+        :is-loading="loading"
+        :spec-block="props.specBlock"
+        :planning-stage="6"
       />
     </div>
 
