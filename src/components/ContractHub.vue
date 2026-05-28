@@ -274,13 +274,58 @@ const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
   'other':             'Contract',
 }
 
-const TYPE_COLORS: Record<ContractEntryType, { bg: string; text: string; tw: string }> = {
-  F:    { bg: '#fff7ed', text: '#c2410c', tw: 'bg-orange-50 text-orange-700 border-orange-200' },
-  V:    { bg: '#eff6ff', text: '#1d4ed8', tw: 'bg-blue-50 text-blue-700 border-blue-200' },
-  C:    { bg: '#fef2f2', text: '#dc2626', tw: 'bg-red-50 text-red-700 border-red-200' },
-  R:    { bg: '#ecfdf5', text: '#059669', tw: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  S:    { bg: '#f5f3ff', text: '#7c3aed', tw: 'bg-violet-50 text-violet-700 border-violet-200' },
-  Task: { bg: '#f8fafc', text: '#475569', tw: 'bg-slate-50 text-slate-600 border-slate-200' },
+/**
+ * TYPE_COLORS — all Tailwind class strings are STATIC complete strings (never
+ * built by runtime string-splitting) so Tailwind JIT can scan and compile them.
+ *
+ * tw          — badge pill: bg + text + border (used for tag pills everywhere)
+ * entryCardCls — clause-detail card border + background
+ * activeTw    — entries-filter active-button state (darker bg)
+ * textBorder  — text + border only (used when card already has bg-white)
+ */
+const TYPE_COLORS: Record<ContractEntryType, {
+  bg: string; text: string
+  tw: string
+  entryCardCls: string
+  activeTw: string
+  textBorder: string
+}> = {
+  F:    { bg: '#fff7ed', text: '#c2410c',
+          tw:           'bg-orange-50 text-orange-700 border-orange-200',
+          entryCardCls: 'border-orange-200 bg-orange-50',
+          activeTw:     'bg-orange-200 text-orange-700 border-orange-200',
+          textBorder:   'text-orange-700 border-orange-200' },
+  V:    { bg: '#eff6ff', text: '#1d4ed8',
+          tw:           'bg-blue-50 text-blue-700 border-blue-200',
+          entryCardCls: 'border-blue-200 bg-blue-50',
+          activeTw:     'bg-blue-200 text-blue-700 border-blue-200',
+          textBorder:   'text-blue-700 border-blue-200' },
+  C:    { bg: '#fef2f2', text: '#dc2626',
+          tw:           'bg-red-50 text-red-700 border-red-200',
+          entryCardCls: 'border-red-200 bg-red-50',
+          activeTw:     'bg-red-200 text-red-700 border-red-200',
+          textBorder:   'text-red-700 border-red-200' },
+  R:    { bg: '#ecfdf5', text: '#059669',
+          tw:           'bg-emerald-50 text-emerald-700 border-emerald-200',
+          entryCardCls: 'border-emerald-200 bg-emerald-50',
+          activeTw:     'bg-emerald-200 text-emerald-700 border-emerald-200',
+          textBorder:   'text-emerald-700 border-emerald-200' },
+  S:    { bg: '#f5f3ff', text: '#7c3aed',
+          tw:           'bg-violet-50 text-violet-700 border-violet-200',
+          entryCardCls: 'border-violet-200 bg-violet-50',
+          activeTw:     'bg-violet-200 text-violet-700 border-violet-200',
+          textBorder:   'text-violet-700 border-violet-200' },
+  Task: { bg: '#f8fafc', text: '#475569',
+          tw:           'bg-slate-50 text-slate-600 border-slate-200',
+          entryCardCls: 'border-slate-200 bg-slate-50',
+          activeTw:     'bg-slate-200 text-slate-600 border-slate-200',
+          textBorder:   'text-slate-600 border-slate-200' },
+}
+
+/** Safe helper — avoids TypeScript cast for 'all' in entry filter button loop. */
+function typeColorActive(type: 'all' | ContractEntryType): string {
+  if (type === 'all') return 'bg-slate-800 text-white border-slate-800'
+  return TYPE_COLORS[type].activeTw
 }
 
 const PARSE_STATUS_LABEL: Record<string, string> = {
@@ -567,7 +612,7 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
                         v-for="entry in selectedClause.entries"
                         :key="entry.id"
                         class="rounded-xl border p-4 space-y-2"
-                        :class="`border-${TYPE_COLORS[entry.type].tw.split(' ')[2]} bg-${TYPE_COLORS[entry.type].tw.split(' ')[0].split('-')[0]}-50/60`"
+                        :class="TYPE_COLORS[entry.type].entryCardCls"
                       >
                         <div class="flex items-center gap-2 flex-wrap">
                           <span
@@ -634,7 +679,7 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
               :title="`Show ${type === 'all' ? 'all entry types' : type + '. entries only'}`"
               class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors"
               :class="entryFilter === type
-                ? type === 'all' ? 'bg-slate-800 text-white border-slate-800' : TYPE_COLORS[type as ContractEntryType].tw.replace('50', '200')
+                ? typeColorActive(type)
                 : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'"
               @click="entryFilter = type"
             >
@@ -653,7 +698,7 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
                 v-for="entry in filteredEntries"
                 :key="entry.id"
                 class="bg-white rounded-xl border p-4 space-y-1.5"
-                :class="TYPE_COLORS[entry.type].tw.split(' ').slice(1).join(' ')"
+                :class="TYPE_COLORS[entry.type].textBorder"
               >
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="text-[11px] font-bold px-2 py-0.5 rounded-full border" :class="TYPE_COLORS[entry.type].tw">{{ entry.tag }}</span>

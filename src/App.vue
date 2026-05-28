@@ -1799,6 +1799,9 @@ function _closeAllOverlays(): void {
   dashboardOpen.value        = false
   tourOpen.value             = false
   wizardOpen.value           = false
+  // Contracts mode is a full-screen z-[600] panel — must be closed so
+  // handleSubmit() / stage navigation can reach the spec form beneath it.
+  contractsOpen.value        = false
   // SharpenDropdown has internal open state not controlled by the booleans above.
   // Its fixed inset-0 z-40 backdrop blocks all clicks below it (nav bar has no
   // explicit z-index so it sits at z-auto/0 in root context — below z-40).
