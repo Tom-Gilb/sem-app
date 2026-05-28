@@ -313,8 +313,13 @@ function restoreOops(): void {
 
 /** Dismiss the offer without restoring (user genuinely meant to clear). */
 function dismissOops(): void {
+  const offer = _oopsOffer.value
   _oopsOffer.value = null
-  // Same lockout policy as restoreOops — released on next stable snapshot.
+  // User confirmed the clear was intentional — wipe the snapshot so it
+  // cannot raise a fresh Oops on the NEXT page load. Without this call,
+  // the 24-hour snapshot persists in localStorage and the Oops banner
+  // fires again every time the app reloads with an empty textarea.
+  if (offer) clearField(offer.fieldId)
 }
 
 /**

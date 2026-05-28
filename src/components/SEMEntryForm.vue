@@ -414,6 +414,9 @@ function forkAddMoreStrategies(): void {
 
 /** Full reset — clears everything, returns to blank input. */
 function forkClearEverything(): void {
+  // Clear safety-net snapshot BEFORE wiping rawInput so the watcher doesn't
+  // interpret the empty assignment as an accidental "drop" and re-offer Oops.
+  safetyNetClearField('sem-home-input')
   rawInput.value           = ''
   parsedStakeholders.value = []
   parsedValues.value       = []
@@ -445,7 +448,7 @@ function forkKeepTextClearChips(): void {
 // Protect the home textarea from inadvertent draft loss. ≥5-word inputs get
 // ring-buffered automatically; a ≥50 % shrink raises the Oops toast with
 // Restore / ⌘Z / voice-Yes recovery paths.
-const { watchField: safetyNetWatch } = useInputSafetyNet()
+const { watchField: safetyNetWatch, clearField: safetyNetClearField } = useInputSafetyNet()
 onMounted(() => {
   safetyNetWatch('sem-home-input', rawInput, (text) => { rawInput.value = text })
 })
@@ -1881,6 +1884,10 @@ function handleSubmit(): void {
   // If the parser found no means, emit empty means (not a copy of ends).
   // If the parser found no stakeholders, emit empty stakes (not a copy of ends).
   emit('submit', { stakes, ends, means })
+  // Content was successfully consumed (not lost) — clear the safety-net
+  // snapshot so the Oops banner doesn't fire on the next app load when the
+  // textarea is empty again. Root cause of the "Oops fires every time" bug.
+  safetyNetClearField('sem-home-input')
   setSubmitting(false)
 }
 

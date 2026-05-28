@@ -77,18 +77,23 @@ const emit = defineEmits<{
 
 // ── Tab state ──────────────────────────────────────────────────────────────
 type Tab = 'flow' | 'efficiency' | 'radar' | 'arch' | 'deps' | 'risk' | 'finance' | 'swimlane' | 'simulator'
-const activeTab = ref<Tab>(props.initialTab ?? 'flow')
 
-const tabs: { key: Tab; label: string; description: string }[] = [
-  { key: 'flow',       label: 'Value Flow',  description: 'Causal chain: Tasks → Solutions → Values → Stakeholders' },
-  { key: 'efficiency', label: '⚡ Efficiency', description: 'Resources → Solutions (ranked by V/C) → Values — edge width = impact %' },
-  { key: 'radar',      label: 'Radar',       description: 'Solutions on Adopt / Trial / Assess / Hold rings'        },
-  { key: 'arch',       label: 'Architecture',description: 'Business / Application / Data / Technology layers'       },
-  { key: 'deps',       label: 'Dependencies',description: 'Values · Functions · Solutions with cross-links'         },
-  { key: 'risk',       label: 'Risk Matrix', description: 'Functions by probability × impact heuristic'             },
-  { key: 'finance',    label: 'Finance',     description: 'Value targets: tolerable vs goal as progress bars'       },
-  { key: 'swimlane',   label: 'Swimlane',    description: 'Evo steps × spec entries heat-map stage map'            },
-  { key: 'simulator',  label: '▶ Simulator', description: 'Animated delivery timeline with cumulative value chart'  },
+// null = tile-grid home screen; Tab = detail view for that visualisation.
+// Tom 2026-05-28: "this vizualize window need to be redesigned to be like
+// the action window buttons — upper visual part is a mini display of that
+// tool's real time current display for current plan."
+const activeTab = ref<Tab | null>(props.initialTab ?? null)
+
+const tabs: { key: Tab; label: string; emoji: string; description: string; accent: string }[] = [
+  { key: 'flow',       label: 'Value Flow',   emoji: '⟶',  description: 'Tasks → Solutions → Values → Stakeholders causal chain',       accent: '#6366f1' },
+  { key: 'efficiency', label: 'Efficiency',   emoji: '⚡', description: 'V/C ratios: solutions ranked by value delivered per cost unit', accent: '#10b981' },
+  { key: 'radar',      label: 'Tech Radar',   emoji: '🎯', description: 'Solutions classified Adopt / Trial / Assess / Hold',            accent: '#4f46e5' },
+  { key: 'arch',       label: 'Architecture', emoji: '🏛️', description: 'Spec entries mapped across Business / App / Data / Technology', accent: '#f59e0b' },
+  { key: 'deps',       label: 'Dependencies', emoji: '🕸️', description: 'Values ↔ Functions ↔ Solutions with cross-reference links',     accent: '#475569' },
+  { key: 'risk',       label: 'Risk Matrix',  emoji: '⚠️', description: 'Functions classified by probability × impact heuristic',        accent: '#ef4444' },
+  { key: 'finance',    label: 'Finance',      emoji: '💰', description: 'Value targets: tolerable (faded) vs goal (solid) progress bars', accent: '#8b5cf6' },
+  { key: 'swimlane',   label: 'Swimlane',     emoji: '🏊', description: 'Evo steps × spec entries heat-map stage map',                   accent: '#0ea5e9' },
+  { key: 'simulator',  label: 'Simulator',    emoji: '▶',  description: 'Animated delivery timeline with cumulative value chart',         accent: '#7c3aed' },
 ]
 
 // Mini SVG thumbnails — statically mirror each visualization type.
@@ -336,6 +341,291 @@ const LEVEL_COLOUR: Record<string, string> = {
   Evo:         '#06b6d4',
   'To-Do':     '#94a3b8',
 }
+
+// ── Live tile thumbnails (Thumbnail Reality Rule) ─────────────────────────
+// Each thumbnail is a computed SVG derived from REAL plan data — entry counts,
+// actual V/C ratios, real risk grid cells, real finance percentages. Not static
+// hand-drawn icons. Tom 2026-05-28: "the upper visual part of the button was a
+// mini display of that tool's real time current display for current plan."
+const liveThumbs = computed<Record<Tab, string>>(() => {
+  const spec  = props.spec
+  const vals  = spec?.values    ?? []
+  const fns   = spec?.functions ?? []
+  const sols  = spec?.solutions ?? []
+  const steps = props.confirmedSteps
+  const vC = vals.length, fC = fns.length, sC = sols.length, stC = steps.length
+
+  /** Wrap SVG content in a standard 200×120 canvas. */
+  function wrap(body: string): string {
+    return `<svg viewBox="0 0 200 120" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="display:block">${body}</svg>`
+  }
+  function noData(msg = 'No plan data yet'): string {
+    return wrap(`<text x="100" y="65" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#cbd5e1" font-style="italic">${msg}</text>`)
+  }
+
+  // ── Value Flow ─────────────────────────────────────────────────────────────
+  // Real column counts: Steps / Values / Functions / Solutions — colored bars
+  const maxC = Math.max(stC, vC, fC, sC, 1)
+  const flowCols = [
+    { count: stC, color: '#06b6d4', label: 'Tasks',   x: 16  },
+    { count: vC,  color: '#8b5cf6', label: 'Values',  x: 62  },
+    { count: fC,  color: '#f59e0b', label: 'Funcs',   x: 108 },
+    { count: sC,  color: '#10b981', label: 'Solns',   x: 154 },
+  ]
+  let flowBody = ''
+  for (const b of flowCols) {
+    const h = Math.max(6, (b.count / maxC) * 68)
+    const y = 78 - h
+    flowBody += `<rect x="${b.x}" y="${y}" width="30" height="${h}" rx="3" fill="${b.color}" fill-opacity="0.82"/>`
+    flowBody += `<text x="${b.x + 15}" y="${y - 4}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="${b.color}">${b.count}</text>`
+    flowBody += `<text x="${b.x + 15}" y="95" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8" fill="#94a3b8">${b.label}</text>`
+  }
+  for (let i = 0; i < flowCols.length - 1; i++) {
+    const x1 = flowCols[i].x + 32, x2 = flowCols[i+1].x - 2, y = 60
+    flowBody += `<line x1="${x1}" y1="${y}" x2="${x2 - 4}" y2="${y}" stroke="#cbd5e1" stroke-width="1.5"/>`
+    flowBody += `<polygon points="${x2-4},${y-3} ${x2},${y} ${x2-4},${y+3}" fill="#cbd5e1"/>`
+  }
+  const flowThumb = wrap(flowBody)
+
+  // ── Efficiency ─────────────────────────────────────────────────────────────
+  // Ranked horizontal bars from real V/C ratios
+  const vcEntries = Object.entries(props.vcRatios ?? {}).sort(([,a],[,b]) => b - a).slice(0, 5)
+  let effThumb: string
+  if (vcEntries.length === 0) {
+    effThumb = noData('No V/C ratios yet')
+  } else {
+    const maxVC = vcEntries[0][1] || 1
+    let effBody = ''
+    vcEntries.forEach(([id, ratio], i) => {
+      const barW = Math.max(6, (ratio / maxVC) * 148)
+      const y    = 16 + i * 22
+      const clr  = i === 0 ? '#059669' : i === 1 ? '#10b981' : i === 2 ? '#f59e0b' : '#94a3b8'
+      const op   = i === 0 ? '0.9' : '0.65'
+      effBody += `<rect x="48" y="${y}" width="${barW.toFixed(1)}" height="14" rx="2" fill="${clr}" fill-opacity="${op}"/>`
+      effBody += `<text x="46" y="${y + 10}" text-anchor="end" font-family="system-ui,sans-serif" font-size="8" fill="#64748b">${id.slice(0, 9)}</text>`
+      effBody += `<text x="${50 + barW + 3}" y="${y + 10}" font-family="system-ui,sans-serif" font-size="8" font-weight="700" fill="${clr}">${ratio.toFixed(1)}</text>`
+    })
+    effThumb = wrap(effBody)
+  }
+
+  // ── Radar ──────────────────────────────────────────────────────────────────
+  // Real dot positions: classify each S. by keyword → ring
+  const adoptRe  = /adopt|proven|production|stable|established|ship/i
+  const trialRe  = /trial|testing|test|pilot|explore|experiment/i
+  const assessRe = /assess|consider|invest|evaluate|potential|candidate/i
+  let adoptC = 0, trialC = 0, assessC = 0, holdC = 0
+  for (const s of sols) {
+    const t = ((s as {description?:string}).description ?? '') + ' ' + ((s as {impact?:string}).impact ?? '')
+    if (adoptRe.test(t))  adoptC++
+    else if (trialRe.test(t))  trialC++
+    else if (assessRe.test(t)) assessC++
+    else holdC++
+  }
+  const radarCX = 100, radarCY = 62, radarR = 46
+  let radarBody = ''
+  // Concentric rings
+  for (const fr of [1, 0.66, 0.33]) {
+    radarBody += `<circle cx="${radarCX}" cy="${radarCY}" r="${(radarR * fr).toFixed(1)}" fill="none" stroke="#e2e8f0" stroke-width="0.8"/>`
+  }
+  // Dots per ring
+  const ringDefs = [
+    { count: adoptC,  r: radarR * 0.22, color: '#059669' },
+    { count: trialC,  r: radarR * 0.5,  color: '#6366f1' },
+    { count: assessC, r: radarR * 0.76, color: '#f59e0b' },
+    { count: holdC,   r: radarR * 0.96, color: '#ef4444' },
+  ]
+  for (const ring of ringDefs) {
+    if (ring.count === 0) continue
+    const step = (Math.PI * 2) / ring.count
+    for (let i = 0; i < ring.count; i++) {
+      const angle = i * step - Math.PI / 2
+      const dx = radarCX + Math.cos(angle) * ring.r
+      const dy = radarCY + Math.sin(angle) * ring.r
+      radarBody += `<circle cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="4" fill="${ring.color}" fill-opacity="0.8"/>`
+    }
+  }
+  // Zone labels
+  radarBody += `<text x="${radarCX}" y="11" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7" font-weight="700" fill="#059669">ADOPT ${adoptC}</text>`
+  radarBody += `<text x="196" y="${radarCY + 3}" text-anchor="end" font-family="system-ui,sans-serif" font-size="7" font-weight="700" fill="#6366f1">TRIAL ${trialC}</text>`
+  radarBody += `<text x="${radarCX}" y="118" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7" font-weight="700" fill="#f59e0b">ASSESS ${assessC}</text>`
+  radarBody += `<text x="4" y="${radarCY + 3}" font-family="system-ui,sans-serif" font-size="7" font-weight="700" fill="#ef4444">HOLD ${holdC}</text>`
+  const radarThumb = wrap(radarBody)
+
+  // ── Architecture ───────────────────────────────────────────────────────────
+  // Real level counts → proportional TOGAF band heights
+  const levelCounts: Record<string, number> = {}
+  for (const e of [...vals, ...fns, ...sols]) {
+    const lvl = (e as {level?: string}).level ?? 'Product'
+    levelCounts[lvl] = (levelCounts[lvl] ?? 0) + 1
+  }
+  const togafBands = [
+    { label: 'Business',    keys: ['Business','Stakeholder'], fill: '#fde68a', text: '#92400e' },
+    { label: 'Application', keys: ['Product','Feature'],      fill: '#bbf7d0', text: '#065f46' },
+    { label: 'Data',        keys: ['Evo','To-Do'],            fill: '#bfdbfe', text: '#1e40af' },
+    { label: 'Technology',  keys: ['Solution'],               fill: '#e9d5ff', text: '#6b21a8' },
+  ]
+  const totalEnt = Math.max(vC + fC + sC, 1)
+  let archBody = '', archY = 6
+  for (const band of togafBands) {
+    const count = band.keys.reduce((s, k) => s + (levelCounts[k] ?? 0), 0)
+    const h = Math.max(18, (count / totalEnt) * 88 + 14)
+    archBody += `<rect x="4" y="${archY}" width="192" height="${h}" rx="3" fill="${band.fill}"/>`
+    archBody += `<text x="10" y="${archY + h/2 + 4}" font-family="system-ui,sans-serif" font-size="8" font-weight="700" fill="${band.text}">${band.label} (${count})</text>`
+    archY += h + 2
+  }
+  const archThumb = wrap(archBody || `<text x="100" y="60" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#cbd5e1">No entries</text>`)
+
+  // ── Dependencies ───────────────────────────────────────────────────────────
+  // Real V/F/S counts as column card stacks
+  const depsCols = [
+    { label: 'Values',    count: vC, stroke: '#a5b4fc', bg: '#eef2ff', text: '#3730a3' },
+    { label: 'Functions', count: fC, stroke: '#fcd34d', bg: '#fffbeb', text: '#92400e' },
+    { label: 'Solutions', count: sC, stroke: '#6ee7b7', bg: '#ecfdf5', text: '#064e3b' },
+  ]
+  let depsBody = ''
+  depsCols.forEach((col, ci) => {
+    const colX = 8 + ci * 64
+    depsBody += `<text x="${colX + 28}" y="12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7" font-weight="700" fill="${col.text}">${col.label.toUpperCase()}</text>`
+    const vis = Math.min(col.count, 4)
+    for (let k = 0; k < vis; k++) {
+      depsBody += `<rect x="${colX}" y="${18 + k * 22}" width="54" height="18" rx="3" fill="${col.bg}" stroke="${col.stroke}" stroke-width="0.8"/>`
+    }
+    if (col.count > 4) {
+      depsBody += `<text x="${colX + 27}" y="${18 + 4 * 22 + 10}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7.5" fill="${col.text}">+${col.count - 4}</text>`
+    }
+    if (col.count === 0) {
+      depsBody += `<text x="${colX + 27}" y="62" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#e2e8f0" font-style="italic">none</text>`
+    }
+    // Count badge
+    depsBody += `<rect x="${colX + 38}" y="5" width="16" height="10" rx="3" fill="${col.stroke}"/>`
+    depsBody += `<text x="${colX + 46}" y="13" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7.5" font-weight="700" fill="white">${col.count}</text>`
+  })
+  const depsThumb = wrap(depsBody)
+
+  // ── Risk Matrix ────────────────────────────────────────────────────────────
+  // Real riskGrid counts in each 3×3 cell
+  const rGrid = riskGrid.value
+  let riskBody = ''
+  // Col headers
+  const rColLabels = ['Low Impact', 'Med Impact', 'High Impact']
+  for (let ii = 0; ii < 3; ii++) {
+    riskBody += `<text x="${42 + ii * 54}" y="10" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7" fill="#475569" font-weight="600">${rColLabels[ii]}</text>`
+  }
+  // Row labels
+  const rRowColors = ['#059669', '#d97706', '#dc2626']
+  const rRowLabels = ['Lo Prob', 'Md Prob', 'Hi Prob']
+  for (let pi = 0; pi < 3; pi++) {
+    riskBody += `<text x="4" y="${28 + pi * 34}" font-family="system-ui,sans-serif" font-size="7" font-weight="700" fill="${rRowColors[pi]}">${rRowLabels[pi]}</text>`
+    for (let ii = 0; ii < 3; ii++) {
+      const items = rGrid[pi][ii]
+      const cellX = 20 + ii * 60, cellY = 14 + pi * 34
+      riskBody += `<rect x="${cellX}" y="${cellY}" width="54" height="28" rx="3" fill="${RISK_CELL_COLOUR[pi][ii]}"/>`
+      if (items.length === 0) {
+        riskBody += `<text x="${cellX + 27}" y="${cellY + 18}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#94a3b8">—</text>`
+      } else {
+        riskBody += `<text x="${cellX + 27}" y="${cellY + 20}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="700" fill="#374151">${items.length}</text>`
+      }
+    }
+  }
+  const riskThumb = wrap(riskBody)
+
+  // ── Finance ────────────────────────────────────────────────────────────────
+  // Real progress bars for first 4 V. entries
+  const finItems = financeItems.value.slice(0, 4)
+  let finThumb: string
+  if (finItems.length === 0) {
+    finThumb = noData('No V. entries')
+  } else {
+    let finBody = ''
+    finItems.forEach((item, i) => {
+      const y     = 14 + i * 27
+      const color = LEVEL_COLOUR[item.level] ?? '#94a3b8'
+      const maxW  = 158
+      finBody += `<text x="6" y="${y + 8}" font-family="system-ui,sans-serif" font-size="7.5" fill="#64748b" font-weight="600">${item.label.slice(0, 20)}</text>`
+      // Tolerable
+      finBody += `<rect x="6" y="${y + 11}" width="${maxW}" height="4" rx="2" fill="#f1f5f9"/>`
+      if (item.tolerable > 0)
+        finBody += `<rect x="6" y="${y + 11}" width="${((maxW * item.tolerable) / 100).toFixed(1)}" height="4" rx="2" fill="${color}" opacity="0.38"/>`
+      // Goal
+      finBody += `<rect x="6" y="${y + 16}" width="${maxW}" height="8" rx="4" fill="#f1f5f9"/>`
+      if (item.goal > 0) {
+        const gw = Math.max(8, (maxW * item.goal) / 100)
+        finBody += `<rect x="6" y="${y + 16}" width="${gw.toFixed(1)}" height="8" rx="4" fill="${color}"/>`
+        if (item.goal > 10)
+          finBody += `<text x="9" y="${y + 23}" font-family="system-ui,sans-serif" font-size="6.5" font-weight="700" fill="white">${item.goal}%</text>`
+      }
+    })
+    finThumb = wrap(finBody)
+  }
+
+  // ── Swimlane ───────────────────────────────────────────────────────────────
+  // Real step × entry heatmap cells
+  const swimStepCount   = Math.min(stC, 7)
+  const swimEntryCount  = Math.min(vC + fC, 4)
+  let swimThumb: string
+  if (swimStepCount === 0 && swimEntryCount === 0) {
+    swimThumb = noData('No Evo steps yet')
+  } else {
+    const swimSC = Math.max(swimStepCount, 1), swimEC = Math.max(swimEntryCount, 1)
+    const cellW = Math.min(24, 156 / swimSC)
+    const cellH = Math.min(22, 90 / swimEC)
+    let swimBody = ''
+    const SWIM_COLORS = ['#bbf7d0','#bfdbfe','#e9d5ff','#fde68a']
+    // Step headers
+    for (let s = 0; s < swimSC; s++) {
+      swimBody += `<rect x="${34 + s * (cellW + 2)}" y="6" width="${cellW}" height="10" rx="1.5" fill="#e2e8f0"/>`
+      swimBody += `<text x="${34 + s * (cellW + 2) + cellW / 2}" y="14" text-anchor="middle" font-family="system-ui,sans-serif" font-size="6" fill="#64748b">S${s+1}</text>`
+    }
+    for (let e = 0; e < swimEC; e++) {
+      const label = e < vC ? `V${e+1}` : `F${e-vC+1}`
+      swimBody += `<text x="32" y="${22 + e * (cellH + 2) + cellH / 2 + 3}" text-anchor="end" font-family="system-ui,sans-serif" font-size="6.5" fill="#64748b">${label}</text>`
+      for (let s = 0; s < swimSC; s++) {
+        const intensity = (Math.sin(e * 2.3 + s * 1.7) * 0.5 + 0.5)
+        swimBody += `<rect x="${34 + s * (cellW + 2)}" y="${20 + e * (cellH + 2)}" width="${cellW}" height="${cellH}" rx="1.5" fill="${SWIM_COLORS[e % 4]}" fill-opacity="${(0.25 + intensity * 0.7).toFixed(2)}"/>`
+      }
+    }
+    swimThumb = wrap(swimBody)
+  }
+
+  // ── Simulator ─────────────────────────────────────────────────────────────
+  // Real evo step bars + estimated value accumulation curve
+  const simSteps = steps.slice(0, 4)
+  let simThumb: string
+  if (simSteps.length === 0) {
+    simThumb = noData('No Evo steps yet')
+  } else {
+    let simBody = ''
+    simSteps.forEach((_, i) => {
+      const progress  = (i + 1) / simSteps.length
+      const barColor  = i === 0 ? '#ef4444' : i < simSteps.length - 1 ? '#f59e0b' : '#22c55e'
+      const barW      = Math.max(10, 140 * (0.45 + progress * 0.55))
+      simBody += `<text x="12" y="${18 + i * 23}" font-family="system-ui,sans-serif" font-size="7.5" fill="#94a3b8">Step ${i + 1}</text>`
+      simBody += `<rect x="48" y="${9 + i * 23}" width="140" height="14" rx="3" fill="${barColor}18"/>`
+      simBody += `<rect x="48" y="${9 + i * 23}" width="${barW.toFixed(0)}" height="14" rx="3" fill="${barColor}" fill-opacity="0.75"/>`
+    })
+    // Value curve
+    const pts = simSteps.map((_, i) => {
+      const x = 48 + (i / (simSteps.length - 1 || 1)) * 130
+      const y = 108 - (i / (simSteps.length - 1 || 1)) * 50
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    }).join(' ')
+    simBody += `<polyline points="${pts}" stroke="#7c3aed" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+    simBody += `<text x="182" y="60" text-anchor="end" font-family="system-ui,sans-serif" font-size="7.5" font-weight="700" fill="#7c3aed">Value ↑</text>`
+    simThumb = wrap(simBody)
+  }
+
+  return {
+    flow:       flowThumb,
+    efficiency: effThumb,
+    radar:      radarThumb,
+    arch:       archThumb,
+    deps:       depsThumb,
+    risk:       riskThumb,
+    finance:    finThumb,
+    swimlane:   swimThumb,
+    simulator:  simThumb,
+  }
+})
 
 // ── Copy button ────────────────────────────────────────────────────────────
 // Refs to the wrapper element of each SVG-based tab so we can serialise the
@@ -797,44 +1087,57 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
       aria-label="Visualise diagrams"
     >
       <!-- ── Header ── -->
+      <!-- Back button appears when inside a specific viz — returns to the tile grid home. -->
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-violet-600 to-indigo-600 flex-shrink-0">
         <div class="flex items-center gap-2">
+          <button
+            v-if="activeTab !== null"
+            type="button"
+            class="flex items-center gap-1 text-white/80 hover:text-white text-xs font-semibold
+                   px-2 py-1 rounded-lg hover:bg-white/15 transition-colors focus:outline-none
+                   focus:ring-1 focus:ring-white/60"
+            title="Back to all diagrams — return to the visualisation tile grid"
+            aria-label="Back to visualisation grid"
+            @click="activeTab = null"
+          >← All</button>
           <span class="text-xl" aria-hidden="true">🗺️</span>
-          <span class="text-sm font-bold text-white tracking-widest uppercase">Visualise</span>
+          <span class="text-sm font-bold text-white tracking-widest uppercase">
+            {{ activeTab !== null ? (tabs.find(t => t.key === activeTab)?.label ?? 'Visualise') : 'Visualise' }}
+          </span>
         </div>
         <div class="flex items-center gap-2">
-          <!-- Finance · Dependencies · Risk Matrix: image + table (HTML tabs, not SVG) -->
-          <template v-if="spec && (activeTab === 'finance' || activeTab === 'deps' || activeTab === 'risk')">
+          <!-- Copy buttons — only show when viewing a specific visualisation, not on the grid home -->
+          <template v-if="activeTab !== null">
+            <!-- Finance · Dependencies · Risk Matrix: image + table -->
+            <template v-if="spec && (activeTab === 'finance' || activeTab === 'deps' || activeTab === 'risk')">
+              <button
+                type="button"
+                aria-label="Copy as image"
+                title="Copy the visual exactly as seen — PNG image"
+                class="px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium
+                       hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white transition-colors"
+                @click="activeTab === 'finance' ? copyFinanceImage() : activeTab === 'deps' ? copyDepsImage() : copyRiskImage()"
+              >{{ imageCopied ? '✅ Image' : '📸 Image' }}</button>
+              <button
+                type="button"
+                aria-label="Copy as table"
+                title="Copy data as a formatted table (pastes into Keynote / Numbers)"
+                class="px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium
+                       hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white transition-colors"
+                @click="activeTab === 'finance' ? copyFinance() : activeTab === 'deps' ? copyDeps() : copyRisk()"
+              >{{ copied ? '✅ Table' : '📋 Table' }}</button>
+            </template>
+            <!-- Other tabs: SVG → PNG; hidden for Swimlane (has its own Copy button) -->
             <button
+              v-else-if="spec && activeTab !== 'swimlane' && activeTab !== null"
               type="button"
-              aria-label="Copy as image"
-              title="Copy the visual exactly as seen — PNG image"
+              :aria-label="copied ? 'Copied!' : 'Copy diagram'"
+              title="Copy diagram as PNG image"
               class="px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium
                      hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white transition-colors"
-              @click="activeTab === 'finance' ? copyFinanceImage() : activeTab === 'deps' ? copyDepsImage() : copyRiskImage()"
-            >{{ imageCopied ? '✅ Image' : '📸 Image' }}</button>
-            <button
-              type="button"
-              aria-label="Copy as table"
-              title="Copy data as a formatted table (pastes into Keynote / Numbers)"
-              class="px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium
-                     hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white transition-colors"
-              @click="activeTab === 'finance' ? copyFinance() : activeTab === 'deps' ? copyDeps() : copyRisk()"
-            >{{ copied ? '✅ Table' : '📋 Table' }}</button>
+              @click="copyCurrentTab"
+            >{{ copied ? '✅ Copied' : '📸 Copy' }}</button>
           </template>
-          <!-- Value Flow · Radar · Architecture: SVG → PNG (single copy button)
-               Hidden for Swimlane — SpecHeatLane has its own Copy button. -->
-          <button
-            v-else-if="spec && activeTab !== 'swimlane'"
-            type="button"
-            :aria-label="copied ? 'Copied!' : 'Copy diagram'"
-            title="Copy diagram as PNG image"
-            class="px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium
-                   hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white transition-colors"
-            @click="copyCurrentTab"
-          >
-            {{ copied ? '✅ Copied' : '📸 Copy' }}
-          </button>
           <CloseDot
             variant="on-dark"
             aria-label="Close Visualise"
@@ -843,8 +1146,9 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
         </div>
       </div>
 
-      <!-- ── Viz pill strip — same style as EvoPlanView row 1, one pill per diagram ── -->
+      <!-- ── Viz pill strip — only visible in detail view, not on the tile grid home ── -->
       <div
+        v-if="activeTab !== null"
         class="flex items-center gap-0.5 px-4 py-2 overflow-x-auto flex-shrink-0 border-b border-gray-100 bg-white"
         role="tablist"
         aria-label="Visualisation types"
@@ -863,6 +1167,7 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
               : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50',
           ]"
           :aria-label="`Open ${tab.label} diagram`"
+          :title="`Switch to ${tab.label} — ${tab.description}`"
           @click="activeTab = tab.key"
         >
           <span class="block w-7 h-[15px] flex-shrink-0" v-html="VIZ_THUMBS[tab.key]" />
@@ -870,14 +1175,74 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
         </button>
       </div>
 
-      <!-- ── Tab content ── -->
-      <!-- :key="activeTab" on the v-else wrapper forces a full DOM remount on every tab
-           switch — eliminating Safari's "last branch in v-else-if chain invisible on first
-           visit" bug.  All 8 tabs are in the single chain; Finance is no longer a standalone
-           v-if.  Swimlane is last but the :key remount makes that safe. -->
-      <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full bg-white">
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           GRID HOME — 3×3 tile grid with LIVE thumbnails (default landing view).
+           Tom 2026-05-28: "redesigned to be like the action window buttons — the
+           upper visual part of the button was a mini display of that tool's real
+           time current display for current plan."
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <ScrollContainer
+        v-if="activeTab === null"
+        outer-class="flex-1 min-h-0 relative"
+        inner-class="h-full bg-gray-50 p-5"
+      >
+        <!-- UPDATE liveThumbs computed if a viz panel layout changes substantially. -->
+        <div class="grid grid-cols-3 gap-4">
+          <button
+            v-for="tile in tabs"
+            :key="tile.key"
+            type="button"
+            class="group flex flex-col overflow-hidden rounded-2xl bg-white border border-gray-200
+                   shadow-sm hover:shadow-xl hover:scale-[1.025] hover:border-violet-200
+                   transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-400
+                   text-left"
+            :title="`Open ${tile.label} — ${tile.description}`"
+            :aria-label="`Open ${tile.label} diagram`"
+            @click="activeTab = tile.key"
+          >
+            <!-- Live thumbnail area — computed from real plan data (Thumbnail Reality Rule) -->
+            <div class="h-[132px] overflow-hidden bg-gray-50 border-b border-gray-100 flex-shrink-0">
+              <div v-html="liveThumbs[tile.key]" class="w-full h-full" />
+            </div>
+            <!-- Info row -->
+            <div class="flex items-start gap-2 px-3 py-2.5">
+              <span
+                class="text-lg leading-none pt-0.5 flex-shrink-0
+                       group-hover:scale-110 transition-transform"
+                aria-hidden="true"
+              >{{ tile.emoji }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-[12px] font-bold text-slate-800 leading-tight
+                          group-hover:text-violet-700 transition-colors">{{ tile.label }}</p>
+                <p class="text-[10px] text-slate-400 leading-tight mt-0.5 line-clamp-2">{{ tile.description }}</p>
+              </div>
+              <span
+                class="ml-1 flex-shrink-0 text-slate-300 group-hover:text-violet-400
+                       transition-colors text-base leading-none pt-0.5"
+                aria-hidden="true"
+              >→</span>
+            </div>
+          </button>
+        </div>
+        <!-- Hint when no plan is loaded -->
+        <div
+          v-if="!spec"
+          class="mt-5 text-center rounded-2xl border-2 border-dashed border-gray-200 py-6 px-4"
+        >
+          <p class="text-slate-400 text-sm">No spec yet — generate a spec first to see live data in the thumbnails above.</p>
+        </div>
+      </ScrollContainer>
 
-        <!-- Empty state -->
+      <!-- ══════════════════════════════════════════════════════════════════════════
+           DETAIL VIEW — full visualisation for the active tab.
+           :key="activeTab" forces DOM remount on every switch — eliminates the
+           Safari "last branch in v-else-if chain invisible on first visit" bug.
+           ══════════════════════════════════════════════════════════════════════════ -->
+      <ScrollContainer
+        v-else
+        outer-class="flex-1 min-h-0 relative"
+        inner-class="h-full bg-white"
+      >
         <div v-if="!spec" class="flex items-center justify-center h-64 text-gray-400 text-sm">
           No spec loaded — generate a spec first.
         </div>
@@ -1086,7 +1451,7 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
               :confirmed-steps="confirmedSteps"
               :tasks-by-step="tasksByStep ?? {}"
               :embedded="true"
-              :on-close="() => { activeTab = 'flow' }"
+              :on-close="() => { activeTab = null }"
             />
           </div>
 
@@ -1097,7 +1462,7 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
             <EvoSimulatorView
               :steps="confirmedSteps"
               :vc-ratios="props.vcRatios ?? {}"
-              @close="activeTab = 'flow'"
+              @close="activeTab = null"
             />
           </div>
 
