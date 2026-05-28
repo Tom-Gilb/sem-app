@@ -37,6 +37,7 @@ import { extractAllStakeholders, impactLevel } from '../utils/stakeholderExtract
 import type { VEntry, SEntry } from '../types/spec'
 import type { ImpactMatrix } from '../types/impact'
 import LoadingProgress from './LoadingProgress.vue'
+import AmuseMeButton from './AmuseMeButton.vue'
 
 const props = defineProps<{
   values: VEntry[]
@@ -760,6 +761,12 @@ defineExpose({
         :baseline="25"
         hint="can take up to 45s on slow networks"
         color="indigo"
+      />
+      <!-- AmuseMeButton: impact estimation can take 20-45s; entertain the user -->
+      <AmuseMeButton
+        :is-loading="loading"
+        :planning-stage="4"
+        class="w-full mt-3"
       />
     </div>
     <!-- Error banner -->

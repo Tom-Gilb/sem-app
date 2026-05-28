@@ -306,6 +306,13 @@ function scrollToActive(): void {
     const idx  = STAGES.findIndex(s => s.stage === props.currentStage)
     const pill = pillRefs.value[idx]
     if (!pill) return
+    // Stage 1: always snap to the very start so tile 1's left edge is fully visible.
+    // Centering would place stage 1 at ~0 minus half-container which clips the tile
+    // behind the ◀ fade overlay. All other stages center normally.
+    if (props.currentStage === 1) {
+      wrapper.scrollTo({ left: 0, behavior: 'smooth' })
+      return
+    }
     // Center the pill within the scroll container
     const target = pill.offsetLeft - wrapper.clientWidth / 2 + pill.offsetWidth / 2
     wrapper.scrollTo({ left: Math.max(0, target), behavior: 'smooth' })

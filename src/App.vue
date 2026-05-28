@@ -145,6 +145,7 @@ import { defineCurrentSelection, openDefineSearch } from './composables/useDefin
 import SpecWizard from './components/SpecWizard.vue'
 import SpecPresentation from './components/SpecPresentation.vue'
 import BullockPanel from './components/BullockPanel.vue'
+import AmuseMeButton from './components/AmuseMeButton.vue'
 import OnboardingTour from './components/OnboardingTour.vue'
 import type { SpecBlock } from './types/spec'
 import GlobalSearch from './components/GlobalSearch.vue'
@@ -4907,6 +4908,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 @open-edit-info="editInfoOpen = true"
               />
             </div>
+            <!-- AmuseMeButton — spec regeneration loading (sdkLoading true while re-generating) -->
+            <AmuseMeButton
+              :is-loading="sdkLoading"
+              :planning-stage="planningStage"
+              class="w-full max-w-xl"
+            />
 
             <!-- Dark `PlanModelBar` removed 2026-05-12 per Tom: it duplicated
                  the persistent purple Plan Identity Bar at the top of the page
@@ -5079,6 +5086,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 @open-edit-info="editInfoOpen = true"
               />
             </div>
+
+            <!-- AmuseMeButton — first spec generation loading (sdkLoading true while generating) -->
+            <AmuseMeButton
+              :is-loading="sdkLoading"
+              :planning-stage="planningStage"
+              class="w-full max-w-xl"
+            />
 
             <!-- Copyright footer — always visible at the bottom of Stage 1 -->
             <div class="w-full max-w-xl mt-8 mb-2 flex justify-center">
