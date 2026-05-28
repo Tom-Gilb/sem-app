@@ -76,6 +76,11 @@ const readInMode      = ref<PlanInputMode>('text')
 const pastedText      = ref('')
 const urlInput        = ref('')
 const selectedFile    = ref<File | null>(null)
+const fileInputRef    = ref<HTMLInputElement | null>(null)
+
+function triggerFilePicker(): void {
+  fileInputRef.value?.click()
+}
 const readInParsed    = ref<SpecBlock | null>(null)
 const showFullSpec    = ref(false)
 const copySpecDone    = ref(false)
@@ -660,30 +665,49 @@ function handleMergeAddTo():   void { if (mergeParsed.value) emit('add-to', merg
               <!-- File upload -->
               <div v-else class="space-y-3">
                 <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Choose file</p>
-                <label
-                  class="flex flex-col items-center gap-3 px-6 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors"
-                  :class="selectedFile
-                    ? 'border-indigo-300 bg-indigo-50'
-                    : 'border-slate-300 bg-white hover:border-indigo-300 hover:bg-indigo-50'"
+
+                <!-- Hidden real file input — triggered by the button below -->
+                <input
+                  ref="fileInputRef"
+                  type="file"
+                  accept=".pdf,.docx,.txt,.md,.markdown,.rtf,.html,.htm,.csv"
+                  class="sr-only"
+                  :disabled="planInputLoading"
+                  @change="handleFileChange"
+                />
+
+                <!-- Explicit Browse button — always visible, always clickable -->
+                <button
+                  type="button"
+                  class="w-full flex items-center justify-center gap-3 min-h-[56px] rounded-xl
+                         border-2 border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold text-sm
+                         hover:bg-indigo-100 hover:border-indigo-500
+                         active:scale-[0.98] transition-all duration-150
+                         focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Click to open the Mac file picker and choose a PDF, Word, Text, Markdown, HTML or CSV file"
+                  :disabled="planInputLoading"
+                  @click="triggerFilePicker"
                 >
-                  <span class="text-3xl" aria-hidden="true">{{ selectedFile ? '📄' : '📂' }}</span>
-                  <div class="text-center">
-                    <p class="text-sm font-medium text-slate-700">
-                      {{ selectedFile ? selectedFile.name : 'Drop file here or click to browse' }}
+                  <span class="text-2xl leading-none" aria-hidden="true">📂</span>
+                  <span>{{ selectedFile ? 'Change file…' : 'Browse for file on Mac…' }}</span>
+                </button>
+
+                <!-- Selected file chip -->
+                <div
+                  v-if="selectedFile"
+                  class="flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-200"
+                >
+                  <span class="text-2xl leading-none shrink-0" aria-hidden="true">📄</span>
+                  <div class="min-w-0">
+                    <p class="text-sm font-semibold text-indigo-800 truncate">{{ selectedFile.name }}</p>
+                    <p class="text-xs text-slate-400">
+                      {{ (selectedFile.size / 1024).toFixed(0) }} KB · {{ selectedFile.name.split('.').pop()?.toUpperCase() }}
                     </p>
-                    <p class="text-xs text-slate-400 mt-1">PDF · Word (.docx) · Text · Markdown · HTML · CSV</p>
                   </div>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.txt,.md,.markdown,.rtf,.html,.htm,.csv"
-                    class="sr-only"
-                    :disabled="planInputLoading"
-                    @change="handleFileChange"
-                  />
-                </label>
-                <p v-if="selectedFile" class="text-xs text-slate-500">
-                  {{ (selectedFile.size / 1024).toFixed(0) }} KB · {{ selectedFile.name.split('.').pop()?.toUpperCase() }}
-                </p>
+                </div>
+
+                <p class="text-xs text-slate-400">Supports: PDF · Word (.docx) · Text · Markdown · HTML · CSV</p>
               </div>
 
               <!-- Replace warning -->
