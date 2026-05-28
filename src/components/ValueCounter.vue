@@ -277,8 +277,7 @@ onMounted(scrollToActive)
                z-20 ensures it renders above the halo ring (z-10). -->
           <div
             v-if="step.stage === currentStage"
-            class="active-label-bar absolute z-20 pointer-events-none"
-            style="top: 36px; left: 50%;"
+            class="active-label-bar absolute z-20 pointer-events-none inset-x-0 top-[30px] flex justify-center"
             aria-hidden="true"
           >
             <span

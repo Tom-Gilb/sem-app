@@ -89,8 +89,9 @@ import LoadingProgress from './LoadingProgress.vue'
 import ConceptHint from './ConceptHint.vue'
 import { CONCEPT_HINTS } from '../data/conceptHints'
 import EditGlyph from './icons/EditGlyph.vue'
-import { VIZ_THUMBS, VIZ_STRIP_ITEMS } from '../constants/vizThumbs'
+import { VIZ_STRIP_ITEMS } from '../constants/vizThumbs'
 import type { VisualisTab } from '../constants/vizThumbs'
+import { useVizThumbs } from '../composables/useVizThumbs'
 
 // ── Props and emits ───────────────────────────────────────────────────────────
 
@@ -147,6 +148,15 @@ const {
   removeStep,
   confirmPlan,
 } = useEvoPlan()
+
+// ── Live viz thumbnails (Thumbnail Reality Rule) ───────────────────────────────
+// useVizThumbs derives real-data SVG mini-renders from the current specBlock.
+// Used by the tool strip below the plan so each button shows a live miniature
+// of the diagram it would open — matching the ActionsHub and Visualise tile standard.
+const { liveThumbs: vizThumbs } = useVizThumbs({
+  specBlock: computed(() => props.specBlock),
+  confirmedSteps: plan,
+})
 
 // ── Tab state ─────────────────────────────────────────────────────────────────
 
@@ -1766,32 +1776,59 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       </template>
     </div>
 
-    <!-- ── Visualise strip — one pill per diagram type, each with mini SVG thumbnail ── -->
-    <div class="flex items-center gap-0.5 mb-2 -mt-1 flex-wrap">
+    <!-- ── Visualise tool strip — live-data tiles (Thumbnail Reality Rule) ──────
+         Tom 2026-05-28: "all the tools (Value flow etc.) need to meet the same
+         standard for their pin as in action. Larger, get rid of all old 'pencil'
+         pictures, the glyph is a real time plan glyph (a mini of the screen you
+         would get right now if you click the button)."
+         Each tile: 88px wide, 56px live SVG thumbnail (real spec counts/ratios/
+         heatmaps from useVizThumbs), 20px label row. Matches ActionsHub + Visualise
+         panel tile standard. -->
+    <div class="flex items-start gap-2 mb-3 mt-1 flex-wrap">
+      <!-- Diagram tiles -->
       <button
         v-for="item in VIZ_STRIP_ITEMS"
         :key="item.tab"
         type="button"
-        class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5
-               text-slate-400 hover:text-slate-700 hover:bg-slate-50
-               transition-colors duration-100"
+        class="group flex flex-col overflow-hidden rounded-xl border border-slate-200
+               bg-white shadow-sm hover:shadow-md hover:scale-[1.035] hover:border-slate-300
+               active:scale-100 transition-all duration-150 w-[88px]"
         :aria-label="`Open ${item.label} diagram`"
+        :title="`Open ${item.label} — live plan data`"
         @click="emit('open-visualise', { tab: item.tab })"
       >
-        <span class="block w-7 h-[15px] flex-shrink-0" v-html="VIZ_THUMBS[item.tab]" />
-        <span class="text-xs font-semibold tracking-wide whitespace-nowrap">{{ item.label }}</span>
+        <!-- Live thumbnail: computed SVG derived from real plan data -->
+        <div class="h-[56px] overflow-hidden bg-slate-50 border-b border-slate-100">
+          <div v-html="vizThumbs[item.tab]" class="w-full h-full" />
+        </div>
+        <!-- Label row -->
+        <div class="px-1.5 py-1.5 text-center">
+          <span class="block text-[10px] font-semibold text-slate-600 group-hover:text-slate-800
+                       leading-tight whitespace-nowrap truncate transition-colors">
+            {{ item.label }}
+          </span>
+        </div>
       </button>
-      <span class="w-px h-4 bg-slate-200 mx-1 flex-shrink-0" aria-hidden="true" />
+
+      <!-- Simulate tile (same standard — simulator live thumb) -->
       <button
         type="button"
-        class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5
-               text-slate-400 hover:text-green-700 hover:bg-green-50
-               transition-colors duration-100"
-        aria-label="Open Evo Value Animation"
+        class="group flex flex-col overflow-hidden rounded-xl border border-violet-200
+               bg-white shadow-sm hover:shadow-md hover:scale-[1.035] hover:border-violet-300
+               active:scale-100 transition-all duration-150 w-[88px]"
+        aria-label="Open Evo Value Animation simulator"
+        title="Evo Simulator — value accumulation curve"
         @click="emit('open-evo-simulator')"
       >
-        <span class="text-sm leading-none">📈</span>
-        <span class="text-xs font-semibold tracking-wide">Simulate</span>
+        <div class="h-[56px] overflow-hidden bg-violet-50 border-b border-violet-100">
+          <div v-html="vizThumbs['simulator']" class="w-full h-full" />
+        </div>
+        <div class="px-1.5 py-1.5 text-center">
+          <span class="block text-[10px] font-semibold text-violet-600 group-hover:text-violet-800
+                       leading-tight whitespace-nowrap truncate transition-colors">
+            Simulate
+          </span>
+        </div>
       </button>
     </div>
 

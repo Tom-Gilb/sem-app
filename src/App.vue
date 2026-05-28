@@ -4303,6 +4303,44 @@ function handleApertureLoadPlan(model: PlanModel): void {
         />
       </div>
 
+      <!-- ── Stage navigation breadcrumb ────────────────────────────────────────
+           Tom 2026-05-28: "There is a universal rule. We need clear navigation
+           back to previous screen, and possibly other origins. There is no back
+           (to actions)."
+           Two persistent control pins (top rule): ← Back (when not at stage 1)
+           + ⚡ Actions shortcut. ← Back decrements planningStage so the user can
+           step backwards through the planning cycle without hunting for the right
+           pill in the stage bar. ⚡ Actions surfaces the tile hub from anywhere.
+           Shown only in 'app' view when a spec exists or the user is active. -->
+      <div class="flex items-center gap-2 mb-1 px-0.5">
+        <button
+          v-if="planningStage > 1"
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
+                 text-sm font-medium text-slate-500 hover:text-slate-800
+                 bg-white/60 hover:bg-white border border-slate-200 hover:border-slate-300
+                 shadow-sm transition-all duration-150 select-none"
+          :title="`Go back to Stage ${planningStage - 1}`"
+          :aria-label="`Go back to stage ${planningStage - 1}`"
+          @click="handleStageBarNav(planningStage - 1)"
+        >
+          ← Back
+        </button>
+        <div class="flex-1" aria-hidden="true" />
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
+                 text-sm font-medium text-indigo-600 hover:text-indigo-900
+                 bg-white/60 hover:bg-indigo-50 border border-indigo-200 hover:border-indigo-300
+                 shadow-sm transition-all duration-150 select-none"
+          title="Open Actions panel (⌘A)"
+          aria-label="Open Actions hub"
+          @click="toggleMenu()"
+        >
+          ⚡ Actions
+        </button>
+      </div>
+
       <!-- Session restore banner — shown when no auth nav bar (Supabase not configured) -->
       <div
         v-if="sessionRestored && !supabaseConfigured"
