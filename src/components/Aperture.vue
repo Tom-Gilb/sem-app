@@ -22,6 +22,7 @@
 //   • window CustomEvent 'aperture:submit'  (voice "Done" / "Submit")
 
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import AmuseMeButton from './AmuseMeButton.vue'
 
 const props = withDefaults(defineProps<{
   /** True while the App is generating — well pulses, done button hides */
@@ -161,6 +162,8 @@ onUnmounted(() => {
           <p class="text-[11px] uppercase tracking-[0.22em] text-indigo-400/70 mt-1">
             your Apperture is working
           </p>
+          <!-- AmuseMeButton: Apperture spec generation takes 20–60s -->
+          <AmuseMeButton :is-loading="busy" class="w-full mt-2" />
         </div>
 
         <!-- ── Normal input state ─────────────────────────────────── -->
