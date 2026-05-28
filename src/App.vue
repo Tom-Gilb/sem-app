@@ -81,6 +81,7 @@ import type { SharpenCategory } from './composables/useSharpen'
 import PlanModelPanel from './components/PlanModelPanel.vue'
 import ModelComparisonView from './components/ModelComparisonView.vue'
 import GetAPlanPanel from './components/GetAPlanPanel.vue'
+import ContractHub from './components/ContractHub.vue'
 import PlanOwnerPanel from './components/PlanOwnerPanel.vue'
 import PlanDNAStrip   from './components/PlanDNAStrip.vue'
 import SpecOwnersPanel from './components/SpecOwnersPanel.vue'
@@ -559,6 +560,7 @@ function _onGoToTasks(): void {
 
 // --- Feature #196: Spec Editor ---
 const specEditorOpen      = ref(false)
+const contractsOpen       = ref(false)
 const _editorTarget       = ref<{ id: string; name: string }>({ id: '', name: '' })
 const _editorTab          = ref<'functions' | 'values' | 'solutions' | 'constraints' | 'versions' | ''>('')
 const _editorEntryId      = ref('')
@@ -3139,6 +3141,7 @@ registerExclusiveSurface('govPanel',          govPanelOpen)
 registerExclusiveSurface('planDNA',           planDNAOpen)
 registerExclusiveSurface('planTargets',       planTargetsOpen)
 registerExclusiveSurface('specEditor',        specEditorOpen)
+registerExclusiveSurface('contracts',         contractsOpen)
 registerExclusiveSurface('sdr',              sdrOpen)
 registerExclusiveSurface('toolInfoPanel',     toolInfoPanelOpen)
 registerExclusiveSurface('copyrightPanel',    copyrightPanelOpen)
@@ -3932,6 +3935,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
           >{{ specHistory.length }}</span>
         </div>
 
+        <!-- 📋 Contracts mode — third major SEM surface (Plans · Models · Contracts) -->
+        <button
+          type="button"
+          title="Contracts — convert real contracts to clear Planguage · single-click to open"
+          aria-label="Open Contracts mode"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
+                 focus:outline-none focus:ring-2 focus:ring-teal-300 transition-all"
+          :class="contractsOpen
+            ? 'bg-teal-600 text-white ring-1 ring-teal-400'
+            : 'text-white bg-white/10 hover:bg-teal-600/80 hover:text-white'"
+          @click="contractsOpen = !contractsOpen"
+        >
+          <span aria-hidden="true">📋</span>
+          <span class="hidden sm:inline">Contracts</span>
+        </button>
+
         <!-- 🆘 SOS / Restart Afresh — always red so it's instantly findable.
              Double-confirm guard: first click → 'Sure?', second click → clears everything.
              Control-pins-at-top rule: lives in the crest bar, never floating. -->
@@ -4053,6 +4072,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
     @show-in-value-flow="_handleShowInValueFlow"
     @open-actions="menuOpen = true"
     @navigate-stage="handleStageBarNav"
+  />
+
+  <!-- Contracts mode — 3rd major SEM surface (Plans · Models · Contracts). z-[600]. -->
+  <ContractHub
+    v-if="view === 'app' && contractsOpen"
+    @close="contractsOpen = false"
   />
 
   <!-- Feature #197: Tool Info panel — right drawer, z-[490] -->
