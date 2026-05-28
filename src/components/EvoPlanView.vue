@@ -688,37 +688,57 @@ function toggleStepMenu(index: number, groupId: string): void {
 }
 
 const EVO_MENU_GROUPS = [
-  { id: 'sprint',   emoji: '📅', label: 'Sprint Plan',  items: [
-    { emoji: '💰', label: 'Cost Estimate',    toggle: 'costPanelOpen' },
-    { emoji: '📅', label: 'Sprint Planner',   toggle: 'sprintOpen' },
-    { emoji: '🚦', label: 'WIP Limit',        toggle: 'wipOpen' },
-    { emoji: '⚗️', label: 'Capacity',         toggle: 'capacityOpen' },
-    { emoji: '⏱️', label: 'Timeboxing',       toggle: 'timeboxOpen' },
-  ]},
-  { id: 'analyse',  emoji: '📊', label: 'Analyse Plan',  items: [
-    { emoji: '🥇', label: 'WSJF Priority',    toggle: 'wsjfOpen' },
-    { emoji: '🎨', label: 'Retro Themes',     toggle: 'retroThemesOpen' },
-    { emoji: '😊', label: 'Team Mood',        toggle: 'moodPanelOpen' },
-    { emoji: '📈', label: 'Mood × Velocity',  toggle: 'moodVelocityOpen' },
-    { emoji: '🌊', label: 'Flow Efficiency',  toggle: 'flowOpen' },
-    { emoji: '🔺', label: 'Uncertainty Cone', toggle: 'coneOpen' },
-    { emoji: '🔥', label: 'Risk Heatmap',     toggle: 'riskHeatmapOpen' },
-    { emoji: '🐛', label: 'Bug Prediction',   toggle: 'bugPredictionOpen' },
-  ]},
-  { id: 'team',     emoji: '👥', label: 'Team Plan',  items: [
-    { emoji: '🔄', label: 'Pair Rotation',    toggle: 'pairRotationOpen' },
-    { emoji: '🏆', label: 'Pair Leaderboard', toggle: 'pairLeaderboardOpen' },
-    { emoji: '🔗', label: 'Dep Risk',         toggle: 'depRiskOpen' },
-    { emoji: '🕸️', label: 'Knowledge Graph', toggle: 'kgOpen' },
-  ]},
-  { id: 'forecast', emoji: '📈', label: 'Forecast Plan', items: [
-    { emoji: '📉', label: 'Burn-Down',        toggle: 'burnDownOpen' },
-    { emoji: '⚡', label: 'Energy Forecast',  toggle: 'energyForecastOpen' },
-    { emoji: '🧠', label: 'Evo Forecast',     toggle: 'forecastOpen' },
-    { emoji: '📈', label: 'Velocity',         toggle: 'velocityPredictorOpen' },
-    { emoji: '⏱️', label: 'Cycle Time',       toggle: 'cycleTimeOpen' },
-    { emoji: '🔵', label: 'Energy Scatter',   toggle: 'energyScatterOpen' },
-  ]},
+  { id: 'sprint',   emoji: '📅', label: 'Sprint Plan',
+    idleCls:   'bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100 hover:border-violet-300',
+    activeCls: 'bg-violet-200 border-violet-400 text-violet-900 shadow-inner',
+    dropdownCls: 'border-violet-200',
+    itemHoverCls: 'hover:bg-violet-50',
+    items: [
+      { emoji: '💰', label: 'Cost Estimate',    toggle: 'costPanelOpen' },
+      { emoji: '📅', label: 'Sprint Planner',   toggle: 'sprintOpen' },
+      { emoji: '🚦', label: 'WIP Limit',        toggle: 'wipOpen' },
+      { emoji: '⚗️', label: 'Capacity',         toggle: 'capacityOpen' },
+      { emoji: '⏱️', label: 'Timeboxing',       toggle: 'timeboxOpen' },
+    ]},
+  { id: 'analyse',  emoji: '📊', label: 'Analyse Plan',
+    idleCls:   'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300',
+    activeCls: 'bg-indigo-200 border-indigo-400 text-indigo-900 shadow-inner',
+    dropdownCls: 'border-indigo-200',
+    itemHoverCls: 'hover:bg-indigo-50',
+    items: [
+      { emoji: '🥇', label: 'WSJF Priority',    toggle: 'wsjfOpen' },
+      { emoji: '🎨', label: 'Retro Themes',     toggle: 'retroThemesOpen' },
+      { emoji: '😊', label: 'Team Mood',        toggle: 'moodPanelOpen' },
+      { emoji: '📈', label: 'Mood × Velocity',  toggle: 'moodVelocityOpen' },
+      { emoji: '🌊', label: 'Flow Efficiency',  toggle: 'flowOpen' },
+      { emoji: '🔺', label: 'Uncertainty Cone', toggle: 'coneOpen' },
+      { emoji: '🔥', label: 'Risk Heatmap',     toggle: 'riskHeatmapOpen' },
+      { emoji: '🐛', label: 'Bug Prediction',   toggle: 'bugPredictionOpen' },
+    ]},
+  { id: 'team',     emoji: '👥', label: 'Team Plan',
+    idleCls:   'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300',
+    activeCls: 'bg-emerald-200 border-emerald-400 text-emerald-900 shadow-inner',
+    dropdownCls: 'border-emerald-200',
+    itemHoverCls: 'hover:bg-emerald-50',
+    items: [
+      { emoji: '🔄', label: 'Pair Rotation',    toggle: 'pairRotationOpen' },
+      { emoji: '🏆', label: 'Pair Leaderboard', toggle: 'pairLeaderboardOpen' },
+      { emoji: '🔗', label: 'Dep Risk',         toggle: 'depRiskOpen' },
+      { emoji: '🕸️', label: 'Knowledge Graph', toggle: 'kgOpen' },
+    ]},
+  { id: 'forecast', emoji: '📈', label: 'Forecast Plan',
+    idleCls:   'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 hover:border-amber-300',
+    activeCls: 'bg-amber-200 border-amber-400 text-amber-900 shadow-inner',
+    dropdownCls: 'border-amber-200',
+    itemHoverCls: 'hover:bg-amber-50',
+    items: [
+      { emoji: '📉', label: 'Burn-Down',        toggle: 'burnDownOpen' },
+      { emoji: '⚡', label: 'Energy Forecast',  toggle: 'energyForecastOpen' },
+      { emoji: '🧠', label: 'Evo Forecast',     toggle: 'forecastOpen' },
+      { emoji: '📈', label: 'Velocity',         toggle: 'velocityPredictorOpen' },
+      { emoji: '⏱️', label: 'Cycle Time',       toggle: 'cycleTimeOpen' },
+      { emoji: '🔵', label: 'Energy Scatter',   toggle: 'energyScatterOpen' },
+    ]},
 ]
 
 // Static metadata for each global feature panel: used for the color bar
@@ -1785,47 +1805,49 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
          Each tile: 88px wide, 56px live SVG thumbnail (real spec counts/ratios/
          heatmaps from useVizThumbs), 20px label row. Matches ActionsHub + Visualise
          panel tile standard. -->
-    <div class="flex items-start gap-2 mb-3 mt-1 flex-wrap">
+    <!-- Viz tile strip — w-[112px] tiles, h-[76px] thumbnails (was 88×56).
+         Larger tiles match "nothing to hide, plenty of screen space" principle. -->
+    <div class="flex items-start gap-3 mb-4 mt-1 flex-wrap">
       <!-- Diagram tiles -->
       <button
         v-for="item in VIZ_STRIP_ITEMS"
         :key="item.tab"
         type="button"
         class="group flex flex-col overflow-hidden rounded-xl border border-slate-200
-               bg-white shadow-sm hover:shadow-md hover:scale-[1.035] hover:border-slate-300
-               active:scale-100 transition-all duration-150 w-[88px]"
+               bg-white shadow-sm hover:shadow-md hover:scale-[1.03] hover:border-slate-300
+               active:scale-100 transition-all duration-150 w-[112px]"
         :aria-label="`Open ${item.label} diagram`"
-        :title="`Open ${item.label} — live plan data`"
+        :title="`Open ${item.label} — live plan data · click to open full view`"
         @click="emit('open-visualise', { tab: item.tab })"
       >
         <!-- Live thumbnail: computed SVG derived from real plan data -->
-        <div class="h-[56px] overflow-hidden bg-slate-50 border-b border-slate-100">
+        <div class="h-[76px] overflow-hidden bg-slate-50 border-b border-slate-100">
           <div v-html="vizThumbs[item.tab]" class="w-full h-full" />
         </div>
         <!-- Label row -->
-        <div class="px-1.5 py-1.5 text-center">
-          <span class="block text-[10px] font-semibold text-slate-600 group-hover:text-slate-800
+        <div class="px-2 py-2 text-center">
+          <span class="block text-[11px] font-bold text-slate-600 group-hover:text-slate-800
                        leading-tight whitespace-nowrap truncate transition-colors">
             {{ item.label }}
           </span>
         </div>
       </button>
 
-      <!-- Simulate tile (same standard — simulator live thumb) -->
+      <!-- Simulate tile (violet accent) -->
       <button
         type="button"
         class="group flex flex-col overflow-hidden rounded-xl border border-violet-200
-               bg-white shadow-sm hover:shadow-md hover:scale-[1.035] hover:border-violet-300
-               active:scale-100 transition-all duration-150 w-[88px]"
+               bg-white shadow-sm hover:shadow-md hover:scale-[1.03] hover:border-violet-300
+               active:scale-100 transition-all duration-150 w-[112px]"
         aria-label="Open Evo Value Animation simulator"
-        title="Evo Simulator — value accumulation curve"
+        title="Evo Simulator — value accumulation curve · click to open"
         @click="emit('open-evo-simulator')"
       >
-        <div class="h-[56px] overflow-hidden bg-violet-50 border-b border-violet-100">
+        <div class="h-[76px] overflow-hidden bg-violet-50 border-b border-violet-100">
           <div v-html="vizThumbs['simulator']" class="w-full h-full" />
         </div>
-        <div class="px-1.5 py-1.5 text-center">
-          <span class="block text-[10px] font-semibold text-violet-600 group-hover:text-violet-800
+        <div class="px-2 py-2 text-center">
+          <span class="block text-[11px] font-bold text-violet-600 group-hover:text-violet-800
                        leading-tight whitespace-nowrap truncate transition-colors">
             Simulate
           </span>
@@ -1833,41 +1855,48 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       </button>
     </div>
 
-    <!-- ── Evo Whisper Feature Menu Bar ─────────────────────────────────────── -->
-    <div class="flex items-center gap-0.5 mb-4 -mt-2">
+    <!-- ── Evo Feature Menu Bar — colored card-style group tabs ──────────────── -->
+    <!-- Each group is a colored pill with emoji + label. Idle state shows the
+         group color at low intensity; active state shows stronger tint + shadow-inner.
+         DD-009: title discloses the dropdown interaction. -->
+    <div class="flex items-center gap-2 mb-5 flex-wrap">
       <div v-if="activeEvoMenu !== null" class="fixed inset-0 z-30" aria-hidden="true" @click="activeEvoMenu = null" />
       <div v-for="group in EVO_MENU_GROUPS" :key="group.id" class="relative">
         <button
           type="button"
           :aria-haspopup="true"
           :aria-expanded="activeEvoMenu === group.id"
-          :aria-label="group.label"
-          class="inline-flex items-center rounded-lg px-2 py-1.5 transition-colors duration-100"
-          :class="activeEvoMenu === group.id
-            ? 'text-slate-700 bg-slate-100'
-            : 'text-slate-300 hover:text-slate-600 hover:bg-slate-50'"
+          :aria-label="`${group.label} — click to see tools`"
+          :title="`${group.label} — click to open tool menu`"
+          class="inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2
+                 transition-all duration-150 shadow-sm hover:shadow-md font-bold text-sm"
+          :class="activeEvoMenu === group.id ? group.activeCls : group.idleCls"
           @mouseenter="hoveredEvoMenu = group.id"
           @mouseleave="hoveredEvoMenu = null"
           @click="activeEvoMenu = activeEvoMenu === group.id ? null : group.id"
         >
-          <span class="text-sm leading-none select-none">{{ group.emoji }}</span>
-          <span class="text-xs font-semibold tracking-wide ml-1 whitespace-nowrap">{{ group.label }}</span>
+          <span class="text-base leading-none select-none" aria-hidden="true">{{ group.emoji }}</span>
+          <span class="whitespace-nowrap tracking-tight">{{ group.label }}</span>
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
-            style="height:0.6rem;width:0.6rem;flex-shrink:0;opacity:0.4;margin-left:0.1rem"
+            class="w-3 h-3 shrink-0 opacity-50 transition-transform duration-150"
+            :class="activeEvoMenu === group.id ? 'rotate-180' : ''"
           ><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z" /></svg>
         </button>
         <div
           v-show="activeEvoMenu === group.id"
-          class="absolute left-0 top-full z-40 mt-1 min-w-[11rem] rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl"
+          class="absolute left-0 top-full z-40 mt-1.5 min-w-[12rem] rounded-xl border bg-white py-1.5 shadow-xl"
+          :class="group.dropdownCls"
         >
           <button
             v-for="item in group.items"
             :key="item.toggle"
             type="button"
-            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors"
+            :class="group.itemHoverCls"
+            :title="`Open ${item.label} panel — see below ↓`"
             @click="toggleEvoPanel(item.toggle); activeEvoMenu = null; showEvoToast(item.label + ' · see below ↓')"
           >
-            <span class="shrink-0 w-5 text-center" aria-hidden="true">{{ item.emoji }}</span>
+            <span class="shrink-0 w-5 text-center text-base" aria-hidden="true">{{ item.emoji }}</span>
             {{ item.label }}
           </button>
         </div>
@@ -2278,7 +2307,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
               </div>
             </div>
           </div>
-          <button aria-label="Copy Pair Rotation" @click="copyPairRotation()" class="text-xs text-slate-500 hover:underline mt-1">{{ pairRotationCopied ? '✅ Copied!' : '📋 Copy Markdown' }}</button>
+          <button aria-label="Copy Pair Rotation" @click="copyPairRotation()" class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors">{{ pairRotationCopied ? '✅ Copied!' : '📋 Copy Markdown' }}</button>
         </div>
       </div>
     </div>
@@ -2332,7 +2361,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
             <text :x="103" :y="20 * (flowSteps.length + 1) + 9" font-size="8" fill="#475569">Idle</text>
           </svg>
           <!-- Copy button -->
-          <button aria-label="Copy Flow" @click="copyFlowMd()" class="text-xs text-slate-500 hover:underline mt-1">{{ flowCopied ? '✅ Copied!' : '📋 Copy Markdown' }}</button>
+          <button aria-label="Copy Flow" @click="copyFlowMd()" class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors">{{ flowCopied ? '✅ Copied!' : '📋 Copy Markdown' }}</button>
         </div>
       </div>
     </div>
@@ -2420,7 +2449,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
             <text x="164" y="219" font-size="8" fill="#475569">Completed</text>
           </svg>
           <!-- Copy button -->
-          <button aria-label="Copy Cone" @click="() => { const md = copyConeMd(); navigator.clipboard?.writeText(md) }" class="text-xs text-slate-500 hover:underline mt-1">📋 Copy Markdown</button>
+          <button aria-label="Copy Cone" @click="() => { const md = copyConeMd(); navigator.clipboard?.writeText(md) }" class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors">📋 Copy Markdown</button>
         </div>
       </div>
     </div>
@@ -2510,7 +2539,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <button
             type="button"
             aria-label="Copy Mood Velocity"
-            class="text-xs text-slate-500 hover:underline mt-1"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
             @click="copyMvMarkdown()"
           >
             {{ mvCopied ? '✅ Copied!' : '📋 Copy Markdown' }}
@@ -2928,7 +2957,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <div v-if="overLimitSteps.length > 0" class="text-xs text-amber-600 mt-1">
             ⚠️ {{ overLimitSteps.length }} full-day step(s) — consider breaking down
           </div>
-          <button aria-label="Copy Timebox" @click="copyTimebox" class="text-xs text-slate-500 hover:underline mt-1">
+          <button aria-label="Copy Timebox" @click="copyTimebox" class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors">
             {{ timeboxCopied ? '✅ Copied!' : '📋 Copy plan' }}
           </button>
         </div>
@@ -4205,7 +4234,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
                     </div>
                     <button
                       type="button"
-                      class="text-xs text-slate-500 hover:underline mt-1"
+                      class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
                       :aria-label="`Copy sprint review for ${step.title ?? 'step'}`"
                       :data-testid="`sprint-review-copy-${index}`"
                       @click="copySprintReview(`step-${index}`)"
@@ -5385,7 +5414,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <!-- Copy button -->
           <button
             type="button"
-            class="text-xs text-slate-500 hover:underline mt-1"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
             @click="copyPairLeaderboardMd()"
           >
             {{ pairLeaderboardCopied ? '✅ Copied!' : '📋 Copy Markdown' }}
@@ -5436,7 +5465,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <!-- Copy button -->
           <button
             type="button"
-            class="text-xs text-slate-500 hover:underline mt-1"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
             @click="copyDepRiskMd()"
           >
             {{ depRiskCopied ? '✅ Copied!' : '📋 Copy Markdown' }}
@@ -5529,7 +5558,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <!-- Copy button -->
           <button
             type="button"
-            class="text-xs text-slate-500 hover:underline mt-1"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
             @click="copyCycleTimeMd()"
           >
             {{ cycleTimeCopied ? '✅ Copied!' : '📋 Copy Markdown' }}
@@ -5617,7 +5646,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <!-- Copy button -->
           <button
             type="button"
-            class="text-xs text-slate-500 hover:underline mt-1"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
             @click="copyEnergyScatterMd()"
           >
             {{ energyScatterCopied ? '✅ Copied!' : '📋 Copy Markdown' }}
@@ -5724,7 +5753,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <!-- Copy button -->
           <button
             type="button"
-            class="text-xs text-slate-500 hover:underline mt-1"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
             @click="copyRiskHeatmapMd()"
           >
             {{ riskHeatmapCopied ? '✅ Copied!' : '📋 Copy Markdown' }}
@@ -5781,7 +5810,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <!-- Copy button -->
           <button
             type="button"
-            class="text-xs text-slate-500 hover:underline mt-1"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
             @click="copyBugPredictionMd()"
           >
             {{ bugPredictionCopied ? '✅ Copied!' : '📋 Copy Markdown' }}
@@ -5906,7 +5935,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <!-- Copy button -->
           <button
             type="button"
-            class="text-xs text-slate-500 hover:underline mt-1"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2.5 py-0.5 mt-1.5 transition-colors"
             @click="copyVelocityMd()"
           >
             {{ velocityCopied ? '✅ Copied!' : '📋 Copy Markdown' }}
