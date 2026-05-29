@@ -525,6 +525,9 @@ const planPeopleTab       = ref<'owners' | 'planners' | 'scribes'>('owners')
 const govPanelOpen        = ref(false)
 // --- Plan DNA / Planner Consequences strip ---
 const planDNAOpen         = ref(false)
+function _togglePlanStory(): void {
+  planDNAOpen.value = !planDNAOpen.value
+}
 // --- Feature #195: Plan Targets ---
 const planTargetsOpen     = ref(false)
 // --- Spec Direct Relations (SDR) ---
@@ -1814,6 +1817,7 @@ const sharpenDropdownMockRef = ref<{ close(): void } | null>(null)
  *  back-navigation.  Call this before changing stage — never set stage directly
  *  in a back-navigation handler. */
 function _closeAllOverlays(): void {
+  planDNAOpen.value          = false   // close Plan Story strip on any stage/overlay change
   menuOpen.value             = false
   renamePopoverOpen.value    = false
   modelsOpen.value           = false
@@ -3830,7 +3834,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
         :aria-pressed="planDNAOpen"
         aria-label="Toggle Plan Story (origin, hand-tuning, sharpening, stewards, age)"
         data-testid="plancrest-story-toggle"
-        @click="planDNAOpen = !planDNAOpen"
+        @click="_togglePlanStory()"
       >
         <span class="text-lg leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" aria-hidden="true">📖</span>
         <span>Plan Story</span>
