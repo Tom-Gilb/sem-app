@@ -15,26 +15,59 @@ import type { MariaResult } from '../../types/maria'
 // Handles snake_case, singular, and common paraphrases. Each entry maps an
 // alternate key → the canonical MariaResult key it should normalise to.
 const FIELD_ALIASES: Record<string, string> = {
-  // decisionInventory variants
-  decisions:          'decisionInventory',
-  decision_inventory: 'decisionInventory',
-  decisionList:       'decisionInventory',
-  decision_list:      'decisionInventory',
+  // decisionInventory variants — the LLM drifts toward many synonyms for this key
+  decisions:               'decisionInventory',
+  decision_inventory:      'decisionInventory',
+  decisionList:            'decisionInventory',
+  decision_list:           'decisionInventory',
+  // Observed in production (2026-05-30): model returned boardActions / decisionTimeline
+  // / derivedDecisionData instead of decisionInventory. All three map here.
+  boardActions:            'decisionInventory',
+  board_actions:           'decisionInventory',
+  decisionTimeline:        'decisionInventory',
+  decision_timeline:       'decisionInventory',
+  derivedDecisionData:     'decisionInventory',
+  derivedDecisions:        'decisionInventory',
+  derivedDecisionDetails:  'decisionInventory',
+  derivedDecisionDa:       'decisionInventory', // truncated variant seen in error log
+  boardDecisions:          'decisionInventory',
+  board_decisions:         'decisionInventory',
+  decisionLog:             'decisionInventory',
+  decision_log:            'decisionInventory',
   // authorityReport variants
-  authority_report:   'authorityReport',
-  authorityGaps:      'authorityReport',
-  authority_gaps:     'authorityReport',
-  authorityEntries:   'authorityReport',
+  authority_report:        'authorityReport',
+  authorityGaps:           'authorityReport',
+  authority_gaps:          'authorityReport',
+  authorityEntries:        'authorityReport',
+  authorityClarity:        'authorityReport',
+  authority_clarity:       'authorityReport',
   // governanceGaps variants
-  governance_gaps:    'governanceGaps',
-  gaps:               'governanceGaps',
-  governmentGaps:     'governanceGaps', // typo the model occasionally produces
+  governance_gaps:         'governanceGaps',
+  gaps:                    'governanceGaps',
+  governmentGaps:          'governanceGaps', // typo the model occasionally produces
+  governanceIssues:        'governanceGaps',
+  governance_issues:       'governanceGaps',
+  missingDecisions:        'governanceGaps',
   // patternAnalysis variants
-  pattern_analysis:   'patternAnalysis',
-  patterns:           'patternAnalysis',
-  patternList:        'patternAnalysis',
-  pattern_list:       'patternAnalysis',
+  pattern_analysis:        'patternAnalysis',
+  patterns:                'patternAnalysis',
+  patternList:             'patternAnalysis',
+  pattern_list:            'patternAnalysis',
+  governancePatterns:      'patternAnalysis',
+  governance_patterns:     'patternAnalysis',
 }
+
+/**
+ * All known key names the LLM might use to carry decision-inventory data.
+ * Used by the merge fallback when no single alias resolves to decisionInventory.
+ * If the LLM splits decisions across MULTIPLE arrays, this concatenates them.
+ */
+const _DECISION_MERGE_CANDIDATES = [
+  'boardActions', 'board_actions', 'decisionTimeline', 'decision_timeline',
+  'derivedDecisionData', 'derivedDecisions', 'derivedDecisionDetails', 'derivedDecisionDa',
+  'boardDecisions', 'board_decisions', 'decisionLog', 'decision_log',
+  'decisions', 'decisionList', 'decision_list', 'decision_inventory',
+]
 
 /**
  * Applies field-alias normalisation and one level of nesting unwrapping to a
@@ -70,6 +103,23 @@ function normaliseResponse(raw: Record<string, unknown>): Record<string, unknown
   for (const [alias, canonical] of Object.entries(FIELD_ALIASES)) {
     if (out[alias] !== undefined && out[canonical] === undefined) {
       out[canonical] = out[alias]
+    }
+  }
+
+  // Step 3 — decisionInventory merge fallback.
+  // If decisionInventory is STILL missing after alias normalisation, the LLM may
+  // have split decision data across multiple keys (observed in production 2026-05-30:
+  // model returned boardActions + decisionTimeline + derivedDecisionData separately).
+  // Concatenate all candidate arrays into a single decisionInventory.
+  if (!Array.isArray(out.decisionInventory)) {
+    const merged: unknown[] = []
+    for (const key of _DECISION_MERGE_CANDIDATES) {
+      if (Array.isArray(out[key]) && (out[key] as unknown[]).length > 0) {
+        merged.push(...(out[key] as unknown[]))
+      }
+    }
+    if (merged.length > 0) {
+      out.decisionInventory = merged
     }
   }
 

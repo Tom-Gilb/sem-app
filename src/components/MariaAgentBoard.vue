@@ -562,8 +562,8 @@ function sendEmailReport(): void {
                 </span>
               </div>
 
-              <!-- Photo or styled fallback -->
-              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-100" style="height:190px;">
+              <!-- Photo or styled fallback — 340px gives room for landscape school photos -->
+              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-100" style="height:340px;">
                 <!-- Real photo (hidden if URL empty or failed to load) -->
                 <img
                   v-if="MONTESSORI_PHOTOS[activeFactIdx].url && !failedPhotos.has(activeFactIdx)"
