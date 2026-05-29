@@ -2423,7 +2423,7 @@ async function doTranslate(
       if (stage.value === 1) {
         _resetPlanForLoad()
         await nextTick()
-        goToPlanStage()
+        goToPlanStage(true)   // fromFreshGeneration — advance bar to stage 2, not 6
       } else {
         scrollToSpec()
       }
@@ -2501,17 +2501,34 @@ function _ensurePlanModel(spec: SpecBlock): void {
   }
 }
 
-/** Called when user clicks "Plan Evo Steps" in Stage 1 */
-function goToPlanStage(): void {
+/**
+ * Called when user clicks "Plan Evo Steps" in Stage 1, or after fresh spec
+ * generation (in which case `fromFreshGeneration` = true).
+ *
+ * The `fromFreshGeneration` flag controls how the 11-step planning bar is advanced:
+ *   false (default — explicit user navigation to Evo Steps):
+ *     advance bar to ≥6 so EvoPlanView feels "at home".
+ *   true (auto-advance after AI generates first spec):
+ *     advance bar to ≥2 (Edit Values) only — do NOT skip the user over Sharpen
+ *     (stage 4) and Estimate Impacts (stage 5). The user should visit those stages
+ *     before generating Evo Steps. Tom: "it jumped from sharpen (not chosen yet)
+ *     to evosteps hopping over intermediate steps!"
+ */
+function goToPlanStage(fromFreshGeneration = false): void {
   if (currentSpec.value) {
     _closeAllOverlays()          // prevent any stage-1 panel from persisting into stage 2
     _ensurePlanModel(currentSpec.value)
     stage.value = 2
-    // Sync the 11-step planning bar: if the user was on a spec-entry stage (1–4),
-    // advance to stage 6 (Evo Steps) which is the natural home for EvoPlanView.
-    // Never REGRESS a bar position — if the user was already at stage 7 (Evo Simulator),
-    // 8 (Tasks), etc., keep them where they were (they navigated back to re-generate).
-    if (planningStage.value < 6) planningStage.value = 6
+    // Never REGRESS a bar position — if the user was already at stage 7+, keep them there.
+    if (fromFreshGeneration) {
+      // After AI generates spec: advance bar from stage 1 → 2 (Edit Values).
+      // The user still needs to go through Edit Values → Edit Solutions → Sharpen →
+      // Estimate Impacts before reaching Evo Steps at stage 6.
+      if (planningStage.value < 2) planningStage.value = 2
+    } else {
+      // Explicit navigation to Evo Steps view: jump bar to stage 6 if not already there.
+      if (planningStage.value < 6) planningStage.value = 6
+    }
   }
 }
 

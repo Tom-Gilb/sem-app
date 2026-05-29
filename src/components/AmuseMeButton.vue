@@ -12,7 +12,7 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import {
@@ -46,6 +46,31 @@ const props = withDefaults(defineProps<{
 // ─── State ────────────────────────────────────────────────────────────────────
 
 const { isOpen, activeItemId, toggle, selectItem, close } = useAmuseMe()
+
+/**
+ * Linger: keep the panel visible for 4 s after isLoading goes false.
+ * Without this the "Fun while waiting?" panel vanishes mid-interaction the
+ * moment the AI finishes — the user can't finish reading a joke, a nice-things
+ * suggestion, or a picture they just selected.
+ * Tom 2026-05-29: "fun is still not working" — root cause: panel disappears
+ * too fast to interact with.
+ */
+const lingerVisible = ref(false)
+let _lingerTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(() => props.isLoading, (loading) => {
+  if (loading) {
+    // AI started generating → show immediately, cancel any pending fade-out
+    if (_lingerTimer) { clearTimeout(_lingerTimer); _lingerTimer = null }
+    lingerVisible.value = true
+  } else {
+    // AI finished → stay visible for 4 s then fade out
+    _lingerTimer = setTimeout(() => {
+      lingerVisible.value = false
+      _lingerTimer = null
+    }, 4000)
+  }
+}, { immediate: true })
 
 /** Whether the hover tooltip preview is visible */
 const showHoverPreview = ref(false)
@@ -107,7 +132,9 @@ function handleItemClick(id: string): void {
 
 <template>
   <Transition name="amuse-fade">
-    <div v-if="isLoading" class="mt-4 w-full">
+    <!-- lingerVisible stays true for 4 s after isLoading goes false — prevents the
+         panel from vanishing mid-interaction when the AI finishes quickly. -->
+    <div v-if="lingerVisible" class="mt-4 w-full">
 
       <!-- ── Main trigger button ─────────────────────────────────────────── -->
       <div
@@ -409,7 +436,7 @@ function handleItemClick(id: string): void {
                     <img
                       :key="currentPictureUrl"
                       :src="currentPictureUrl"
-                      :alt="`${activeTheme.label} photo from Unsplash`"
+                      :alt="`${activeTheme.label} photo`"
                       class="w-full h-full object-cover transition-opacity duration-500"
                       :class="pictureLoading ? 'opacity-0' : 'opacity-100'"
                       @load="pictureLoading = false"
@@ -420,7 +447,7 @@ function handleItemClick(id: string): void {
                   <!-- Caption + refresh -->
                   <div class="flex items-center justify-between mt-2">
                     <p class="text-[10px] text-slate-400">
-                      {{ activeTheme.emoji }} {{ activeTheme.label }} · via Unsplash
+                      {{ activeTheme.emoji }} {{ activeTheme.label }} · via loremflickr
                     </p>
                     <button
                       type="button"
