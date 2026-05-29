@@ -3673,7 +3673,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
          dead-centre in the bar regardless of viewport width. `max-w-[80%]`
          on the title group leaves breathing room either side; `truncate` on
          the title span gracefully clips ultra-long plan names. -->
-    <div class="flex items-center justify-center h-12">
+    <div class="flex items-center justify-center h-12 relative">
       <!-- VIEW MODE — big gold-shimmer title centered in the row, click to
            edit in place. The crest stripe + "Plan" eyebrow ride along on the
            left of the title so the whole identity unit stays together when
@@ -3750,6 +3750,56 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="hidden md:inline text-[10px] uppercase tracking-[0.25em] font-semibold text-amber-200/85 leading-none shrink-0"
           aria-hidden="true"
         >Enter saves · Esc cancels</span>
+      </div>
+
+      <!-- ── Right pin cluster: SOS · ⚡ Actions · 🤖 Agents ──────────────────
+           Absolute-right in Row 1 so they are NEVER clipped by Row 2's
+           overflow-x-clip. Control-pins-at-top rule: topmost row, right side.
+           Moved here 2026-05-29 — overflow-x-clip on Row 2 was clipping
+           these at 1024–1180 px viewport widths. -->
+      <div class="absolute right-0 inset-y-0 flex items-center gap-1 pr-0.5">
+        <!-- 🆘 SOS -->
+        <button
+          type="button"
+          class="h-8 w-8 flex items-center justify-center rounded-lg text-base
+                 bg-red-600/80 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300
+                 focus:outline-none focus:ring-2 focus:ring-red-300 transition-all shrink-0"
+          aria-label="SOS — open reset menu (Blank Canvas, Save & Stop, Rollback, Close stuck UI)"
+          title="🆘 SOS — Blank Canvas / Save & Stop / Cancel Changes / Close stuck UI"
+          @click="freshStartOpen = true"
+        >🆘</button>
+        <!-- ⚡ Actions hub -->
+        <button
+          type="button"
+          :aria-expanded="menuOpen"
+          aria-haspopup="true"
+          aria-label="Open Actions menu (⌘A)"
+          title="Actions menu — press ⌘A from anywhere"
+          data-crest-tip="⚡ Actions — plan management, saves, exports & shortcuts (⌘A)"
+          class="w-8 h-8 flex items-center justify-center rounded-lg text-lg
+                 select-none transition-all shrink-0
+                 focus:outline-none focus:ring-2 focus:ring-amber-300"
+          :class="menuOpen
+            ? 'bg-amber-300 text-amber-900 ring-2 ring-amber-200'
+            : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
+          @click="toggleMenu"
+        ><span aria-hidden="true" style="filter: brightness(0.1);">⚡</span></button>
+        <!-- 🤖 Agents -->
+        <button
+          type="button"
+          :aria-expanded="agentMenuOpen"
+          aria-haspopup="true"
+          aria-label="Open Agent Menu"
+          title="Agent Menu — Maria analyses board documents: governance intelligence report"
+          data-crest-tip="🤖 Agents — call a planning agent (Maria: Board Work Parse)"
+          class="w-8 h-8 flex items-center justify-center rounded-lg text-lg
+                 select-none transition-all shrink-0
+                 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+          :class="agentMenuOpen
+            ? 'bg-emerald-300 text-emerald-900 ring-2 ring-emerald-200'
+            : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
+          @click="agentMenuOpen = true"
+        ><span aria-hidden="true">🤖</span></button>
       </div>
     </div>
 
@@ -3908,7 +3958,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
            Pill-style chips, each clearly labelled with role + first person's
            name. Empty state shows "+ Add" so it always reads as a button.
            Click toggles the Plan Responsibilities panel on the matching tab. -->
-      <div class="hidden lg:flex items-center gap-1 shrink-0">
+      <div class="hidden xl:flex items-center gap-1 shrink-0">
         <!-- Owner -->
         <button
           type="button"
@@ -4108,29 +4158,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <!-- Text label hidden (2026-05-29) — icon-only to save crest bar width. -->
         </button>
 
-        <!-- 🆘 SOS / Restart Afresh — always red so it's instantly findable.
-             Opens FreshStartMenu (4 graduated reset options) so the user picks
-             the right level of reset — not a binary wipe.
-             Control-pins-at-top rule: lives in the crest bar, never floating. -->
-        <button
-          type="button"
-          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-extrabold transition-all
-                 bg-red-600/80 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300
-                 focus:outline-none focus:ring-2 focus:ring-red-300"
-          aria-label="SOS — open reset menu (Blank Canvas, Save & Stop, Rollback, Close stuck UI)"
-          title="🆘 SOS — click to open reset options"
-          @click="freshStartOpen = true"
-        >🆘</button>
+        <!-- (SOS moved to Row 1 absolute-right cluster — never clips there) -->
 
-        <!-- ── Control pins — 🎤 Mic · 🔊 Speaker · ⚡ Actions ──────────────────
-             Control-pins rule 2026-05-26: always at TOP, never floating bottom.
-             Integrated directly into the Plan Crest action row so they are DOM
-             children of the bar, not a floating overlay on top of it.
-             compact=true → icon-only (32×32px) so these three don't overflow
-             the bar on normal window widths.
-             When no plan is loaded (planModel=null) the Plan Crest bar is hidden;
-             the floating fallback cluster (fixed top-4 right-4, v-if="!planModel")
-             covers that edge case with full-label buttons. -->
+        <!-- ── Control pins — 🎤 Mic · 🔊 Speaker ──────────────────────────────
+             ⚡ Actions and 🤖 Agents moved to Row 1 absolute-right cluster so
+             they are immune to Row 2 overflow-x-clip at 1024–1180 px viewports.
+             Mic and Speaker remain here — they relate to active voice session. -->
         <span class="h-5 w-px bg-white/20 mx-0.5 shrink-0" aria-hidden="true" />
         <!-- P5 (2026-05-27): data-crest-tip wrappers on inline icon-only buttons.
              span.inline-flex needed because DictateButton/SpeakerButton are components
@@ -4150,47 +4183,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             @speak="handleSpeak"
           />
         </span>
-        <!-- Design log r08 2026-05-27: amber/yellow styling + text-xl icon.
-             Tom: "mic spkt action buttons need more contrast, more yellow maybe bigger icon." -->
-        <button
-          type="button"
-          :aria-expanded="menuOpen"
-          aria-haspopup="true"
-          aria-label="Open Actions menu (⌘A)"
-          title="Actions menu — press ⌘A from anywhere"
-          data-crest-tip="⚡ Actions — plan management, saves, exports & shortcuts (⌘A)"
-          class="w-9 h-9 flex items-center justify-center rounded-lg text-xl
-                 select-none transition-all
-                 focus:outline-none focus:ring-2 focus:ring-amber-300"
-          :class="menuOpen
-            ? 'bg-amber-300 text-amber-900 ring-2 ring-amber-200'
-            : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
-          @click="toggleMenu"
-        >
-          <!-- filter darkens the ⚡ emoji — native emoji is yellow/white,
-               invisible on amber background. brightness(0.1) renders it near-black. -->
-          <span aria-hidden="true" style="filter: brightness(0.1);">⚡</span>
-        </button>
-        <!-- 🤖 Agents button — opens the Agent Menu (Maria Agent and future agents).
-             Emerald scheme: distinct from the amber ⚡ Actions button.
-             Tom 2026-05-29: "Part of Planning mode, an agent who can be explicitly called (agent menu)." -->
-        <button
-          type="button"
-          :aria-expanded="agentMenuOpen"
-          aria-haspopup="true"
-          aria-label="Open Agent Menu"
-          title="Agent Menu — explicitly-called planning agents. Maria analyses board documents and produces a governance intelligence report (Decision Inventory, Authority Clarity, Governance Gaps, Pattern Analysis)."
-          data-crest-tip="🤖 Agents — call a planning agent (Maria: Board Work Parse)"
-          class="w-9 h-9 flex items-center justify-center rounded-lg text-xl
-                 select-none transition-all
-                 focus:outline-none focus:ring-2 focus:ring-emerald-300"
-          :class="agentMenuOpen
-            ? 'bg-emerald-300 text-emerald-900 ring-2 ring-emerald-200'
-            : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
-          @click="agentMenuOpen = true"
-        >
-          <span aria-hidden="true">🤖</span>
-        </button>
+        <!-- (⚡ Actions and 🤖 Agents moved to Row 1 absolute-right cluster) -->
         </div>
       </div>
     </div>
@@ -4448,7 +4441,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <div
     class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-16 px-4 md:pr-40
            overflow-x-clip"
-    :class="view === 'app' && planModel ? (planDNAOpen ? 'pt-[20rem]' : 'pt-32') : 'pt-8'"
+    :class="view === 'app' && planModel ? (planDNAOpen ? 'pt-[20rem]' : 'pt-36') : 'pt-8'"
   >
 
     <!-- Loading state while session is being restored.

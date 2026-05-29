@@ -144,13 +144,13 @@ function confirmRollback(): void {
       @click="close"
     />
 
-    <!-- Menu card — anchored above-left, pops UPWARD from the 🆘 pill at
-         bottom-left (Tom: "Up sounds ok, try"). The 🆘 pill itself is at
-         bottom: 1.5rem; left: 1rem (`bottom-6 left-4`). The card sits
-         directly above it with a 0.5 rem gap. -->
+    <!-- Menu card — anchored top-right, drops DOWN from the 🆘 SOS button
+         in the Plan Crest bar (which is now in the Row 1 absolute-right
+         cluster). The crest bar is ~100px; we open at top-[110px] so the
+         card appears just below the bar with a small gap. -->
     <div
       v-if="open"
-      class="fixed left-4 bottom-20 z-[620] w-[20rem]
+      class="fixed right-4 top-[110px] z-[620] w-[20rem]
              rounded-2xl bg-white shadow-2xl ring-1 ring-black/10
              overflow-hidden"
       role="dialog"
