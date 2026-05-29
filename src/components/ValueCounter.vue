@@ -90,7 +90,7 @@ const STAGES: Array<{
   { stage: 7,  label: 'Evo Impact', plType: 'value',       title: 'Stage 7 · Evo Impact — Measure the impact of each Evo Step against Values. Which steps deliver the highest Value divided by Cost? This is the Planguage VDT prioritisation engine.' },
   { stage: 8,  label: 'Tasks',      plType: 'task',        title: 'Stage 8 · Tasks — Concrete work items for each Evo Step. Tasks are the engineering activities that implement solutions and produce deliverable results for stakeholders.' },
   { stage: 9,  label: 'Study-Act',  plType: 'evo-step',    title: 'Stage 9 · Study-Act — Learn from delivery. Measure actual results against Value goals, update the plan. This is the Deming PDSA Study and Act steps applied to Planguage Evo.' },
-  { stage: 10, label: 'Plan',       plType: 'resource',    title: 'Stage 10 · Plan — Assign resources and schedule Evo Steps. Define who does what, with what budget, and in what sequence across the delivery lifecycle.' },
+  { stage: 10, label: 'Resources',  plType: 'resource',    title: 'Stage 10 · Resources — Estimate and allocate resource budgets (R. entries). Review Value/Cost ratios per Evo Step, assign capital and calendar budgets, and confirm all Constraints are respected before Export.' },
   { stage: 11, label: 'Export',     plType: 'constraint',  title: 'Stage 11 · Export — Share and publish the plan. Export the full Planguage specification as a formatted document, coloured HTML table, or JSON for Tom\'s Twin and downstream tools.' },
 ]
 
@@ -108,7 +108,7 @@ const STAGE_CTAS: Record<number, string> = {
   7:  '📈 Evo Simulator',
   8:  '✅ Plan Tasks',
   9:  '📋 Study Results',
-  10: '🗂 Review Plan',
+  10: '📦 Resources',
   11: '📤 Export Plan',
 }
 

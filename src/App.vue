@@ -1053,7 +1053,10 @@ function handleStageBarNav(n: number): void {
     case 8:
       goToTasksStage()  // Plan Tasks → stage 4
       break
-    // 9 (Study Results), 10 (Review Plan): no dedicated main stage — toast above is sufficient
+    // 9 (Study-Act): no dedicated main stage — toast is sufficient for now
+    case 10:
+      goToImpactStage() // Resources — V/C cost ratios + resource budgets live in Impact view
+      break
     case 11:
       exportFull()      // Export Plan → stage 5, auto-computes matrix if empty
       break
@@ -1099,7 +1102,7 @@ const planningStageAction = computed<{ label: string; handler: () => void } | nu
     case 7:  return { label: '📈 Evo Simulator',        handler: () => { evoSimulatorOpen.value = true } }
     case 8:  return { label: '✅ Plan Tasks',            handler: () => goToTasksStage() }
     case 9:  return { label: '📋 Study Results',        handler: () => showToast('💡 Study-Act: measure actual value delivered vs your Goals, then loop back to update the spec', 4500) }
-    case 10: return { label: '🗂 Review Plan',           handler: () => showToast('💡 Plan stage: assign resources and schedule Evo Steps across the delivery lifecycle', 4500) }
+    case 10: return { label: '📦 Resources',              handler: () => goToImpactStage() }
     case 11: return { label: '📤 Export Plan',          handler: () => exportFull() }
     default: return null
   }
