@@ -5773,6 +5773,27 @@
             <!-- Subtle label -->
             <p class="px-1 text-xs text-slate-400">What Planguage gives you</p>
 
+            <!-- Copy+Email — whole spec — TOP (Tom: "at both top and bottom of the listing") -->
+            <div class="flex items-center gap-1.5 px-1">
+              <span class="text-[10px] text-slate-400 font-medium mr-1">Copy whole spec:</span>
+              <button
+                type="button"
+                :title="copied ? 'Copied!' : 'Copy whole spec as colored HTML table'"
+                :aria-label="copied ? 'Copied!' : 'Copy whole spec'"
+                class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
+                       border border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+                @click="copyToClipboard"
+              >{{ copied ? '✓ Copied' : '📋 Copy all' }}</button>
+              <button
+                type="button"
+                :title="emailed ? 'Opening Mail…' : 'Email whole spec — copies colored table then opens Mail.app · paste with ⌘V'"
+                :aria-label="emailed ? 'Opening Mail…' : 'Email whole spec'"
+                class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
+                       border border-slate-200 bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300"
+                @click="emailSpec"
+              >{{ emailed ? '✓ Sent' : '✉️ Email all' }}</button>
+            </div>
+
             <!-- Feature #178 (enhanced) — Stakeholders Section Card
                  Tom 2026-05-15 SUPREME: "THE SPECS DO NOT SHOW STAKEHOLDERS (AND
                  THEIR NEEDS) AT LATER STAGES, this is important to understand and
@@ -5791,9 +5812,21 @@
               <div class="flex items-center gap-2 bg-amber-100 px-4 py-2.5 border-b border-amber-200">
                 <span class="text-xs font-bold text-amber-800 uppercase tracking-wide">👤§</span>
                 <span class="text-xs font-bold text-amber-800 uppercase tracking-wide">Stakeholders</span>
-                <span class="ml-auto text-[10px] text-amber-600">
-                  {{ specStakeholderCards.length }} identified
-                </span>
+                <span class="text-[10px] text-amber-600 ml-auto">{{ specStakeholderCards.length }} identified</span>
+                <button type="button"
+                  :title="copiedSection === 'stakeholders' ? 'Copied!' : 'Copy Stakeholders section as colored HTML table'"
+                  :aria-label="copiedSection === 'stakeholders' ? 'Copied!' : 'Copy Stakeholders'"
+                  class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                         border border-amber-300 bg-white/70 text-amber-700 hover:bg-white hover:border-amber-500"
+                  @click="copySection('stakeholders')"
+                >{{ copiedSection === 'stakeholders' ? '✓' : '📋' }}</button>
+                <button type="button"
+                  :title="emailedSection === 'stakeholders' ? 'Opening Mail…' : 'Email Stakeholders section — copies colored table then opens Mail.app · paste with ⌘V'"
+                  :aria-label="emailedSection === 'stakeholders' ? 'Opening Mail…' : 'Email Stakeholders'"
+                  class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                         border border-amber-300 bg-white/70 text-amber-700 hover:bg-white hover:border-amber-500"
+                  @click="emailSection('stakeholders')"
+                >{{ emailedSection === 'stakeholders' ? '✓' : '✉️' }}</button>
               </div>
               <div class="px-4 py-3 space-y-2.5">
                 <!-- Raw stakes text for context -->
@@ -5858,7 +5891,28 @@
             <!-- Feature #10 — Animated entry wrapper: keyed by animationKey to re-trigger on new spec -->
             <div :key="animationKey" class="space-y-3">
 
-              <!-- Function cards -->
+              <!-- Function cards — group header with copy+email -->
+              <div
+                v-if="displaySpec!.functions.length > 0"
+                class="flex items-center gap-2 rounded-t-xl bg-blue-600 px-4 py-2 -mb-3"
+              >
+                <span class="text-[11px] font-bold text-white uppercase tracking-wide">F. Functions</span>
+                <span class="text-[10px] text-blue-200 ml-auto">{{ displaySpec!.functions.length }} entries</span>
+                <button type="button"
+                  :title="copiedSection === 'functions' ? 'Copied!' : 'Copy Functions section as colored HTML table'"
+                  :aria-label="copiedSection === 'functions' ? 'Copied!' : 'Copy Functions'"
+                  class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                         border border-blue-400 bg-white/20 text-white hover:bg-white/40"
+                  @click="copySection('functions')"
+                >{{ copiedSection === 'functions' ? '✓' : '📋' }}</button>
+                <button type="button"
+                  :title="emailedSection === 'functions' ? 'Opening Mail…' : 'Email Functions section — copies colored table then opens Mail.app · paste with ⌘V'"
+                  :aria-label="emailedSection === 'functions' ? 'Opening Mail…' : 'Email Functions'"
+                  class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                         border border-blue-400 bg-white/20 text-white hover:bg-white/40"
+                  @click="emailSection('functions')"
+                >{{ emailedSection === 'functions' ? '✓' : '✉️' }}</button>
+              </div>
               <article
                 v-for="(f, index) in displaySpec!.functions"
                 :key="f.id"
@@ -5981,6 +6035,28 @@
                 </div>
               </article>
 
+              <!-- Value cards — group header with copy+email -->
+              <div
+                v-if="displaySpec!.values.length > 0"
+                class="flex items-center gap-2 rounded-t-xl bg-violet-700 px-4 py-2 -mb-3 mt-1"
+              >
+                <span class="text-[11px] font-bold text-white uppercase tracking-wide">V. Values</span>
+                <span class="text-[10px] text-violet-200 ml-auto">{{ displaySpec!.values.length }} entries</span>
+                <button type="button"
+                  :title="copiedSection === 'values' ? 'Copied!' : 'Copy Values section as colored HTML table'"
+                  :aria-label="copiedSection === 'values' ? 'Copied!' : 'Copy Values'"
+                  class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                         border border-violet-400 bg-white/20 text-white hover:bg-white/40"
+                  @click="copySection('values')"
+                >{{ copiedSection === 'values' ? '✓' : '📋' }}</button>
+                <button type="button"
+                  :title="emailedSection === 'values' ? 'Opening Mail…' : 'Email Values section — copies colored table then opens Mail.app · paste with ⌘V'"
+                  :aria-label="emailedSection === 'values' ? 'Opening Mail…' : 'Email Values'"
+                  class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                         border border-violet-400 bg-white/20 text-white hover:bg-white/40"
+                  @click="emailSection('values')"
+                >{{ emailedSection === 'values' ? '✓' : '✉️' }}</button>
+              </div>
               <!-- Value cards — Change 1: modular blocks + icons + progress bar -->
               <!-- Change 2: Ambition Level chips; Change 3: Wish field -->
               <article
@@ -6250,6 +6326,28 @@
                 </div>
               </article>
 
+              <!-- Solution cards — group header with copy+email -->
+              <div
+                v-if="displaySpec!.solutions.length > 0"
+                class="flex items-center gap-2 rounded-t-xl bg-orange-600 px-4 py-2 -mb-3 mt-1"
+              >
+                <span class="text-[11px] font-bold text-white uppercase tracking-wide">S. Solutions</span>
+                <span class="text-[10px] text-orange-200 ml-auto">{{ displaySpec!.solutions.length }} entries</span>
+                <button type="button"
+                  :title="copiedSection === 'solutions' ? 'Copied!' : 'Copy Solutions section as colored HTML table'"
+                  :aria-label="copiedSection === 'solutions' ? 'Copied!' : 'Copy Solutions'"
+                  class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                         border border-orange-400 bg-white/20 text-white hover:bg-white/40"
+                  @click="copySection('solutions')"
+                >{{ copiedSection === 'solutions' ? '✓' : '📋' }}</button>
+                <button type="button"
+                  :title="emailedSection === 'solutions' ? 'Opening Mail…' : 'Email Solutions section — copies colored table then opens Mail.app · paste with ⌘V'"
+                  :aria-label="emailedSection === 'solutions' ? 'Opening Mail…' : 'Email Solutions'"
+                  class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                         border border-orange-400 bg-white/20 text-white hover:bg-white/40"
+                  @click="emailSection('solutions')"
+                >{{ emailedSection === 'solutions' ? '✓' : '✉️' }}</button>
+              </div>
               <!-- Solution cards -->
               <article
                 v-for="(s, index) in displaySpec!.solutions"
@@ -6366,6 +6464,28 @@
                 </div>
               </article>
 
+            <!-- DD-006: Binary Constraint cards — group header with copy+email -->
+            <div
+              v-if="(displaySpec!.constraints ?? []).length > 0"
+              class="flex items-center gap-2 rounded-t-xl bg-red-700 px-4 py-2 -mb-3 mt-1"
+            >
+              <span class="text-[11px] font-bold text-white uppercase tracking-wide">C. Constraints</span>
+              <span class="text-[10px] text-red-200 ml-auto">{{ (displaySpec!.constraints ?? []).length }} entries</span>
+              <button type="button"
+                :title="copiedSection === 'constraints' ? 'Copied!' : 'Copy Constraints section as colored HTML table'"
+                :aria-label="copiedSection === 'constraints' ? 'Copied!' : 'Copy Constraints'"
+                class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                       border border-red-400 bg-white/20 text-white hover:bg-white/40"
+                @click="copySection('constraints')"
+              >{{ copiedSection === 'constraints' ? '✓' : '📋' }}</button>
+              <button type="button"
+                :title="emailedSection === 'constraints' ? 'Opening Mail…' : 'Email Constraints section — copies colored table then opens Mail.app · paste with ⌘V'"
+                :aria-label="emailedSection === 'constraints' ? 'Opening Mail…' : 'Email Constraints'"
+                class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                       border border-red-400 bg-white/20 text-white hover:bg-white/40"
+                @click="emailSection('constraints')"
+              >{{ emailedSection === 'constraints' ? '✓' : '✉️' }}</button>
+            </div>
             <!-- DD-006: Binary Constraint cards (C.) -->
             <article
               v-for="(c, index) in (displaySpec!.constraints ?? [])"
@@ -6408,6 +6528,27 @@
             </article>
 
             </div><!-- end animationKey wrapper -->
+
+            <!-- Copy+Email — whole spec — BOTTOM (Tom: "at both top and bottom of the listing") -->
+            <div class="flex items-center gap-1.5 px-1 pt-1">
+              <span class="text-[10px] text-slate-400 font-medium mr-1">Copy whole spec:</span>
+              <button
+                type="button"
+                :title="copied ? 'Copied!' : 'Copy whole spec as colored HTML table'"
+                :aria-label="copied ? 'Copied!' : 'Copy whole spec'"
+                class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
+                       border border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+                @click="copyToClipboard"
+              >{{ copied ? '✓ Copied' : '📋 Copy all' }}</button>
+              <button
+                type="button"
+                :title="emailed ? 'Opening Mail…' : 'Email whole spec — copies colored table then opens Mail.app · paste with ⌘V'"
+                :aria-label="emailed ? 'Opening Mail…' : 'Email whole spec'"
+                class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
+                       border border-slate-200 bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300"
+                @click="emailSpec"
+              >{{ emailed ? '✓ Sent' : '✉️ Email all' }}</button>
+            </div>
 
             <!-- Feature #41 / #45 — Spec Quality Footer (redesigned)
                  Flesch Readability dropped — that metric was designed for journalism/fiction
@@ -7948,6 +8089,10 @@ function _formatTimestamp(d: Date): string {
 }
 const copied  = ref(false)
 const emailed = ref(false)   // Universal copy/email rule — 2026-05-29
+
+// Per-section copy/email state — tracks which section was most recently copied/emailed
+const copiedSection  = ref<string | null>(null)
+const emailedSection = ref<string | null>(null)
 
 // ── Error display helpers ─────────────────────────────────────────────────────
 // Reset dismiss flag whenever a new error arrives so it surfaces again.
@@ -10057,6 +10202,90 @@ async function emailSpec(): Promise<void> {
   window.location.href = `mailto:?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(bod)}`
   emailed.value = true
   setTimeout(() => { emailed.value = false }, 4000)
+}
+
+// ── Per-section export helpers ────────────────────────────────────────────────
+// Builds a colored HTML table for a single Planguage section only.
+// Shares the same palette and style constants as _buildSpecHtml.
+function _buildSectionHtml(section: 'stakeholders' | 'functions' | 'values' | 'solutions' | 'constraints'): string {
+  const spec = props.spec
+  if (!spec) return ''
+  const TD = 'padding:6px 10px;border:1px solid #e2e8f0;vertical-align:top;white-space:normal;font-size:13px;'
+  const TH = TD + 'font-weight:600;'
+  const SH_BG  = ['#99f6e4','#bae6fd','#c7d2fe','#fecdd3','#fde68a','#f5d0fe']
+  const SH_TXT = ['#115e59','#075985','#3730a3','#9f1239','#92400e','#701a75']
+  const shMap = new Map<string, number>()
+  for (const v of spec.values) {
+    const s = v.wishStakeholder?.trim()
+    if (s && !shMap.has(s)) shMap.set(s, shMap.size)
+  }
+  let html = '<table style="border-collapse:collapse;font-family:system-ui,sans-serif;width:100%;">'
+  if (section === 'stakeholders') {
+    html += `<tr><td colspan="6" style="${TH}background:#0f766e;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Stakeholders</td></tr>`
+    html += `<tr><th style="${TH}background:#f0fdf4;">Who</th></tr>`
+    for (const [name, idx] of shMap) {
+      const bg = SH_BG[idx % SH_BG.length]; const txt = SH_TXT[idx % SH_TXT.length]
+      html += `<tr><td style="${TD}background:${bg};color:${txt};font-weight:600;">● ${name}</td></tr>`
+    }
+  } else if (section === 'functions') {
+    html += `<tr><td colspan="3" style="${TH}background:#16a34a;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Functions</td></tr>`
+    html += `<tr><th style="${TH}background:#eff6ff;">ID</th><th style="${TH}background:#eff6ff;">Description</th><th style="${TH}background:#eff6ff;">Presence Test</th></tr>`
+    for (const f of spec.functions) {
+      html += `<tr><td style="${TD}font-family:monospace;white-space:nowrap;">${f.id}</td><td style="${TD}">${f.description ?? ''}</td><td style="${TD}color:#374151;">${(f.presenceTest || (f as any).successCriteria) ?? ''}</td></tr>`
+    }
+  } else if (section === 'values') {
+    html += `<tr><td colspan="6" style="${TH}background:#5b21b6;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Values</td></tr>`
+    html += `<tr><th style="${TH}background:#f5f3ff;">Stakeholder</th><th style="${TH}background:#f0fdf4;">ID</th><th style="${TH}background:#f0fdf4;">Description</th><th style="${TH}background:#f0fdf4;">Scale</th><th style="${TH}background:#f0fdf4;">Tolerable</th><th style="${TH}background:#f0fdf4;">Goal</th></tr>`
+    for (const v of spec.values) {
+      const shIdx = v.wishStakeholder ? (shMap.get(v.wishStakeholder.trim()) ?? 0) : -1
+      const shBg = shIdx >= 0 ? SH_BG[shIdx % SH_BG.length] : '#f8fafc'
+      const shTxt = shIdx >= 0 ? SH_TXT[shIdx % SH_TXT.length] : '#1e293b'
+      html += `<tr><td style="${TD}background:${shBg};color:${shTxt};font-weight:600;">${v.wishStakeholder ?? ''}</td><td style="${TD}font-family:monospace;white-space:nowrap;">${v.id}</td><td style="${TD}">${v.description ?? ''}</td><td style="${TD}color:#374151;">${v.scale ?? ''}</td><td style="${TD}background:#fffbeb;color:#92400e;">${v.tolerable ?? ''}</td><td style="${TD}background:#f5f3ff;color:#4c1d95;">${v.goal ?? ''}</td></tr>`
+    }
+  } else if (section === 'solutions') {
+    html += `<tr><td colspan="3" style="${TH}background:#ea580c;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Solutions</td></tr>`
+    html += `<tr><th style="${TH}background:#faf5ff;">ID</th><th style="${TH}background:#faf5ff;">Description</th><th style="${TH}background:#faf5ff;">Impact</th></tr>`
+    for (const s of spec.solutions) {
+      html += `<tr><td style="${TD}font-family:monospace;white-space:nowrap;">${s.id}</td><td style="${TD}">${s.description ?? ''}</td><td style="${TD}color:#374151;">${(s as any).impact ?? ''}</td></tr>`
+    }
+  } else if (section === 'constraints') {
+    html += `<tr><td colspan="2" style="${TH}background:#dc2626;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Constraints</td></tr>`
+    html += `<tr><th style="${TH}background:#fff1f2;">ID</th><th style="${TH}background:#fff1f2;">Binary Rule</th></tr>`
+    for (const c of (spec.constraints ?? [])) {
+      html += `<tr><td style="${TD}font-family:monospace;white-space:nowrap;color:#dc2626;">${c.id}</td><td style="${TD}">${c.description ?? ''}</td></tr>`
+    }
+  }
+  html += '</table>'
+  return html
+}
+
+async function copySection(section: string): Promise<void> {
+  if (!props.spec) return
+  const html  = _buildSectionHtml(section as Parameters<typeof _buildSectionHtml>[0])
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html':  new Blob([html],  { type: 'text/html' }),
+      'text/plain': new Blob([plain], { type: 'text/plain' }),
+    })])
+  } catch {
+    await navigator.clipboard.writeText(plain)
+  }
+  copiedSection.value = section
+  setTimeout(() => { copiedSection.value = null }, 2000)
+}
+
+async function emailSection(section: string): Promise<void> {
+  if (!props.spec) return
+  await copySection(section)
+  const sectionName = section.charAt(0).toUpperCase() + section.slice(1)
+  const now = new Date()
+  const ts  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+  const sub = `SEM Spec — ${sectionName} · ${ts}`
+  const bod = `Planguage ${sectionName} section — paste with ⌘V to see the colored table.\n\n(Generated by SEM App)`
+  window.location.href = `mailto:?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(bod)}`
+  emailedSection.value = section
+  setTimeout(() => { emailedSection.value = null }, 4000)
 }
 
 // ── Feature Organisation Design — Command Palette Registry ───────────────────
