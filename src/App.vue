@@ -723,7 +723,7 @@ const planHealthAlertCount = computed<number>(() => {
 
 // --- Feature #29: Spec Version History ---
 const { history: specHistory, addVersion, clearHistory: _clearHistory } = useSpecHistory()
-const { plan: _evoPlan, confirmPlan: _confirmEvoPlan } = useEvoPlan()
+const { plan: _evoPlan, confirmPlan: _confirmEvoPlan, fetchPlan: _fetchEvoPlan } = useEvoPlan()
 const historyOpen = ref(false)
 
 // --- Fresh Start menu (2026-05-14) — graduated replacement for the bare
@@ -1088,7 +1088,7 @@ const planningStageAction = computed<{ label: string; handler: () => void } | nu
     case 3:  return { label: '[*] Edit Solutions',      handler: () => _openSpecEditor({ tab: 'solutions' }) }
     case 4:  return { label: '✨ Sharpen Spec',         handler: () => { sharpenModalOpen.value = true } }
     case 5:  return { label: '📊 Estimate Impacts',     handler: () => goToImpactStage() }
-    case 6:  return { label: '⚡ Generate Evo Steps',   handler: () => goToStage2() }
+    case 6:  return { label: '⚡ Generate Evo Steps',   handler: () => { void _triggerEvoGeneration() } }
     case 7:  return { label: '📈 Evo Simulator',        handler: () => { evoSimulatorOpen.value = true } }
     case 8:  return { label: '✅ Plan Tasks',            handler: () => goToTasksStage() }
     case 9:  return { label: '📋 Study Results',        handler: () => showToast('💡 Study-Act: measure actual value delivered vs your Goals, then loop back to update the spec', 4500) }
@@ -1954,6 +1954,28 @@ function handleFormGoBack(): void {
 function goToStage2(): void {
   _closeAllOverlays()
   stage.value = 2
+}
+
+/**
+ * Navigate to EvoPlanView (stage 2) and trigger a fresh Evo Plan generation.
+ * force=true bypasses the identity guard so clicking always regenerates.
+ * Called by the stage-6 primary action pin ("⚡ Generate Evo Steps") and
+ * handleStageAction(6). Toasts and no-ops when there is no spec yet.
+ *
+ * Root cause of "Generate Evo Steps pin is dead" (2026-05-29): the previous
+ * handler was `() => goToStage2()` which is a no-op when already on
+ * EvoPlanView (stage.value === 2 unchanged), so nothing visually happened.
+ * Fix: navigate first, then fire fetchPlan(force=true) via nextTick so
+ * EvoPlanView is guaranteed mounted when the generation starts.
+ */
+async function _triggerEvoGeneration(): Promise<void> {
+  if (!currentSpec.value) {
+    showToast('💡 Add a spec at Stakes first — then Generate Evo Steps unlocks', 3800)
+    return
+  }
+  goToStage2()                                        // ensure EvoPlanView is mounted
+  await nextTick()                                    // let Vue flush before fetch starts
+  void _fetchEvoPlan(currentSpec.value, true)         // force=true bypasses identity guard
 }
 
 function improveCurrentVersion(): void {
