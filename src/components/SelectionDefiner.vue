@@ -231,16 +231,40 @@ function handlePillClick(): void {
   defineTerm(pillTerm.value, props.spec)
 }
 
+// ── Click-outside handler (replaces fixed-inset-0 backdrops) ─────────────────
+// The old approach used `fixed inset-0 z-[-1]` backdrop divs inside z-[10100]
+// stacking contexts.  Those backdrops cover the entire viewport at z-[10100]
+// level globally — blocking clicks on the Plan Crest bar (z-[300]) and any
+// other surface below z-[10100] whenever the define panel or term search is
+// open.  Using capture-phase mousedown on document instead costs nothing and
+// lets all other surfaces receive their clicks normally.
+function _onOutsideMousedown(e: MouseEvent): void {
+  const t = e.target as Element | null
+  if (!t) return
+  // Term-search popup: check first (it is z-[10101] — child of the same session)
+  if (defineSearchOpen.value) {
+    const search = document.querySelector<HTMLElement>('[data-seldef-search]')
+    if (search && !search.contains(t)) closeTermSearch()
+  }
+  // Main define panel
+  if (open.value) {
+    const card = document.querySelector<HTMLElement>('[data-seldef-card]')
+    if (card && !card.contains(t)) closeDefine()
+  }
+}
+
 onMounted(() => {
   document.addEventListener('selectionchange', _onSelectionChange)
   document.addEventListener('mouseup',         _onMouseup)
   window.addEventListener('keydown',           _onKeydown)
+  document.addEventListener('mousedown',       _onOutsideMousedown, true) // capture
 })
 
 onUnmounted(() => {
   document.removeEventListener('selectionchange', _onSelectionChange)
   document.removeEventListener('mouseup',         _onMouseup)
   window.removeEventListener('keydown',           _onKeydown)
+  document.removeEventListener('mousedown',       _onOutsideMousedown, true)
   if (_selectionTimer !== null) clearTimeout(_selectionTimer)
 })
 
@@ -654,11 +678,12 @@ function escapeHtml(s: string): string {
       ><!-- Universal Define-by-Selection rule: z-[10100] sits above most surfaces.
             History and PlanModels drawers are at z-[10200]/z-[10201] so they
             correctly cover this panel when open (drawers take priority). -->
-        <!-- Backdrop -->
+        <!-- Backdrop — pointer-events-none so it does NOT block clicks on
+             Plan Crest bar (z-[300]) or other surfaces below z-[10100].
+             Click-outside-to-close is handled by _onOutsideMousedown above. -->
         <div
-          class="fixed inset-0 z-[-1]"
+          class="fixed inset-0 z-[-1] pointer-events-none"
           aria-hidden="true"
-          @click="closeDefine"
         />
 
         <!-- Card — max-h set so it scrolls on small screens.
@@ -1083,16 +1108,17 @@ function escapeHtml(s: string): string {
     >
       <div
         v-if="defineSearchOpen"
+        data-seldef-search
         class="fixed bottom-[8.5rem] right-4 z-[10101] w-72 rounded-2xl
                overflow-hidden shadow-2xl border border-violet-200 bg-white"
         role="dialog"
         aria-label="Define a term"
       >
-        <!-- Backdrop (click outside to close) -->
+        <!-- Backdrop — pointer-events-none so it does NOT block clicks below.
+             Click-outside handled by _onOutsideMousedown (capture-phase). -->
         <div
-          class="fixed inset-0 z-[-1]"
+          class="fixed inset-0 z-[-1] pointer-events-none"
           aria-hidden="true"
-          @click="closeTermSearch"
         />
         <!-- Header -->
         <div class="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 flex items-center gap-2">
