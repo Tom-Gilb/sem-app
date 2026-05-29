@@ -25,7 +25,7 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
@@ -122,6 +122,185 @@ function onRatingInput(e: Event): void {
   ratingInteracted.value = true
 }
 
+// ─── Loading entertainment — Montessori carousel ──────────────────────────────
+
+interface MonFact {
+  title: string
+  fact: string
+  svg: string
+}
+
+const MONTESSORI_FACTS: MonFact[] = [
+  {
+    title: 'The Pink Tower',
+    fact: 'Ten cubes — 1 cm³ to 10 cm³ — teach volume, sequence, and mathematical precision entirely through touch and sight. No numbers, no explanation. The hand teaches the mind.',
+    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <ellipse cx="100" cy="113" rx="52" ry="5" fill="#e2e8f0"/>
+      <rect x="38" y="99" width="124" height="13" rx="3" fill="#fbcfe8"/>
+      <rect x="49" y="84" width="102" height="13" rx="3" fill="#f9a8d4"/>
+      <rect x="60" y="69" width="80" height="13" rx="3" fill="#f472b6"/>
+      <rect x="71" y="54" width="58" height="13" rx="3" fill="#ec4899"/>
+      <rect x="82" y="39" width="36" height="13" rx="3" fill="#db2777"/>
+      <rect x="93" y="24" width="14" height="13" rx="3" fill="#be185d"/>
+    </svg>`,
+  },
+  {
+    title: 'Moveable Alphabet',
+    fact: 'Montessori children write before they read. Physical letter tiles let them compose words without the motor burden of handwriting — cracking the code before encoding it on paper.',
+    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="8"  y="32" width="34" height="38" rx="5" fill="#6ee7b7"/>
+      <text x="25" y="59" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">A</text>
+      <rect x="50" y="14" width="34" height="38" rx="5" fill="#a7f3d0"/>
+      <text x="67" y="41" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">m</text>
+      <rect x="92" y="40" width="34" height="38" rx="5" fill="#6ee7b7"/>
+      <text x="109" y="67" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">or</text>
+      <rect x="134" y="22" width="34" height="38" rx="5" fill="#a7f3d0"/>
+      <text x="151" y="49" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">e</text>
+      <rect x="20"  y="78" width="34" height="38" rx="5" fill="#d1fae5"/>
+      <text x="37"  y="105" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">l</text>
+      <rect x="104" y="84" width="34" height="38" rx="5" fill="#6ee7b7"/>
+      <text x="121" y="111" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">s</text>
+    </svg>`,
+  },
+  {
+    title: 'Sensitive Periods',
+    fact: 'Between 0 and 6 years, children pass through "sensitive periods" — windows of heightened neurological readiness for language, order, movement, and the senses. Miss the window; climb a steeper hill.',
+    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="12" y="90" width="176" height="6" rx="3" fill="#e2e8f0"/>
+      <text x="12"  y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">0</text>
+      <text x="48"  y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">1.5</text>
+      <text x="86"  y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">3</text>
+      <text x="122" y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">4.5</text>
+      <text x="158" y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">6 yrs</text>
+      <!-- Language window: 0-6, peaks at ~2 -->
+      <path d="M14,88 Q50,30 86,60 Q120,82 188,88" stroke="#6ee7b7" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <!-- Order window: 1-4 -->
+      <path d="M50,88 Q80,48 100,56 Q130,70 152,88" stroke="#93c5fd" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <!-- Senses window: 2-6 -->
+      <path d="M80,88 Q110,38 140,55 Q166,68 188,88" stroke="#c4b5fd" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <text x="22"  y="44" font-size="8" fill="#059669" font-family="sans-serif" font-weight="bold">Language</text>
+      <text x="58"  y="70" font-size="8" fill="#2563eb" font-family="sans-serif" font-weight="bold">Order</text>
+      <text x="128" y="50" font-size="8" fill="#7c3aed" font-family="sans-serif" font-weight="bold">Senses</text>
+    </svg>`,
+  },
+  {
+    title: 'Three-Period Lesson',
+    fact: 'Montessori introduced language in three steps: (1) "This is…" — name it. (2) "Show me…" — recognise it. (3) "What is this?" — recall it. Move to step 2 only when step 1 is solid.',
+    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="34"  cy="52" r="22" fill="#a7f3d0"/>
+      <text x="34"  y="45" text-anchor="middle" font-size="11" fill="#065f46" font-family="sans-serif" font-weight="bold">This</text>
+      <text x="34"  y="59" text-anchor="middle" font-size="11" fill="#065f46" font-family="sans-serif" font-weight="bold">is…</text>
+      <text x="34"  y="85" text-anchor="middle" font-size="9"  fill="#6ee7b7" font-family="sans-serif">① Name</text>
+      <line x1="58" y1="52" x2="76" y2="52" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4,3"/>
+      <circle cx="100" cy="52" r="22" fill="#6ee7b7"/>
+      <text x="100" y="45" text-anchor="middle" font-size="11" fill="#065f46" font-family="sans-serif" font-weight="bold">Show</text>
+      <text x="100" y="59" text-anchor="middle" font-size="11" fill="#065f46" font-family="sans-serif" font-weight="bold">me…</text>
+      <text x="100" y="85" text-anchor="middle" font-size="9"  fill="#065f46" font-family="sans-serif">② Recognise</text>
+      <line x1="124" y1="52" x2="142" y2="52" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4,3"/>
+      <circle cx="166" cy="52" r="22" fill="#059669"/>
+      <text x="166" y="45" text-anchor="middle" font-size="11" fill="#ffffff" font-family="sans-serif" font-weight="bold">What</text>
+      <text x="166" y="59" text-anchor="middle" font-size="11" fill="#ffffff" font-family="sans-serif" font-weight="bold">is it?</text>
+      <text x="166" y="85" text-anchor="middle" font-size="9"  fill="#059669" font-family="sans-serif">③ Recall</text>
+    </svg>`,
+  },
+  {
+    title: 'Practical Life',
+    fact: 'Pouring water, folding napkins, sweeping a floor — these are not chores; they are concentration exercises. Every precise pour builds the same neural pathways later used for algebra.',
+    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <!-- Left jug -->
+      <path d="M40,30 L40,88 Q40,95 48,95 L72,95 Q80,95 80,88 L80,30 Z" fill="#bfdbfe"/>
+      <path d="M80,45 Q100,42 98,55 Q96,60 80,58" fill="#93c5fd" stroke="none"/>
+      <path d="M40,30 Q40,22 60,22 Q80,22 80,30" fill="#93c5fd"/>
+      <!-- Pour arc (dots) -->
+      <circle cx="90"  cy="75" r="2.5" fill="#60a5fa" opacity="0.9"/>
+      <circle cx="100" cy="68" r="2"   fill="#60a5fa" opacity="0.7"/>
+      <circle cx="108" cy="64" r="1.5" fill="#60a5fa" opacity="0.5"/>
+      <!-- Right cup -->
+      <path d="M118,72 L124,105 L152,105 L158,72 Z" fill="#dbeafe"/>
+      <path d="M116,72 L160,72" stroke="#93c5fd" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- water in cup -->
+      <path d="M128,105 L148,105 L150,90 L126,90 Z" fill="#93c5fd" opacity="0.6"/>
+    </svg>`,
+  },
+  {
+    title: 'Golden Bead Material',
+    fact: 'Single beads, bars of ten, squares of 100, cubes of 1000 — all physically the same bead, scaled. Children carry a thousand-cube before they can write the number. Weight teaches magnitude.',
+    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <!-- Single unit bead -->
+      <circle cx="20" cy="100" r="7" fill="#fbbf24"/>
+      <text x="20" y="118" text-anchor="middle" font-size="8" fill="#78350f" font-family="sans-serif">1</text>
+      <!-- Bar of 10 -->
+      <rect x="40" y="58" width="10" height="52" rx="3" fill="#fde68a"/>
+      <text x="45" y="118" text-anchor="middle" font-size="8" fill="#78350f" font-family="sans-serif">10</text>
+      <!-- Square of 100 (5×5 grid of dots) -->
+      <rect x="64" y="38" width="44" height="52" rx="3" fill="#fef3c7" stroke="#fbbf24" stroke-width="1"/>
+      <g fill="#fbbf24">
+        <circle cx="72" cy="46" r="2.5"/><circle cx="80" cy="46" r="2.5"/><circle cx="88" cy="46" r="2.5"/><circle cx="96" cy="46" r="2.5"/><circle cx="104" cy="46" r="2.5"/>
+        <circle cx="72" cy="54" r="2.5"/><circle cx="80" cy="54" r="2.5"/><circle cx="88" cy="54" r="2.5"/><circle cx="96" cy="54" r="2.5"/><circle cx="104" cy="54" r="2.5"/>
+        <circle cx="72" cy="62" r="2.5"/><circle cx="80" cy="62" r="2.5"/><circle cx="88" cy="62" r="2.5"/><circle cx="96" cy="62" r="2.5"/><circle cx="104" cy="62" r="2.5"/>
+        <circle cx="72" cy="70" r="2.5"/><circle cx="80" cy="70" r="2.5"/><circle cx="88" cy="70" r="2.5"/><circle cx="96" cy="70" r="2.5"/><circle cx="104" cy="70" r="2.5"/>
+        <circle cx="72" cy="78" r="2.5"/><circle cx="80" cy="78" r="2.5"/><circle cx="88" cy="78" r="2.5"/><circle cx="96" cy="78" r="2.5"/><circle cx="104" cy="78" r="2.5"/>
+      </g>
+      <text x="86" y="100" text-anchor="middle" font-size="8" fill="#78350f" font-family="sans-serif">100</text>
+      <!-- Cube of 1000 (3D box) -->
+      <rect x="124" y="18" width="48" height="56" rx="3" fill="#fef3c7" stroke="#fbbf24" stroke-width="1.5"/>
+      <polygon points="124,18 148,6 172,18 148,30" fill="#fde68a" stroke="#fbbf24" stroke-width="1"/>
+      <polygon points="172,18 172,74 148,62 148,30" fill="#fbbf24" stroke="#f59e0b" stroke-width="1" opacity="0.8"/>
+      <text x="148" y="107" text-anchor="middle" font-size="8" fill="#78350f" font-family="sans-serif">1,000</text>
+    </svg>`,
+  },
+]
+
+// ─── Loading animation state ───────────────────────────────────────────────────
+
+const elapsed           = ref(0)
+const simulatedProgress = ref(0)
+const activeFactIdx     = ref(0)
+
+let _elapsedTimer: ReturnType<typeof setInterval> | null = null
+let _factTimer:   ReturnType<typeof setInterval> | null = null
+
+function _startLoadingAnimation(): void {
+  elapsed.value           = 0
+  simulatedProgress.value = 0
+  activeFactIdx.value     = Math.floor(Math.random() * MONTESSORI_FACTS.length)
+
+  // Tick every second: update elapsed + logarithmic progress (asymptotes at 95%)
+  _elapsedTimer = setInterval(() => {
+    elapsed.value++
+    simulatedProgress.value = Math.round(95 * (1 - Math.exp(-elapsed.value / 18)))
+  }, 1000)
+
+  // Rotate facts every 5.5 s — long enough to read, short enough to stay interesting
+  _factTimer = setInterval(() => {
+    activeFactIdx.value = (activeFactIdx.value + 1) % MONTESSORI_FACTS.length
+  }, 5500)
+}
+
+function _stopLoadingAnimation(): void {
+  if (_elapsedTimer) { clearInterval(_elapsedTimer); _elapsedTimer = null }
+  if (_factTimer)   { clearInterval(_factTimer);   _factTimer   = null }
+  simulatedProgress.value = 100
+}
+
+/** Human-readable phase label that matches the simulated progress percentage. */
+const phaseLabel = computed<string>(() => {
+  const p = simulatedProgress.value
+  if (p < 12) return 'Reading board document…'
+  if (p < 30) return 'Extracting decisions…'
+  if (p < 58) return 'Classifying governance layers…'
+  if (p < 78) return 'Identifying authority gaps…'
+  if (p < 94) return 'Finalising analysis…'
+  return 'Almost done…'
+})
+
+watch(loading, (isLoading: boolean) => {
+  if (isLoading) _startLoadingAnimation()
+  else           _stopLoadingAnimation()
+})
+
+onUnmounted(_stopLoadingAnimation)
+
 // ─── Email export ─────────────────────────────────────────────────────────────
 
 // buildMariaEmailHtml is imported from lib/maria/email — pure, portable, no Vue.
@@ -198,8 +377,81 @@ function sendEmailReport(): void {
           inner-class="p-5"
         >
 
+          <!-- ─── Loading phase ──────────────────────────────────────────── -->
+          <div v-if="loading" class="py-4">
+
+            <!-- Progress + timer row -->
+            <div class="flex items-baseline justify-between mb-2 px-1">
+              <span class="text-2xl font-black text-emerald-700 tabular-nums leading-none">
+                {{ simulatedProgress }}%
+              </span>
+              <span class="text-xs text-slate-400 tabular-nums">
+                {{ elapsed }}s elapsed
+              </span>
+            </div>
+
+            <!-- Animated progress bar -->
+            <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-1.5">
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 transition-all duration-1000 ease-out"
+                :style="{ width: simulatedProgress + '%' }"
+                role="progressbar"
+                :aria-valuenow="simulatedProgress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              />
+            </div>
+
+            <!-- Phase label -->
+            <p class="text-xs text-emerald-700 font-medium mb-6 px-1 transition-all duration-700">
+              {{ phaseLabel }}
+            </p>
+
+            <!-- Montessori card -->
+            <div class="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 overflow-hidden">
+              <div class="px-4 pt-3 pb-1">
+                <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-500">
+                  Did you know? · Montessori
+                </span>
+              </div>
+
+              <!-- SVG illustration -->
+              <div
+                class="flex justify-center px-6 py-2"
+                v-html="MONTESSORI_FACTS[activeFactIdx].svg"
+              />
+
+              <!-- Fact text -->
+              <div class="px-5 pb-5">
+                <h4 class="text-sm font-bold text-emerald-900 mb-1.5">
+                  {{ MONTESSORI_FACTS[activeFactIdx].title }}
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  {{ MONTESSORI_FACTS[activeFactIdx].fact }}
+                </p>
+              </div>
+
+              <!-- Dot navigation -->
+              <div class="flex justify-center gap-1.5 pb-4">
+                <button
+                  v-for="(_, i) in MONTESSORI_FACTS"
+                  :key="i"
+                  type="button"
+                  :title="`Montessori fact ${i + 1} of ${MONTESSORI_FACTS.length}: ${MONTESSORI_FACTS[i].title}`"
+                  :aria-label="`Jump to fact: ${MONTESSORI_FACTS[i].title}`"
+                  class="rounded-full transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  :class="i === activeFactIdx
+                    ? 'w-4 h-2 bg-emerald-500'
+                    : 'w-2 h-2 bg-emerald-200 hover:bg-emerald-300'"
+                  @click="activeFactIdx = i"
+                />
+              </div>
+            </div>
+
+          </div>
+
           <!-- ─── Input phase ─────────────────────────────────────────────── -->
-          <div v-if="!hasResult">
+          <div v-else-if="!hasResult">
 
             <!-- Intro blurb -->
             <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mb-5">
