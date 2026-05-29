@@ -1394,6 +1394,18 @@ function _tryRestoreSession(): void {
   capturedCalendarCosts.value = _migrateRecordKeys(saved.capturedCalendarCosts ?? {})
   capturedCapitalCosts.value  = _migrateRecordKeys(saved.capturedCapitalCosts ?? {})
 
+  // Restore the 11-step Evo planning bar position.
+  // Fallback table for sessions saved before planningStage was persisted (version <3):
+  //   stage 1 (spec entry)  → planningStage 1  (Stakes)
+  //   stage 2 (EvoPlanView) → planningStage 6  (Evo Steps — minimum sensible for this view)
+  //   stage 3 (ImpactView)  → planningStage 5  (Estimate Impacts)
+  //   stage 4 (TasksView)   → planningStage 8  (Plan Tasks)
+  const fallbackPlanningStage: Record<number, number> = { 1: 1, 2: 6, 3: 5, 4: 8, 5: 8 }
+  const restoredPlanningStage = (saved as any).planningStage
+    ?? fallbackPlanningStage[(saved.stage ?? 1) as number]
+    ?? 1
+  planningStage.value = restoredPlanningStage
+
   // If the session was saved while at stage 1 with a spec already generated,
   // advance to stage 2 on restore. The entry form has no persisted text, so
   // showing a blank "What's your project about?" form alongside a ready spec
@@ -1409,6 +1421,9 @@ function _tryRestoreSession(): void {
     // manually via "Generate Evo Steps" inside EvoPlanView.
     _resetPlanForLoad()
     stage.value = 2
+    // Sync the planning bar: if it was sitting at a spec-entry stage (1-4),
+    // advance it to 6 (Evo Steps) to match the view the user lands on.
+    if (planningStage.value < 6) planningStage.value = 6
   } else {
     // Staying at the restored stage — still ensure planModel if spec exists,
     // because the user may have a spec at stage 1 and navigate to stage 2.
@@ -1678,6 +1693,7 @@ function _buildSessionSnapshot() {
     version: 2 as const,
     savedAt: new Date().toISOString(),
     stage: stage.value,
+    planningStage: planningStage.value,   // persist 11-step Evo bar position
     currentSpec: currentSpec.value,
     markdown: markdown.value,
     originalInput: originalInput.value,
@@ -1704,7 +1720,7 @@ function _saveNow(): void {
 }
 
 // Watch key state refs — deep on objects, shallow on primitives
-watch([stage, currentSpec, markdown, confirmedSteps, evoPlanConfirmed, tasksByStep,
+watch([stage, planningStage, currentSpec, markdown, confirmedSteps, evoPlanConfirmed, tasksByStep,
   capturedImpactMatrix, capturedVCRatios, capturedCalendarCosts, capturedCapitalCosts],
   _scheduleSave, { deep: true })
 
@@ -1735,6 +1751,7 @@ function startFresh(): void {
   markdown.value = ''
   originalInput.value = null
   stage.value = 1
+  planningStage.value = 1   // reset 11-step bar to the beginning (Enter Stakes)
   confirmedSteps.value = []
   evoPlanConfirmed.value = false
   tasksByStep.value = {}
@@ -2489,6 +2506,11 @@ function goToPlanStage(): void {
     _closeAllOverlays()          // prevent any stage-1 panel from persisting into stage 2
     _ensurePlanModel(currentSpec.value)
     stage.value = 2
+    // Sync the 11-step planning bar: if the user was on a spec-entry stage (1–4),
+    // advance to stage 6 (Evo Steps) which is the natural home for EvoPlanView.
+    // Never REGRESS a bar position — if the user was already at stage 7 (Evo Simulator),
+    // 8 (Tasks), etc., keep them where they were (they navigated back to re-generate).
+    if (planningStage.value < 6) planningStage.value = 6
   }
 }
 
@@ -2510,6 +2532,8 @@ function onPlanConfirmed(steps: EvoStep[]): void {
 function goToImpactStage(): void {
   if (currentSpec.value) _ensurePlanModel(currentSpec.value) // guarantee bar shows at stage 3
   stage.value = 3
+  // Sync planning bar to stage 5 (Estimate Impacts) if it hasn't been there yet.
+  if (planningStage.value < 5) planningStage.value = 5
 }
 
 /**
@@ -2528,6 +2552,8 @@ function goToTasksStage(): void {
   _closeAllOverlays()
   if (currentSpec.value) _ensurePlanModel(currentSpec.value)
   stage.value = 4
+  // Sync planning bar to stage 8 (Plan Tasks) if it hasn't reached there yet.
+  if (planningStage.value < 8) planningStage.value = 8
 }
 
 /** Called when user wants to export the full prioritised plan */
