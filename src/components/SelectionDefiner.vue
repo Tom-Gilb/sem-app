@@ -1039,14 +1039,13 @@ function escapeHtml(s: string): string {
               <kbd class="font-mono bg-amber-100 border border-amber-200 rounded px-1 text-[10px] text-amber-700">⌘I</kbd>
               anytime — no selection needed.
             </span>
-            <button
-              type="button"
+            <!-- CloseDot rule: inline tip panel dismiss -->
+            <CloseDot
+              variant="on-light"
               aria-label="Dismiss tip"
-              class="flex-shrink-0 text-amber-400 hover:text-amber-700 text-xs leading-none
-                     p-0.5 rounded focus:outline-none focus:ring-1 focus:ring-amber-400
-                     transition-colors"
+              title="Dismiss this tip"
               @click="dismissTip"
-            >✕</button>
+            />
           </div>
 
           <!-- Footer hint -->

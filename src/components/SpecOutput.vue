@@ -69,12 +69,13 @@
             class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-red-700 underline hover:text-red-900"
           >Add credits →</a>
         </div>
-        <button
-          type="button"
-          class="shrink-0 text-red-400 hover:text-red-700 text-lg leading-none"
+        <!-- CloseDot rule: panel-level error banner dismiss -->
+        <CloseDot
+          variant="on-light"
           aria-label="Dismiss error"
+          title="Dismiss this error"
           @click="errorDismissed = true"
-        >×</button>
+        />
       </div>
     </div>
 

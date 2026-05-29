@@ -934,15 +934,13 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
             <span class="inline-flex items-center px-3 py-1 rounded-lg bg-amber-100 text-amber-900 text-xs font-bold">
               {{ changedCount }} {{ changedCount === 1 ? 'edit' : 'edits' }}
             </span>
-            <!-- Close button (dismiss banner) -->
-            <button
-              type="button"
-              class="shrink-0 h-6 w-6 flex items-center justify-center rounded-md hover:bg-amber-100 text-amber-400 transition-colors focus:outline-none focus:ring-1 focus:ring-amber-400"
+            <!-- Close button (dismiss banner) — CloseDot rule: panel-level dismiss -->
+            <CloseDot
+              variant="on-light"
               aria-label="Dismiss safety reminder"
+              title="Dismiss this reminder"
               @click="showSafetyBanner = false"
-            >
-              <span class="text-[14px] font-bold">✕</span>
-            </button>
+            />
           </div>
         </div>
       </Transition>
@@ -1780,11 +1778,13 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                 <h3 class="text-lg font-bold text-gray-900">Review Draft Results</h3>
                 <p class="text-xs text-gray-500 mt-0.5">{{ bulkDraftResults.size }} incomplete {{ bulkDraftResults.size === 1 ? 'value' : 'values' }}</p>
               </div>
-              <button
-                type="button"
-                class="inline-flex items-center justify-center h-7 w-7 rounded-full hover:bg-gray-200 transition-colors text-gray-500"
+              <!-- CloseDot rule: modal close -->
+              <CloseDot
+                variant="on-light"
+                aria-label="Close Review Draft Results"
+                title="Close this dialog"
                 @click="showBulkReview = false"
-              >✕</button>
+              />
             </div>
 
             <!-- Content — scrollable list of draft results -->
