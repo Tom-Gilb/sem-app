@@ -20,6 +20,7 @@
 -->
 <script setup lang="ts">
 import { ref } from 'vue'
+import { openEml, textToEmailHtml } from '../composables/useEmlExport'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import SaveGlyph from './icons/SaveGlyph.vue'
@@ -138,9 +139,8 @@ async function copyAll(): Promise<void> {
 }
 
 function emailAll(): void {
-  const subject = encodeURIComponent('The Gilb Symbol Family — Planguage keyed icons')
-  const body = encodeURIComponent(PLAIN_TEXT)
-  window.location.href = `mailto:?subject=${subject}&body=${body}`
+  const subject = 'The Gilb Symbol Family — Planguage keyed icons'
+  openEml(textToEmailHtml(PLAIN_TEXT, subject), subject, { plainBody: PLAIN_TEXT })
 }
 </script>
 

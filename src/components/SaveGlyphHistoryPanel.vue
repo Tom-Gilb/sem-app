@@ -28,7 +28,7 @@ import {
   SAVE_GLYPH_SUBTITLE,
   SAVE_GLYPH_SECTIONS,
   getSaveGlyphHistoryText,
-  buildSaveGlyphMailto,
+  openSaveGlyphEmail,
 } from '../composables/useSaveGlyphHistory'
 
 defineEmits<{ close: []; 'open-symbol-family': [] }>()
@@ -49,8 +49,7 @@ async function copyAll(): Promise<void> {
 }
 
 function emailAll(): void {
-  // Hand the prebuilt mailto: URL to the OS default mail client.
-  window.location.href = buildSaveGlyphMailto()
+  openSaveGlyphEmail()
 }
 
 /**

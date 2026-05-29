@@ -24,7 +24,7 @@ import {
   EDIT_GLYPH_SUBTITLE,
   EDIT_GLYPH_SECTIONS,
   getAboutEditGlyphText,
-  buildAboutEditGlyphMailto,
+  openEditGlyphEmail,
 } from '../composables/useAboutEditGlyph'
 
 defineProps<{ open: boolean }>()
@@ -46,7 +46,7 @@ async function copyAll(): Promise<void> {
 }
 
 function emailAll(): void {
-  window.location.href = buildAboutEditGlyphMailto()
+  openEditGlyphEmail()
 }
 
 /**

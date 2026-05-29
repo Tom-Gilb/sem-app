@@ -9,6 +9,8 @@
 // This file ships the same content to the bundle so the panel can render
 // offline and so Copy + Email actions work without a fetch.
 
+import { openEml, textToEmailHtml } from './useEmlExport'
+
 export interface HistorySection {
   /** Short heading shown as a card title in the panel. */
   heading: string
@@ -94,12 +96,15 @@ export function getSaveGlyphHistoryText(): string {
   return `${head}${divider}${body}${tail}`
 }
 
-/** Build the `mailto:` URL the Email button hands to the OS mail client. */
-export function buildSaveGlyphMailto(): string {
+/**
+ * Open a .eml draft in Mail.app with the Save Glyph history pre-filled
+ * in the body — no manual paste required (Tom Gilb rule 2026-05-29).
+ *
+ * Replaces the old `buildSaveGlyphMailto()` + `window.location.href` pattern.
+ * Named explicitly (not a URL builder) to signal it has a DOM side-effect.
+ */
+export function openSaveGlyphEmail(): void {
   const subject = SAVE_GLYPH_TITLE
-  const body = getSaveGlyphHistoryText()
-  // mailto bodies are URI-encoded; some clients clip at ~2 KB but most modern
-  // ones handle the full ~10 KB body. If a recipient sees a truncated email,
-  // they can ask the sender to paste the Copy output directly.
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  const text    = getSaveGlyphHistoryText()
+  openEml(textToEmailHtml(text, subject), subject, { plainBody: text })
 }

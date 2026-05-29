@@ -13,6 +13,7 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
+import { openEml } from '../composables/useEmlExport'
 import {
   planInputLoading,
   planInputError,
@@ -605,12 +606,10 @@ async function copyReadIn(section: ExportSection): Promise<void> {
 
 async function emailReadIn(): Promise<void> {
   if (!readInParsed.value) return
-  const ts = _eNow()
-  await _copyRich('ri-email', _buildReadInHtml(readInParsed.value, 'all', ts), _buildReadInTsv(readInParsed.value, 'all', ts))
+  const ts   = _eNow()
   const spec = readInParsed.value
-  const subj = encodeURIComponent(`SEM Parse Results — ${spec.functions.length}F ${spec.values.length}V ${spec.solutions.length}S · ${ts}`)
-  const body = encodeURIComponent('Planguage parse results are copied to your clipboard — open Mail, create a new message, and paste with ⌘V to insert the full-color tables.')
-  window.location.href = `mailto:?subject=${subj}&body=${body}`
+  const subj = `SEM Parse Results — ${spec.functions.length}F ${spec.values.length}V ${spec.solutions.length}S · ${ts}`
+  openEml(_buildReadInHtml(spec, 'all', ts), subj)
 }
 
 async function copyMerge(section: ExportSection): Promise<void> {
@@ -621,12 +620,10 @@ async function copyMerge(section: ExportSection): Promise<void> {
 
 async function emailMerge(): Promise<void> {
   if (!mergeParsed.value) return
-  const ts = _eNow()
-  await _copyRich('mg-email', _buildMergeHtml(mergeParsed.value, 'all', ts), _buildMergeTsv(mergeParsed.value, 'all', ts))
+  const ts   = _eNow()
   const spec = mergeParsed.value
-  const subj = encodeURIComponent(`SEM Merge Results — ${spec.functions.length}F ${spec.values.length}V ${spec.solutions.length}S · ${ts}`)
-  const body = encodeURIComponent('Planguage merge results are copied to your clipboard — open Mail, create a new message, and paste with ⌘V to insert the full-color tables.')
-  window.location.href = `mailto:?subject=${subj}&body=${body}`
+  const subj = `SEM Merge Results — ${spec.functions.length}F ${spec.values.length}V ${spec.solutions.length}S · ${ts}`
+  openEml(_buildMergeHtml(spec, 'all', ts), subj)
 }
 </script>
 

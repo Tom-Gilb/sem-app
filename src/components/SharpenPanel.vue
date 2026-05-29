@@ -12,6 +12,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { openEml, textToEmailHtml } from '../composables/useEmlExport'
 import {
   useSharpen,
   type SharpenCategory,
@@ -173,9 +174,9 @@ async function copySharpenAll(): Promise<void> {
 
 function emailSharpenAll(): void {
   const r       = justCompletedRound.value
-  const subject = encodeURIComponent(`Sharpening Changes — ${r?.category.label ?? 'Spec'}`)
-  const body    = encodeURIComponent(buildSharpenPlainText())
-  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+  const subject = `Sharpening Changes — ${r?.category.label ?? 'Spec'}`
+  const text    = buildSharpenPlainText()
+  openEml(textToEmailHtml(text, subject), subject, { plainBody: text })
 }
 
 // ── Open Critical Question sub-flow ──────────────────────────────────────────

@@ -4,12 +4,14 @@
 // Both panels need the same "share this PHI snapshot with someone" workflow:
 //   • 📋 Copy   — rich-clipboard (HTML + plain-text) so it pastes as a real
 //                 Keynote/Numbers grid AND falls back to clean monospace text
-//   • ✉️ Email  — opens mailto: with the plain-text body pre-filled
+//   • ✉️ Email  — downloads a .eml file that Mail.app opens as a pre-filled
+//                 compose draft (no paste required — Tom Gilb rule 2026-05-29)
 //
 // One module so the format stays in sync between panels and a future PDF
 // export can reuse the same renderer.
 
 import type { IndexBreakdown, PlanHealthCustom } from './usePlanHealth'
+import { openEml } from './useEmlExport'
 
 export interface PlanHealthExportInput {
   planName: string
@@ -201,22 +203,14 @@ export async function copyPlanHealthReport(input: PlanHealthExportInput): Promis
 }
 
 /**
- * Open the user's default mail client with subject + body pre-filled.
- * `to` and `cc` take comma-separated address lists (typically the Plan
- * Owner emails from `planModel.owners`).
+ * Download a .eml file that Mail.app opens as a pre-filled compose draft.
+ * The HTML body from `buildPlanHealthReport()` is already in the email —
+ * no manual paste required (Tom Gilb universal email rule 2026-05-29).
+ *
+ * `to` and `cc` take address lists (typically the Plan Owner emails
+ * from `planModel.owners`).
  */
 export function emailPlanHealthReport(input: PlanHealthExportInput, to: string[] = [], cc: string[] = []): void {
-  const { text, subject } = buildPlanHealthReport(input)
-  const params = new URLSearchParams()
-  params.set('subject', subject)
-  params.set('body', text)
-  if (cc.length) params.set('cc', cc.join(','))
-  const url = `mailto:${encodeURIComponent(to.join(','))}?${params.toString().replace(/\+/g, '%20')}`
-  // Anchor.click() is more reliable than window.location.href in Safari for mailto:
-  const a = document.createElement('a')
-  a.href = url
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  setTimeout(() => { document.body.removeChild(a) }, 0)
+  const { html, text, subject } = buildPlanHealthReport(input)
+  openEml(html, subject, { to, cc, plainBody: text })
 }

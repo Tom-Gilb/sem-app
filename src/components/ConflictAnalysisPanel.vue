@@ -13,6 +13,7 @@
 
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
+import { openEml, textToEmailHtml } from '../composables/useEmlExport'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import { useConflictAnalysis, stakeholderCount } from '../composables/useConflictAnalysis'
@@ -126,9 +127,9 @@ async function copyAll(): Promise<void> {
 }
 
 function emailAll(): void {
-  const subject = encodeURIComponent('Stakeholder Conflict Analysis')
-  const body    = encodeURIComponent(buildPlainText())
-  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+  const subject = 'Stakeholder Conflict Analysis'
+  const text    = buildPlainText()
+  openEml(textToEmailHtml(text, subject), subject, { plainBody: text })
 }
 </script>
 

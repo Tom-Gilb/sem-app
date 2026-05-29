@@ -53,6 +53,7 @@ import { useCollaborationCursors } from './composables/useCollaborationCursors'
 import { useCollabConflict } from './composables/useCollabConflict'
 import { useClarifyingQuestions } from './composables/useClarifyingQuestions'
 import { useSpecExport, exportPrioritisedPlan, exportWithTasks, serialisePlainText, exportWithTasksPlainText } from './composables/useSpecExport'
+import { openEml, textToEmailHtml } from './composables/useEmlExport'
 import { useAuth } from './composables/useAuth'
 import { useWorkspace } from './composables/useWorkspace'
 import { useLoadingState, _resetLoadingStateForTest as _forceClearLoading } from './composables/useLoadingState'
@@ -2667,19 +2668,16 @@ async function autoCopyPlan(): Promise<void> {
 
 // ── Email entire plan ─────────────────────────────────────────────────────────
 // Strategy: build the complete plain-text plan (identical to the downloaded .txt),
-// copy it to the clipboard, then open a mailto: draft with a short instruction body.
-// This bypasses the ~2 kB mailto: URL limit while delivering the full plan — no
-// truncation, no Markdown, works with Apple Mail, Gmail, and any macOS mail client.
+// Universal email rule (Tom 2026-05-29): email opens with the plan ALREADY in
+// the body as styled HTML — no manual paste required. Downloads a .eml file
+// that Mail.app opens as a compose-draft window.
 async function emailPlan(): Promise<void> {
   if (!currentSpec.value) return
 
   // ── Defensive pre-email save (2026-05-17 bug fix) ─────────────────────────
-  // Opening a mailto: link can trigger page-hide / visibilitychange in some
-  // browser/PWA environments. Without an immediate flush the 500 ms debounce
-  // may not have committed the latest state to localStorage, so if the page
-  // reloads after the mail app opens the user finds a stale plan.
-  // Solution: flush the session AND write a plan-model snapshot BEFORE the
-  // mailto link is opened — guaranteeing both recovery paths have fresh data.
+  // The .eml download is synchronous and does NOT trigger page-hide, so this
+  // save is belt-and-suspenders — but we keep it to protect against future
+  // environment quirks where opening Mail.app can still trigger lifecycle events.
   _saveNow()
   if (planModel.value) savePlanSnapshot(currentSpec.value)
 
@@ -2688,43 +2686,19 @@ async function emailPlan(): Promise<void> {
   const hh        = now.getHours().toString().padStart(2, '0')
   const mm        = now.getMinutes().toString().padStart(2, '0')
   const modelName = planModel.value?.name ?? 'Planning Spec'
-  const version   = planModel.value ? `  v${planModel.value.version}` : ''
-  const subject   = `Plan: ${modelName}${version ? ' ' + version.trim() : ''}`
+  const version   = planModel.value ? ` v${planModel.value.version}` : ''
+  const subject   = `Plan: ${modelName}${version}`
 
-  // The rich HTML has already been written to the clipboard by PrioritisedPlanView
-  // before this function is called (via onEmailClick → copyRich → emit('email')).
-  // Do NOT overwrite it with plain text here.
-  // For paths that bypass Stage 5 (e.g. Actions menu), fall back to plain text.
-  const atStage5 = stage.value === 5
-  if (!atStage5 && currentSpec.value) {
-    const planBody = confirmedSteps.value.length > 0
-      ? exportWithTasksPlainText(currentSpec.value, confirmedSteps.value, tasksByStep.value)
-      : serialisePlainText(currentSpec.value)
-    try { await navigator.clipboard.writeText(planBody) } catch { /* ok */ }
-  }
+  // Build the plan body (plain text) then wrap in styled HTML for the .eml.
+  // SpecOutput.vue has a richer colored table; App.vue's email path gets a clean
+  // styled pre-formatted view. A future improvement can extract the table builder
+  // into a shared composable (tracked in SEM-Design-History.md).
+  const plainBody = confirmedSteps.value.length > 0
+    ? exportWithTasksPlainText(currentSpec.value, confirmedSteps.value, tasksByStep.value)
+    : serialisePlainText(currentSpec.value)
 
-  // Open mail client — body prompts user to paste the clipboard content (rich HTML).
-  // Use window.open() instead of a.click() — more reliable in PWA / sandboxed
-  // browser contexts where programmatic anchor clicks can trigger unexpected
-  // navigation events that cause the page to unload the current plan state.
-  const mailBody = [
-    `${modelName}${version}`,
-    `─`.repeat(40),
-    `Your plan is ready — paste it here with ⌘V for full colour table formatting.`,
-    ``,
-    `(Exported: ${date} ${hh}:${mm})`,
-  ].join('\n')
-
-  const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBody)}`
-  // Anchor click is the standard cross-browser way to open a mailto: link without
-  // navigating the current page. The defensive _saveNow() + savePlanSnapshot()
-  // above is the real guard — if the browser/PWA does cause any page lifecycle
-  // event (hide, pagehide) when Mail.app opens, the plan is already persisted.
-  const a = document.createElement('a')
-  a.href  = mailtoUrl
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+  const htmlTitle = `${modelName}${version} · ${date} ${hh}:${mm}`
+  openEml(textToEmailHtml(plainBody, htmlTitle), subject, { plainBody })
 }
 
 async function handleSignOut() {

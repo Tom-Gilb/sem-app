@@ -34,7 +34,7 @@ import {
   PRIORITY_GLYPH_SUBTITLE,
   PRIORITY_GLYPH_SECTIONS,
   getAboutPriorityGlyphText,
-  buildAboutPriorityGlyphMailto,
+  openPriorityGlyphEmail,
 } from '../composables/useAboutPriorityGlyph'
 
 defineEmits<{ close: []; 'open-symbol-family': [] }>()
@@ -55,7 +55,7 @@ async function copyAll(): Promise<void> {
 }
 
 function emailAll(): void {
-  window.location.href = buildAboutPriorityGlyphMailto()
+  openPriorityGlyphEmail()
 }
 
 /**

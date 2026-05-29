@@ -15,6 +15,7 @@
 -->
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { openEml } from '../composables/useEmlExport'
 import CloseDot    from './CloseDot.vue'
 import SpecMiniMap from './SpecMiniMap.vue'
 import EditGlyph   from './icons/EditGlyph.vue'
@@ -610,17 +611,10 @@ async function copySdr(): Promise<void> {
 function mailSdr(): void {
   const planName = currentModel.value?.name ?? 'Plan'
   const planVer  = currentModel.value?.version ? `v${currentModel.value.version}` : ''
-  const subject  = encodeURIComponent(`Spec Direct Relations — ${central.value.label} · ${planName} ${planVer}`)
-  const body     = encodeURIComponent(
-    `Spec Direct Relations — ${central.value.label}\n` +
-    `Plan: ${planName} ${planVer}\n\n` +
-    `(Paste the copied HTML table into your email for a formatted view — ⌘V)`
-  )
-  void copySdr().then(() => {
-    window.location.href = `mailto:?subject=${subject}&body=${body}`
-    mailOk.value = true
-    setTimeout(() => { mailOk.value = false }, 3000)
-  })
+  const subject  = `Spec Direct Relations — ${central.value.label} · ${planName} ${planVer}`
+  openEml(_sdrHtml(), subject)
+  mailOk.value = true
+  setTimeout(() => { mailOk.value = false }, 3000)
 }
 
 // ── Arrow geometry — computed from real DOM positions ─────────────────────────
