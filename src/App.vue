@@ -105,6 +105,7 @@ import SymbolFamilyPanel from './components/SymbolFamilyPanel.vue'
 import ActionsHubPanel from './components/ActionsHubPanel.vue'
 import AgentMenuPanel from './components/AgentMenuPanel.vue'
 import MariaAgentBoard from './components/MariaAgentBoard.vue'
+import MariaBoardHub   from './components/MariaBoardHub.vue'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
@@ -533,9 +534,10 @@ function _togglePlanStory(): void {
 }
 // --- Feature #195: Plan Targets ---
 const planTargetsOpen     = ref(false)
-// --- Agent Menu + Maria Agent (2026-05-29) ---
+// --- Agent Menu + Maria panels (2026-05-29 / 2026-05-30) ---
 const agentMenuOpen       = ref(false)
-const mariaOpen           = ref(false)
+const mariaOpen           = ref(false)           // MariaAgentBoard — analysis panel
+const mariaBoardOpen      = ref(false)           // MariaBoardHub   — settings + activity log
 // --- Spec Direct Relations (SDR) ---
 const sdrOpen      = ref(false)
 const _sdrEntryId  = ref('')
@@ -3320,6 +3322,7 @@ registerExclusiveSurface('actionsHub',        menuOpen)
 // Agent Menu + Maria Agent (2026-05-29) — both are full-screen surfaces
 registerExclusiveSurface('agentMenu',         agentMenuOpen)
 registerExclusiveSurface('mariaAgent',        mariaOpen)
+registerExclusiveSurface('mariaBoardHub',     mariaBoardOpen)
 
 // ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
 // Replaces the old inline text dropdown. Each tile in ActionsHubPanel emits
@@ -4295,13 +4298,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
   <MariaAgentBoard
     v-if="view === 'app' && mariaOpen"
     @close="mariaOpen = false"
+  />
+
+  <!-- Maria Board Hub — members, activity log, settings (2026-05-30). z-[497]
+       Mutually exclusive with MariaAgentBoard via surface registry.
+       "open-analysis" event bounces user from hub to analysis panel. -->
+  <MariaBoardHub
+    v-if="view === 'app' && mariaBoardOpen"
+    @close="mariaBoardOpen = false"
+    @open-analysis="mariaBoardOpen = false; mariaOpen = true"
   />
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->

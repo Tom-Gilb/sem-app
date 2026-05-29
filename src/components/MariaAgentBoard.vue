@@ -32,8 +32,9 @@ import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
-import { boardMembers }        from '../data/boardMembers'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
+import { lastMariaResult }     from '../lib/maria/mariaResultStore'
+import { useBoardMembers }     from '../composables/useBoardMembers'
 import type { MemberMatch }    from '../lib/maria/boardMatcher'
 
 const emit = defineEmits<{
@@ -68,6 +69,13 @@ let _sentTimer: ReturnType<typeof setTimeout> | null = null
 
 /** Controls Board Members collapsible panel (collapsed by default). */
 const boardOpen = ref(false)
+
+// ── Live board member roster (localStorage-backed, same data as MariaBoardHub) ──
+const { members: boardMembersLive } = useBoardMembers()
+
+// ── Write each successful analysis to the module-level result store so
+//    MariaBoardHub's "Import from last analysis" button can access it. ──────────
+watch(result, (r) => { if (r) lastMariaResult.value = r })
 
 // ─── Computed helpers ─────────────────────────────────────────────────────────
 
@@ -405,7 +413,7 @@ const gapSuggestions = computed((): Record<string, MemberMatch[]> => {
   const out: Record<string, MemberMatch[]> = {}
   for (const g of result.value.governanceGaps) {
     const text = [g.significance ?? '', g.opportunity ?? '', g.category ?? ''].join(' ')
-    const matches = matchMembersToItem(text, boardMembers)
+    const matches = matchMembersToItem(text, boardMembersLive.value)
     if (matches.length) out[g.id] = matches
   }
   return out
@@ -414,6 +422,8 @@ const gapSuggestions = computed((): Record<string, MemberMatch[]> => {
 /**
  * For each authority report entry, returns the top-2 board member suggestions.
  * Keys are a.decisionIds.join('-') values. Only populated when result is present.
+ * Uses live localStorage roster (boardMembersLive) so edits in MariaBoardHub
+ * are immediately reflected here without a page refresh.
  */
 const authoritySuggestions = computed((): Record<string, MemberMatch[]> => {
   if (!result.value) return {}
@@ -421,7 +431,7 @@ const authoritySuggestions = computed((): Record<string, MemberMatch[]> => {
   for (const a of result.value.authorityReport) {
     const key  = a.decisionIds.join('-')
     const text = [a.issue ?? '', a.opportunity ?? ''].join(' ')
-    const matches = matchMembersToItem(text, boardMembers)
+    const matches = matchMembersToItem(text, boardMembersLive.value)
     if (matches.length) out[key] = matches
   }
   return out

@@ -1,9 +1,10 @@
 // UNIT_TYPE=Type
-// board.ts — BoardMember profile type
+// board.ts — BoardMember profile type + ActivityEntry for Board Activity Log
 //
 // Pure data shape. No Vue, no framework dependencies.
 // Used by: src/data/boardMembers.ts (data), src/lib/maria/boardMatcher.ts (logic),
-//          MariaAgentBoard.vue (display).
+//          src/composables/useBoardMembers.ts, src/composables/useBoardActivityLog.ts,
+//          MariaAgentBoard.vue (display), MariaBoardHub.vue (hub + settings + log).
 //
 // Twin-portable: fields map cleanly to a REST schema, Solid Pod RDF record, or
 // a database row. Do NOT add Vue-specific types (Ref, ComputedRef, etc.) here.
@@ -64,4 +65,68 @@ export interface BoardMember {
 
   /** Any other context useful for assignment decisions. */
   notes?: string
+}
+
+// ── Board Activity Log ─────────────────────────────────────────────────────────
+
+/** Lifecycle status of a board action item. */
+export type ActivityStatus = 'open' | 'in-progress' | 'done'
+
+/** Where the entry originated. */
+export type ActivitySource = 'maria' | 'manual'
+
+/**
+ * The type of board action item.
+ * 'governance-gap'  — imported from a MariaGap (missing decision on a key topic)
+ * 'authority-gap'   — imported from a MariaAuthorityEntry (unclear decision ownership)
+ * 'pattern-action'  — imported from a MariaPattern of type 'concern'
+ * 'manual'          — user-created note or action item
+ */
+export type ActivityType =
+  | 'governance-gap'
+  | 'authority-gap'
+  | 'pattern-action'
+  | 'manual'
+
+/**
+ * A single board action item in the activity log.
+ * Imported automatically from Maria analysis output, or created manually.
+ * Twin-portable: maps to a REST endpoint, a Solid Pod resource, or a DB row.
+ */
+export interface ActivityEntry {
+  /** UUID stable identifier. */
+  id: string
+
+  /** One-sentence summary — auto-populated from gap/authority/pattern on Maria import. */
+  title: string
+
+  /** Full detail text — auto-populated from significance+opportunity on import. */
+  detail: string
+
+  type: ActivityType
+  status: ActivityStatus
+
+  /** BoardMember.id values of assigned members. Empty = unassigned. */
+  assignedMemberIds: string[]
+
+  /** ISO date string e.g. "2026-06-15". Optional. */
+  dueDate?: string
+
+  /** ISO datetime of creation e.g. "2026-05-30T10:00:00.000Z". */
+  createdAt: string
+
+  /** ISO datetime of last edit. Set on every updateEntry() call. */
+  updatedAt: string
+
+  /**
+   * Source traceability — which MariaResult + which item generated this entry.
+   * null for manual entries.
+   */
+  source: {
+    /** MariaResult.generatedAt — uniquely identifies the analysis run. */
+    mariaGeneratedAt: string
+    /** The source item's id within that run (gap.id / p.id / decisionIds.join('-')). */
+    itemId: string
+    itemType: ActivityType
+  } | null
 }
