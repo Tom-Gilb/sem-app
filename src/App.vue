@@ -103,6 +103,8 @@ import CopyrightPanel from './components/CopyrightPanel.vue'
 import SaveGlyphHistoryPanel from './components/SaveGlyphHistoryPanel.vue'
 import SymbolFamilyPanel from './components/SymbolFamilyPanel.vue'
 import ActionsHubPanel from './components/ActionsHubPanel.vue'
+import AgentMenuPanel from './components/AgentMenuPanel.vue'
+import MariaAgentBoard from './components/MariaAgentBoard.vue'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
@@ -531,6 +533,9 @@ function _togglePlanStory(): void {
 }
 // --- Feature #195: Plan Targets ---
 const planTargetsOpen     = ref(false)
+// --- Agent Menu + Maria Agent (2026-05-29) ---
+const agentMenuOpen       = ref(false)
+const mariaOpen           = ref(false)
 // --- Spec Direct Relations (SDR) ---
 const sdrOpen      = ref(false)
 const _sdrEntryId  = ref('')
@@ -3301,6 +3306,9 @@ registerExclusiveSurface('freshStart',         freshStartOpen)
 registerExclusiveSurface('semMetadataPanel',  semMetadataPanelOpen)
 // actionsHub uses menuOpen so it participates in the exclusive surface system
 registerExclusiveSurface('actionsHub',        menuOpen)
+// Agent Menu + Maria Agent (2026-05-29) — both are full-screen surfaces
+registerExclusiveSurface('agentMenu',         agentMenuOpen)
+registerExclusiveSurface('mariaAgent',        mariaOpen)
 
 // ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
 // Replaces the old inline text dropdown. Each tile in ActionsHubPanel emits
@@ -4161,6 +4169,26 @@ function handleApertureLoadPlan(model: PlanModel): void {
                invisible on amber background. brightness(0.1) renders it near-black. -->
           <span aria-hidden="true" style="filter: brightness(0.1);">⚡</span>
         </button>
+        <!-- 🤖 Agents button — opens the Agent Menu (Maria Agent and future agents).
+             Emerald scheme: distinct from the amber ⚡ Actions button.
+             Tom 2026-05-29: "Part of Planning mode, an agent who can be explicitly called (agent menu)." -->
+        <button
+          type="button"
+          :aria-expanded="agentMenuOpen"
+          aria-haspopup="true"
+          aria-label="Open Agent Menu"
+          title="Agent Menu — explicitly-called planning agents. Maria analyses board documents and produces a governance intelligence report (Decision Inventory, Authority Clarity, Governance Gaps, Pattern Analysis)."
+          data-crest-tip="🤖 Agents — call a planning agent (Maria: Board Work Parse)"
+          class="w-9 h-9 flex items-center justify-center rounded-lg text-xl
+                 select-none transition-all
+                 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+          :class="agentMenuOpen
+            ? 'bg-emerald-300 text-emerald-900 ring-2 ring-emerald-200'
+            : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
+          @click="agentMenuOpen = true"
+        >
+          <span aria-hidden="true">🤖</span>
+        </button>
         </div>
       </div>
     </div>
@@ -4255,6 +4283,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :start-over-pending="startOverConfirmPending"
     @close="menuOpen = false"
     @action="handleAction"
+  />
+
+  <!-- Agent Menu (2026-05-29) — grid of agent tiles; Maria is the first agent. z-[490] -->
+  <AgentMenuPanel
+    v-if="view === 'app' && agentMenuOpen"
+    @close="agentMenuOpen = false"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaOpen = true }"
+  />
+
+  <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
+  <MariaAgentBoard
+    v-if="view === 'app' && mariaOpen"
+    @close="mariaOpen = false"
   />
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->
