@@ -166,7 +166,11 @@ CEntry  { id, type, level, description, scope, rationale, source? }
 11. tolerable: minimum acceptable threshold — the worst result the stakeholder can live with (e.g. "60%")
 12. goal: the stakeholder's Wish level — their unconstrained aspiration, not yet a committed Goal. It will be displayed in the UI as "Wish" until tuning and approval promote it. (e.g. "85%")
 13. Cross-link: V.valueOfFunction must reference the exact id of a Function entry in the functions array; S.function must reference the exact id of a Function entry; F.functionOfValue must reference the exact id of a Value entry in the values array. Use the id string verbatim — e.g. "valueOfFunction": "Onboarding Checklist" when the Function entry has "id": "Onboarding Checklist".
-14. Be concrete and specific — avoid vague language. Translate abstract Ends into measurable scale+meter pairs in V. entries.
+14. DESCRIPTIONS MUST BE RICH AND SELF-EXPLANATORY. Every description field must be long enough that a reader with no other context can fully understand the entry. Minimum 2–4 sentences per description. Cover: (a) what the entry IS or DOES, (b) WHY it matters or was included, (c) any important context, scope, or rationale. Single-sentence descriptions are WRONG — they are unintelligible in isolation. The description must stand alone. Examples of WRONG vs CORRECT:
+  WRONG:  "Speed at which users reach their first value moment"
+  CORRECT: "The rate at which new users reach their first meaningful moment of value after signing up — defined as completing the onboarding checklist and performing their first key action. This is the Product team's primary activation metric: without fast activation, users disengage before experiencing the core product value and churn within the first week. Measured to ensure the redesigned onboarding flow delivers on its promise."
+  WRONG:  "The system provides an authenticated endpoint for data export."
+  CORRECT: "The system provides an authenticated REST endpoint that compiles all personal data belonging to the requesting user and packages it into a downloadable archive. This capability exists to fulfil GDPR Article 15 (right of access) and Article 20 (right to data portability). Without it, the product is non-compliant and users have no mechanism to retrieve or migrate their data."
 15. Multiple means: if the Means field lists multiple distinct approaches (comma-separated, semicolon-separated, or line-separated), create a SEPARATE S. entry for each distinct approach. Each S. entry should implement exactly one approach and have a unique id.
 16. wishStakeholder: populate this field on EVERY V. entry with the exact name or role of the stakeholder whose concern it measures (copied verbatim from Stakes where possible — e.g. "Product team", "Engineering", "Customer Success", "Tom"). Even when there is only one stakeholder, still set wishStakeholder on every V. entry.
 
@@ -191,7 +195,7 @@ Output:
       "id": "Onboarding Checklist",
       "type": "Function",
       "level": "Product",
-      "description": "The system presents a progressive-disclosure onboarding checklist to every new user.",
+      "description": "The system presents a progressive-disclosure onboarding checklist to every new user immediately after signup. The checklist guides users through key setup steps in a structured sequence, revealing each next step only after the current one is completed. Its purpose is to reduce cognitive overload on first contact and steer users toward their first value moment before they disengage — the single most critical window in user activation.",
       "presenceTest": "An onboarding checklist surface exists and is rendered to every new user on first session (YES / NO).",
       "functionOfValue": "Onboarding Speed"
     }
@@ -201,7 +205,7 @@ Output:
       "id": "Onboarding Speed",
       "type": "Value",
       "level": "Product",
-      "description": "Speed at which new users reach their first value moment after signup",
+      "description": "The rate at which new users reach their first meaningful moment of value — defined as completing the onboarding checklist and performing their first key action — within 2 minutes of signup. This is the Product team's primary activation metric: research shows that users who do not reach a value moment within the first few minutes of signup disengage and churn at significantly higher rates. The redesigned checklist exists specifically to move this metric by removing friction from the critical early journey.",
       "scale": "% of new users reaching first value moment within 2 minutes of signup",
       "meter": "Automated funnel analytics tracking checklist completion timestamps in production",
       "status": "pre-build",
@@ -216,7 +220,7 @@ Output:
       "id": "Progressive Disclosure Checklist",
       "type": "Solution",
       "level": "Product",
-      "description": "Redesign onboarding checklist with progressive disclosure: show next step only after current step is completed",
+      "description": "Redesign the onboarding checklist using progressive disclosure: each step is revealed only after the previous step is confirmed as complete. This eliminates the common failure mode of showing all steps simultaneously, which overwhelms first-time users and causes them to abandon the setup flow. The checklist sequence is reordered to front-load the actions most strongly correlated with retention, guided by cohort analysis of historical activation paths.",
       "impact": "Onboarding Speed ~80%",
       "function": "Onboarding Checklist"
     }
@@ -236,7 +240,7 @@ Output:
       "id": "Exercise Consistency",
       "type": "Function",
       "level": "Personal",
-      "description": "The personal system supports scheduling, completing and logging weekly exercise sessions.",
+      "description": "The personal system supports scheduling, completing, and logging weekly exercise sessions as a structured habit. It provides a mechanism to commit to specific session times in advance and to record whether each session occurred — creating the accountability loop required to sustain a long-term exercise habit. Without this scheduling and logging capability, the habit relies purely on willpower and intention, which research consistently shows is insufficient for multi-month consistency.",
       "presenceTest": "A scheduling/logging surface for exercise sessions exists and accepts entries (YES / NO).",
       "functionOfValue": "Weekly Exercise Rate"
     }
@@ -246,7 +250,7 @@ Output:
       "id": "Weekly Exercise Rate",
       "type": "Value",
       "level": "Personal",
-      "description": "Rate of adherence to the weekly exercise schedule",
+      "description": "The rate at which Tom adheres to his planned weekly exercise schedule, measured as sessions actually completed versus sessions planned. This is the primary indicator of whether the habit system is working: a target of 4 sessions per week for 12 consecutive weeks represents the threshold at which exercise science indicates a habit becomes self-sustaining. Falling below 3 sessions per week consistently indicates a system failure — the scheduling or review mechanism is not providing enough friction removal or accountability.",
       "scale": "Number of ≥30-minute exercise sessions completed per week",
       "meter": "Manual log in health journal reviewed every Sunday",
       "status": "pre-build",
@@ -261,7 +265,7 @@ Output:
       "id": "Calendar Block Review",
       "type": "Solution",
       "level": "Personal",
-      "description": "Block exercise time as non-negotiable calendar events; conduct a Sunday weekly review to reschedule any missed sessions",
+      "description": "Block four weekly exercise slots as non-negotiable calendar events with the same status as work meetings — they cannot be moved without conscious deliberate effort. A Sunday weekly review session examines whether all four sessions occurred that week; any missed session is immediately rescheduled to the following week rather than simply skipped. The calendar commitment converts the abstract intention to exercise into a concrete, pre-decided time with a specific resistance point before it can be cancelled.",
       "impact": "Weekly Exercise Rate ~4 sessions/week",
       "function": "Exercise Consistency"
     }
@@ -281,7 +285,7 @@ Output:
       "id": "Search Response Time",
       "type": "Function",
       "level": "Product",
-      "description": "The platform exposes a search API endpoint that accepts queries and returns results.",
+      "description": "The platform exposes a search API endpoint that accepts user queries and returns ranked, well-formed results within SLA time bounds. This endpoint is the critical path for all search-dependent features in the product: any degradation in its availability or latency directly impacts user experience and triggers SLA breach penalties with enterprise customers. The function's existence is binary — either the endpoint responds correctly to a probe query or it does not.",
       "presenceTest": "Search API endpoint exists, accepts a probe query, and returns a well-formed response (YES / NO).",
       "functionOfValue": "Search Latency P95"
     }
@@ -291,7 +295,7 @@ Output:
       "id": "Search Latency P95",
       "type": "Value",
       "level": "Product",
-      "description": "95th-percentile response time for the search API endpoint",
+      "description": "The 95th-percentile response time for the search API endpoint — the latency experienced by the slowest 5% of search requests over a 7-day rolling window. This is the Engineering team's primary SLA commitment metric: enterprise customer contracts specify p95 ≤ 200ms, and breaching it triggers financial penalties and damages renewal rates. The p95 measure is chosen over median or average because it reflects the worst-case experience for a meaningful cohort of real users, not just typical load.",
       "scale": "p95 search endpoint response time in milliseconds over a 7-day rolling window",
       "meter": "APM dashboard (Datadog) measuring p95 latency continuously in production",
       "status": "pre-build",
@@ -306,7 +310,7 @@ Output:
       "id": "Redis Search Cache",
       "type": "Solution",
       "level": "Product",
-      "description": "Introduce a Redis caching layer for the top-1000 most frequent search queries, invalidated on data updates",
+      "description": "Introduce a Redis in-memory caching layer that stores pre-computed results for the top 1,000 most frequent search queries, served directly from cache without hitting the primary database. Cache entries are invalidated on any underlying data update affecting the cached result set. This approach targets the high-frequency tail of the query distribution — where most SLA breaches originate — and reduces database round-trip cost for those queries from ~400ms to ~15ms, creating headroom to meet the p95 ≤ 200ms SLA under normal load.",
       "impact": "Search Latency P95 ~200ms",
       "function": "Search Response Time"
     }
@@ -326,7 +330,7 @@ Output:
       "id": "Onboarding Checklist",
       "type": "Function",
       "level": "Product",
-      "description": "The system presents a feature-flag-gated progressive-disclosure onboarding checklist to every new user.",
+      "description": "The system presents a progressive-disclosure onboarding checklist to every new user, gated behind a feature flag that can be toggled without a code deployment. The checklist reveals each setup step only after the previous step is confirmed, reducing cognitive overload on first contact. The feature flag requirement is non-negotiable: Engineering must be able to disable the feature within minutes if unexpected issues emerge post-launch, without a full redeploy cycle that could take 20–40 minutes.",
       "presenceTest": "Onboarding checklist surface exists, is rendered to every new user, and is enable/disable-toggleable via feature flag without redeploy (YES / NO).",
       "functionOfValue": "Onboarding Activation Rate"
     }
@@ -336,7 +340,7 @@ Output:
       "id": "Onboarding Activation Rate",
       "type": "Value",
       "level": "Product",
-      "description": "Rate at which new users reach first value moment within 2 minutes — Product team's primary concern",
+      "description": "The rate at which new users reach their first meaningful value moment within 2 minutes of signup — the Product team's primary activation metric. Activation within 2 minutes is the threshold above which 30-day retention rates are significantly higher based on cohort data. Without fast activation, users disengage before experiencing the core product and churn in the first week. This metric directly determines whether the onboarding redesign delivers its intended business outcome.",
       "scale": "% of new users reaching first value moment within 2 minutes of signup",
       "meter": "Automated funnel analytics tracking checklist completion timestamps in production",
       "status": "pre-build",
@@ -349,7 +353,7 @@ Output:
       "id": "Rollback Speed",
       "type": "Value",
       "level": "Product",
-      "description": "Time to fully disable the checklist if critical issues emerge — Engineering team's risk concern",
+      "description": "The time elapsed from Engineering detecting a critical issue with the onboarding checklist to the feature being fully disabled for all users via feature flag toggle — without a code deployment. This is Engineering's primary risk-management metric for the launch: the feature flag exists precisely to bound this window. A rollback time greater than 10 minutes means a critical bug could impact a significant fraction of new signups during a traffic spike, making the launch unacceptably risky from an operational standpoint.",
       "scale": "Minutes from issue detection to full feature disable via flag toggle",
       "meter": "Timed rollback drill in staging, verified by Engineering lead before launch",
       "status": "pre-build",
@@ -362,7 +366,7 @@ Output:
       "id": "Onboarding Support Ticket Reduction",
       "type": "Value",
       "level": "Product",
-      "description": "Reduction in onboarding-related support tickets — Customer Success's concern",
+      "description": "The percentage reduction in support tickets tagged 'onboarding-confusion' after the checklist launch, measured against a 30-day pre-launch baseline. This is Customer Success's primary concern: onboarding confusion is their single largest ticket category, consuming significant agent time on issues that should not require human intervention. A 40% reduction frees CS capacity for higher-value customer interactions and signals that the redesign genuinely clarified the user journey rather than just reshuffling which steps confuse users.",
       "scale": "% reduction in support tickets tagged 'onboarding-confusion' vs. 30-day pre-launch baseline",
       "meter": "Support platform (Intercom) tag report measured 30 days post-launch",
       "status": "pre-build",
@@ -377,7 +381,7 @@ Output:
       "id": "Progressive Disclosure Feature Flag",
       "type": "Solution",
       "level": "Product",
-      "description": "Progressive-disclosure onboarding checklist deployed behind a feature flag — reveals next step only after current step is confirmed, instantly reversible without a code deploy",
+      "description": "A progressive-disclosure onboarding checklist deployed behind a feature flag: each step is revealed only after the previous step is explicitly confirmed as complete, preventing users from being overwhelmed by the full task list. The feature flag wrapper means the entire feature can be toggled off within seconds by any Engineering team member via the flag dashboard, without requiring a code deployment or deployment pipeline execution. Step ordering is based on activation path analysis: steps most correlated with 30-day retention appear first.",
       "impact": "Onboarding Activation Rate ~80%, Rollback Speed ~5 min, Onboarding Support Ticket Reduction ~40%",
       "function": "Onboarding Checklist"
     }
@@ -397,7 +401,7 @@ Output:
       "id": "Personal Data Export",
       "type": "Function",
       "level": "Product",
-      "description": "The system provides an authenticated endpoint that exports all personal data belonging to the requesting user.",
+      "description": "The system provides an authenticated REST endpoint that compiles all personal data belonging to the requesting user — across all data stores — and packages it into a downloadable archive in a portable format. This capability exists to fulfil GDPR Article 15 (right of access) and Article 20 (right to data portability): any EU-resident user is legally entitled to receive a complete copy of their data on request, within a bounded time window. Without this endpoint the product is non-compliant and the company is exposed to regulatory enforcement action.",
       "presenceTest": "Data export endpoint exists, requires authentication, and returns a complete personal data package for the authenticated user (YES / NO).",
       "functionOfValue": "Export Request Fulfilment"
     }
@@ -407,7 +411,7 @@ Output:
       "id": "Export Request Fulfilment",
       "type": "Value",
       "level": "Product",
-      "description": "Speed and completeness of personal data export fulfilment",
+      "description": "The percentage of valid personal data export requests that are fulfilled completely and correctly within the legally mandated timeframe. GDPR Article 12 requires that data access requests be fulfilled 'without undue delay and in any event within one month of receipt.' This metric is the Legal team's primary compliance indicator: any failure to fulfil a valid request within 30 days is a GDPR violation, not merely a service quality issue. The goal of 72-hour fulfilment reflects best practice and reduces the risk of complaints to supervisory authorities.",
       "scale": "% of valid export requests fulfilled within 30 days",
       "meter": "Audit log of export requests vs. fulfilment timestamps",
       "status": "pre-build",
@@ -422,7 +426,7 @@ Output:
       "id": "GDPR Export Endpoint",
       "type": "Solution",
       "level": "Product",
-      "description": "Authenticated REST endpoint that compiles and packages all user personal data into a downloadable archive",
+      "description": "An authenticated REST endpoint that queries all data stores containing user personal data — profile records, activity logs, uploaded content, inferred attributes, and any third-party sync data — compiles them into a single structured archive (JSON or ZIP with CSV attachments), and makes the archive available for download by the authenticated requesting user. Authentication is mandatory: the endpoint must verify the requesting user's identity before releasing any data. The archive format follows GDPR Article 20's portability requirement: machine-readable, commonly used, structured format.",
       "impact": "Export Request Fulfilment ~100%",
       "function": "Personal Data Export"
     }
