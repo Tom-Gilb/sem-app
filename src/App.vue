@@ -64,6 +64,7 @@ import { useReplay } from './composables/useReplay'
 import { useProjectDashboard } from './composables/useProjectDashboard'
 import { useSessionPersist } from './composables/useSessionPersist'
 import { useToast } from './composables/useToast'
+import { useInputSafetyNet } from './composables/useInputSafetyNet'
 import { useAnalyticsEvents } from './composables/useAnalyticsEvents'
 import { useSurveyGate } from './composables/useSurveyGate'
 import { useDictation } from './composables/useDictation'
@@ -723,6 +724,7 @@ const planHealthAlertCount = computed<number>(() => {
 
 // --- Feature #29: Spec Version History ---
 const { history: specHistory, addVersion, clearHistory: _clearHistory } = useSpecHistory()
+const { dismissOops: _dismissOops } = useInputSafetyNet()
 const { plan: _evoPlan, confirmPlan: _confirmEvoPlan, fetchPlan: _fetchEvoPlan } = useEvoPlan()
 const historyOpen = ref(false)
 
@@ -1740,6 +1742,7 @@ if (typeof window !== 'undefined') {
 // ── Start fresh ───────────────────────────────────────────────────────────────
 
 function startFresh(): void {
+  _dismissOops()                // clear any pending Oops offer — fresh start is intentional
   _closeAllOverlays()           // clear any stale backdrop/menu (e.g. Actions z-[375] backdrop)
   formResetKey.value++          // force SEMEntryForm to remount (resets internal sub-stage)
   formSubStage.value = 'input'  // reset the mirrored sub-stage immediately
@@ -1884,6 +1887,7 @@ function _closeAllOverlays(): void {
  * Wired to the 🆘 Reset pill in the bottom-left corner.
  */
 function panicReset(): void {
+  _dismissOops()  // clear any blocking Oops offer immediately
   // Pre-reset save — flush any pending autosave debounce before wiping UI state,
   // so no work is lost regardless of where in the 500ms debounce window we are.
   // Tom 2026-05-18: "attempt a save version whenever any reset options are keyed,
@@ -2327,6 +2331,10 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
   // Close any open panels/overlays before starting — prevents invisible backdrops
   // from persisting through the generation and blocking all clicks afterward.
   _closeAllOverlays()
+  // Dismiss any pending Oops offer — the user is intentionally submitting new
+  // content, so the drop-detection that triggered the Oops was a false alarm.
+  // Without this the toast lingers through the generation and blocks the UI.
+  _dismissOops()
   // Clear any stale SDK error from a previous failed/timed-out generation so it
   // does not persist into the new one (error banner was never cleared on retry).
   sdkError.value = ''
@@ -2349,6 +2357,11 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
   resetSharpen()
 
   markdown.value = ''
+  // Snapshot the previous spec before clearing — restored if generation fails so
+  // the user is never left with no spec when a re-generation errors or hangs.
+  // (Tom 2026-05-29: "all parse lost as I added solutions" — spec cleared before
+  //  new generation succeeded, leaving the user with nothing on failure.)
+  const _specBeforeSubmit = currentSpec.value
   currentSpec.value = null
   evoPlanConfirmed.value = false
   confirmedSteps.value = []
@@ -2365,6 +2378,12 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
     await generateQuestions({ stakes: payload.stakes, ends: payload.ends, means: payload.means })
   } else {
     await doTranslate({ stakes: payload.stakes, ends: payload.ends, means: payload.means })
+  }
+  // Spec restore safety net: if the generation failed (currentSpec still null),
+  // put the previous spec back so the user is never left empty-handed.
+  if (!currentSpec.value && _specBeforeSubmit) {
+    currentSpec.value = _specBeforeSubmit
+    showToast('⚠️ Generation failed — your previous spec has been restored. Try again.', 5000)
   }
 }
 
