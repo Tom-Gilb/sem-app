@@ -4475,7 +4475,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
            Breakout wrapper: parent has px-4 md:pr-40 constraints; the bar
            must span full viewport width. -ml-4 + w-[calc(100%+Xrem)] breaks out.
            overflow-x-clip on the parent div prevents page-level scroll. -->
-      <div class="-ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]">
+      <!-- self-start (2026-05-29 fix): the parent is flex-col items-center.
+           The -ml-4 + calc widths were designed for flex-START alignment:
+           child starts at the padding left edge (x=16px), -ml-4 shifts to x=0,
+           width = content_width + padding = full viewport. But items-center was
+           CENTERING the child first, so -ml-4 was overshooting ~72-88px left,
+           hiding stage 1. self-start restores the intended flex-start alignment
+           for just this child; the calc widths and -ml-4 then work correctly. -->
+      <div class="self-start -ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]">
         <ValueCounter
           :current-stage="planningStage"
           @go-to-stage="handleStageBarNav"
