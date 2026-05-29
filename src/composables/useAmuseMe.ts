@@ -127,7 +127,47 @@ export const AMUSE_ITEMS: AmuseItem[] = [
     blurb: 'Hover any button or glyph to read what it does',
     action: 'static',
   },
+  {
+    id: 'showPictures',
+    emoji: '🖼',
+    label: 'See beautiful pictures',
+    blurb: 'Pick a theme — nature, art, Norway, landmarks…',
+    action: 'external',
+  },
 ]
+
+// ─── Picture themes ────────────────────────────────────────────────────────────
+// Tom 2026-05-29: "fun while waiting: at least display a set of pictures, choose
+// between themes like modern art, classical art, sculpture, people, famous
+// landmarks, beautiful nature, nature in Norway."
+// Uses Unsplash's random featured-photo endpoint (free, no key, keyword-routed).
+
+export interface PictureTheme {
+  id: string
+  label: string
+  emoji: string
+  keyword: string
+}
+
+export const PICTURE_THEMES: PictureTheme[] = [
+  { id: 'nature',    label: 'Beautiful Nature', emoji: '🌿', keyword: 'nature+landscape' },
+  { id: 'norway',    label: 'Norway',           emoji: '🏔', keyword: 'norway+fjord' },
+  { id: 'art',       label: 'Modern Art',       emoji: '🎨', keyword: 'modern+art+abstract' },
+  { id: 'classical', label: 'Classical Art',    emoji: '🖼', keyword: 'renaissance+painting+classical' },
+  { id: 'sculpture', label: 'Sculpture',        emoji: '🏛', keyword: 'marble+sculpture+art' },
+  { id: 'people',    label: 'People',           emoji: '👥', keyword: 'portrait+people+street' },
+  { id: 'landmarks', label: 'Landmarks',        emoji: '🗼', keyword: 'famous+landmark+architecture' },
+  { id: 'space',     label: 'Space',            emoji: '🌌', keyword: 'galaxy+space+cosmos' },
+]
+
+/**
+ * Returns an Unsplash random photo URL for a given theme keyword.
+ * Appends a cache-buster so refreshing always loads a new image.
+ */
+export function pictureUrl(keyword: string, seed?: number): string {
+  const s = seed ?? Math.floor(Math.random() * 99999)
+  return `https://source.unsplash.com/featured/800x500/?${keyword}&sig=${s}`
+}
 
 // ─── Planning stage names (9-step Evo cycle, Tom Gilb canonical) ──────────────
 

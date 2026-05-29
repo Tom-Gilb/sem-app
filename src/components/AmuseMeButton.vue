@@ -17,12 +17,15 @@ import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import {
   AMUSE_ITEMS,
+  PICTURE_THEMES,
   useAmuseMe,
   randomJoke,
   randomNiceThing,
   planProgressText,
   nextStepText,
   stagesUntilSharing,
+  pictureUrl,
+  type PictureTheme,
 } from '../composables/useAmuseMe'
 import type { SpecBlock } from '../types/spec'
 
@@ -62,6 +65,27 @@ const remainingStages = computed(() => stagesUntilSharing(props.planningStage))
 /** Top 3 items shown in the hover tooltip preview */
 const previewItems = computed(() => AMUSE_ITEMS.slice(0, 3))
 
+// ─── Picture state ────────────────────────────────────────────────────────────
+
+const activeTheme   = ref<PictureTheme>(PICTURE_THEMES[0])  // default: Beautiful Nature
+const pictureSeed   = ref(Math.floor(Math.random() * 99999))
+const pictureLoading = ref(false)
+
+const currentPictureUrl = computed(() =>
+  pictureUrl(activeTheme.value.keyword, pictureSeed.value)
+)
+
+function selectTheme(theme: PictureTheme): void {
+  activeTheme.value   = theme
+  pictureSeed.value   = Math.floor(Math.random() * 99999)  // new seed = new image
+  pictureLoading.value = true
+}
+
+function refreshPicture(): void {
+  pictureSeed.value   = Math.floor(Math.random() * 99999)
+  pictureLoading.value = true
+}
+
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
 function handleDoubleClick(): void {
@@ -73,6 +97,10 @@ function handleItemClick(id: string): void {
   // Refresh randomised content each time the relevant item is selected
   if (id === 'glossaryJoke') currentJoke.value = randomJoke()
   if (id === 'niceThings') currentNiceThing.value = randomNiceThing()
+  if (id === 'showPictures') {
+    pictureSeed.value = Math.floor(Math.random() * 99999)
+    pictureLoading.value = true
+  }
   selectItem(id)
 }
 </script>
@@ -339,6 +367,62 @@ function handleItemClick(id: string): void {
                         </li>
                       </ul>
                     </div>
+                  </div>
+                </div>
+
+                <!-- showPictures ─────────────────────────────────────────── -->
+                <!-- Tom 2026-05-29: "at least display a set of pictures, choose
+                     between themes like modern art, classical art, sculpture,
+                     people, famous landmarks, beautiful nature, nature in Norway" -->
+                <div v-else-if="activeItemId === 'showPictures'">
+                  <!-- Theme selector pills -->
+                  <div class="flex flex-wrap gap-1.5 mb-3">
+                    <button
+                      v-for="theme in PICTURE_THEMES"
+                      :key="theme.id"
+                      type="button"
+                      :title="`Show ${theme.label} photos`"
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all"
+                      :class="activeTheme.id === theme.id
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'"
+                      @click="selectTheme(theme)"
+                    >
+                      {{ theme.emoji }} {{ theme.label }}
+                    </button>
+                  </div>
+
+                  <!-- Photo display -->
+                  <div class="relative rounded-xl overflow-hidden bg-slate-100 aspect-video">
+                    <!-- Loading shimmer -->
+                    <div
+                      v-if="pictureLoading"
+                      class="absolute inset-0 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 animate-pulse"
+                    />
+                    <img
+                      :key="currentPictureUrl"
+                      :src="currentPictureUrl"
+                      :alt="`${activeTheme.label} photo from Unsplash`"
+                      class="w-full h-full object-cover transition-opacity duration-500"
+                      :class="pictureLoading ? 'opacity-0' : 'opacity-100'"
+                      @load="pictureLoading = false"
+                      @error="pictureLoading = false"
+                    />
+                  </div>
+
+                  <!-- Caption + refresh -->
+                  <div class="flex items-center justify-between mt-2">
+                    <p class="text-[10px] text-slate-400">
+                      {{ activeTheme.emoji }} {{ activeTheme.label }} · via Unsplash
+                    </p>
+                    <button
+                      type="button"
+                      title="Show another picture — loads a different random photo of the same theme"
+                      class="text-[11px] text-indigo-500 hover:text-indigo-700 font-semibold transition-colors"
+                      @click="refreshPicture"
+                    >
+                      ↺ Next picture
+                    </button>
                   </div>
                 </div>
 

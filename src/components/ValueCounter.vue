@@ -285,10 +285,28 @@ function onOpenFullInfo(): void {
 }
 
 // Escape key closes the drama popup
+// stopPropagation prevents App.vue's global Escape handler from also firing.
 function _onKeyDown(e: KeyboardEvent): void {
   if (e.key === 'Escape' && activePopoverStage.value !== null) {
+    e.stopPropagation()
     closeDramaPopover()
   }
+}
+
+// ── Click-outside handler for drama popover ────────────────────────────────
+// Fires in CAPTURE phase so it runs before the clicked element's own handler.
+// If the click is inside the panel → do nothing (buttons fire normally).
+// If the click is outside → close the popup; the clicked element also fires.
+// This replaces the full-screen backdrop, which was blocking all other UI
+// (SOS, Enter Stakes, Actions menu, etc.) during the drama popup.
+// Tom 2026-05-29: "the sos button was blurred in background and useless."
+const popoverPanelRef = ref<HTMLElement | null>(null)
+
+function _onBodyClick(e: MouseEvent): void {
+  if (activePopoverStage.value === null) return
+  const panel = popoverPanelRef.value
+  if (panel && panel.contains(e.target as Node)) return
+  closeDramaPopover()
 }
 
 // ── Scroll-to-active ──────────────────────────────────────────────────────────
@@ -323,9 +341,11 @@ watch(() => props.currentStage, scrollToActive)
 onMounted(() => {
   scrollToActive()
   window.addEventListener('keydown', _onKeyDown)
+  document.addEventListener('click', _onBodyClick, true)  // capture phase
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', _onKeyDown)
+  document.removeEventListener('click', _onBodyClick, true)
   if (_clickTimer) clearTimeout(_clickTimer)
 })
 </script>
@@ -363,7 +383,10 @@ onUnmounted(() => {
       class="overflow-x-auto scrollbar-none w-full"
       style="scroll-behavior: auto;"
     >
-      <div class="flex items-end gap-3 px-16 pb-1 min-w-max">
+      <!-- pl-3: minimal left indent so stage 1 is fully visible at scroll=0.
+           pr-20: right breathing room for the ▶ Next overlay button.
+           Tom 2026-05-29: "old bug: stage 1 is still hidden off to left." -->
+      <div class="flex items-end gap-3 pl-3 pr-20 pb-1 min-w-max">
       <template v-for="(step, idx) in STAGES" :key="step.stage">
 
         <!-- ── Stage pill ───────────────────────────────────────────── -->
@@ -497,22 +520,18 @@ onUnmounted(() => {
 
   <!-- ── Drama popover — single-click on stage tile ─────────────────────────
        Teleported to body: avoids overflow-x-auto clipping.
-       Backdrop + popover rendered as two sibling children inside one Teleport.
-       Single-Surface rule: this is a small positional popover (not full-screen),
-       so registerExclusiveSurface is NOT required; Escape + backdrop close it. -->
+       NO backdrop: click-outside handled by _onBodyClick (capture phase).
+       Removing the full-screen backdrop lets all other UI remain interactive
+       (SOS, Enter Stakes, Actions menu, etc.) when the popup is open.
+       Tom 2026-05-29: backdrop at z-[800] was blocking every button in the app.
+       Single-Surface rule: small positional popover — registerExclusiveSurface
+       not required. Escape + click-outside close it. -->
   <Teleport to="body">
-    <!-- Backdrop — semi-transparent, click closes the popover -->
-    <div
-      v-if="activePopoverStage !== null"
-      class="fixed inset-0 z-[800] bg-black/50 backdrop-blur-[2px]"
-      aria-hidden="true"
-      @click="closeDramaPopover()"
-    />
-
-    <!-- Drama popover panel -->
+    <!-- Drama popover panel — no backdrop; _onBodyClick closes on outside click -->
     <Transition name="drama-pop">
       <div
         v-if="activePopoverStage !== null && popoverAnchorRect"
+        ref="popoverPanelRef"
         class="fixed z-[801] rounded-2xl overflow-hidden shadow-[0_8px_48px_rgba(0,0,0,0.7)]"
         :style="popoverStyle"
         role="dialog"

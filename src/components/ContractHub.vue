@@ -63,74 +63,63 @@ const selectedClause = computed<ContractClause | null>(() =>
 
 // ── Import flow ───────────────────────────────────────────────────────────────
 
+// ── Import flow — simplified single-step (Tom 2026-05-29) ────────────────────
+// "This window is not useful. I have all that data in the contract. The parsing
+//  needs to find it for me. I just need to import the contract file from url,
+//  my mac or to paste it in, as in the sem planning."
+// Step 1 (metadata form) removed. User pastes text; title auto-extracted from
+// first meaningful line; parties auto-detected by the LLM parser.
+
 const showImport = ref(false)
-const importTitle       = ref('')
-const importType        = ref<ContractType>('service-agreement')
-const importPartyAName  = ref('')
-const importPartyARole  = ref<'obligor' | 'obligee' | 'both'>('obligee')
-const importPartyBName  = ref('')
-const importPartyBRole  = ref<'obligor' | 'obligee' | 'both'>('obligor')
-const importText        = ref('')
-const importStep        = ref<1 | 2>(1)  // 1=metadata, 2=paste text
+const importTitle = ref('')
+const importText  = ref('')
+const importType  = ref<ContractType>('other')
 
 function openImport(): void {
   importTitle.value = ''
-  importType.value = 'service-agreement'
-  importPartyAName.value = ''
-  importPartyBName.value = ''
-  importText.value = ''
-  importStep.value = 1
-  showImport.value = true
+  importText.value  = ''
+  importType.value  = 'other'
+  importLoading.value = false
+  importError.value   = null
+  showImport.value  = true
 }
 
 function cancelImport(): void {
   showImport.value = false
 }
 
+/** Auto-extract a title from the first non-empty line of the contract text. */
+function _extractTitle(text: string): string {
+  const first = text.split('\n').map(l => l.trim()).find(l => l.length > 2) ?? 'Imported Contract'
+  return first.length > 80 ? first.slice(0, 77) + '…' : first
+}
+
 const importLoading = ref(false)
 const importError   = ref<string | null>(null)
 
 async function doImport(): Promise<void> {
-  if (!importTitle.value.trim() || !importText.value.trim()) return
+  const rawText = importText.value.trim()
+  if (!rawText) return
   importLoading.value = true
   importError.value   = null
 
-  const parties: ContractParty[] = []
-  if (importPartyAName.value.trim()) {
-    parties.push({
-      id:           `party-${Date.now()}-a`,
-      name:         importPartyAName.value.trim(),
-      abbreviation: _initials(importPartyAName.value),
-      role:         importPartyARole.value,
-    })
-  }
-  if (importPartyBName.value.trim()) {
-    parties.push({
-      id:           `party-${Date.now()}-b`,
-      name:         importPartyBName.value.trim(),
-      abbreviation: _initials(importPartyBName.value),
-      role:         importPartyBRole.value,
-    })
-  }
-
-  const contract = store.createContract(
-    importTitle.value.trim(),
-    importType.value,
-    parties,
-  )
+  // Title: user-provided OR auto-extracted from first meaningful line.
+  // Parties: left empty — the LLM parser detects party labels from context
+  // (obligation tags like "SUPPLIER", "CLIENT" appear in the clause text).
+  const title: string = importTitle.value.trim() || _extractTitle(rawText)
+  const contract = store.createContract(title, importType.value, [])
   store.updateContract(contract.id, {
-    rawImportText: importText.value.trim(),
+    rawImportText: rawText,
     parseStatus:   'splitting',
   })
   selectedId.value  = contract.id
   showImport.value  = false
 
   try {
-    const clauses = await parser.splitIntoClauses(importText.value.trim())
+    const clauses = await parser.splitIntoClauses(rawText)
     store.setClauses(contract.id, clauses)
     store.updateContract(contract.id, { parseStatus: 'parsing' })
-    // Auto-parse all clauses sequentially (avoids rate limit hammering)
-    await _parseAllClauses(contract.id, clauses, parties)
+    await _parseAllClauses(contract.id, clauses, [])
     store.updateContract(contract.id, { parseStatus: 'complete' })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
@@ -823,11 +812,14 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
       </template>
 
       <!-- ════ IMPORT MODAL ════════════════════════════════════════════════ -->
+      <!-- Import modal — simplified single step (Tom 2026-05-29).
+           No metadata form: just paste the text. Title auto-extracted from
+           the first line. Parties auto-detected by the LLM parser. -->
       <Teleport v-if="showImport" to="body">
         <div class="fixed inset-0 z-[700] flex items-center justify-center p-4">
           <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="cancelImport" />
           <div class="relative z-[701] w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden">
-            <!-- Import modal header -->
+            <!-- Modal header -->
             <div class="px-5 py-4 bg-gradient-to-r from-teal-700 to-emerald-600 flex items-center gap-3">
               <span class="text-white font-bold text-sm">📋 Import Contract</span>
               <div class="ml-auto">
@@ -835,92 +827,39 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
               </div>
             </div>
 
-            <!-- Step indicator -->
-            <div class="flex border-b border-slate-200">
-              <div
-                v-for="step in [1, 2] as const"
-                :key="step"
-                class="flex-1 py-2 text-center text-xs font-bold transition-colors"
-                :class="importStep === step ? 'text-teal-700 border-b-2 border-teal-600' : 'text-slate-400'"
-              >
-                Step {{ step }}: {{ step === 1 ? 'Contract Details' : 'Paste Text' }}
-              </div>
-            </div>
-
-            <!-- Step 1: metadata -->
-            <div v-if="importStep === 1" class="p-5 space-y-4">
+            <!-- Single-step paste form -->
+            <div class="p-5 space-y-4">
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Contract title *</label>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Contract title
+                  <span class="font-normal text-slate-400">(optional — auto-read from first line)</span>
+                </label>
                 <input
                   v-model="importTitle"
                   type="text"
-                  placeholder="e.g. ACME Service Agreement 2026"
+                  placeholder="Leave blank to auto-extract from the contract text"
                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Contract type</label>
-                <select
-                  v-model="importType"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  <option v-for="(label, key) in CONTRACT_TYPE_LABELS" :key="key" :value="key">{{ label }}</option>
-                </select>
-              </div>
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Party A name</label>
-                  <input v-model="importPartyAName" type="text" placeholder="e.g. Acme Corp Ltd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Party A role</label>
-                  <select v-model="importPartyARole" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-                    <option value="obligee">Obligee (receiver)</option>
-                    <option value="obligor">Obligor (provider)</option>
-                    <option value="both">Both</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Party B name</label>
-                  <input v-model="importPartyBName" type="text" placeholder="e.g. GlobalSupply Ltd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Party B role</label>
-                  <select v-model="importPartyBRole" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-                    <option value="obligor">Obligor (provider)</option>
-                    <option value="obligee">Obligee (receiver)</option>
-                    <option value="both">Both</option>
-                  </select>
-                </div>
-              </div>
-              <div class="flex justify-end pt-2">
-                <button
-                  type="button"
-                  :disabled="!importTitle.trim()"
-                  class="px-5 py-2 bg-teal-700 hover:bg-teal-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-sm transition-all"
-                  @click="importStep = 2"
-                >Next → Paste Text</button>
-              </div>
-            </div>
-
-            <!-- Step 2: paste contract text -->
-            <div v-else-if="importStep === 2" class="p-5 space-y-4">
-              <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Contract text *</label>
-                <p class="text-[11px] text-slate-500 mb-2">Paste the full contract or the relevant sections. SEM will split it into clauses and convert each to Planguage automatically.</p>
+                <p class="text-[11px] text-slate-500 mb-2">
+                  Paste your contract — SLA, NDA, service agreement, or any legal text.
+                  SEM splits it into clauses and converts each to Planguage automatically.
+                  Party names, types, and obligations are detected from the text.
+                </p>
                 <textarea
                   v-model="importText"
-                  rows="10"
-                  placeholder="Paste contract text here…"
+                  rows="12"
+                  placeholder="Paste contract text here…&#10;SEM will find the parties, extract obligations, and identify vague language automatically."
                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none leading-relaxed"
                 />
               </div>
               <p v-if="importError" class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">⚠ {{ importError }}</p>
-              <div class="flex items-center justify-between pt-2">
-                <button type="button" class="text-xs text-slate-500 hover:text-slate-700" @click="importStep = 1">← Back</button>
+              <div class="flex justify-end pt-2">
                 <button
                   type="button"
                   :disabled="!importText.trim() || importLoading"
+                  title="Analyse contract — SEM splits into clauses and extracts Planguage obligations, identifying parties and vague language automatically"
                   class="px-5 py-2 bg-teal-700 hover:bg-teal-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-sm transition-all inline-flex items-center gap-2"
                   @click="doImport"
                 >
