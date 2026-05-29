@@ -21,6 +21,7 @@ export type ThumbType =
   | 'conflicts'
   | 'copyright'   | 'saveGlyph'       | 'priorityGlyph'    | 'editGlyph'       | 'semMeta'
   | 'dictation'
+  | 'maria'
   | 'emoji'
 
 const props = defineProps<{
@@ -427,6 +428,22 @@ const _meta = useSemMetadata()
       <span>🔧{{ _meta.composableCount }}</span>
     </div>
   </div>
+
+  <!-- ── AGENTS ───────────────────────────────────────────────────────────────── -->
+
+  <!-- maria — three-layer governance stack (Board / Management / Operations) -->
+  <svg v-else-if="thumb === 'maria'" viewBox="0 0 56 56" class="w-full h-full">
+    <rect width="56" height="56" fill="#f0fdf4"/>
+    <!-- Board layer (emerald) -->
+    <rect x="6" y="8"  width="44" height="12" rx="3" fill="#059669"/>
+    <text x="28" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="white">BOARD</text>
+    <!-- Management layer (indigo) -->
+    <rect x="6" y="24" width="44" height="12" rx="3" fill="#4f46e5"/>
+    <text x="28" y="34" font-size="7" font-weight="700" text-anchor="middle" fill="white">MANAGEMENT</text>
+    <!-- Operations layer (sky) -->
+    <rect x="6" y="40" width="44" height="12" rx="3" fill="#0284c7"/>
+    <text x="28" y="50" font-size="7" font-weight="700" text-anchor="middle" fill="white">OPERATIONS</text>
+  </svg>
 
   <!-- ── Emoji fallback ─────────────────────────────────────────────────────────── -->
   <div v-else class="w-full h-full flex items-center justify-center bg-slate-50 text-3xl select-none" aria-hidden="true">

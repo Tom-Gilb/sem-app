@@ -213,7 +213,22 @@ const allSections = computed<SectionDef[]>(() => [
     ],
   },
 
-  // ── 11. ABOUT ──────────────────────────────────────────────────────────────
+  // ── 11. AGENTS ─────────────────────────────────────────────────────────────
+  {
+    key: 'agents', label: 'AGENTS', emoji: '🤖',
+    blurb: 'AI planning agents — call on-demand for deep analysis, governance review, and board-level insight.',
+    tiles: [
+      {
+        id:    'maria',
+        label: 'Maria — Board Parse',
+        emoji: '🏛',
+        thumb: 'maria' as const,
+        tip:   'Analyse board documents: classify decisions by governance layer, flag authority gaps, surface governance gaps, identify governance patterns',
+      },
+    ],
+  },
+
+  // ── 12. ABOUT ──────────────────────────────────────────────────────────────
   {
     key: 'about', label: 'ABOUT', emoji: '📖',
     blurb: 'Plan metadata, app scoreboard, attribution and Planguage glyph essays.',

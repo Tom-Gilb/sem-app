@@ -3364,6 +3364,8 @@ function handleAction(id: string): void {
     case 'specEditor':       specEditorOpen.value       = true; break
     // ── VOICE ──────────────────────────────────────────────────────────────
     case 'dictation':        toggleDictation();                 break
+    // ── AGENTS ─────────────────────────────────────────────────────────────
+    case 'maria':            mariaOpen.value = true;            break
   }
 }
 
