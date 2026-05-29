@@ -5515,11 +5515,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
         :class="['fixed z-[9999] flex flex-col items-end gap-2', planModel ? 'top-10 right-4' : 'top-4 right-4']"
       >
 
-      <!-- 🎤 Mic + 🔊 Speaker + ⚡ Actions — control pins (no-plan state only).
+      <!-- 🎤 Mic + 🔊 Speaker + ⚡ Actions + 🆘 SOS — control pins (no-plan state only).
            When planModel exists these buttons live in the Plan Crest bar instead.
            Tom 2026-05-13: "mic and speaker need to be on the surface at all times."
-           Tom 2026-05-26: control-pins rule — at TOP, never bottom-left or -right. -->
+           Tom 2026-05-26: control-pins rule — at TOP, never bottom-left or -right.
+           SOS added here 2026-05-29: after startFresh() planModel=null hides the
+           Plan Crest, removing the SOS button. Tom was stuck with no escape. SOS
+           must always be reachable regardless of plan state. -->
       <div v-if="!planModel" class="flex items-center gap-2">
+        <!-- 🆘 SOS — always red, always present even with no plan loaded -->
+        <button
+          type="button"
+          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-extrabold transition-all
+                 bg-red-600/90 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300
+                 focus:outline-none focus:ring-2 focus:ring-red-300 shadow-md"
+          aria-label="SOS — open reset menu"
+          title="🆘 SOS — click to open reset options"
+          @click="freshStartOpen = true"
+        >🆘</button>
         <DictateButton
           :active="dictationActive"
           :supported="dictationSupported"
