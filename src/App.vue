@@ -2398,7 +2398,12 @@ async function doTranslate(
       // Tom 2026-05-29: "we got stuck here and it did NOT go to spec and show them, stage 2."
       // When already in stage 2+ (re-generation from plan view), just scroll to the output.
       // goToPlanStage() calls _closeAllOverlays() + _ensurePlanModel() + stage.value = 2.
+      // _resetPlanForLoad() prevents EvoPlanView.onMounted() from auto-generating Evo steps
+      // on first mount — the user must click Generate Evo Plan manually (Tom 2026-05-29:
+      // "immediately after generating specs, it jumped to generating evo value steps, with
+      // no clicks from me").
       if (stage.value === 1) {
+        _resetPlanForLoad()
         await nextTick()
         goToPlanStage()
       } else {

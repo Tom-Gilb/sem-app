@@ -215,9 +215,9 @@ function onDotClick(id: string, lane: MiniLane): void {
           :x1="curCx" :y1="curCy"
           :x2="conn.x2" :y2="conn.y2"
           :stroke="curColor"
-          stroke-opacity="0.25"
-          stroke-width="1.2"
-          stroke-dasharray="3 2"
+          stroke-opacity="0.70"
+          stroke-width="1.8"
+          stroke-dasharray="4 2"
         />
       </svg>
 

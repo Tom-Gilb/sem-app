@@ -22,6 +22,7 @@ import type { SpecBlock, FEntry, VEntry, SEntry } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import type { TaskSuggestion } from '../types/task'
 import type { ImpactMatrix } from '../types/impact'
+import { usePlanModel } from '../composables/usePlanModel'
 
 // ── Props / Emits ─────────────────────────────────────────────────────────────
 
@@ -194,7 +195,8 @@ const stack = ref<Array<{ entryId: string; entryTab: 'functions' | 'values' | 's
 
 const currentId  = ref(props.entryId)
 const currentTab = ref<'functions' | 'values' | 'solutions' | 'evo-steps'>(props.entryTab)
-const expanded   = ref(false)   // full-screen toggle (Tom 2026-05-16)
+// Tom 2026-05-29: "I want full screen only for direct relations" — default to expanded.
+const expanded   = ref(true)
 
 watch(() => props.entryId, id => { currentId.value = id; currentTab.value = props.entryTab; stack.value = [] })
 
@@ -513,6 +515,114 @@ function handleMiniMapPivot(id: string, tab: 'functions' | 'values' | 'solutions
   pivotTo(node)
 }
 
+// ── Plan context (for export headers) ────────────────────────────────────────
+const { currentModel } = usePlanModel()
+
+// ── Copy / Email export ───────────────────────────────────────────────────────
+
+const copyOk  = ref(false)
+const mailOk  = ref(false)
+
+function _sdrHtml(): string {
+  const now      = new Date()
+  const dateStr  = now.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+  const planName = currentModel.value?.name ?? 'Plan'
+  const planVer  = currentModel.value?.version ? `v${currentModel.value.version}` : ''
+  const c        = central.value
+  const typeCol: Record<string, string> = {
+    values: '#7c3aed', functions: '#16a34a', solutions: '#ea580c',
+    'evo-step': '#ca8a04', stakeholder: '#2563eb', task: '#6b7280', resource: '#166534',
+  }
+  const hdrClr = typeCol[c.type] ?? '#4338ca'
+
+  const nodeRow = (n: RelationNode, dir: string) => {
+    const col = typeCol[n.type] ?? '#64748b'
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b">${dir}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">
+        <span style="display:inline-block;background:${col};color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:6px">${TYPE_LABEL[n.type] ?? n.type}</span>
+        <strong style="color:#1e293b;font-size:12px">${n.label}</strong>
+      </td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569">${n.description}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b;white-space:nowrap">${n.extra}</td>
+    </tr>`
+  }
+
+  const rows = [
+    ...incoming.value.map(n  => nodeRow(n, 'Incoming')),
+    ...outgoing.value.map(n  => nodeRow(n, 'Outgoing')),
+  ].join('')
+
+  return `<!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:16px;background:#f8fafc">
+<table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.10)">
+  <thead>
+    <tr style="background:${hdrClr}">
+      <td colspan="4" style="padding:12px 16px;color:#fff;font-size:13px;font-weight:700">
+        Spec Direct Relations — ${c.label}
+        <span style="float:right;font-size:11px;font-weight:400;opacity:0.85">${planName} ${planVer} · ${dateStr}</span>
+      </td>
+    </tr>
+    <tr style="background:${hdrClr}cc">
+      <td colspan="4" style="padding:8px 16px;color:#fff;font-size:12px;font-weight:500">${c.description}</td>
+    </tr>
+    <tr style="background:#1e293b">
+      <td style="padding:6px 10px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase">Direction</td>
+      <td style="padding:6px 10px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase">Entry</td>
+      <td style="padding:6px 10px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase">Description</td>
+      <td style="padding:6px 10px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase">Detail</td>
+    </tr>
+  </thead>
+  <tbody style="background:#fff">${rows}</tbody>
+  <tfoot>
+    <tr style="background:#f1f5f9">
+      <td colspan="4" style="padding:6px 16px;font-size:10px;color:#94a3b8">
+        Source: SEM App · Spec Direct Relations · ${incoming.value.length} incoming · ${outgoing.value.length} outgoing
+      </td>
+    </tr>
+  </tfoot>
+</table></body></html>`
+}
+
+async function copySdr(): Promise<void> {
+  const html = _sdrHtml()
+  const text = [
+    `Spec Direct Relations — ${central.value.label}`,
+    `${central.value.description}`,
+    '',
+    'INCOMING',
+    ...incoming.value.map(n  => `  ${TYPE_LABEL[n.type]} · ${n.label}: ${n.description}`),
+    '',
+    'OUTGOING',
+    ...outgoing.value.map(n  => `  ${TYPE_LABEL[n.type]} · ${n.label}: ${n.description}`),
+  ].join('\n')
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html':  new Blob([html],  { type: 'text/html' }),
+      'text/plain': new Blob([text],  { type: 'text/plain' }),
+    })])
+  } catch {
+    await navigator.clipboard.writeText(text)
+  }
+  copyOk.value = true
+  setTimeout(() => { copyOk.value = false }, 3000)
+}
+
+function mailSdr(): void {
+  const planName = currentModel.value?.name ?? 'Plan'
+  const planVer  = currentModel.value?.version ? `v${currentModel.value.version}` : ''
+  const subject  = encodeURIComponent(`Spec Direct Relations — ${central.value.label} · ${planName} ${planVer}`)
+  const body     = encodeURIComponent(
+    `Spec Direct Relations — ${central.value.label}\n` +
+    `Plan: ${planName} ${planVer}\n\n` +
+    `(Paste the copied HTML table into your email for a formatted view — ⌘V)`
+  )
+  void copySdr().then(() => {
+    window.location.href = `mailto:?subject=${subject}&body=${body}`
+    mailOk.value = true
+    setTimeout(() => { mailOk.value = false }, 3000)
+  })
+}
+
 // ── Arrow geometry — computed from real DOM positions ─────────────────────────
 // Tom 2026-05-16: "arrows do not connect" — old approach used a fixed 160px SVG
 // div with percentage coords that never actually hit card edges. Replaced with a
@@ -579,6 +689,10 @@ function _onResize(): void { nextTick(recalcArrows) }
 onMounted(() => { nextTick(recalcArrows); window.addEventListener('resize', _onResize) })
 onUnmounted(() => window.removeEventListener('resize', _onResize))
 watch([currentId, currentTab], () => nextTick(() => nextTick(recalcArrows)))
+// Recalculate arrows after expand/shrink transition completes (0.28s CSS transition).
+// Without this, getBoundingClientRect() returns stale values from the pre-transition
+// panel width, placing arrowheads in the wrong positions. 300ms clears the transition.
+watch(expanded, () => { setTimeout(() => nextTick(recalcArrows), 300) })
 </script>
 
 <template>
@@ -632,6 +746,25 @@ watch([currentId, currentTab], () => nextTick(() => nextTick(recalcArrows)))
               title="About the Edit Glyph — what [*]→[**] means"
               @click="emit('open-edit-info')"
             ><EditGlyph size="compact" class="h-2.5 w-auto shrink-0" aria-hidden="true" /><span class="ml-0.5">?</span></button>
+            <!-- Copy / Email export (Tom 2026-05-29: copy+email with source/plan/version/date) -->
+            <button
+              type="button"
+              class="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors select-none"
+              :class="copyOk
+                ? 'bg-emerald-500/30 border-emerald-400/60 text-emerald-200'
+                : 'bg-white/8 border-white/25 text-white/70 hover:bg-white/15 hover:text-white'"
+              title="Copy Spec Direct Relations as a coloured HTML table — paste into Keynote, Mail, or Notes"
+              @click="copySdr"
+            >{{ copyOk ? '✓ Copied' : '📋 Copy' }}</button>
+            <button
+              type="button"
+              class="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors select-none"
+              :class="mailOk
+                ? 'bg-emerald-500/30 border-emerald-400/60 text-emerald-200'
+                : 'bg-white/8 border-white/25 text-white/70 hover:bg-white/15 hover:text-white'"
+              title="Copy as HTML table then open Mail with pre-filled subject · paste with ⌘V in email body"
+              @click="mailSdr"
+            >{{ mailOk ? '✓ Sent' : '✉ Mail' }}</button>
             <!-- Full-screen toggle (Tom 2026-05-16 — labelled pill so it is visible) -->
             <button
               type="button"

@@ -775,12 +775,13 @@ function edgeOpacity(e: FlowEdge): number {
     return isEdgeConnected(e) ? 1.0 : 0.05
   }
   // Non-hover: crossing before fromCol (same reason as edgeStrokeW)
-  if (e.crossing)      return 0.35  // placeholder dashed — subdued
+  // Tom 2026-05-29: "the lines between dots should be much darker, I cannot see them"
+  if (e.crossing)      return 0.62  // placeholder dashed — subdued but visible
   if (e.fromCol === 4) {
-    // Tier 1 (impactPct=80) → 0.59; Tier 2 (impactPct=40) → 0.47
-    return e.impactPct !== undefined ? (0.35 + (e.impactPct / 100) * 0.30) : 0.45
+    // Tier 1 (impactPct=80) → 0.82; Tier 2 (impactPct=40) → 0.72
+    return e.impactPct !== undefined ? (0.62 + (e.impactPct / 100) * 0.25) : 0.68
   }
-  return 0.80                       // adjacent links
+  return 0.92                       // adjacent links — near-solid
 }
 /** Connected + hovered: always solid — relationship reads clearly even for inferred placeholder edges. */
 function edgeDash(e: FlowEdge): string {
