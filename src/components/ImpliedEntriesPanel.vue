@@ -160,7 +160,7 @@ const GROUP_LABEL: Record<SugGroup, string> = {
           ✨ AI suggestions failed
         </p>
         <p v-else class="text-white/55 text-[10px] leading-tight">
-          Click&nbsp;<strong class="text-white/80">+</strong>&nbsp;to accept · hover for reason · dismiss to hide
+          Click&nbsp;<strong class="text-white/80">+</strong>&nbsp;to accept · hover for reason · click&nbsp;<strong class="text-white/80">✕</strong>&nbsp;(top right) to close
         </p>
       </div>
       <!-- Accept All: one click adds every Tier-1 + Tier-2 suggestion and dismisses.
@@ -185,8 +185,8 @@ const GROUP_LABEL: Record<SugGroup, string> = {
         class="shrink-0 w-6 h-6 flex items-center justify-center rounded-full
                text-white/60 hover:text-white hover:bg-white/20
                focus:outline-none focus:ring-2 focus:ring-white/60 transition-colors"
-        aria-label="Dismiss suggestions"
-        title="Dismiss suggestions"
+        aria-label="Close this suggestions panel"
+        title="Close this suggestions panel — the implied factors will no longer be shown"
         @click="emit('dismiss')"
       >
         <span aria-hidden="true" class="text-sm leading-none">✕</span>
