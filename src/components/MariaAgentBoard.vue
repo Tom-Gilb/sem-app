@@ -32,6 +32,9 @@ import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
+import { boardMembers }        from '../data/boardMembers'
+import { matchMembersToItem }  from '../lib/maria/boardMatcher'
+import type { MemberMatch }    from '../lib/maria/boardMatcher'
 
 const emit = defineEmits<{
   close: []
@@ -62,6 +65,9 @@ const emailTo = ref('')
 /** Controls the "report sent" flash state. */
 const reportSent = ref(false)
 let _sentTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Controls Board Members collapsible panel (collapsed by default). */
+const boardOpen = ref(false)
 
 // ─── Computed helpers ─────────────────────────────────────────────────────────
 
@@ -364,6 +370,62 @@ watch(loading, (isLoading: boolean) => {
 })
 
 onUnmounted(_stopLoadingAnimation)
+
+// ─── Board member helpers ──────────────────────────────────────────────────────
+
+/** Stable colour palette for member avatar circles — assigned by id hash. */
+const _AVATAR_PALETTE = [
+  'bg-emerald-600', 'bg-blue-600', 'bg-violet-600', 'bg-rose-600',
+  'bg-amber-600',   'bg-teal-600', 'bg-indigo-600', 'bg-pink-600',
+]
+
+function _memberAvatarColor(id: string): string {
+  let h = 0
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) & 0xffff
+  return _AVATAR_PALETTE[h % _AVATAR_PALETTE.length]
+}
+
+/** First-letter initials of up to the first two words of a name. */
+function _memberInitials(name: string): string {
+  return name
+    .replace(/\[.*?\]/g, '?')      // placeholder [text] → ?
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('')
+}
+
+/**
+ * For each governance gap, returns the top-2 board member suggestions.
+ * Keys are gap.id values. Only populated when result is present.
+ */
+const gapSuggestions = computed((): Record<string, MemberMatch[]> => {
+  if (!result.value) return {}
+  const out: Record<string, MemberMatch[]> = {}
+  for (const g of result.value.governanceGaps) {
+    const text = [g.significance ?? '', g.opportunity ?? '', g.category ?? ''].join(' ')
+    const matches = matchMembersToItem(text, boardMembers)
+    if (matches.length) out[g.id] = matches
+  }
+  return out
+})
+
+/**
+ * For each authority report entry, returns the top-2 board member suggestions.
+ * Keys are a.decisionIds.join('-') values. Only populated when result is present.
+ */
+const authoritySuggestions = computed((): Record<string, MemberMatch[]> => {
+  if (!result.value) return {}
+  const out: Record<string, MemberMatch[]> = {}
+  for (const a of result.value.authorityReport) {
+    const key  = a.decisionIds.join('-')
+    const text = [a.issue ?? '', a.opportunity ?? ''].join(' ')
+    const matches = matchMembersToItem(text, boardMembers)
+    if (matches.length) out[key] = matches
+  }
+  return out
+})
 
 // ─── Email export ─────────────────────────────────────────────────────────────
 
@@ -727,6 +789,16 @@ function sendEmailReport(): void {
                   </div>
                   <p class="text-xs text-slate-700 leading-relaxed mb-1.5"><strong class="text-slate-900">Issue:</strong> {{ a.issue }}</p>
                   <p class="text-xs text-emerald-800 leading-relaxed"><strong>Opportunity:</strong> {{ a.opportunity }}</p>
+                  <!-- Auto-suggested board members for this authority gap -->
+                  <div v-if="authoritySuggestions[a.decisionIds.join('-')]?.length" class="flex items-center flex-wrap gap-1.5 mt-2">
+                    <span class="text-[9px] text-slate-400 font-semibold shrink-0">👤 Suggested:</span>
+                    <span
+                      v-for="m in authoritySuggestions[a.decisionIds.join('-')]"
+                      :key="m.member.id"
+                      class="text-[9px] bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-full px-2.5 py-0.5 font-semibold cursor-default"
+                      :title="`${m.member.name} (${m.member.role}) — matched on: ${m.reasons.join(', ')}`"
+                    >{{ m.member.name }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -760,6 +832,16 @@ function sendEmailReport(): void {
                   </div>
                   <p class="text-xs text-slate-700 leading-relaxed mb-1.5"><strong>Significance:</strong> {{ g.significance }}</p>
                   <p class="text-xs text-emerald-800 leading-relaxed"><strong>Opportunity:</strong> {{ g.opportunity }}</p>
+                  <!-- Auto-suggested board members for this governance gap -->
+                  <div v-if="gapSuggestions[g.id]?.length" class="flex items-center flex-wrap gap-1.5 mt-2">
+                    <span class="text-[9px] text-slate-400 font-semibold shrink-0">👤 Suggested:</span>
+                    <span
+                      v-for="m in gapSuggestions[g.id]"
+                      :key="m.member.id"
+                      class="text-[9px] bg-amber-50 border border-amber-200 text-amber-800 rounded-full px-2.5 py-0.5 font-semibold cursor-default"
+                      :title="`${m.member.name} (${m.member.role}) — matched on: ${m.reasons.join(', ')}`"
+                    >{{ m.member.name }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -796,6 +878,108 @@ function sendEmailReport(): void {
                     Evidence: decisions {{ p.evidenceDecisionIds.join(', ') }}
                   </p>
                 </div>
+              </div>
+            </div>
+
+            <!-- ── Section 5: Board Members ── -->
+            <div class="rounded-xl border border-slate-200 overflow-hidden mb-4">
+              <button
+                type="button"
+                class="w-full flex items-center gap-2 px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                title="Board Members — single-click to expand member profiles showing contact details, interests, abilities, and task preferences. Auto-suggest chips above use this data."
+                @click="boardOpen = !boardOpen"
+              >
+                <span class="text-sm font-bold text-slate-700 flex-1">👥 Board Members</span>
+                <span class="text-xs text-slate-500 font-semibold">{{ boardMembers.length }} members</span>
+                <span class="text-slate-400 text-xs ml-1">{{ boardOpen ? '▲' : '▼' }}</span>
+              </button>
+              <div v-if="boardOpen" class="bg-white p-4">
+                <!-- 2-column card grid -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div
+                    v-for="member in boardMembers"
+                    :key="member.id"
+                    class="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <!-- Avatar + name row -->
+                    <div class="flex items-center gap-2 mb-2">
+                      <div
+                        class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-black text-white"
+                        :class="_memberAvatarColor(member.id)"
+                        aria-hidden="true"
+                      >{{ _memberInitials(member.name) }}</div>
+                      <div class="min-w-0">
+                        <p class="text-xs font-bold text-slate-800 leading-tight truncate">{{ member.name }}</p>
+                        <p class="text-[10px] text-slate-500 leading-tight">{{ member.role }}</p>
+                      </div>
+                    </div>
+                    <!-- Contact info -->
+                    <div v-if="member.email || member.phone || member.address" class="mb-2 space-y-0.5">
+                      <p v-if="member.email" class="text-[10px] text-slate-500 truncate">
+                        <span aria-label="email">✉</span> {{ member.email }}
+                      </p>
+                      <p v-if="member.phone" class="text-[10px] text-slate-500">
+                        <span aria-label="phone">📞</span> {{ member.phone }}
+                      </p>
+                      <p v-if="member.address" class="text-[10px] text-slate-400 leading-snug">
+                        <span aria-label="address">📍</span> {{ member.address }}
+                      </p>
+                    </div>
+                    <!-- Interests -->
+                    <div v-if="member.specialInterests.length" class="mb-1.5">
+                      <span class="text-[9px] font-bold uppercase tracking-wide text-blue-500 block mb-1">Interests</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-for="item in member.specialInterests"
+                          :key="item"
+                          class="text-[9px] bg-blue-50 border border-blue-200 text-blue-700 rounded-full px-2 py-0.5 font-medium"
+                        >{{ item }}</span>
+                      </div>
+                    </div>
+                    <!-- Abilities -->
+                    <div v-if="member.specialAbilities.length" class="mb-1.5">
+                      <span class="text-[9px] font-bold uppercase tracking-wide text-emerald-500 block mb-1">Abilities</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-for="item in member.specialAbilities"
+                          :key="item"
+                          class="text-[9px] bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full px-2 py-0.5 font-medium"
+                        >{{ item }}</span>
+                      </div>
+                    </div>
+                    <!-- Volunteers for -->
+                    <div v-if="member.volunteersFor.length" class="mb-1.5">
+                      <span class="text-[9px] font-bold uppercase tracking-wide text-teal-500 block mb-1">Volunteers for</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-for="item in member.volunteersFor"
+                          :key="item"
+                          class="text-[9px] bg-teal-50 border border-teal-200 text-teal-700 rounded-full px-2 py-0.5 font-medium"
+                        >{{ item }}</span>
+                      </div>
+                    </div>
+                    <!-- Dislikes tasks -->
+                    <div v-if="member.dislikesTasks.length">
+                      <span class="text-[9px] font-bold uppercase tracking-wide text-rose-400 block mb-1">Dislikes</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-for="item in member.dislikesTasks"
+                          :key="item"
+                          class="text-[9px] bg-rose-50 border border-rose-200 text-rose-700 rounded-full px-2 py-0.5 font-medium"
+                        >{{ item }}</span>
+                      </div>
+                    </div>
+                    <!-- Availability / notes -->
+                    <p
+                      v-if="member.availability || member.notes"
+                      class="text-[9px] text-slate-400 mt-2 italic leading-snug"
+                    >{{ [member.availability, member.notes].filter(Boolean).join(' · ') }}</p>
+                  </div>
+                </div>
+                <!-- Footer: data-source note -->
+                <p class="text-[9px] text-slate-400 mt-3 text-center leading-snug">
+                  Profiles loaded from <code class="font-mono">src/data/boardMembers.ts</code> — edit that file to add real names, contact details, and preferences.
+                </p>
               </div>
             </div>
 
