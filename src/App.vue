@@ -4054,21 +4054,18 @@ function handleApertureLoadPlan(model: PlanModel): void {
         </button>
 
         <!-- 🆘 SOS / Restart Afresh — always red so it's instantly findable.
-             Double-confirm guard: first click → 'Sure?', second click → clears everything.
+             Opens FreshStartMenu (4 graduated reset options) so the user picks
+             the right level of reset — not a binary wipe.
              Control-pins-at-top rule: lives in the crest bar, never floating. -->
         <button
           type="button"
-          :class="[
-            'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-extrabold transition-all',
-            'focus:outline-none focus:ring-2 focus:ring-red-300',
-            startOverConfirmPending
-              ? 'bg-red-500 text-white ring-2 ring-red-200 animate-pulse scale-110 shadow-[0_0_12px_rgba(239,68,68,0.7)]'
-              : 'bg-red-600/80 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300 hover:scale-105',
-          ]"
-          :aria-label="startOverConfirmPending ? 'Confirm restart — clears all current work' : 'SOS — Restart Afresh or panic reset'"
-          :title="startOverConfirmPending ? 'Click again to confirm — clears everything and starts fresh' : '🆘 SOS — click once for restart prompt · open ⚡ Actions > Manage for more options'"
-          @click="requestStartOver"
-        >{{ startOverConfirmPending ? '⚠️ Sure?' : '🆘' }}</button>
+          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-extrabold transition-all
+                 bg-red-600/80 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300
+                 focus:outline-none focus:ring-2 focus:ring-red-300"
+          aria-label="SOS — open reset menu (Blank Canvas, Save & Stop, Rollback, Close stuck UI)"
+          title="🆘 SOS — click to open reset options"
+          @click="freshStartOpen = true"
+        >🆘</button>
 
         <!-- ── Control pins — 🎤 Mic · 🔊 Speaker · ⚡ Actions ──────────────────
              Control-pins rule 2026-05-26: always at TOP, never floating bottom.
@@ -4680,26 +4677,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
             v-if="currentSpec"
             @open-sharpen="handleOpenSharpen"
           />
-          <!-- Start fresh — always shown; double-confirm guard prevents accidental clears -->
+          <!-- Start fresh — opens FreshStartMenu (4 graduated options) -->
           <button
             type="button"
             :class="[
               'h-9 px-2.5 rounded-full border text-xs font-medium shrink-0 transition-all duration-150',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-              startOverConfirmPending
-                ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100 focus-visible:outline-red-500 animate-pulse'
-                : sessionRestored
-                  ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 focus-visible:outline-amber-500'
-                  : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-gray-400',
+              sessionRestored
+                ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 focus-visible:outline-amber-500'
+                : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-gray-400',
             ]"
-            :aria-label="startOverConfirmPending ? 'Confirm restart' : 'Restart Afresh'"
-            :title="startOverConfirmPending
-              ? 'Click again to confirm — clears all current work'
-              : sessionRestored
-                ? 'Clear restored session and start with a new blank form'
-                : 'Clear everything and start with a blank form'"
-            @click="requestStartOver"
-          >↺ {{ startOverConfirmPending ? 'Sure?' : 'Start fresh' }}</button>
+            aria-label="Start fresh — open reset options"
+            :title="sessionRestored
+              ? 'Clear restored session and start with a new blank form'
+              : 'Clear everything and start with a blank form'"
+            @click="freshStartOpen = true"
+          >↺ Start fresh</button>
           <!-- 🧙 Guided Wizard button (auth bar) — hidden at narrow widths to save space -->
           <button
             type="button"

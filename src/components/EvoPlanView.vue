@@ -1797,7 +1797,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       aria-label="Stakeholders this plan is for"
       :title="`FOR: ${rawInput.stakes}`"
     >
-      <span class="text-[10px] font-bold text-amber-700 uppercase tracking-wide shrink-0">👤§ For</span>
+      <span class="text-[10px] font-bold text-amber-700 uppercase tracking-wide shrink-0">THIS PLAN IS INTENDED TO BE FOR:</span>
       <span class="text-xs text-amber-900 italic">
         {{ rawInput.stakes.length > 120
              ? rawInput.stakes.slice(0, 120) + '…'

@@ -150,23 +150,25 @@ export interface PictureTheme {
 }
 
 export const PICTURE_THEMES: PictureTheme[] = [
-  { id: 'nature',    label: 'Beautiful Nature', emoji: '🌿', keyword: 'nature+landscape' },
-  { id: 'norway',    label: 'Norway',           emoji: '🏔', keyword: 'norway+fjord' },
-  { id: 'art',       label: 'Modern Art',       emoji: '🎨', keyword: 'modern+art+abstract' },
-  { id: 'classical', label: 'Classical Art',    emoji: '🖼', keyword: 'renaissance+painting+classical' },
-  { id: 'sculpture', label: 'Sculpture',        emoji: '🏛', keyword: 'marble+sculpture+art' },
-  { id: 'people',    label: 'People',           emoji: '👥', keyword: 'portrait+people+street' },
-  { id: 'landmarks', label: 'Landmarks',        emoji: '🗼', keyword: 'famous+landmark+architecture' },
-  { id: 'space',     label: 'Space',            emoji: '🌌', keyword: 'galaxy+space+cosmos' },
+  { id: 'nature',    label: 'Beautiful Nature', emoji: '🌿', keyword: 'nature,landscape' },
+  { id: 'norway',    label: 'Norway',           emoji: '🏔', keyword: 'norway,fjord' },
+  { id: 'art',       label: 'Modern Art',       emoji: '🎨', keyword: 'modern,abstract,art' },
+  { id: 'classical', label: 'Classical Art',    emoji: '🖼', keyword: 'renaissance,painting' },
+  { id: 'sculpture', label: 'Sculpture',        emoji: '🏛', keyword: 'sculpture,marble' },
+  { id: 'people',    label: 'People',           emoji: '👥', keyword: 'portrait,people' },
+  { id: 'landmarks', label: 'Landmarks',        emoji: '🗼', keyword: 'landmark,architecture' },
+  { id: 'space',     label: 'Space',            emoji: '🌌', keyword: 'galaxy,space' },
 ]
 
 /**
- * Returns an Unsplash random photo URL for a given theme keyword.
+ * Returns a loremflickr random photo URL for a given theme keyword.
  * Appends a cache-buster so refreshing always loads a new image.
  */
 export function pictureUrl(keyword: string, seed?: number): string {
   const s = seed ?? Math.floor(Math.random() * 99999)
-  return `https://source.unsplash.com/featured/800x500/?${keyword}&sig=${s}`
+  // loremflickr.com: free, keyword-routed, no API key required.
+  // Format: /WxH/keyword1,keyword2?random=N (comma-separated keywords)
+  return `https://loremflickr.com/800/500/${keyword}?random=${s}`
 }
 
 // ─── Planning stage names (9-step Evo cycle, Tom Gilb canonical) ──────────────

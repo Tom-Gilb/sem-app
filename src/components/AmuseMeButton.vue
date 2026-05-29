@@ -174,7 +174,13 @@ function handleItemClick(id: string): void {
             />
           </div>
 
-          <!-- Menu rows -->
+          <!-- Menu rows — ScrollContainer so all 9 items are reachable on small screens -->
+          <ScrollContainer
+            outer-class="relative"
+            inner-style="max-height: 280px"
+            inner-class="divide-y divide-slate-100"
+            fade-from="#ffffff"
+          >
           <ul class="divide-y divide-slate-100" role="listbox" aria-label="Amusement options">
             <li
               v-for="item in AMUSE_ITEMS"
@@ -204,6 +210,7 @@ function handleItemClick(id: string): void {
               >▶</span>
             </li>
           </ul>
+          </ScrollContainer>
 
           <!-- Content area — shown when an item is selected -->
           <Transition name="content-fade">
