@@ -226,42 +226,33 @@
 
             <!-- Copy and Download only in After view -->
             <template v-if="!showBefore">
-              <!-- Copy — colored HTML table (per universal colorful exports rule) -->
+              <!-- [*]=[*] Copy — Planguage keyed glyph (Tom 2026-05-29 rule) -->
               <button
                 type="button"
-                :aria-label="copied ? 'Copied to clipboard' : 'Copy spec to clipboard'"
-                :title="copied ? 'Copied! Paste with ⌘V for colored table' : 'Copy spec — colored HTML table · paste with ⌘V in Mail, Keynote, or Notes'"
-                class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400
-                       hover:bg-slate-100 hover:text-slate-700
-                       focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
-                       focus-visible:outline-blue-600 transition-colors"
+                :aria-label="copied ? 'Copied to clipboard' : 'Copy spec to clipboard as colored HTML table'"
+                :title="copied ? 'Copied!' : '[*]=[*] Copy spec — colored HTML table · paste with ⌘V in Mail, Keynote, or Notes'"
+                class="flex h-11 w-11 items-center justify-center rounded-lg transition-colors
+                       hover:bg-teal-50 focus-visible:outline focus-visible:outline-2
+                       focus-visible:outline-offset-2 focus-visible:outline-teal-500"
+                :class="copied ? 'text-emerald-600' : 'text-teal-600/70 hover:text-teal-700'"
                 @click="copyToClipboard"
               >
-                <svg v-if="copied" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-                <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path d="M8 2a2 2 0 00-2 2v1H5a2 2 0 00-2 2v9a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H8zm0 2h4v1H8V4zm-3 3h10v9H5V7z" />
-                </svg>
+                <span v-if="copied" class="text-lg font-bold text-emerald-600">✓</span>
+                <CopyGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
               </button>
-              <!-- ✉️ Email — universal copy/email rule (Tom 2026-05-29).
-                   Copies colored HTML to clipboard then opens Mail.app.
-                   User pastes with ⌘V for the styled table in Mail. -->
+              <!-- [*]→@ Email — Planguage keyed glyph (Tom 2026-05-29 rule) -->
               <button
                 type="button"
-                :aria-label="emailed ? 'Opening Mail…' : 'Email spec — copies colored table then opens Mail.app'"
-                :title="emailed ? 'Opening Mail… paste with ⌘V' : 'Email spec — copies colored HTML table to clipboard, then opens Mail.app · paste with ⌘V for styled colors'"
-                class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400
-                       hover:bg-slate-100 hover:text-indigo-600
-                       focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
-                       focus-visible:outline-indigo-500 transition-colors"
-                :class="emailed ? 'text-indigo-600 bg-indigo-50' : ''"
+                :aria-label="emailed ? 'Mail draft opening…' : 'Email spec — opens Mail.app with colored table pre-filled'"
+                :title="emailed ? 'Mail draft opening…' : '[*]→@ Email spec — opens Mail.app with the colored spec already in the body'"
+                class="flex h-11 w-11 items-center justify-center rounded-lg transition-colors
+                       hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2
+                       focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                :class="emailed ? 'text-emerald-600' : 'text-indigo-600/70 hover:text-indigo-700'"
                 @click="emailSpec"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                </svg>
+                <span v-if="emailed" class="text-lg font-bold text-emerald-600">✓</span>
+                <EmailGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
               </button>
               <a
                 :href="downloadHref"
@@ -5781,17 +5772,25 @@
                 :title="copied ? 'Copied!' : 'Copy whole spec as colored HTML table'"
                 :aria-label="copied ? 'Copied!' : 'Copy whole spec'"
                 class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
-                       border border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+                       border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300"
+                :class="copied ? 'text-emerald-600' : 'text-teal-600/70 hover:text-teal-700'"
                 @click="copyToClipboard"
-              >{{ copied ? '✓ Copied' : '📋 Copy all' }}</button>
+              >
+                <span v-if="copied" class="font-bold text-xs">✓</span>
+                <CopyGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
+              </button>
               <button
                 type="button"
-                :title="emailed ? 'Opening Mail…' : 'Email whole spec — copies colored table then opens Mail.app · paste with ⌘V'"
+                :title="emailed ? 'Opening Mail…' : 'Email whole spec — opens Mail.app with spec pre-filled'"
                 :aria-label="emailed ? 'Opening Mail…' : 'Email whole spec'"
                 class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
-                       border border-slate-200 bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300"
+                       border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300"
+                :class="emailed ? 'text-emerald-600' : 'text-indigo-600/70 hover:text-indigo-700'"
                 @click="emailSpec"
-              >{{ emailed ? '✓ Sent' : '✉️ Email all' }}</button>
+              >
+                <span v-if="emailed" class="font-bold text-xs">✓</span>
+                <EmailGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
+              </button>
             </div>
 
             <!-- Feature #178 (enhanced) — Stakeholders Section Card
@@ -5819,14 +5818,20 @@
                   class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                          border border-amber-300 bg-white/70 text-amber-700 hover:bg-white hover:border-amber-500"
                   @click="copySection('stakeholders')"
-                >{{ copiedSection === 'stakeholders' ? '✓' : '📋' }}</button>
+                >
+                  <span v-if="copiedSection === 'stakeholders'" class="font-bold text-xs">✓</span>
+                  <CopyGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+                </button>
                 <button type="button"
-                  :title="emailedSection === 'stakeholders' ? 'Opening Mail…' : 'Email Stakeholders section — copies colored table then opens Mail.app · paste with ⌘V'"
+                  :title="emailedSection === 'stakeholders' ? 'Opening Mail…' : 'Email Stakeholders section — opens Mail.app pre-filled'"
                   :aria-label="emailedSection === 'stakeholders' ? 'Opening Mail…' : 'Email Stakeholders'"
                   class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                          border border-amber-300 bg-white/70 text-amber-700 hover:bg-white hover:border-amber-500"
                   @click="emailSection('stakeholders')"
-                >{{ emailedSection === 'stakeholders' ? '✓' : '✉️' }}</button>
+                >
+                  <span v-if="emailedSection === 'stakeholders'" class="font-bold text-xs">✓</span>
+                  <EmailGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+                </button>
               </div>
               <div class="px-4 py-3 space-y-2.5">
                 <!-- Raw stakes text for context -->
@@ -5904,14 +5909,20 @@
                   class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                          border border-blue-400 bg-white/20 text-white hover:bg-white/40"
                   @click="copySection('functions')"
-                >{{ copiedSection === 'functions' ? '✓' : '📋' }}</button>
+                >
+                  <span v-if="copiedSection === 'functions'" class="font-bold text-xs">✓</span>
+                  <CopyGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+                </button>
                 <button type="button"
-                  :title="emailedSection === 'functions' ? 'Opening Mail…' : 'Email Functions section — copies colored table then opens Mail.app · paste with ⌘V'"
+                  :title="emailedSection === 'functions' ? 'Opening Mail…' : 'Email Functions section — opens Mail.app pre-filled'"
                   :aria-label="emailedSection === 'functions' ? 'Opening Mail…' : 'Email Functions'"
                   class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                          border border-blue-400 bg-white/20 text-white hover:bg-white/40"
                   @click="emailSection('functions')"
-                >{{ emailedSection === 'functions' ? '✓' : '✉️' }}</button>
+                >
+                  <span v-if="emailedSection === 'functions'" class="font-bold text-xs">✓</span>
+                  <EmailGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+                </button>
               </div>
               <article
                 v-for="(f, index) in displaySpec!.functions"
@@ -6048,14 +6059,20 @@
                   class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                          border border-violet-400 bg-white/20 text-white hover:bg-white/40"
                   @click="copySection('values')"
-                >{{ copiedSection === 'values' ? '✓' : '📋' }}</button>
+                >
+                  <span v-if="copiedSection === 'values'" class="font-bold text-xs">✓</span>
+                  <CopyGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+                </button>
                 <button type="button"
-                  :title="emailedSection === 'values' ? 'Opening Mail…' : 'Email Values section — copies colored table then opens Mail.app · paste with ⌘V'"
+                  :title="emailedSection === 'values' ? 'Opening Mail…' : 'Email Values section — opens Mail.app pre-filled'"
                   :aria-label="emailedSection === 'values' ? 'Opening Mail…' : 'Email Values'"
                   class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                          border border-violet-400 bg-white/20 text-white hover:bg-white/40"
                   @click="emailSection('values')"
-                >{{ emailedSection === 'values' ? '✓' : '✉️' }}</button>
+                >
+                  <span v-if="emailedSection === 'values'" class="font-bold text-xs">✓</span>
+                  <EmailGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+                </button>
               </div>
               <!-- Value cards — Change 1: modular blocks + icons + progress bar -->
               <!-- Change 2: Ambition Level chips; Change 3: Wish field -->
@@ -6339,14 +6356,20 @@
                   class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                          border border-orange-400 bg-white/20 text-white hover:bg-white/40"
                   @click="copySection('solutions')"
-                >{{ copiedSection === 'solutions' ? '✓' : '📋' }}</button>
+                >
+                  <span v-if="copiedSection === 'solutions'" class="font-bold text-xs">✓</span>
+                  <CopyGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+                </button>
                 <button type="button"
-                  :title="emailedSection === 'solutions' ? 'Opening Mail…' : 'Email Solutions section — copies colored table then opens Mail.app · paste with ⌘V'"
+                  :title="emailedSection === 'solutions' ? 'Opening Mail…' : 'Email Solutions section — opens Mail.app pre-filled'"
                   :aria-label="emailedSection === 'solutions' ? 'Opening Mail…' : 'Email Solutions'"
                   class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                          border border-orange-400 bg-white/20 text-white hover:bg-white/40"
                   @click="emailSection('solutions')"
-                >{{ emailedSection === 'solutions' ? '✓' : '✉️' }}</button>
+                >
+                  <span v-if="emailedSection === 'solutions'" class="font-bold text-xs">✓</span>
+                  <EmailGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+                </button>
               </div>
               <!-- Solution cards -->
               <article
@@ -6477,14 +6500,20 @@
                 class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                        border border-red-400 bg-white/20 text-white hover:bg-white/40"
                 @click="copySection('constraints')"
-              >{{ copiedSection === 'constraints' ? '✓' : '📋' }}</button>
+              >
+                <span v-if="copiedSection === 'constraints'" class="font-bold text-xs">✓</span>
+                <CopyGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+              </button>
               <button type="button"
-                :title="emailedSection === 'constraints' ? 'Opening Mail…' : 'Email Constraints section — copies colored table then opens Mail.app · paste with ⌘V'"
+                :title="emailedSection === 'constraints' ? 'Opening Mail…' : 'Email Constraints section — opens Mail.app pre-filled'"
                 :aria-label="emailedSection === 'constraints' ? 'Opening Mail…' : 'Email Constraints'"
                 class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
                        border border-red-400 bg-white/20 text-white hover:bg-white/40"
                 @click="emailSection('constraints')"
-              >{{ emailedSection === 'constraints' ? '✓' : '✉️' }}</button>
+              >
+                <span v-if="emailedSection === 'constraints'" class="font-bold text-xs">✓</span>
+                <EmailGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+              </button>
             </div>
             <!-- DD-006: Binary Constraint cards (C.) -->
             <article
@@ -6537,17 +6566,25 @@
                 :title="copied ? 'Copied!' : 'Copy whole spec as colored HTML table'"
                 :aria-label="copied ? 'Copied!' : 'Copy whole spec'"
                 class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
-                       border border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+                       border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300"
+                :class="copied ? 'text-emerald-600' : 'text-teal-600/70 hover:text-teal-700'"
                 @click="copyToClipboard"
-              >{{ copied ? '✓ Copied' : '📋 Copy all' }}</button>
+              >
+                <span v-if="copied" class="font-bold text-xs">✓</span>
+                <CopyGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
+              </button>
               <button
                 type="button"
-                :title="emailed ? 'Opening Mail…' : 'Email whole spec — copies colored table then opens Mail.app · paste with ⌘V'"
+                :title="emailed ? 'Opening Mail…' : 'Email whole spec — opens Mail.app with spec pre-filled'"
                 :aria-label="emailed ? 'Opening Mail…' : 'Email whole spec'"
                 class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
-                       border border-slate-200 bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300"
+                       border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300"
+                :class="emailed ? 'text-emerald-600' : 'text-indigo-600/70 hover:text-indigo-700'"
                 @click="emailSpec"
-              >{{ emailed ? '✓ Sent' : '✉️ Email all' }}</button>
+              >
+                <span v-if="emailed" class="font-bold text-xs">✓</span>
+                <EmailGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
+              </button>
             </div>
 
             <!-- Feature #41 / #45 — Spec Quality Footer (redesigned)
@@ -7801,6 +7838,8 @@
  */
 import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick, reactive } from 'vue'
 import { openEml } from '../composables/useEmlExport'
+import CopyGlyph  from './icons/CopyGlyph.vue'
+import EmailGlyph from './icons/EmailGlyph.vue'
 // DD-001 (2026-05-13) — SaveGlyph (`*→[*]`) replaces 💾 for save-to-copy
 // and save-to-file actions; GetGlyph (`[*]→*`) replaces 📥/📂 for input-side
 // affordances (export-to-PDF is treated as save-out — outbound to user disk).
@@ -10213,6 +10252,7 @@ function _buildSectionHtml(section: 'stakeholders' | 'functions' | 'values' | 's
   const TH = TD + 'font-weight:600;'
   const SH_BG  = ['#99f6e4','#bae6fd','#c7d2fe','#fecdd3','#fde68a','#f5d0fe']
   const SH_TXT = ['#115e59','#075985','#3730a3','#9f1239','#92400e','#701a75']
+  // Build shMap from values for the non-stakeholder sections (needed for value row colouring).
   const shMap = new Map<string, number>()
   for (const v of spec.values) {
     const s = v.wishStakeholder?.trim()
@@ -10220,11 +10260,27 @@ function _buildSectionHtml(section: 'stakeholders' | 'functions' | 'values' | 's
   }
   let html = '<table style="border-collapse:collapse;font-family:system-ui,sans-serif;width:100%;">'
   if (section === 'stakeholders') {
-    html += `<tr><td colspan="6" style="${TH}background:#0f766e;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Stakeholders</td></tr>`
-    html += `<tr><th style="${TH}background:#f0fdf4;">Who</th></tr>`
-    for (const [name, idx] of shMap) {
-      const bg = SH_BG[idx % SH_BG.length]; const txt = SH_TXT[idx % SH_TXT.length]
-      html += `<tr><td style="${TD}background:${bg};color:${txt};font-weight:600;">● ${name}</td></tr>`
+    // Bug fix 2026-05-29: use specStakeholderCards (which combines wishStakeholder fields
+    // AND rawInput.stakes parsed names) so the full list is preserved — not just the
+    // stakeholders who happen to have a wishStakeholder field on a V. entry.
+    const cards = specStakeholderCards.value
+    html += `<tr><td colspan="4" style="${TH}background:#0f766e;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Stakeholders (${cards.length})</td></tr>`
+    html += `<tr><th style="${TH}background:#f0fdf4;">Who</th><th style="${TH}background:#f0fdf4;">Values</th><th style="${TH}background:#f0fdf4;">Wish</th><th style="${TH}background:#f0fdf4;">Constraints</th></tr>`
+    for (const [idx, sh] of cards.entries()) {
+      const bg  = SH_BG[idx % SH_BG.length]
+      const txt = SH_TXT[idx % SH_TXT.length]
+      const valueList = sh.linkedValues.length
+        ? sh.linkedValues.map(v => `${v.id}: ${v.description}`).join('<br>')
+        : '—'
+      const constraintList = sh.linkedConstraints.length
+        ? sh.linkedConstraints.map(c => `${c.id}`).join(', ')
+        : '—'
+      html += `<tr>`
+      html += `<td style="${TD}background:${bg};color:${txt};font-weight:600;">● ${sh.name}</td>`
+      html += `<td style="${TD}font-size:12px;">${valueList}</td>`
+      html += `<td style="${TD}color:#92400e;font-style:italic;font-size:12px;">${sh.wish ? `"${sh.wish}"` : '—'}</td>`
+      html += `<td style="${TD}font-family:monospace;font-size:11px;color:#dc2626;">${constraintList}</td>`
+      html += `</tr>`
     }
   } else if (section === 'functions') {
     html += `<tr><td colspan="3" style="${TH}background:#16a34a;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Functions</td></tr>`
