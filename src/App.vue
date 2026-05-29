@@ -3712,7 +3712,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
          single `flex-1` spacer pushing actions to the right) to
          `justify-between` so each visual group gets even breathing room
          across the full bar width. -->
-    <div class="flex items-center justify-between gap-2 h-10">
+    <!-- Row 2: justify-between removed (2026-05-29) — it distributes negative
+         free space when the bar overflows, causing elements to OVERLAP and
+         intercept each other's clicks (health badge, owner buttons dead).
+         Replaced with natural flex flow + a flex-1 spacer that pushes the
+         right-side groups to the right without internal overlap. overflow-x-clip
+         prevents visual spill beyond the bar's right edge. -->
+    <div class="flex items-center gap-2 h-10 overflow-x-clip">
 
       <!-- Plan Health Index — Vibrates when index < threshold (default 50).
            Rose "!" dot + tooltip when there are pending notifications. Tom
@@ -3810,6 +3816,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
         </button>
       </div>
 
+      <!-- Flex spacer — pushes Plan Story + People + Control Shelf to the right
+           without justify-between (which causes overlaps when bar overflows). -->
+      <span class="flex-1 min-w-0" aria-hidden="true" />
+
       <!-- ── PLAN STORY button — bright, big, eye-catching ──────────────────
            Toggles the Plan Story strip below. Tom 2026-05-12 (fourth pass):
            "Plan story icon is still bad, cant even see what it is" → swapped
@@ -3837,7 +3847,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
         @click="_togglePlanStory()"
       >
         <span class="text-lg leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" aria-hidden="true">📖</span>
-        <span>Plan Story</span>
+        <span class="hidden lg:inline">Plan Story</span>
         <span
           class="text-[10px] opacity-90 leading-none font-extrabold"
           aria-hidden="true"
@@ -3924,10 +3934,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
               v-if="planModel.scribes[0].name"
               class="truncate max-w-[90px]"
             >{{ planModel.scribes[0].name }}</span>
-            <span
-              v-else-if="planModel.scribes[0].isDefault"
-              class="italic opacity-70"
-            >set name</span>
+            <!-- "set name" text removed (2026-05-29) — it was long and not critical
+                 (Tom 2026-05-29). The tooltip already says "tap to set your name". -->
             <span v-if="planModel.scribes.length > 1" class="text-white/70">+{{ planModel.scribes.length - 1 }}</span>
           </template>
           <span v-else aria-hidden="true">+</span>
@@ -3988,8 +3996,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
           </svg>
-          <span class="hidden sm:inline">Find</span>
-          <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘F</kbd>
+          <!-- Text label hidden (2026-05-29) — icon-only to save crest bar width.
+               Title attr provides full label. Kbd hint retained — very compact. -->
+          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘F</kbd>
         </button>
 
         <!-- Illuminate ⌘I — pairs with Find; teaches the keyboard shortcut.
@@ -4009,8 +4018,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
           @click="openDefineSearch()"
         >
           <span class="text-sm leading-none" aria-hidden="true">💡</span>
-          <span class="hidden sm:inline">Illuminate</span>
-          <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘I</kbd>
+          <!-- Text label hidden (2026-05-29) — icon-only to save crest bar width. -->
+          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘I</kbd>
         </button>
 
         <!-- History -->
@@ -4023,7 +4032,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
             aria-label="Version History"
             title="Version History"
             @click="historyOpen = true"
-          ><span aria-hidden="true">🕐</span><span class="hidden sm:inline">History</span></button>
+          ><!-- Text label hidden (2026-05-29) — icon-only to save crest bar width. -->
+            <span aria-hidden="true">🕐</span></button>
           <span
             v-if="specHistory.length > 0"
             class="absolute -top-1 -right-1 h-4 min-w-[1rem] rounded-full bg-rose-500 text-white
@@ -4045,7 +4055,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           @click="contractsOpen = !contractsOpen"
         >
           <span aria-hidden="true">📋</span>
-          <span class="hidden sm:inline">Contracts</span>
+          <!-- Text label hidden (2026-05-29) — icon-only to save crest bar width. -->
         </button>
 
         <!-- 🆘 SOS / Restart Afresh — always red so it's instantly findable.
