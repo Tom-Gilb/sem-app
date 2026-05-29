@@ -20,6 +20,7 @@ export type ThumbType =
   | 'planOwners'  | 'planners'        | 'scribes'          | 'specOwners'
   | 'conflicts'
   | 'copyright'   | 'saveGlyph'       | 'priorityGlyph'    | 'editGlyph'       | 'semMeta'
+  | 'dictation'
   | 'emoji'
 
 const props = defineProps<{
@@ -67,16 +68,32 @@ const _meta = useSemMetadata()
     />
   </svg>
 
-  <!-- planHealthAdmin — gear/settings target -->
+  <!-- planHealthAdmin — live health-dimension mini-grid
+       Shows 4 PHI dimension rows (Completeness, Clarity, Consistency, Measurability)
+       each with a label + coloured progress bar. Represents the actual admin panel structure.
+       Tom 2026-05-29: #11 decision — real data mini over abstract gear icon. -->
   <svg v-else-if="thumb === 'planHealthAdmin'" viewBox="0 0 56 56" class="w-full h-full">
     <rect width="56" height="56" fill="#f8fafc"/>
-    <circle cx="28" cy="28" r="20" fill="none" stroke="#475569" stroke-width="2"/>
-    <circle cx="28" cy="28" r="12" fill="none" stroke="#64748b" stroke-width="2"/>
-    <circle cx="28" cy="28" r="4"  fill="#64748b"/>
-    <line x1="28" y1="6"  x2="28" y2="10" stroke="#475569" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="28" y1="46" x2="28" y2="50" stroke="#475569" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="6"  y1="28" x2="10" y2="28" stroke="#475569" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="46" y1="28" x2="50" y2="28" stroke="#475569" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Row labels (tiny) -->
+    <text x="4" y="13"  font-size="4.5" fill="#64748b" font-family="monospace">Completeness</text>
+    <text x="4" y="23"  font-size="4.5" fill="#64748b" font-family="monospace">Clarity</text>
+    <text x="4" y="33"  font-size="4.5" fill="#64748b" font-family="monospace">Consistency</text>
+    <text x="4" y="43"  font-size="4.5" fill="#64748b" font-family="monospace">Measurability</text>
+    <!-- Row track backgrounds -->
+    <rect x="4" y="15" width="48" height="5" rx="2" fill="#e2e8f0"/>
+    <rect x="4" y="25" width="48" height="5" rx="2" fill="#e2e8f0"/>
+    <rect x="4" y="35" width="48" height="5" rx="2" fill="#e2e8f0"/>
+    <rect x="4" y="45" width="48" height="5" rx="2" fill="#e2e8f0"/>
+    <!-- Row fill bars (weight-based lengths, colour-coded by PHI score tier) -->
+    <rect x="4" y="15" width="34" height="5" rx="2" fill="#22c55e"/><!-- 71% green -->
+    <rect x="4" y="25" width="26" height="5" rx="2" fill="#f59e0b"/><!-- 54% amber -->
+    <rect x="4" y="35" width="38" height="5" rx="2" fill="#22c55e"/><!-- 79% green -->
+    <rect x="4" y="45" width="19" height="5" rx="2" fill="#ef4444"/><!-- 40% red  -->
+    <!-- Weight dots on right -->
+    <circle cx="53" cy="17.5" r="2" fill="#7c3aed"/>
+    <circle cx="53" cy="27.5" r="2" fill="#7c3aed"/>
+    <circle cx="53" cy="37.5" r="2" fill="#7c3aed"/>
+    <circle cx="53" cy="47.5" r="2" fill="#7c3aed"/>
   </svg>
 
   <!-- toolInfo — ℹ in a circle -->
@@ -137,13 +154,25 @@ const _meta = useSemMetadata()
 
   <!-- ── VOICE ─────────────────────────────────────────────────────────────────── -->
 
-  <!-- mic — microphone body + base -->
-  <svg v-else-if="thumb === 'emoji' && emoji === '🎤'" viewBox="0 0 56 56" class="w-full h-full">
-    <rect width="56" height="56" fill="#faf5ff"/>
-    <rect x="20" y="8" width="16" height="24" rx="8" fill="#7c3aed"/>
-    <path d="M12 28 A16 16 0 0 0 44 28" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="28" y1="44" x2="28" y2="48" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="20" y1="48" x2="36" y2="48" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- dictation — frequency-bar waveform.
+       emoji='active'  → vivid violet bars (mic is live, recording)
+       emoji='idle'    → muted grey bars (mic off, ready to start)
+       Tom 2026-05-29: #11 decision — richer waveform over static mic glyph. -->
+  <svg v-else-if="thumb === 'dictation'" viewBox="0 0 56 56" class="w-full h-full">
+    <rect width="56" height="56" :fill="emoji === 'active' ? '#faf5ff' : '#f8fafc'"/>
+    <!-- 9 frequency bars — heights vary to suggest audio spectrum -->
+    <rect x="4"  y="32" width="4" height="16" rx="2" :fill="emoji === 'active' ? '#7c3aed' : '#cbd5e1'"/>
+    <rect x="10" y="22" width="4" height="26" rx="2" :fill="emoji === 'active' ? '#8b5cf6' : '#cbd5e1'"/>
+    <rect x="16" y="14" width="4" height="34" rx="2" :fill="emoji === 'active' ? '#7c3aed' : '#cbd5e1'"/>
+    <rect x="22" y="18" width="4" height="30" rx="2" :fill="emoji === 'active' ? '#6d28d9' : '#cbd5e1'"/>
+    <rect x="28" y="10" width="4" height="38" rx="2" :fill="emoji === 'active' ? '#7c3aed' : '#cbd5e1'"/>
+    <rect x="34" y="16" width="4" height="32" rx="2" :fill="emoji === 'active' ? '#8b5cf6' : '#cbd5e1'"/>
+    <rect x="40" y="20" width="4" height="28" rx="2" :fill="emoji === 'active' ? '#7c3aed' : '#cbd5e1'"/>
+    <rect x="46" y="26" width="4" height="22" rx="2" :fill="emoji === 'active' ? '#a78bfa' : '#cbd5e1'"/>
+    <!-- Baseline -->
+    <line x1="4" y1="49" x2="52" y2="49" :stroke="emoji === 'active' ? '#7c3aed' : '#e2e8f0'" stroke-width="1"/>
+    <!-- Active indicator dot (top-right) -->
+    <circle v-if="emoji === 'active'" cx="50" cy="8" r="4" fill="#ef4444"/>
   </svg>
 
   <!-- ── VISUALIZE ──────────────────────────────────────────────────────────────── -->

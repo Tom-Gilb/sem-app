@@ -193,8 +193,8 @@ const allSections = computed<SectionDef[]>(() => [
       {
         id: 'dictation',
         label: props.dictationActive ? 'Stop Dictation' : 'Voice Dictation',
-        emoji: '🎤',
-        thumb: 'emoji',
+        emoji: props.dictationActive ? 'active' : 'idle',
+        thumb: 'dictation',
         tip: props.dictationActive ? 'Click to stop voice input' : 'Start voice-to-spec dictation',
       },
     ],

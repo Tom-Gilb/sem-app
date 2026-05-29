@@ -687,16 +687,21 @@ function toggleStepMenu(index: number, groupId: string): void {
   activeStepMenu.value = activeStepMenu.value === k ? null : k
 }
 
+// ── EVO_MENU_GROUPS ─────────────────────────────────────────────────────────
+// Planguage terminology. No Agile/Scrum words (sprint, velocity, burn-down,
+// retrospective, WSJF) — replaced with Planguage / Evo cycle equivalents.
+// Tom 2026-05-29: "sprints do not exist in Planguage (they are a stupid idea
+// from agile), we have tasks and evo steps, that's it."
 const EVO_MENU_GROUPS = [
-  { id: 'sprint',   emoji: '📅', label: 'Sprint Plan',
+  { id: 'sprint',   emoji: '🪜', label: 'Step Plan',
     idleCls:   'bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100 hover:border-violet-300',
     activeCls: 'bg-violet-200 border-violet-400 text-violet-900 shadow-inner',
     dropdownCls: 'border-violet-200',
     itemHoverCls: 'hover:bg-violet-50',
     items: [
       { emoji: '💰', label: 'Cost Estimate',    toggle: 'costPanelOpen' },
-      { emoji: '📅', label: 'Sprint Planner',   toggle: 'sprintOpen' },
-      { emoji: '🚦', label: 'WIP Limit',        toggle: 'wipOpen' },
+      { emoji: '🪜', label: 'Step Planner',     toggle: 'sprintOpen' },
+      { emoji: '🔢', label: 'Step Limits',      toggle: 'wipOpen' },
       { emoji: '⚗️', label: 'Capacity',         toggle: 'capacityOpen' },
       { emoji: '⏱️', label: 'Timeboxing',       toggle: 'timeboxOpen' },
     ]},
@@ -706,10 +711,10 @@ const EVO_MENU_GROUPS = [
     dropdownCls: 'border-indigo-200',
     itemHoverCls: 'hover:bg-indigo-50',
     items: [
-      { emoji: '🥇', label: 'WSJF Priority',    toggle: 'wsjfOpen' },
-      { emoji: '🎨', label: 'Retro Themes',     toggle: 'retroThemesOpen' },
+      { emoji: '🥇', label: 'Value Priority',   toggle: 'wsjfOpen' },
+      { emoji: '🎨', label: 'Learn Themes',     toggle: 'retroThemesOpen' },
       { emoji: '😊', label: 'Team Mood',        toggle: 'moodPanelOpen' },
-      { emoji: '📈', label: 'Mood × Velocity',  toggle: 'moodVelocityOpen' },
+      { emoji: '📈', label: 'Mood × Pace',      toggle: 'moodVelocityOpen' },
       { emoji: '🌊', label: 'Flow Efficiency',  toggle: 'flowOpen' },
       { emoji: '🔺', label: 'Uncertainty Cone', toggle: 'coneOpen' },
       { emoji: '🔥', label: 'Risk Heatmap',     toggle: 'riskHeatmapOpen' },
@@ -732,10 +737,10 @@ const EVO_MENU_GROUPS = [
     dropdownCls: 'border-amber-200',
     itemHoverCls: 'hover:bg-amber-50',
     items: [
-      { emoji: '📉', label: 'Burn-Down',        toggle: 'burnDownOpen' },
+      { emoji: '📉', label: 'Step Progress',    toggle: 'burnDownOpen' },
       { emoji: '⚡', label: 'Energy Forecast',  toggle: 'energyForecastOpen' },
       { emoji: '🧠', label: 'Evo Forecast',     toggle: 'forecastOpen' },
-      { emoji: '📈', label: 'Velocity',         toggle: 'velocityPredictorOpen' },
+      { emoji: '📊', label: 'Delivery Rate',    toggle: 'velocityPredictorOpen' },
       { emoji: '⏱️', label: 'Cycle Time',       toggle: 'cycleTimeOpen' },
       { emoji: '🔵', label: 'Energy Scatter',   toggle: 'energyScatterOpen' },
     ]},
@@ -745,17 +750,17 @@ const EVO_MENU_GROUPS = [
 // and for scroll-targeting.  The bar color matches the group color.
 // All class strings are complete so Tailwind includes them in the bundle.
 const PANEL_META: Record<string, { emoji: string; label: string; bar: string }> = {
-  // Sprint Plan group (violet)
+  // Step Plan group (violet) — Planguage: Evo Steps + Tasks
   costPanelOpen:         { emoji: '💰', label: 'Cost Estimate',    bar: 'bg-violet-500' },
-  sprintOpen:            { emoji: '📅', label: 'Sprint Planner',   bar: 'bg-violet-500' },
-  wipOpen:               { emoji: '🚦', label: 'WIP Limit',        bar: 'bg-violet-500' },
+  sprintOpen:            { emoji: '🪜', label: 'Step Planner',     bar: 'bg-violet-500' },
+  wipOpen:               { emoji: '🔢', label: 'Step Limits',      bar: 'bg-violet-500' },
   capacityOpen:          { emoji: '⚗️', label: 'Capacity',         bar: 'bg-violet-500' },
   timeboxOpen:           { emoji: '⏱️', label: 'Timeboxing',       bar: 'bg-violet-500' },
   // Analyse Plan group (blue)
-  wsjfOpen:              { emoji: '🥇', label: 'WSJF Priority',    bar: 'bg-blue-500' },
-  retroThemesOpen:       { emoji: '🎨', label: 'Retro Themes',     bar: 'bg-blue-500' },
+  wsjfOpen:              { emoji: '🥇', label: 'Value Priority',   bar: 'bg-blue-500' },
+  retroThemesOpen:       { emoji: '🎨', label: 'Learn Themes',     bar: 'bg-blue-500' },
   moodPanelOpen:         { emoji: '😊', label: 'Team Mood',        bar: 'bg-blue-500' },
-  moodVelocityOpen:      { emoji: '📈', label: 'Mood × Velocity',  bar: 'bg-blue-500' },
+  moodVelocityOpen:      { emoji: '📈', label: 'Mood × Pace',      bar: 'bg-blue-500' },
   flowOpen:              { emoji: '🌊', label: 'Flow Efficiency',  bar: 'bg-blue-500' },
   coneOpen:              { emoji: '🔺', label: 'Uncertainty Cone', bar: 'bg-blue-500' },
   riskHeatmapOpen:       { emoji: '🔥', label: 'Risk Heatmap',     bar: 'bg-blue-500' },
@@ -766,10 +771,10 @@ const PANEL_META: Record<string, { emoji: string; label: string; bar: string }> 
   depRiskOpen:           { emoji: '🔗', label: 'Dep Risk',         bar: 'bg-emerald-500' },
   kgOpen:                { emoji: '🕸️', label: 'Knowledge Graph',  bar: 'bg-emerald-500' },
   // Forecast Plan group (amber)
-  burnDownOpen:          { emoji: '📉', label: 'Burn-Down',        bar: 'bg-amber-500' },
+  burnDownOpen:          { emoji: '📉', label: 'Step Progress',    bar: 'bg-amber-500' },
   energyForecastOpen:    { emoji: '⚡', label: 'Energy Forecast',  bar: 'bg-amber-500' },
   forecastOpen:          { emoji: '🧠', label: 'Evo Forecast',     bar: 'bg-amber-500' },
-  velocityPredictorOpen: { emoji: '📈', label: 'Velocity',         bar: 'bg-amber-500' },
+  velocityPredictorOpen: { emoji: '📊', label: 'Delivery Rate',    bar: 'bg-amber-500' },
   cycleTimeOpen:         { emoji: '⏱️', label: 'Cycle Time',       bar: 'bg-amber-500' },
   energyScatterOpen:     { emoji: '🔵', label: 'Energy Scatter',   bar: 'bg-amber-500' },
 }
@@ -864,9 +869,9 @@ function stepActionGroups(step: EvoStep, index: number): Array<{ id: string; emo
         { label: 'Meeting Agenda', emoji: '📅', testid: `agenda-gen-toggle-${index}`,
           isActive: () => agendaGenMap.value[key]?.isOpen ?? false,
           onClick:  () => stepToggleWithToast(() => toggleAgendaGenOpen(key), 'Meeting Agenda') },
-        { label: 'Sprint Review',  emoji: '📋', testid: `sprint-review-toggle-${index}`,
+        { label: 'Step Review',    emoji: '📋', testid: `sprint-review-toggle-${index}`,
           isActive: () => sprintReviewIsOpen(key),
-          onClick:  () => stepToggleWithToast(() => sprintReviewToggle(key), 'Sprint Review') },
+          onClick:  () => stepToggleWithToast(() => sprintReviewToggle(key), 'Step Review') },
         { label: 'Team Mood',      emoji: '😊', testid: `mood-toggle-${index}`,
           isActive: () => moodMap.value[key]?.isOpen ?? false,
           onClick:  () => stepToggleWithToast(() => toggleMoodOpen(key), 'Team Mood') },
@@ -1781,14 +1786,23 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
     <!-- ── Stakeholder context banner (Tom 2026-05-15) ─────────────────────── -->
     <!-- Shows who this plan benefits so the planner never loses sight of the
          stakeholder during Evo step review. Amber = stakes/stakeholder colour.
-         Only shown when rawInput.stakes is non-empty. -->
+         Only shown when rawInput.stakes is non-empty.
+         Truncated to 120 chars — raw stakes text can be a full imported document;
+         this banner is a reminder strip, not a full transcription.
+         Tom 2026-05-29: "what is this paragraph for, doing there?" — it's the
+         raw FOR / stakeholder field from Stage 1, shown as orientation context. -->
     <div
       v-if="rawInput?.stakes?.trim()"
       class="flex items-center gap-2 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 flex-wrap"
       aria-label="Stakeholders this plan is for"
+      :title="`FOR: ${rawInput.stakes}`"
     >
       <span class="text-[10px] font-bold text-amber-700 uppercase tracking-wide shrink-0">👤§ For</span>
-      <span class="text-xs text-amber-900 italic">{{ rawInput.stakes }}</span>
+      <span class="text-xs text-amber-900 italic">
+        {{ rawInput.stakes.length > 120
+             ? rawInput.stakes.slice(0, 120) + '…'
+             : rawInput.stakes }}
+      </span>
       <template v-if="(specBlock.constraints ?? []).length > 0">
         <span class="text-amber-300 select-none">·</span>
         <span class="text-[10px] text-red-700 font-mono shrink-0">
