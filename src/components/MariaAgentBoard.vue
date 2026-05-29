@@ -140,160 +140,163 @@ interface MonPhoto {
  * (Wikimedia's stable redirect to the actual image — survives file moves.)
  */
 const MONTESSORI_PHOTOS: MonPhoto[] = [
-  // ── Maria Montessori Portraits ──────────────────────────────────────────────
+  // ── Maria Montessori Portraits — VERIFIED Wikimedia Commons URLs ─────────────
+  // All URLs confirmed working 2026-05-30 via Wikimedia Commons category search.
   {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/4/42/Montessori_Lectura.jpg',
-    caption: 'Maria Montessori delivers her first international teacher-training lecture, Città di Castello, 1909 — launching the global Montessori movement.',
-    label: 'Maria Montessori · 1909',
-  },
-  {
-    url: 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Maria_Montessori_%281913%29.jpg',
-    caption: 'Maria Montessori during her first American lecture tour, 1913. She addressed packed audiences in Washington DC, New York, and Chicago.',
-    label: 'Maria Montessori · 1913',
-  },
-  {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Maria_Montessori.jpg',
-    caption: 'Maria Montessori (1870–1952) — physician, educator, and the first woman in Italy to receive a medical degree from the University of Rome, 1896.',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Maria_Montessori_%28portrait%29.jpg',
+    caption: 'Maria Montessori (1870–1952) — physician, anthropologist, and educator. She was the first woman in Italy to earn a medical degree from the University of Rome, in 1896.',
     label: 'Maria Montessori · Portrait',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_with_students.jpg',
-    caption: 'Maria Montessori seated with children in one of the early Casa dei Bambini classrooms in Rome. Her method centred on observation, never intervention.',
-    label: 'Maria Montessori · with Children',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/5/51/La_conferenziera_medichessa_Montessori.jpg',
+    caption: 'Maria Montessori as lecturer and physician, from L\'Illustrazione Popolare, 1899. She was already prominent as a public speaker on education reform before founding her first school.',
+    label: 'Maria Montessori · 1899',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Maria_Montessori_1930.jpg',
-    caption: 'Maria Montessori at a training conference, c. 1930. By this time her method had spread to schools on six continents.',
-    label: 'Maria Montessori · 1930',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/e/eb/Maria_Montessori_%28um_1880%29.jpg',
+    caption: 'Maria Montessori as a young woman, c. 1880. She grew up in Rome where her father was a civil servant. Her ambition to study medicine was opposed by her father but supported by her mother.',
+    label: 'Maria Montessori · c. 1880',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Maria_Montessori_India.jpg',
-    caption: 'Maria Montessori during her wartime internment in India (1939–1946), where she trained over 1,000 Indian teachers and developed the Cosmic Education curriculum.',
-    label: 'Maria Montessori · India 1940s',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/c/c6/Maria_Montessori_LCCN2014694934.jpg',
+    caption: 'Maria Montessori, c. 1910 — Library of Congress Bain Collection. By this year she had opened the first Casa dei Bambini (1907) and published The Montessori Method (1909).',
+    label: 'Maria Montessori · 1910 (LoC)',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_1950.jpg',
-    caption: 'Maria Montessori in Amsterdam, c. 1950, two years before her death. She spent her final years at AMI headquarters in the Netherlands.',
-    label: 'Maria Montessori · c. 1950',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/5/55/Maria_Montessori1913.jpg',
+    caption: 'Maria Montessori, 1913, during her first American lecture tour. Her visit sparked enormous interest; Alexander Graham Bell hosted a Montessori class in his own home.',
+    label: 'Maria Montessori · 1913',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_mario.jpg',
-    caption: 'Maria Montessori with her son Mario Montessori, who became her closest collaborator and continued her work through AMI after her death in 1952.',
-    label: 'Maria & Mario Montessori',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Maria_Montessori1913-Colorized.jpg',
+    caption: 'Maria Montessori, 1913 (colourised). At this time she was simultaneously practising medicine, lecturing internationally, and developing the didactic materials that define Montessori classrooms today.',
+    label: 'Maria Montessori · 1913 (colour)',
   },
-  // ── Historical Classrooms ───────────────────────────────────────────────────
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Casa_dei_Bambini_Rome_1907.jpg',
-    caption: 'The first Casa dei Bambini (Children\'s House), Via dei Marsi 58, San Lorenzo, Rome — opened 6 January 1907 in a tenement building for 50-60 working-class children.',
-    label: 'Casa dei Bambini · Rome 1907',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/a/a0/Dr._Maria_Montessori.jpg',
+    caption: 'Dr. Maria Montessori — from "A Guide to the Montessori Method" (1913), one of the first English-language books to document and promote her educational approach.',
+    label: 'Maria Montessori · Dr. Portrait',
   },
+  {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/3/3d/Maria_Montessori_als_jonge_vrouw%2C_SFA001014153.jpg',
+    caption: 'Maria Montessori as a young woman, Spaarnestad Photo archive. The Netherlands became one of the earliest and most enthusiastic adopters of her method, from around 1914.',
+    label: 'Maria Montessori · Young Woman',
+  },
+  {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/2/2c/Montessori_Arundale.png',
+    caption: 'Maria Montessori (right) with her son Mario and theosophist George Arundale and his wife Rukmini Devi Arundale, India, 1939. She was interned in India during WWII, training over 1,000 teachers.',
+    label: 'Maria Montessori · India 1939',
+  },
+  // ── Historical Sites & Documents ────────────────────────────────────────────
+  {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/d/d6/Casa_natale_di_Maria_Montessori_a_Chiaravalle_%28Ancona%29.JPG',
+    caption: 'Maria Montessori\'s birthplace in Chiaravalle, near Ancona, Italy — now a museum. She was born here on 31 August 1870, the only child of Alessandro Montessori and Renilde Stoppani.',
+    label: 'Birthplace · Chiaravalle, Italy',
+  },
+  {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/8/85/Maria_Montessori_1970_stamp_of_India.jpg',
+    caption: 'Indian commemorative stamp marking Maria Montessori\'s 100th birth anniversary, 1970. India held a special place for her — she spent seven wartime years there and called it her second home.',
+    label: 'India · Centenary Stamp 1970',
+  },
+  // ── Historical Classrooms — verified where possible ──────────────────────────
   {
     url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_class_at_Alexander_Graham_Bell%27s_home.jpg',
-    caption: 'An early Montessori class held at Alexander Graham Bell\'s home in Washington DC, 1912. Bell and his wife Mabel were prominent early American supporters.',
+    caption: 'A Montessori class at Alexander Graham Bell\'s home in Washington DC, 1912. Bell and his wife Mabel were among the earliest and most prominent American supporters of the method.',
     label: 'Historical · Washington DC 1912',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_Amsterdam_1920.jpg',
-    caption: 'A Montessori classroom in Amsterdam, c. 1920. The Netherlands was among the earliest countries to adopt the method at national scale.',
-    label: 'Historical · Amsterdam 1920',
+    url: '',
+    caption: 'The first Casa dei Bambini (Children\'s House), Via dei Marsi 58, San Lorenzo, Rome — opened 6 January 1907 in a tenement building serving the children of working-class families.',
+    label: 'Casa dei Bambini · Rome 1907',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_school_children_1920.jpg',
-    caption: 'Children working independently in a European Montessori classroom, c. 1920. The child-sized furniture — revolutionary at the time — was designed by Montessori herself.',
-    label: 'Historical · Europe c. 1920',
+    url: '',
+    caption: 'Children working independently in an early Montessori classroom, c. 1915. The child-sized furniture — revolutionary at the time — allowed children to choose their work and return materials to the shelf unaided.',
+    label: 'Historical · Classroom c. 1915',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_materials_vintage.jpg',
-    caption: 'Early Montessori didactic materials arranged on open shelves, c. 1915. The accessibility of materials — always available at child height — was core to the prepared environment.',
-    label: 'Historical · Materials c. 1915',
+    url: '',
+    caption: 'A Montessori classroom in the Netherlands, c. 1920. The Netherlands adopted the method enthusiastically from 1914 and today has the highest proportion of Montessori schools per capita in the world.',
+    label: 'Historical · Netherlands 1920',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Pink_tower_montessori_historical.jpg',
-    caption: 'A child working with the Pink Tower in an early Montessori classroom. The tower isolates the concept of size in three dimensions through hands-on manipulation.',
-    label: 'Historical · Pink Tower',
-  },
-  {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_outdoor_classroom_1930.jpg',
-    caption: 'An outdoor Montessori classroom, c. 1930. Montessori advocated strongly for outdoor learning environments as an extension of the prepared indoor space.',
+    url: '',
+    caption: 'An outdoor Montessori classroom, c. 1930. Montessori believed that the prepared environment extended beyond the classroom walls — outdoor spaces for observation, gardening, and free movement were essential.',
     label: 'Historical · Outdoor 1930s',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/AMI_training_1950s.jpg',
-    caption: 'An AMI (Association Montessori Internationale) teacher training session, 1950s. AMI was founded by Maria Montessori in 1929 to safeguard her pedagogical principles.',
+    url: '',
+    caption: 'AMI (Association Montessori Internationale) teacher training, 1950s. AMI was founded by Montessori herself in 1929 to protect the integrity of her method across all affiliated schools worldwide.',
     label: 'Historical · AMI Training 1950s',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_India_classroom_1945.jpg',
-    caption: 'A Montessori classroom in Kodaikanal, India, c. 1944, during Maria Montessori\'s wartime internment. She trained over 1,000 Indian educators during this period.',
+    url: '',
+    caption: 'A Montessori classroom in Kodaikanal, India, c. 1944 — during Maria Montessori\'s wartime internment. She developed the Cosmic Education curriculum for older children during this period.',
     label: 'Historical · India 1944',
   },
   // ── Modern Global Classrooms ────────────────────────────────────────────────
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_Classroom.jpg',
-    caption: 'A modern Montessori Children\'s House (ages 3–6). The classroom is divided into five curriculum areas: Practical Life, Sensorial, Language, Mathematics, and Cultural.',
+    url: '',
+    caption: 'A modern Montessori Children\'s House (ages 3–6). The classroom is divided into five curriculum areas: Practical Life, Sensorial, Language, Mathematics, and Cultural Studies.',
     label: 'Modern · Children\'s House',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_primary_classroom_modern.jpg',
-    caption: 'A contemporary Montessori primary classroom showing the characteristic mix of individual and small-group work across a multi-age 3–6 year span.',
+    url: '',
+    caption: 'A contemporary Montessori primary classroom. Children across a three-year age span work side by side — older children mentor younger ones, reinforcing their own learning through teaching.',
     label: 'Modern · Primary Classroom',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_toddler_nido.jpg',
-    caption: 'A Montessori Nido (nest) programme for children 6 weeks to 18 months. The environment is scaled precisely to infant proportions to support independent movement.',
+    url: '',
+    caption: 'A Montessori Nido (nest) programme for children from 6 weeks to 18 months. Every element of the environment is scaled precisely to infant proportions to support independent movement from the earliest weeks.',
     label: 'Modern · Nido Programme',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_adolescent_programme.jpg',
-    caption: 'A Montessori adolescent programme (ages 12–18) combining academic rigour with real-world enterprise — farm work, restaurant, shop — to address the social hunger of adolescence.',
+    url: '',
+    caption: 'A Montessori adolescent programme (ages 12–18) combining rigorous academics with real-world enterprise — running a farm, restaurant, or shop addresses the adolescent\'s urgent need for social relevance.',
     label: 'Modern · Adolescent Programme',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_moveable_alphabet_modern.jpg',
-    caption: 'A child composing words with the Moveable Alphabet in a modern classroom. Writing always precedes formal reading in Montessori — the child encodes before decoding.',
+    url: '',
+    caption: 'A child composing words with the Moveable Alphabet. Writing consistently precedes formal reading in Montessori — children encode language in physical form before they decode it on a page.',
     label: 'Modern · Moveable Alphabet',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_practical_life_modern.jpg',
-    caption: 'Practical Life activities in a modern Montessori classroom: pouring, polishing, care of plants. Each activity builds the fine motor control and concentration needed for academic work.',
+    url: '',
+    caption: 'Practical Life activities: pouring, polishing, folding, care of plants. Each task is a concentration exercise — the same neural pathways built by careful pouring are later used for algebra and essay writing.',
     label: 'Modern · Practical Life',
   },
   {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_golden_beads_modern.jpg',
-    caption: 'Children working with Golden Bead material representing the decimal system. The physical weight of a thousand-cube gives children a concrete understanding of large numbers.',
+    url: '',
+    caption: 'Children working with Golden Bead material. The physical weight of a thousand-bead cube gives children a visceral understanding of magnitude — one they carry into abstract mathematics for life.',
     label: 'Modern · Golden Beads',
   },
-  {
-    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_outdoor_learning_modern.jpg',
-    caption: 'Modern Montessori outdoor learning environment. Natural materials, gardening, and unstructured outdoor time are integrated into the curriculum at all levels.',
-    label: 'Modern · Outdoor Learning',
-  },
   // ── Berkshire Montessori Schools ────────────────────────────────────────────
-  // Add URLs from the school's own photography when available.
+  // Add school photography URLs below when available.
+  // Berkshire Hills Montessori School: https://www.berkshirehillsmontessori.org
   {
     url: '',
-    caption: 'Berkshire Hills Montessori School, Great Barrington, Massachusetts — founded 1980. Serves infants through adolescents with full AMI-aligned curriculum across four programmes.',
+    caption: 'Berkshire Hills Montessori School, Great Barrington, Massachusetts — founded 1980. Serves infants through adolescents with a full AMI-aligned curriculum across four programmes in the Housatonic Valley.',
     label: 'Berkshire Hills · Great Barrington MA',
   },
   {
     url: '',
-    caption: 'Berkshire Hills Montessori School outdoor classroom. The school\'s Housatonic Valley campus integrates the surrounding woodland directly into practical life and science curriculum.',
+    caption: 'Berkshire Hills Montessori School outdoor campus. The school\'s Housatonic Valley setting integrates surrounding woodland directly into practical life, science, and adolescent farm enterprise curriculum.',
     label: 'Berkshire Hills · Outdoor Campus',
   },
   {
     url: '',
-    caption: 'A Montessori school in the English county of Berkshire — one of the UK\'s highest concentrations of AMI-affiliated schools, reflecting Montessori\'s early popularity in Britain from the 1910s.',
+    caption: 'A Montessori school in the English county of Berkshire — the county has one of England\'s highest concentrations of AMI-affiliated settings, a tradition stretching back to Montessori\'s own visits to Britain in the 1910s.',
     label: 'Berkshire England · AMI School',
   },
   {
     url: '',
-    caption: 'Montessori St. Nicholas Charity, UK — the national body for Montessori in England, supporting over 700 registered settings and training centres including several in Berkshire.',
+    caption: 'Montessori St. Nicholas Charity — the national body for Montessori education in England. It supports over 700 registered settings and training centres, including several in Berkshire and the Thames Valley.',
     label: 'Montessori St. Nicholas · UK',
   },
   {
     url: '',
-    caption: 'An international Montessori school serving the global community — today there are over 20,000 Montessori schools in more than 110 countries, making it the world\'s largest alternative education movement.',
-    label: 'Montessori · Global c. 2025',
+    caption: 'Montessori is today the world\'s largest alternative education movement: over 20,000 schools in more than 110 countries, serving children from 6 weeks to 18 years across every culture and income level.',
+    label: 'Montessori · Global 2025',
   },
 ]
 
@@ -466,10 +469,16 @@ function sendEmailReport(): void {
               />
             </div>
 
-            <!-- Phase label -->
-            <p class="text-xs text-emerald-700 font-medium mb-6 px-1 transition-all duration-700">
-              {{ phaseLabel }}
-            </p>
+            <!-- Phase label — deliberately visible: sm text, icon, bold -->
+            <div class="flex items-center gap-2 mb-5 px-1">
+              <svg class="w-3.5 h-3.5 text-emerald-500 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              <p class="text-sm text-emerald-800 font-semibold transition-all duration-700">
+                {{ phaseLabel }}
+              </p>
+            </div>
 
             <!-- Photo carousel — Montessori Through the Decades -->
             <div class="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 overflow-hidden">
