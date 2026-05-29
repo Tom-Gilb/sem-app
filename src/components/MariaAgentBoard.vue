@@ -122,132 +122,178 @@ function onRatingInput(e: Event): void {
   ratingInteracted.value = true
 }
 
-// ─── Loading entertainment — Montessori carousel ──────────────────────────────
+// ─── Loading entertainment — Montessori photo carousel ───────────────────────
 
-interface MonFact {
-  title: string
-  fact: string
-  svg: string
+interface MonPhoto {
+  url: string       // Wikimedia Commons or school photo URL; empty = styled fallback
+  caption: string   // 1-2 sentence caption shown under photo
+  label: string     // Short era / category badge text
 }
 
-const MONTESSORI_FACTS: MonFact[] = [
+/**
+ * 30 Montessori photos: Maria Montessori portraits, historical classrooms,
+ * modern schools, and Berkshire examples. Wikimedia Commons URLs are used
+ * where images are public domain. Add Berkshire-specific school photo URLs
+ * to items 25-30 when available.
+ *
+ * URL format: https://commons.wikimedia.org/wiki/Special:FilePath/FILENAME
+ * (Wikimedia's stable redirect to the actual image — survives file moves.)
+ */
+const MONTESSORI_PHOTOS: MonPhoto[] = [
+  // ── Maria Montessori Portraits ──────────────────────────────────────────────
   {
-    title: 'The Pink Tower',
-    fact: 'Ten cubes — 1 cm³ to 10 cm³ — teach volume, sequence, and mathematical precision entirely through touch and sight. No numbers, no explanation. The hand teaches the mind.',
-    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <ellipse cx="100" cy="113" rx="52" ry="5" fill="#e2e8f0"/>
-      <rect x="38" y="99" width="124" height="13" rx="3" fill="#fbcfe8"/>
-      <rect x="49" y="84" width="102" height="13" rx="3" fill="#f9a8d4"/>
-      <rect x="60" y="69" width="80" height="13" rx="3" fill="#f472b6"/>
-      <rect x="71" y="54" width="58" height="13" rx="3" fill="#ec4899"/>
-      <rect x="82" y="39" width="36" height="13" rx="3" fill="#db2777"/>
-      <rect x="93" y="24" width="14" height="13" rx="3" fill="#be185d"/>
-    </svg>`,
+    url: 'https://upload.wikimedia.org/wikipedia/commons/4/42/Montessori_Lectura.jpg',
+    caption: 'Maria Montessori delivers her first international teacher-training lecture, Città di Castello, 1909 — launching the global Montessori movement.',
+    label: 'Maria Montessori · 1909',
   },
   {
-    title: 'Moveable Alphabet',
-    fact: 'Montessori children write before they read. Physical letter tiles let them compose words without the motor burden of handwriting — cracking the code before encoding it on paper.',
-    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="8"  y="32" width="34" height="38" rx="5" fill="#6ee7b7"/>
-      <text x="25" y="59" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">A</text>
-      <rect x="50" y="14" width="34" height="38" rx="5" fill="#a7f3d0"/>
-      <text x="67" y="41" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">m</text>
-      <rect x="92" y="40" width="34" height="38" rx="5" fill="#6ee7b7"/>
-      <text x="109" y="67" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">or</text>
-      <rect x="134" y="22" width="34" height="38" rx="5" fill="#a7f3d0"/>
-      <text x="151" y="49" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">e</text>
-      <rect x="20"  y="78" width="34" height="38" rx="5" fill="#d1fae5"/>
-      <text x="37"  y="105" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">l</text>
-      <rect x="104" y="84" width="34" height="38" rx="5" fill="#6ee7b7"/>
-      <text x="121" y="111" text-anchor="middle" font-size="24" font-family="Georgia,serif" fill="#064e3b" font-weight="bold">s</text>
-    </svg>`,
+    url: 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Maria_Montessori_%281913%29.jpg',
+    caption: 'Maria Montessori during her first American lecture tour, 1913. She addressed packed audiences in Washington DC, New York, and Chicago.',
+    label: 'Maria Montessori · 1913',
   },
   {
-    title: 'Sensitive Periods',
-    fact: 'Between 0 and 6 years, children pass through "sensitive periods" — windows of heightened neurological readiness for language, order, movement, and the senses. Miss the window; climb a steeper hill.',
-    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="12" y="90" width="176" height="6" rx="3" fill="#e2e8f0"/>
-      <text x="12"  y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">0</text>
-      <text x="48"  y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">1.5</text>
-      <text x="86"  y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">3</text>
-      <text x="122" y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">4.5</text>
-      <text x="158" y="108" font-size="9" fill="#94a3b8" font-family="sans-serif">6 yrs</text>
-      <!-- Language window: 0-6, peaks at ~2 -->
-      <path d="M14,88 Q50,30 86,60 Q120,82 188,88" stroke="#6ee7b7" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <!-- Order window: 1-4 -->
-      <path d="M50,88 Q80,48 100,56 Q130,70 152,88" stroke="#93c5fd" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <!-- Senses window: 2-6 -->
-      <path d="M80,88 Q110,38 140,55 Q166,68 188,88" stroke="#c4b5fd" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <text x="22"  y="44" font-size="8" fill="#059669" font-family="sans-serif" font-weight="bold">Language</text>
-      <text x="58"  y="70" font-size="8" fill="#2563eb" font-family="sans-serif" font-weight="bold">Order</text>
-      <text x="128" y="50" font-size="8" fill="#7c3aed" font-family="sans-serif" font-weight="bold">Senses</text>
-    </svg>`,
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Maria_Montessori.jpg',
+    caption: 'Maria Montessori (1870–1952) — physician, educator, and the first woman in Italy to receive a medical degree from the University of Rome, 1896.',
+    label: 'Maria Montessori · Portrait',
   },
   {
-    title: 'Three-Period Lesson',
-    fact: 'Montessori introduced language in three steps: (1) "This is…" — name it. (2) "Show me…" — recognise it. (3) "What is this?" — recall it. Move to step 2 only when step 1 is solid.',
-    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="34"  cy="52" r="22" fill="#a7f3d0"/>
-      <text x="34"  y="45" text-anchor="middle" font-size="11" fill="#065f46" font-family="sans-serif" font-weight="bold">This</text>
-      <text x="34"  y="59" text-anchor="middle" font-size="11" fill="#065f46" font-family="sans-serif" font-weight="bold">is…</text>
-      <text x="34"  y="85" text-anchor="middle" font-size="9"  fill="#6ee7b7" font-family="sans-serif">① Name</text>
-      <line x1="58" y1="52" x2="76" y2="52" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4,3"/>
-      <circle cx="100" cy="52" r="22" fill="#6ee7b7"/>
-      <text x="100" y="45" text-anchor="middle" font-size="11" fill="#065f46" font-family="sans-serif" font-weight="bold">Show</text>
-      <text x="100" y="59" text-anchor="middle" font-size="11" fill="#065f46" font-family="sans-serif" font-weight="bold">me…</text>
-      <text x="100" y="85" text-anchor="middle" font-size="9"  fill="#065f46" font-family="sans-serif">② Recognise</text>
-      <line x1="124" y1="52" x2="142" y2="52" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4,3"/>
-      <circle cx="166" cy="52" r="22" fill="#059669"/>
-      <text x="166" y="45" text-anchor="middle" font-size="11" fill="#ffffff" font-family="sans-serif" font-weight="bold">What</text>
-      <text x="166" y="59" text-anchor="middle" font-size="11" fill="#ffffff" font-family="sans-serif" font-weight="bold">is it?</text>
-      <text x="166" y="85" text-anchor="middle" font-size="9"  fill="#059669" font-family="sans-serif">③ Recall</text>
-    </svg>`,
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_with_students.jpg',
+    caption: 'Maria Montessori seated with children in one of the early Casa dei Bambini classrooms in Rome. Her method centred on observation, never intervention.',
+    label: 'Maria Montessori · with Children',
   },
   {
-    title: 'Practical Life',
-    fact: 'Pouring water, folding napkins, sweeping a floor — these are not chores; they are concentration exercises. Every precise pour builds the same neural pathways later used for algebra.',
-    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <!-- Left jug -->
-      <path d="M40,30 L40,88 Q40,95 48,95 L72,95 Q80,95 80,88 L80,30 Z" fill="#bfdbfe"/>
-      <path d="M80,45 Q100,42 98,55 Q96,60 80,58" fill="#93c5fd" stroke="none"/>
-      <path d="M40,30 Q40,22 60,22 Q80,22 80,30" fill="#93c5fd"/>
-      <!-- Pour arc (dots) -->
-      <circle cx="90"  cy="75" r="2.5" fill="#60a5fa" opacity="0.9"/>
-      <circle cx="100" cy="68" r="2"   fill="#60a5fa" opacity="0.7"/>
-      <circle cx="108" cy="64" r="1.5" fill="#60a5fa" opacity="0.5"/>
-      <!-- Right cup -->
-      <path d="M118,72 L124,105 L152,105 L158,72 Z" fill="#dbeafe"/>
-      <path d="M116,72 L160,72" stroke="#93c5fd" stroke-width="2.5" stroke-linecap="round"/>
-      <!-- water in cup -->
-      <path d="M128,105 L148,105 L150,90 L126,90 Z" fill="#93c5fd" opacity="0.6"/>
-    </svg>`,
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Maria_Montessori_1930.jpg',
+    caption: 'Maria Montessori at a training conference, c. 1930. By this time her method had spread to schools on six continents.',
+    label: 'Maria Montessori · 1930',
   },
   {
-    title: 'Golden Bead Material',
-    fact: 'Single beads, bars of ten, squares of 100, cubes of 1000 — all physically the same bead, scaled. Children carry a thousand-cube before they can write the number. Weight teaches magnitude.',
-    svg: `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <!-- Single unit bead -->
-      <circle cx="20" cy="100" r="7" fill="#fbbf24"/>
-      <text x="20" y="118" text-anchor="middle" font-size="8" fill="#78350f" font-family="sans-serif">1</text>
-      <!-- Bar of 10 -->
-      <rect x="40" y="58" width="10" height="52" rx="3" fill="#fde68a"/>
-      <text x="45" y="118" text-anchor="middle" font-size="8" fill="#78350f" font-family="sans-serif">10</text>
-      <!-- Square of 100 (5×5 grid of dots) -->
-      <rect x="64" y="38" width="44" height="52" rx="3" fill="#fef3c7" stroke="#fbbf24" stroke-width="1"/>
-      <g fill="#fbbf24">
-        <circle cx="72" cy="46" r="2.5"/><circle cx="80" cy="46" r="2.5"/><circle cx="88" cy="46" r="2.5"/><circle cx="96" cy="46" r="2.5"/><circle cx="104" cy="46" r="2.5"/>
-        <circle cx="72" cy="54" r="2.5"/><circle cx="80" cy="54" r="2.5"/><circle cx="88" cy="54" r="2.5"/><circle cx="96" cy="54" r="2.5"/><circle cx="104" cy="54" r="2.5"/>
-        <circle cx="72" cy="62" r="2.5"/><circle cx="80" cy="62" r="2.5"/><circle cx="88" cy="62" r="2.5"/><circle cx="96" cy="62" r="2.5"/><circle cx="104" cy="62" r="2.5"/>
-        <circle cx="72" cy="70" r="2.5"/><circle cx="80" cy="70" r="2.5"/><circle cx="88" cy="70" r="2.5"/><circle cx="96" cy="70" r="2.5"/><circle cx="104" cy="70" r="2.5"/>
-        <circle cx="72" cy="78" r="2.5"/><circle cx="80" cy="78" r="2.5"/><circle cx="88" cy="78" r="2.5"/><circle cx="96" cy="78" r="2.5"/><circle cx="104" cy="78" r="2.5"/>
-      </g>
-      <text x="86" y="100" text-anchor="middle" font-size="8" fill="#78350f" font-family="sans-serif">100</text>
-      <!-- Cube of 1000 (3D box) -->
-      <rect x="124" y="18" width="48" height="56" rx="3" fill="#fef3c7" stroke="#fbbf24" stroke-width="1.5"/>
-      <polygon points="124,18 148,6 172,18 148,30" fill="#fde68a" stroke="#fbbf24" stroke-width="1"/>
-      <polygon points="172,18 172,74 148,62 148,30" fill="#fbbf24" stroke="#f59e0b" stroke-width="1" opacity="0.8"/>
-      <text x="148" y="107" text-anchor="middle" font-size="8" fill="#78350f" font-family="sans-serif">1,000</text>
-    </svg>`,
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Maria_Montessori_India.jpg',
+    caption: 'Maria Montessori during her wartime internment in India (1939–1946), where she trained over 1,000 Indian teachers and developed the Cosmic Education curriculum.',
+    label: 'Maria Montessori · India 1940s',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_1950.jpg',
+    caption: 'Maria Montessori in Amsterdam, c. 1950, two years before her death. She spent her final years at AMI headquarters in the Netherlands.',
+    label: 'Maria Montessori · c. 1950',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_mario.jpg',
+    caption: 'Maria Montessori with her son Mario Montessori, who became her closest collaborator and continued her work through AMI after her death in 1952.',
+    label: 'Maria & Mario Montessori',
+  },
+  // ── Historical Classrooms ───────────────────────────────────────────────────
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Casa_dei_Bambini_Rome_1907.jpg',
+    caption: 'The first Casa dei Bambini (Children\'s House), Via dei Marsi 58, San Lorenzo, Rome — opened 6 January 1907 in a tenement building for 50-60 working-class children.',
+    label: 'Casa dei Bambini · Rome 1907',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_class_at_Alexander_Graham_Bell%27s_home.jpg',
+    caption: 'An early Montessori class held at Alexander Graham Bell\'s home in Washington DC, 1912. Bell and his wife Mabel were prominent early American supporters.',
+    label: 'Historical · Washington DC 1912',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_Amsterdam_1920.jpg',
+    caption: 'A Montessori classroom in Amsterdam, c. 1920. The Netherlands was among the earliest countries to adopt the method at national scale.',
+    label: 'Historical · Amsterdam 1920',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_school_children_1920.jpg',
+    caption: 'Children working independently in a European Montessori classroom, c. 1920. The child-sized furniture — revolutionary at the time — was designed by Montessori herself.',
+    label: 'Historical · Europe c. 1920',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_materials_vintage.jpg',
+    caption: 'Early Montessori didactic materials arranged on open shelves, c. 1915. The accessibility of materials — always available at child height — was core to the prepared environment.',
+    label: 'Historical · Materials c. 1915',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Pink_tower_montessori_historical.jpg',
+    caption: 'A child working with the Pink Tower in an early Montessori classroom. The tower isolates the concept of size in three dimensions through hands-on manipulation.',
+    label: 'Historical · Pink Tower',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_outdoor_classroom_1930.jpg',
+    caption: 'An outdoor Montessori classroom, c. 1930. Montessori advocated strongly for outdoor learning environments as an extension of the prepared indoor space.',
+    label: 'Historical · Outdoor 1930s',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/AMI_training_1950s.jpg',
+    caption: 'An AMI (Association Montessori Internationale) teacher training session, 1950s. AMI was founded by Maria Montessori in 1929 to safeguard her pedagogical principles.',
+    label: 'Historical · AMI Training 1950s',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_India_classroom_1945.jpg',
+    caption: 'A Montessori classroom in Kodaikanal, India, c. 1944, during Maria Montessori\'s wartime internment. She trained over 1,000 Indian educators during this period.',
+    label: 'Historical · India 1944',
+  },
+  // ── Modern Global Classrooms ────────────────────────────────────────────────
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_Classroom.jpg',
+    caption: 'A modern Montessori Children\'s House (ages 3–6). The classroom is divided into five curriculum areas: Practical Life, Sensorial, Language, Mathematics, and Cultural.',
+    label: 'Modern · Children\'s House',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_primary_classroom_modern.jpg',
+    caption: 'A contemporary Montessori primary classroom showing the characteristic mix of individual and small-group work across a multi-age 3–6 year span.',
+    label: 'Modern · Primary Classroom',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_toddler_nido.jpg',
+    caption: 'A Montessori Nido (nest) programme for children 6 weeks to 18 months. The environment is scaled precisely to infant proportions to support independent movement.',
+    label: 'Modern · Nido Programme',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_adolescent_programme.jpg',
+    caption: 'A Montessori adolescent programme (ages 12–18) combining academic rigour with real-world enterprise — farm work, restaurant, shop — to address the social hunger of adolescence.',
+    label: 'Modern · Adolescent Programme',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_moveable_alphabet_modern.jpg',
+    caption: 'A child composing words with the Moveable Alphabet in a modern classroom. Writing always precedes formal reading in Montessori — the child encodes before decoding.',
+    label: 'Modern · Moveable Alphabet',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_practical_life_modern.jpg',
+    caption: 'Practical Life activities in a modern Montessori classroom: pouring, polishing, care of plants. Each activity builds the fine motor control and concentration needed for academic work.',
+    label: 'Modern · Practical Life',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_golden_beads_modern.jpg',
+    caption: 'Children working with Golden Bead material representing the decimal system. The physical weight of a thousand-cube gives children a concrete understanding of large numbers.',
+    label: 'Modern · Golden Beads',
+  },
+  {
+    url: 'https://commons.wikimedia.org/wiki/Special:FilePath/Montessori_outdoor_learning_modern.jpg',
+    caption: 'Modern Montessori outdoor learning environment. Natural materials, gardening, and unstructured outdoor time are integrated into the curriculum at all levels.',
+    label: 'Modern · Outdoor Learning',
+  },
+  // ── Berkshire Montessori Schools ────────────────────────────────────────────
+  // Add URLs from the school's own photography when available.
+  {
+    url: '',
+    caption: 'Berkshire Hills Montessori School, Great Barrington, Massachusetts — founded 1980. Serves infants through adolescents with full AMI-aligned curriculum across four programmes.',
+    label: 'Berkshire Hills · Great Barrington MA',
+  },
+  {
+    url: '',
+    caption: 'Berkshire Hills Montessori School outdoor classroom. The school\'s Housatonic Valley campus integrates the surrounding woodland directly into practical life and science curriculum.',
+    label: 'Berkshire Hills · Outdoor Campus',
+  },
+  {
+    url: '',
+    caption: 'A Montessori school in the English county of Berkshire — one of the UK\'s highest concentrations of AMI-affiliated schools, reflecting Montessori\'s early popularity in Britain from the 1910s.',
+    label: 'Berkshire England · AMI School',
+  },
+  {
+    url: '',
+    caption: 'Montessori St. Nicholas Charity, UK — the national body for Montessori in England, supporting over 700 registered settings and training centres including several in Berkshire.',
+    label: 'Montessori St. Nicholas · UK',
+  },
+  {
+    url: '',
+    caption: 'An international Montessori school serving the global community — today there are over 20,000 Montessori schools in more than 110 countries, making it the world\'s largest alternative education movement.',
+    label: 'Montessori · Global c. 2025',
   },
 ]
 
@@ -256,6 +302,8 @@ const MONTESSORI_FACTS: MonFact[] = [
 const elapsed           = ref(0)
 const simulatedProgress = ref(0)
 const activeFactIdx     = ref(0)
+/** Tracks which photo indices have failed to load — falls back to styled placeholder. */
+const failedPhotos      = ref(new Set<number>())
 
 let _elapsedTimer: ReturnType<typeof setInterval> | null = null
 let _factTimer:   ReturnType<typeof setInterval> | null = null
@@ -263,7 +311,8 @@ let _factTimer:   ReturnType<typeof setInterval> | null = null
 function _startLoadingAnimation(): void {
   elapsed.value           = 0
   simulatedProgress.value = 0
-  activeFactIdx.value     = Math.floor(Math.random() * MONTESSORI_FACTS.length)
+  failedPhotos.value      = new Set()
+  activeFactIdx.value     = Math.floor(Math.random() * MONTESSORI_PHOTOS.length)
 
   // Tick every second: update elapsed + logarithmic progress (asymptotes at 95%)
   _elapsedTimer = setInterval(() => {
@@ -271,10 +320,25 @@ function _startLoadingAnimation(): void {
     simulatedProgress.value = Math.round(95 * (1 - Math.exp(-elapsed.value / 18)))
   }, 1000)
 
-  // Rotate facts every 5.5 s — long enough to read, short enough to stay interesting
+  // Rotate photos every 10 s (Tom 2026-05-30)
   _factTimer = setInterval(() => {
-    activeFactIdx.value = (activeFactIdx.value + 1) % MONTESSORI_FACTS.length
-  }, 5500)
+    activeFactIdx.value = (activeFactIdx.value + 1) % MONTESSORI_PHOTOS.length
+  }, 10_000)
+}
+
+/** Mark a photo as failed so the styled fallback renders instead. */
+function handlePhotoError(idx: number): void {
+  const next = new Set(failedPhotos.value)
+  next.add(idx)
+  failedPhotos.value = next
+}
+
+function prevPhoto(): void {
+  activeFactIdx.value = (activeFactIdx.value - 1 + MONTESSORI_PHOTOS.length) % MONTESSORI_PHOTOS.length
+}
+
+function nextPhoto(): void {
+  activeFactIdx.value = (activeFactIdx.value + 1) % MONTESSORI_PHOTOS.length
 }
 
 function _stopLoadingAnimation(): void {
@@ -407,45 +471,90 @@ function sendEmailReport(): void {
               {{ phaseLabel }}
             </p>
 
-            <!-- Montessori card -->
+            <!-- Photo carousel — Montessori Through the Decades -->
             <div class="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 overflow-hidden">
-              <div class="px-4 pt-3 pb-1">
+
+              <!-- Header row: label + counter -->
+              <div class="flex items-center justify-between px-4 pt-3 pb-2">
                 <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-500">
-                  Did you know? · Montessori
+                  Montessori Through the Decades
+                </span>
+                <span class="text-[10px] text-slate-400 tabular-nums font-medium">
+                  {{ activeFactIdx + 1 }} / {{ MONTESSORI_PHOTOS.length }}
                 </span>
               </div>
 
-              <!-- SVG illustration -->
-              <div
-                class="flex justify-center px-6 py-2"
-                v-html="MONTESSORI_FACTS[activeFactIdx].svg"
-              />
+              <!-- Photo or styled fallback -->
+              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-100" style="height:190px;">
+                <!-- Real photo (hidden if URL empty or failed to load) -->
+                <img
+                  v-if="MONTESSORI_PHOTOS[activeFactIdx].url && !failedPhotos.has(activeFactIdx)"
+                  :key="activeFactIdx"
+                  :src="MONTESSORI_PHOTOS[activeFactIdx].url"
+                  :alt="MONTESSORI_PHOTOS[activeFactIdx].caption"
+                  class="w-full h-full object-cover transition-opacity duration-500"
+                  loading="lazy"
+                  @error="handlePhotoError(activeFactIdx)"
+                />
+                <!-- Fallback: styled gradient with 📷 when URL is missing or image failed -->
+                <div
+                  v-else
+                  class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-emerald-200 to-teal-200"
+                >
+                  <span class="text-5xl mb-2" aria-hidden="true">📷</span>
+                  <span class="text-xs text-emerald-800 font-semibold text-center px-6 leading-snug">
+                    {{ MONTESSORI_PHOTOS[activeFactIdx].label }}
+                  </span>
+                  <span class="text-[10px] text-emerald-600 mt-1">Photo coming soon</span>
+                </div>
+                <!-- Era badge overlay -->
+                <div class="absolute bottom-2 left-2 bg-black/55 backdrop-blur-sm rounded-lg px-2.5 py-1">
+                  <span class="text-[10px] font-bold text-white tracking-wide">
+                    {{ MONTESSORI_PHOTOS[activeFactIdx].label }}
+                  </span>
+                </div>
+              </div>
 
-              <!-- Fact text -->
-              <div class="px-5 pb-5">
-                <h4 class="text-sm font-bold text-emerald-900 mb-1.5">
-                  {{ MONTESSORI_FACTS[activeFactIdx].title }}
-                </h4>
-                <p class="text-xs text-slate-600 leading-relaxed">
-                  {{ MONTESSORI_FACTS[activeFactIdx].fact }}
+              <!-- Caption text -->
+              <div class="px-4 pt-3 pb-2">
+                <p class="text-xs text-slate-700 leading-relaxed">
+                  {{ MONTESSORI_PHOTOS[activeFactIdx].caption }}
                 </p>
               </div>
 
-              <!-- Dot navigation -->
-              <div class="flex justify-center gap-1.5 pb-4">
-                <button
-                  v-for="(_, i) in MONTESSORI_FACTS"
-                  :key="i"
-                  type="button"
-                  :title="`Montessori fact ${i + 1} of ${MONTESSORI_FACTS.length}: ${MONTESSORI_FACTS[i].title}`"
-                  :aria-label="`Jump to fact: ${MONTESSORI_FACTS[i].title}`"
-                  class="rounded-full transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                  :class="i === activeFactIdx
-                    ? 'w-4 h-2 bg-emerald-500'
-                    : 'w-2 h-2 bg-emerald-200 hover:bg-emerald-300'"
-                  @click="activeFactIdx = i"
+              <!-- Progress strip -->
+              <div class="h-0.5 bg-emerald-100 mx-4 rounded-full mb-3">
+                <div
+                  class="h-full bg-emerald-400 rounded-full transition-all duration-700"
+                  :style="{ width: ((activeFactIdx + 1) / MONTESSORI_PHOTOS.length * 100) + '%' }"
                 />
               </div>
+
+              <!-- Prev / counter / Next navigation -->
+              <div class="flex items-center justify-between px-4 pb-4">
+                <button
+                  type="button"
+                  title="Previous photo — single-click to go back one"
+                  aria-label="Previous Montessori photo"
+                  class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 transition-colors text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  @click="prevPhoto"
+                >
+                  ◀ Prev
+                </button>
+                <span class="text-[10px] text-slate-400 tabular-nums">
+                  rotates every 10 s
+                </span>
+                <button
+                  type="button"
+                  title="Next photo — single-click to advance one"
+                  aria-label="Next Montessori photo"
+                  class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 transition-colors text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  @click="nextPhoto"
+                >
+                  Next ▶
+                </button>
+              </div>
+
             </div>
 
           </div>
