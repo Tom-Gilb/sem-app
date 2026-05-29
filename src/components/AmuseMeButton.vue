@@ -19,6 +19,8 @@ import {
   AMUSE_ITEMS,
   PICTURE_THEMES,
   useAmuseMe,
+  activateLinger,
+  startLingerFadeOut,
   randomJoke,
   randomNiceThing,
   planProgressText,
@@ -45,30 +47,33 @@ const props = withDefaults(defineProps<{
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const { isOpen, activeItemId, toggle, selectItem, close } = useAmuseMe()
+const { isOpen, activeItemId, lingerVisible, toggle, selectItem, close } = useAmuseMe()
 
 /**
- * Linger: keep the panel visible for 4 s after isLoading goes false.
- * Without this the "Fun while waiting?" panel vanishes mid-interaction the
- * moment the AI finishes — the user can't finish reading a joke, a nice-things
- * suggestion, or a picture they just selected.
- * Tom 2026-05-29: "fun is still not working" — root cause: panel disappears
- * too fast to interact with.
+ * Linger: keep the panel visible for LINGER_MS (4 s) after isLoading goes false.
+ *
+ * lingerVisible is a MODULE-LEVEL ref shared across all AmuseMeButton instances
+ * (see useAmuseMe.ts). This solves a critical UX bug:
+ *
+ * Root cause (Tom 2026-05-29: "fun while waiting is still not working"):
+ *   When the spec arrives, Vue switches from entry-mode AmuseMeButton to
+ *   spec-review-mode AmuseMeButton. The old instance unmounts — destroying its
+ *   component-local lingerVisible=true and its local 4-second timer. The new
+ *   instance mounted with isLoading=false → old (component-local) logic set
+ *   lingerVisible=false immediately → AmuseMeButton vanished.
+ *
+ * Fix: activateLinger() and startLingerFadeOut() update the shared module-level
+ *   _lingerVisible ref. When the new AmuseMeButton mounts, it sees the SAME
+ *   lingerVisible ref (still true), so it shows immediately and stays visible
+ *   for the remaining linger time. No linger is lost across remounts.
  */
-const lingerVisible = ref(false)
-let _lingerTimer: ReturnType<typeof setTimeout> | null = null
-
 watch(() => props.isLoading, (loading) => {
   if (loading) {
     // AI started generating → show immediately, cancel any pending fade-out
-    if (_lingerTimer) { clearTimeout(_lingerTimer); _lingerTimer = null }
-    lingerVisible.value = true
+    activateLinger()
   } else {
-    // AI finished → stay visible for 4 s then fade out
-    _lingerTimer = setTimeout(() => {
-      lingerVisible.value = false
-      _lingerTimer = null
-    }, 4000)
+    // AI finished → stay visible for 4 s then fade out (module-level timer)
+    startLingerFadeOut()
   }
 }, { immediate: true })
 

@@ -2457,21 +2457,20 @@ async function doTranslate(
       addVersion(annotatedSpec, 'Generated', null, planModel.value?.name ?? '', _planOwnerNames())
       markdown.value = serialise(annotatedSpec)
       succeeded = true
-      // Auto-advance to full plan view (stage 2) after spec generation from stage 1.
-      // Tom 2026-05-29: "we got stuck here and it did NOT go to spec and show them, stage 2."
-      // When already in stage 2+ (re-generation from plan view), just scroll to the output.
-      // goToPlanStage() calls _closeAllOverlays() + _ensurePlanModel() + stage.value = 2.
-      // _resetPlanForLoad() prevents EvoPlanView.onMounted() from auto-generating Evo steps
-      // on first mount — the user must click Generate Evo Plan manually (Tom 2026-05-29:
-      // "immediately after generating specs, it jumped to generating evo value steps, with
-      // no clicks from me").
-      if (stage.value === 1) {
-        _resetPlanForLoad()
-        await nextTick()
-        goToPlanStage(true)   // fromFreshGeneration — advance bar to stage 2, not 6
-      } else {
-        scrollToSpec()
-      }
+      // Stay at stage 1 after spec generation so the user can review the spec,
+      // sharpen it, and decide when to advance to Evo Plan (stage 2).
+      // Tom 2026-05-29: "normal sem app not working at all beyond parse" — root
+      // cause was the previous auto-advance to stage 2 immediately after generation.
+      // User arrived at EvoPlanView with "No Evo plan yet" and couldn't interact
+      // with the spec or the SharpenPanel — they were bypassed entirely.
+      //
+      // _resetPlanForLoad() prevents EvoPlanView.onMounted() from auto-generating
+      // Evo steps when the user eventually navigates to stage 2 — the user must
+      // click "Generate Evo Plan" manually (Tom 2026-05-29: "immediately after
+      // generating specs, it jumped to generating evo value steps, with no clicks
+      // from me"). Stays correct whether user was at stage 1 or already at stage 2+.
+      _resetPlanForLoad()
+      scrollToSpec()          // scroll to spec output in current stage
       // Evo Step 10: log spec_generated event (3P.V.EntryFluency / 2S.V.PlannerConfidence)
       const allFieldsPresent = annotatedSpec.values.every(
         (v) => v.scale && v.meter && v.status && v.tolerable && v.goal,
@@ -4997,6 +4996,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <!-- AmuseMeButton — spec regeneration loading (sdkLoading true while re-generating) -->
             <AmuseMeButton
               :is-loading="sdkLoading"
+              :spec-block="currentSpec"
               :planning-stage="planningStage"
               class="w-full max-w-xl"
             />
@@ -5176,6 +5176,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <!-- AmuseMeButton — first spec generation loading (sdkLoading true while generating) -->
             <AmuseMeButton
               :is-loading="sdkLoading"
+              :spec-block="currentSpec"
               :planning-stage="planningStage"
               class="w-full max-w-xl"
             />

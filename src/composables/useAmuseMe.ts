@@ -269,6 +269,58 @@ export function stagesUntilSharing(currentStage: number): Array<{ stage: number;
   return result
 }
 
+// ─── Module-level linger state ────────────────────────────────────────────────
+//
+// The AmuseMeButton "lingerVisible" state is module-level (not component-local)
+// so it survives component remounts.
+//
+// Problem this solves (Tom 2026-05-29: "fun while waiting is still not working"):
+//   When the spec arrives during generation, Vue switches from entry-mode
+//   AmuseMeButton to spec-review-mode AmuseMeButton. The old instance unmounts
+//   (destroying its local lingerVisible=true and its 4-second linger timer).
+//   The new instance mounts with isLoading=false → local lingerVisible=false →
+//   AmuseMeButton never shows. The 4-second linger is silently lost.
+//
+// Fix: make lingerVisible and its timer module-level. Both AmuseMeButton
+// instances (App.vue entry-mode and spec-review-mode) share the same linger
+// state. When the old one unmounts mid-linger, the new one mounts and sees
+// lingerVisible=true — so it immediately shows for the remaining linger time.
+//
+// AmuseMeButton instances are never simultaneously on screen (App.vue stage-1
+// vs EvoPlanView stage-2), so shared state causes no visual conflicts.
+
+const LINGER_MS = 4000
+
+/** Shared visibility ref — true while loading OR within LINGER_MS after loading ends. */
+export const _lingerVisible = ref(false)
+
+/** Module-level timer handle — cleared on any new activation so timers never pile up. */
+let _lingerTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Activates the linger: show the panel immediately, cancel any pending fade-out.
+ * Call when isLoading goes true.
+ */
+export function activateLinger(): void {
+  if (_lingerTimer) { clearTimeout(_lingerTimer); _lingerTimer = null }
+  _lingerVisible.value = true
+}
+
+/**
+ * Starts the fade-out countdown: panel stays visible for LINGER_MS after loading ends.
+ * Call when isLoading goes false. Safe to call multiple times — only one timer runs.
+ */
+export function startLingerFadeOut(): void {
+  // If a timer is already running, let it fire naturally — don't reset it.
+  // This prevents N simultaneous AmuseMeButton instances from each restarting
+  // the 4-second clock and accidentally extending the linger.
+  if (_lingerTimer) return
+  _lingerTimer = setTimeout(() => {
+    _lingerVisible.value = false
+    _lingerTimer = null
+  }, LINGER_MS)
+}
+
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export interface AmuseMeState {
@@ -276,6 +328,8 @@ export interface AmuseMeState {
   isOpen: Ref<boolean>
   /** Which menu item is currently selected / showing content */
   activeItemId: Ref<string | null>
+  /** Shared linger visibility (module-level — survives component remounts) */
+  lingerVisible: Ref<boolean>
   /** Open or close the panel */
   toggle(): void
   /** Select a menu item by id */
@@ -289,8 +343,13 @@ export interface AmuseMeState {
  * All content generation lives in the pure helpers above — the composable
  * only manages open/close and active-item state so the component stays simple.
  *
- * Not a true singleton (each call gets its own state), which is appropriate
- * since multiple loading contexts could theoretically show AmuseMeButton.
+ * isOpen / activeItemId: per-instance (not shared) — each AmuseMeButton
+ * instance manages its own open/closed state independently.
+ *
+ * lingerVisible: shared module-level ref — survives component remounts so the
+ * 4-second "fun while waiting" linger is not lost when Vue unmounts one
+ * AmuseMeButton and mounts another (e.g., entry-mode → spec-review-mode
+ * transition when the spec arrives mid-generation).
  */
 export function useAmuseMe(): AmuseMeState {
   const isOpen = ref(false)
@@ -313,5 +372,5 @@ export function useAmuseMe(): AmuseMeState {
     activeItemId.value = null
   }
 
-  return { isOpen, activeItemId, toggle, selectItem, close }
+  return { isOpen, activeItemId, lingerVisible: _lingerVisible, toggle, selectItem, close }
 }
