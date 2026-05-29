@@ -5481,14 +5481,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
          always sit in the root stacking context and can never be blocked by any
          ancestor stacking context inside the page. -->
     <Teleport to="body">
-      <!-- Click-outside backdrop for ⋯ Menu and rename popover.
-           Uses @click (not @mousedown) so disabled-button pointer-event pass-through
-           never closes the menu before the item's own click handler fires. -->
+      <!-- Click-outside backdrop for rename popover ONLY.
+           2026-05-29: removed menuOpen from this condition — ActionsHubPanel
+           (z-[600]) now has its own z-[479] backdrop that handles click-outside
+           for the Actions hub. The old z-[375] backdrop was covering the Plan
+           Crest (z-[300]) whenever the Actions hub was open, killing SOS and
+           all other Plan Crest buttons. menuOpen click-outside is fully handled
+           by ActionsHubPanel's backdrop. This backdrop now only serves the
+           rename popover (which has no backdrop of its own). -->
       <div
-        v-if="view === 'app' && (menuOpen || renamePopoverOpen)"
+        v-if="view === 'app' && renamePopoverOpen"
         class="fixed inset-0 z-[375]"
         aria-hidden="true"
-        @click="menuOpen = false; renamePopoverOpen = false"
+        @click="renamePopoverOpen = false"
       />
 
       <!-- ── Control Pins cluster — ⚡ Actions / 🎤 Mic / 🔊 Speaker.
