@@ -21,6 +21,8 @@ import {
 } from '../composables/useSharpen'
 import SharpenDiffList from './SharpenDiffList.vue'
 import CloseDot from './CloseDot.vue'
+import CopyGlyph  from './icons/CopyGlyph.vue'
+import EmailGlyph from './icons/EmailGlyph.vue'
 import type { SpecBlock } from '../types/spec'
 import ScrollContainer from './ScrollContainer.vue'
 import PriorityActionButton from './PriorityActionButton.vue'
@@ -670,7 +672,7 @@ function totalChanges(): number {
         </div>
       </div>
 
-      <!-- Copy + Email row (inline) -->
+      <!-- Copy + Email row (inline) — both always visible when there are results -->
       <div v-if="roundResultCounts.total > 0" class="flex items-center gap-2 flex-wrap">
         <button
           type="button"
@@ -679,22 +681,25 @@ function totalChanges(): number {
           :class="sharpenCopyDone
             ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
             : 'border-amber-200 text-amber-700 hover:border-amber-300 hover:bg-amber-50'"
-          :aria-label="sharpenCopyDone ? 'Copied to clipboard' : 'Copy all changes to clipboard'"
+          :aria-label="sharpenCopyDone ? 'Copied to clipboard' : 'Copy sharpening changes as colored HTML table'"
+          title="Copy sharpening changes as colored HTML table"
           @click="copySharpenAll"
         >
-          <span aria-hidden="true">{{ sharpenCopyDone ? '✓' : '📋' }}</span>
-          {{ sharpenCopyDone ? 'Copied' : 'Copy changes' }}
+          <span v-if="sharpenCopyDone" class="font-bold">✓</span>
+          <CopyGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
+          {{ sharpenCopyDone ? 'Copied' : 'Copy' }}
         </button>
         <button
-          v-if="sharpenCopyDone"
           type="button"
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-300
-                 bg-indigo-50 text-indigo-700 text-xs font-semibold
-                 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
-          aria-label="Email the sharpening changes"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold
+                 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
+          :class="'border-indigo-200 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50'"
+          aria-label="Email sharpening changes — opens Mail.app pre-filled"
+          title="Email sharpening changes — opens Mail.app pre-filled"
           @click="emailSharpenAll"
         >
-          <span aria-hidden="true">📧</span> Email this
+          <EmailGlyph size="compact" class="h-3.5 w-auto" aria-label="" />
+          Email
         </button>
       </div>
 
