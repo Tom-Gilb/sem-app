@@ -155,17 +155,28 @@ export function openEml(
   try {
     const blob = new Blob([eml], { type: 'message/rfc822' })
     const url  = URL.createObjectURL(blob)
+
+    // Open in a new tab WITHOUT the `download` attribute.
+    // On macOS Safari, navigating to a blob URL of type message/rfc822 hands
+    // off to Mail.app via the OS MIME handler — the compose window opens
+    // directly without a Downloads step.  `a.download` would force the file
+    // into ~/Downloads and require the user to manually double-click it, which
+    // is the old behaviour Tom reported as broken (2026-05-29).
     const a    = document.createElement('a')
     a.href     = url
-    a.download = `${safeName}.eml`
+    a.target   = '_blank'
+    a.rel      = 'noopener noreferrer'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-    // Revoke after 15 s — enough time for Mail.app to open the file.
-    setTimeout(() => URL.revokeObjectURL(url), 15_000)
+
+    // Revoke after 60 s — enough time for Mail.app to read the blob URL,
+    // even on a slow machine where Mail.app takes a few seconds to launch.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
   } catch {
-    // Fallback for environments where Blob URLs are unavailable (e.g. some
-    // private-browsing modes). Use a data: URI — less ideal but functional.
+    // Fallback for environments where Blob URLs or window.open are unavailable
+    // (e.g. some private-browsing modes). Force-download the .eml so the
+    // user can open it manually from ~/Downloads.
     const encoded = encodeURIComponent(eml)
     const a       = document.createElement('a')
     a.href        = `data:message/rfc822,${encoded}`

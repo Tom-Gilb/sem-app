@@ -46,7 +46,7 @@ describe('TaskList.vue', () => {
 
     test('shows empty state message when no steps are provided', () => {
       const wrapper = mount(TaskList, { props: { steps: [] } })
-      expect(wrapper.text()).toContain('No Evo steps available')
+      expect(wrapper.text()).toContain('No Evo steps yet')
     })
   })
 

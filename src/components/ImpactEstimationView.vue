@@ -843,7 +843,7 @@ defineExpose({
               <div class="text-base font-bold leading-none">{{ solutions.length }}</div>
             </div>
             <div>
-              <div class="text-[10px] uppercase tracking-wider opacity-75 font-semibold">Cells</div>
+              <div class="text-[10px] uppercase tracking-wider opacity-75 font-semibold">Estimates</div>
               <div class="text-base font-bold leading-none">{{ values.length * solutions.length }}</div>
             </div>
           </div>
@@ -934,33 +934,11 @@ defineExpose({
           📐 EV
         </button>
 
-        <!-- Density toggle (2026-05-12 redesign) — Comfortable | Compact -->
-        <div class="ml-auto inline-flex rounded-lg border border-gray-200 overflow-hidden" role="group" aria-label="Table density">
-          <button
-            type="button"
-            :class="[
-              'h-11 px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-500',
-              density === 'comfortable' ? 'bg-slate-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-            ]"
-            :aria-pressed="density === 'comfortable'"
-            aria-label="Comfortable density (default)"
-            data-testid="density-comfortable"
-            title="Comfortable — generous spacing, presentation-ready"
-            @click="density = 'comfortable'"
-          >▤ Comfy</button>
-          <button
-            type="button"
-            :class="[
-              'h-11 px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-500',
-              density === 'compact' ? 'bg-slate-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-            ]"
-            :aria-pressed="density === 'compact'"
-            aria-label="Compact density (dense matrices)"
-            data-testid="density-compact"
-            title="Compact — fits more columns on screen"
-            @click="density = 'compact'"
-          >▦ Dense</button>
-        </div>
+        <!-- Density toggle removed 2026-05-29 (Tom: "does not change anything
+             significantly, suggest drop it totally. There was a time when vdt
+             was extremely squeezed. ok now"). density ref retained below so
+             table layout classes that reference it compile without changes;
+             it will always be 'comfortable'. -->
       </div>
 
       <!-- Colour legend + Regenerate -->

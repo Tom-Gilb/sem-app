@@ -207,7 +207,7 @@ function setEffortHours(task: TaskSuggestion, value: string): void {
       class="mb-5 rounded-lg"
     />
     <div v-if="!steps || steps.length === 0" class="py-8 text-center text-gray-400 text-sm">
-      No Evo steps available. Confirm a plan first.
+      No Evo steps yet — generate an Evo Plan first.
     </div>
 
     <!-- One collapsible section per step -->

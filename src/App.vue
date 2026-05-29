@@ -5398,6 +5398,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-1
                    transition-all duration-150 shadow-sm"
             aria-label="Open Value Flow Diagram"
+            title="Open Value Flow Diagram"
             @click="valueFlowOpen = true"
           >
             <svg width="44" height="20" viewBox="0 0 44 20" fill="none" aria-hidden="true">
@@ -5415,9 +5416,47 @@ function handleApertureLoadPlan(model: PlanModel): void {
             </svg>
             <span>Value Flow</span>
           </button>
+
+          <!-- Copy tasks to clipboard — universal copy rule (Tom 2026-05-29:
+               "email everywhere we find copy") -->
+          <button
+            v-if="currentSpec && _stepsForDiagram.length > 0"
+            type="button"
+            class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-white border border-slate-200 text-slate-700 text-sm font-medium
+                   hover:bg-slate-50 hover:border-slate-300
+                   focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Copy tasks to clipboard"
+            title="Copy tasks to clipboard as plain text"
+            @click="autoCopyPlan()"
+          >
+            <span aria-hidden="true">📋</span>
+            <span>Copy</span>
+          </button>
+
+          <!-- Email tasks — universal email rule: email wherever copy appears -->
+          <button
+            v-if="currentSpec && _stepsForDiagram.length > 0"
+            type="button"
+            class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-white border border-indigo-200 text-indigo-700 text-sm font-medium
+                   hover:bg-indigo-50 hover:border-indigo-300
+                   focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Email tasks via Mail.app"
+            title="Email this task plan — opens Mail.app with the plan pre-filled in the body"
+            @click="emailPlan()"
+          >
+            <span aria-hidden="true">✉️</span>
+            <span>Email</span>
+          </button>
         </div>
+        <!-- _stepsForDiagram = confirmedSteps if confirmed, else plan.value.steps as fallback.
+             Prevents "No Evo steps available. Confirm a plan first." when a plan is generated
+             but the user hasn't clicked Confirm Plan in EvoPlanView (Tom 2026-05-29). -->
         <TaskList
-          :steps="confirmedSteps"
+          :steps="_stepsForDiagram"
           :spec="currentSpec"
           @update:tasks-by-step="tasksByStep = $event"
         />
@@ -5856,9 +5895,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
     />
 
     <!-- Evo Step 11: Evo Simulator — animated delivery timeline + cumulative value chart -->
+    <!-- _stepsForDiagram = confirmedSteps if confirmed, else plan.value.steps as fallback.
+         Prevents "No Evo steps available" when a plan exists but hasn't been formally confirmed
+         via the Confirm Plan button (Tom 2026-05-29). -->
     <EvoSimulatorView
       v-if="evoSimulatorOpen"
-      :steps="confirmedSteps"
+      :steps="_stepsForDiagram"
       :vc-ratios="capturedVCRatios"
       @close="evoSimulatorOpen = false"
     />
