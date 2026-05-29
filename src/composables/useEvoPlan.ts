@@ -47,6 +47,19 @@ const isConfirmed = ref(false)
 const _planError  = ref('')
 
 /**
+ * Shared loading indicator — module-level singleton so that ALL callers
+ * (App.vue's useEvoPlan instance AND EvoPlanView's) see the same loading
+ * state.  Without this, App.vue's _fetchEvoPlan would set App.vue's own
+ * loading ref (from its useEvoPlannerAPI instance) but EvoPlanView's
+ * template would read ITS OWN loading (from its useEvoPlannerAPI instance),
+ * which stays false → the user sees "No Evo plan yet" instead of a spinner
+ * for the entire duration of the generation.
+ *
+ * useEvoPlan r06 (2026-05-29): promoted from per-instance to singleton.
+ */
+const _loading = ref(false)
+
+/**
  * Pre-loads a saved plan so the very next fetchPlan() call is a no-op.
  * Called by App.vue's onHistoryRestore() before it updates currentSpec,
  * which would otherwise trigger a fresh AI generation in EvoPlanView.
@@ -120,14 +133,18 @@ export function _resetModuleState(): void {
   plan.value        = null
   isConfirmed.value = false
   _planError.value  = ''
+  _loading.value    = false
   _skipNextFetch    = false
   _inFlight         = false
   _lastFetchedSpec  = null
 }
 
 export function useEvoPlan() {
-  // Delegate loading state to the API composable
-  const { loading, error: apiError, planSteps } = useEvoPlannerAPI()
+  // loading is the module-level _loading singleton — NOT the per-instance ref
+  // from useEvoPlannerAPI.  This ensures all callers (App.vue's instance AND
+  // EvoPlanView's) see the same loading state, fixing the "no spinner during
+  // App.vue-triggered generation" bug (useEvoPlan r06 / 2026-05-29).
+  const { error: apiError, planSteps } = useEvoPlannerAPI()
   const { currentWorkspace } = useWorkspace()
   const { updateLatestPlan } = useSpecHistory()
 
@@ -181,6 +198,7 @@ export function useEvoPlan() {
     }
 
     _inFlight = true
+    _loading.value = true
     try {
       error.value = ''
       isConfirmed.value = false
@@ -194,14 +212,31 @@ export function useEvoPlan() {
         return
       }
 
+      if (!result) {
+        // Defensive guard: planSteps returned null without setting apiError.
+        // This should never happen (every null-return path in planSteps sets
+        // its own error before returning null), but if it does the user would
+        // silently see "No Evo plan yet" with no explanation.  Surface it as
+        // an explicit error so the Retry button appears (useEvoPlan r06).
+        error.value = 'Evo plan generation returned no result — please retry.'
+        return
+      }
+
       plan.value = result
       _lastFetchedSpec = specBlock
       // Retroactively update the most recent history entry with the generated plan.
       // addVersion() is always called before fetchPlan() completes (timing gap),
       // so the entry's plan field starts as null — this fills it in correctly.
       updateLatestPlan(result)
+    } catch (err) {
+      // Catches any unexpected exception that propagates through planSteps or
+      // the code above.  Without this catch, an unhandled throw would leave
+      // plan.value = null and error.value = '' — the user would silently see
+      // "No Evo plan yet" with no way to know what went wrong (useEvoPlan r06).
+      error.value = err instanceof Error ? err.message : String(err)
     } finally {
       _inFlight = false
+      _loading.value = false
     }
   }
 
@@ -332,7 +367,10 @@ export function useEvoPlan() {
   return {
     plan: readonly(plan),
     isConfirmed: readonly(isConfirmed),
-    loading,
+    // Module-level singleton — shared across all useEvoPlan() callers so
+    // EvoPlanView always sees the true loading state regardless of which
+    // caller (App.vue vs EvoPlanView) triggered the fetch (useEvoPlan r06).
+    loading: readonly(_loading),
     error: readonly(error),
     fetchPlan,
     reorderSteps,

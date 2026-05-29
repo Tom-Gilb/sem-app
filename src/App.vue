@@ -1974,14 +1974,22 @@ function goToStage2(): void {
  * Root cause of "Generate Evo Steps pin is dead" (2026-05-29): the previous
  * handler was `() => goToStage2()` which is a no-op when already on
  * EvoPlanView (stage.value === 2 unchanged), so nothing visually happened.
- * Fix: navigate first, then fire fetchPlan(force=true) via nextTick so
+ * Fix r05: navigate first, then fire fetchPlan(force=true) via nextTick so
  * EvoPlanView is guaranteed mounted when the generation starts.
+ *
+ * Fix r06 (2026-05-29 — double-fetch / silent-no-plan bug):
+ *   Calling _resetPlanForLoad() BEFORE goToStage2() sets _skipNextFetch=true
+ *   so that EvoPlanView's onMounted auto-fetch is suppressed.  Without this,
+ *   mounting EvoPlanView starts one fetch (no force) and the line below starts
+ *   a second (force=true), racing each other and corrupting _inFlight state.
+ *   Only the single forced fetch below should run per user click.
  */
 async function _triggerEvoGeneration(): Promise<void> {
   if (!currentSpec.value) {
     showToast('💡 Add a spec at Stakes first — then Generate Evo Steps unlocks', 3800)
     return
   }
+  _resetPlanForLoad()                                 // suppress onMounted auto-fetch
   goToStage2()                                        // ensure EvoPlanView is mounted
   await nextTick()                                    // let Vue flush before fetch starts
   void _fetchEvoPlan(currentSpec.value, true)         // force=true bypasses identity guard
