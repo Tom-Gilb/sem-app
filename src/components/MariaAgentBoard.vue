@@ -234,69 +234,66 @@ const MONTESSORI_PHOTOS: MonPhoto[] = [
     caption: 'A Montessori classroom in Kodaikanal, India, c. 1944 — during Maria Montessori\'s wartime internment. She developed the Cosmic Education curriculum for older children during this period.',
     label: 'Historical · India 1944',
   },
-  // ── Modern Global Classrooms ────────────────────────────────────────────────
+  // ── Berkshire Montessori School — live photography (berkshiremontessori.org) ─
   {
-    url: '',
-    caption: 'A modern Montessori Children\'s House (ages 3–6). The classroom is divided into five curriculum areas: Practical Life, Sensorial, Language, Mathematics, and Cultural Studies.',
-    label: 'Modern · Children\'s House',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/10-29Overview_CH-09af6a2a-1920w.jpg',
+    caption: 'Children\'s House at Berkshire Montessori (ages 3–6). Five curriculum areas — Practical Life, Sensorial, Language, Mathematics, and Cultural Studies — are woven together across a full three-year cycle with the same guide.',
+    label: 'Berkshire · Children\'s House',
   },
   {
-    url: '',
-    caption: 'A contemporary Montessori primary classroom. Children across a three-year age span work side by side — older children mentor younger ones, reinforcing their own learning through teaching.',
-    label: 'Modern · Primary Classroom',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/10-29Overview_Toddler-1920w.jpg',
+    caption: 'Toddler programme outdoors at Berkshire Montessori (18 months–3 years). Children develop independence, language, and gross-motor coordination through purposeful outdoor activity — exploring terrain, weather, and natural materials.',
+    label: 'Berkshire · Toddler Outdoors',
   },
   {
-    url: '',
-    caption: 'A Montessori Nido (nest) programme for children from 6 weeks to 18 months. Every element of the environment is scaled precisely to infant proportions to support independent movement from the earliest weeks.',
-    label: 'Modern · Nido Programme',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/10-29Overview_Elem-1920w.jpg',
+    caption: 'Elementary class with a guide at Berkshire Montessori (ages 6–9). The Cosmic Education curriculum connects everything — from the Big Bang to grammar — through the Great Stories, giving children a sense of their place in a unified universe.',
+    label: 'Berkshire · Elementary',
   },
   {
-    url: '',
-    caption: 'A Montessori adolescent programme (ages 12–18) combining rigorous academics with real-world enterprise — running a farm, restaurant, or shop addresses the adolescent\'s urgent need for social relevance.',
-    label: 'Modern · Adolescent Programme',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/10-29Overview_AE-1920w.jpg',
+    caption: 'Adolescent Erdkinder programme outdoors at Berkshire Montessori. The Erdkinder (\'children of the earth\') model places adolescents in a campus environment where farm enterprise, cooking, and building address the adolescent\'s need for real-world dignity.',
+    label: 'Berkshire · Adolescent Erdkinder',
   },
   {
-    url: '',
-    caption: 'A child composing words with the Moveable Alphabet. Writing consistently precedes formal reading in Montessori — children encode language in physical form before they decode it on a page.',
-    label: 'Modern · Moveable Alphabet',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/Map-d49ddc0e-1920w.jpg',
+    caption: 'A child works with a large puzzle map at Berkshire Montessori. Geography in the Montessori classroom is always tactile — children build land-and-water forms in clay and handle physical continent puzzles long before reading a flat map.',
+    label: 'Berkshire · Puzzle Map',
   },
   {
-    url: '',
-    caption: 'Practical Life activities: pouring, polishing, folding, care of plants. Each task is a concentration exercise — the same neural pathways built by careful pouring are later used for algebra and essay writing.',
-    label: 'Modern · Practical Life',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/IMG_7144-9e89274c-1920w.jpeg',
+    caption: 'Watercolour painting at Berkshire Montessori. Art is woven through the curriculum as expression of Sensorial work and cultural study — not a separate subject but a natural extension of the child\'s observed and imagined world.',
+    label: 'Berkshire · Watercolour',
   },
   {
-    url: '',
-    caption: 'Children working with Golden Bead material. The physical weight of a thousand-bead cube gives children a visceral understanding of magnitude — one they carry into abstract mathematics for life.',
-    label: 'Modern · Golden Beads',
-  },
-  // ── Berkshire Montessori Schools ────────────────────────────────────────────
-  // Add school photography URLs below when available.
-  // Berkshire Hills Montessori School: https://www.berkshirehillsmontessori.org
-  {
-    url: '',
-    caption: 'Berkshire Hills Montessori School, Great Barrington, Massachusetts — founded 1980. Serves infants through adolescents with a full AMI-aligned curriculum across four programmes in the Housatonic Valley.',
-    label: 'Berkshire Hills · Great Barrington MA',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/image-f55df9e7-1920w.jpg',
+    caption: 'Woodworking with safety goggles at Berkshire Montessori. Hand-tool carpentry refines fine-motor precision and builds the concentration, sequential thinking, and self-correction that are central to the Montessori method at every level.',
+    label: 'Berkshire · Woodworking',
   },
   {
-    url: '',
-    caption: 'Berkshire Hills Montessori School outdoor campus. The school\'s Housatonic Valley setting integrates surrounding woodland directly into practical life, science, and adolescent farm enterprise curriculum.',
-    label: 'Berkshire Hills · Outdoor Campus',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/Programs-CH-6-eb38d9cd-1920w.png',
+    caption: 'Children in rain gear exploring rocks outdoors at Berkshire Montessori. Outdoor learning is fundamental — nature observation, weather resilience, and physical engagement with real terrain are core Practical Life experiences in all seasons.',
+    label: 'Berkshire · Outdoor Exploration',
   },
   {
-    url: '',
-    caption: 'A Montessori school in the English county of Berkshire — the county has one of England\'s highest concentrations of AMI-affiliated settings, a tradition stretching back to Montessori\'s own visits to Britain in the 1910s.',
-    label: 'Berkshire England · AMI School',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/Kabir-bees-1920w.jpg',
+    caption: 'A student working with the school beehives at Berkshire Montessori. Beekeeping is part of the Adolescent farm enterprise — harvesting, processing, and selling honey integrates science, ecology, and economics into a single real-world cycle.',
+    label: 'Berkshire · Beekeeping',
   },
   {
-    url: '',
-    caption: 'Montessori St. Nicholas Charity — the national body for Montessori education in England. It supports over 700 registered settings and training centres, including several in Berkshire and the Thames Valley.',
-    label: 'Montessori St. Nicholas · UK',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/Programs-AE-03-18492091-5d38ef45-1920w.png',
+    caption: 'Garden work at Berkshire Montessori. Weeding, planting, and harvesting connect adolescents to ecological cycles while building patience, physical stamina, and a direct understanding of food systems from soil to table.',
+    label: 'Berkshire · Garden & Farm',
   },
   {
-    url: '',
-    caption: 'Montessori is today the world\'s largest alternative education movement: over 20,000 schools in more than 110 countries, serving children from 6 weeks to 18 years across every culture and income level.',
-    label: 'Montessori · Global 2025',
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/Maddie-flying-1920w.jpg',
+    caption: 'A student on the high ropes course at Berkshire Montessori. The Erdkinder physical challenge programme builds trust, courage, and collaborative problem-solving — core capacities for adult civic and professional life.',
+    label: 'Berkshire · Ropes Course',
+  },
+  {
+    url: 'https://lirp.cdn-website.com/53d04bb3/dms3rep/multi/opt/Programs-Elem-01-a067adef-1920w.png',
+    caption: 'A child works with bead chains at Berkshire Montessori. Counting physically to 1,000 or 10,000 builds the muscle memory and sensory magnitude-sense that underpin mental arithmetic, place value, and later algebraic thinking.',
+    label: 'Berkshire · Bead Chains',
   },
 ]
 
