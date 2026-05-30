@@ -570,7 +570,7 @@ function sendEmailReport(): void {
                   :key="activeFactIdx"
                   :src="MONTESSORI_PHOTOS[activeFactIdx].url"
                   :alt="MONTESSORI_PHOTOS[activeFactIdx].caption"
-                  class="w-full h-full object-cover transition-opacity duration-500"
+                  class="w-full h-full object-cover object-top transition-opacity duration-500"
                   loading="lazy"
                   @error="handlePhotoError(activeFactIdx)"
                 />
