@@ -198,15 +198,26 @@ not decided and no timeline was set.
 Meeting closed at 8:51 PM. Next meeting: 25 June 2026 at 7:00 PM.`
 
 /**
- * Load the built-in sample board minutes and switch to input phase.
- * Cancels any in-flight analysis, clears any previous result, and fills
- * the textarea — so this works from loading, result, OR input phase.
+ * Load the built-in sample board minutes and immediately start the analysis.
+ * One-click test experience: cancels any in-flight call, clears prior result,
+ * fills the textarea, then auto-runs runAnalysis() after a 100 ms tick.
+ *
+ * The 100 ms delay lets any previous analyse() abort propagate through the
+ * catch block (which sets error.value to the AbortError message). We then
+ * clear error.value before calling runAnalysis() so there is no confusing
+ * error banner when the new call starts.
  */
 function useSampleDocument(): void {
   cancelCurrentMaria()                 // stop any in-flight call
   lastMariaResult.value = null         // clear store so onMounted restore won't fire on next open
   reset()                              // result=null, error='' → input phase shows
   documentText.value = SAMPLE_DOCUMENT // fill textarea
+  // Auto-start after 100 ms so the previous AbortError has time to propagate
+  // through useMaria's catch block before we call runAnalysis().
+  setTimeout(() => {
+    error.value = ''   // suppress AbortError from the cancelled previous call
+    runAnalysis()      // one-click test: load + analyse in a single button press
+  }, 100)
 }
 
 // ─── Loading entertainment — Montessori photo carousel ───────────────────────
@@ -592,7 +603,7 @@ function sendEmailReport(): void {
           <button
             type="button"
             class="shrink-0 text-[11px] font-semibold text-emerald-200 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-all"
-            title="Load sample board minutes — single-click to stop any current analysis, clear results, and fill the textarea with a short 350-word Berkshire Hills board minutes for a fast test parse"
+            title="Sample doc — single-click to load the Berkshire Hills board minutes and immediately start analysis. Cancels any current run first. No second click needed."
             @click="useSampleDocument"
           >
             ↓ Sample doc
@@ -854,7 +865,7 @@ function sendEmailReport(): void {
               <div class="flex items-center justify-between mt-1.5">
                 <button
                   type="button"
-                  title="Use sample document — single-click to load a short Berkshire Hills Montessori board minutes example so you can test Maria without pasting a real document"
+                  title="Use sample document — single-click to load the Berkshire Hills board minutes and immediately start analysis. No second click needed."
                   class="text-[10px] font-semibold text-teal-600 hover:text-teal-800 hover:underline transition-colors focus:outline-none"
                   @click="useSampleDocument"
                 >↓ Use sample document to test</button>
