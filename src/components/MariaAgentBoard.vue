@@ -133,6 +133,22 @@ const severityColor: Record<string, string> = {
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
+/**
+ * Auto-start handler — fires when the user pastes into the document textarea.
+ * Waits 150 ms for the paste to populate documentText, then starts analysis
+ * automatically. No button click needed.
+ *
+ * Guard: skips if already loading (prevents duplicate calls when the user
+ * pastes while a previous analysis is still running).
+ */
+function onDocumentPaste(): void {
+  setTimeout(() => {
+    if (hasDocument.value && !loading.value) {
+      runAnalysis()
+    }
+  }, 150)
+}
+
 function runAnalysis(): void {
   try {
     if (!hasDocument.value) {
@@ -953,7 +969,8 @@ function sendEmailReport(): void {
                 class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 leading-relaxed placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
                 placeholder="Paste board minutes, resolution, strategy paper, or committee report here…"
                 :disabled="loading"
-                title="Paste board document here — press ⌘ Return to analyse"
+                title="Paste board document here — paste to auto-start analysis, or press ⌘ Return to analyse manually"
+                @paste="onDocumentPaste"
                 @keydown.meta.enter.prevent="runAnalysis"
                 @keydown.ctrl.enter.prevent="runAnalysis"
               />
@@ -978,7 +995,7 @@ function sendEmailReport(): void {
               :class="hasDocument && !loading
                 ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md hover:shadow-lg'
                 : 'bg-slate-100 text-slate-400 cursor-not-allowed'"
-              title="Analyse board document — Maria will extract all decisions, classify them by governance layer, identify authority gaps, flag governance gaps, and analyse patterns. Takes 10–30 seconds."
+              title="Analyse board document — Maria will extract all decisions, classify them by governance layer, identify authority gaps, flag governance gaps, and analyse patterns. Analysis also auto-starts when you paste a document."
               @pointerup.stop="runAnalysis"
             >
               <span v-if="loading" class="flex items-center justify-center gap-2">
@@ -989,7 +1006,7 @@ function sendEmailReport(): void {
                 Maria is analysing the document…
               </span>
               <span v-else>
-                {{ hasDocument ? '🏛 Analyse Board Document — or press ⌘ Return' : 'Paste a board document above to begin' }}
+                {{ hasDocument ? '🏛 Analyse Board Document — paste to auto-start, or press ⌘ Return' : 'Paste a board document above to begin' }}
               </span>
             </button>
 
