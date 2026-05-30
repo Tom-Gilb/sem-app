@@ -259,6 +259,9 @@ export function useMaria(): MariaState {
       // Force Vue to re-render with the new result
       await nextTick()
 
+      // Set loading to false NOW, before the alert, so the result phase displays
+      loading.value = false
+
       // DEBUG: Show an alert so Tom knows the result was parsed successfully
       alert(`✓ Analysis succeeded!\n\n${resultStats.hasDecisionInventory} decisions\n${resultStats.hasAuthorityReport} authority gaps\n${resultStats.hasGovernanceGaps} governance gaps\n${resultStats.hasPatternAnalysis} patterns`)
 
