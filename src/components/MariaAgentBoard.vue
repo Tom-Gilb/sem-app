@@ -27,6 +27,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
+import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria, cancelCurrentMaria, mariaStreamedText, debugLogs } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
@@ -763,14 +764,16 @@ function sendEmailReport(): void {
                 <span class="text-xs font-bold text-slate-600 flex-1">🔧 Analysis Logs ({{ debugLogs.length }} events)</span>
                 <span class="text-slate-400 text-xs">{{ debugOpen ? '▲' : '▼' }}</span>
               </button>
-              <div v-if="debugOpen" class="max-h-48 overflow-y-auto bg-slate-900 text-slate-100 font-mono text-[10px] p-3 space-y-1">
-                <div v-if="debugLogs.length === 0" class="text-slate-500">
-                  (waiting for logs…)
+              <ScrollContainer v-if="debugOpen" class="relative max-h-56 bg-slate-900" fade-from="#1e293b" :outerClass="`relative max-h-56 bg-slate-900`">
+                <div class="text-slate-100 font-mono text-[10px] p-3 space-y-1">
+                  <div v-if="debugLogs.length === 0" class="text-slate-500">
+                    (waiting for logs…)
+                  </div>
+                  <div v-for="(log, idx) in debugLogs" :key="idx" class="text-slate-300">
+                    {{ log }}
+                  </div>
                 </div>
-                <div v-for="(log, idx) in debugLogs" :key="idx" class="text-slate-300">
-                  {{ log }}
-                </div>
-              </div>
+              </ScrollContainer>
             </div>
 
             <!-- Photo carousel — Montessori Through the Decades -->
