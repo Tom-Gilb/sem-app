@@ -29,7 +29,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
-import { useMaria } from '../composables/useMaria'
+import { useMaria, cancelCurrentMaria } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
@@ -128,6 +128,20 @@ function startOver(): void {
   reportSent.value = false
   if (_sentTimer) { clearTimeout(_sentTimer); _sentTimer = null }
   reset()
+}
+
+/**
+ * Cancel an in-flight analysis and return to the input phase.
+ * The abort causes a rejection in useMaria → catch → loading=false.
+ * error.value is set to "Cancelled" so the input phase shows without a red error.
+ */
+function cancelAnalysis(): void {
+  cancelCurrentMaria()
+  // useMaria's finally block sets loading=false; the catch sets error.value.
+  // Override to a friendly message after a tick so the loading phase disappears.
+  setTimeout(() => {
+    error.value = ''   // suppress the AbortError — user chose to cancel, not an error
+  }, 50)
 }
 
 function onRatingInput(e: Event): void {
@@ -369,26 +383,31 @@ const failedPhotos      = ref(new Set<number>())
 
 let _elapsedTimer: ReturnType<typeof setInterval> | null = null
 let _factTimer:   ReturnType<typeof setInterval> | null = null
+/** Wall-clock start time for elapsed computation — immune to setInterval throttling. */
+let _animStart: number = 0
 
 function _startLoadingAnimation(): void {
+  _animStart              = Date.now()
   elapsed.value           = 0
   simulatedProgress.value = 0
   failedPhotos.value      = new Set()
   activeFactIdx.value     = Math.floor(Math.random() * MONTESSORI_PHOTOS.length)
 
-  // Tick every second: update elapsed + two-phase progress.
-  // Phase 1 (0–80 s): logarithmic curve (time-constant 35 s) → reaches ~90% at 80 s.
-  // Phase 2 (80 s+): slow linear climb 0.08 %/s toward 99 % cap.
-  // This keeps the bar visibly moving even during long analyses — no more "frozen at 92%" appearance.
+  // Poll every 250 ms using Date.now() delta — immune to Electron/browser setInterval
+  // throttling when the window loses focus. If the OS suspends the tab for 30 s and
+  // then resumes it, the counter catches up immediately to the true elapsed time
+  // instead of appearing frozen.
+  // Phase 1 (0–80 s): logarithmic (time-constant 35 s) → ~90% at 80 s, visibly moves.
+  // Phase 2 (80 s+): linear +0.08%/s toward 99% cap — never appears frozen.
   _elapsedTimer = setInterval(() => {
-    elapsed.value++
-    const e = elapsed.value
+    const e = Math.round((Date.now() - _animStart) / 1000)
+    elapsed.value = e
     if (e <= 80) {
       simulatedProgress.value = Math.round(98 * (1 - Math.exp(-e / 35)))
     } else {
       simulatedProgress.value = Math.min(99, Math.round(90 + (e - 80) * 0.08))
     }
-  }, 1000)
+  }, 250)
 
   // Rotate photos every 10 s (Tom 2026-05-30)
   _factTimer = setInterval(() => {
@@ -606,10 +625,26 @@ function sendEmailReport(): void {
                 aria-valuemax="100"
               />
             </div>
-            <!-- Long-running hint — shown after 75 s so user knows it hasn't crashed -->
-            <p v-if="elapsed > 75" class="text-[11px] text-amber-600 font-medium text-center mb-1">
-              ⏳ Large document — still working, please wait…
-            </p>
+            <!-- Long-running warnings — three tiers so the user always knows what to do -->
+            <!-- Tier 1: 75–120 s — reassurance -->
+            <div v-if="elapsed > 75 && elapsed <= 120" class="flex items-center justify-center gap-1.5 mb-1">
+              <p class="text-[11px] text-amber-600 font-medium">
+                ⏳ Large document — still working, please wait…
+              </p>
+            </div>
+            <!-- Tier 2: 120 s+ — prominent cancel option -->
+            <div v-if="elapsed > 120" class="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+              <p class="text-[11px] text-amber-800 font-medium leading-snug">
+                ⚠️ Taking longer than expected ({{ elapsed }}s). The document may be very large.
+                Try the <strong>sample document</strong> for a fast first test.
+              </p>
+              <button
+                type="button"
+                title="Cancel analysis — single-click to stop the current analysis and return to the input screen so you can paste a shorter document or use the sample"
+                class="shrink-0 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-300 rounded-lg px-2.5 py-1 transition-colors focus:outline-none focus:ring-1 focus:ring-red-400"
+                @click="cancelAnalysis"
+              >✕ Cancel</button>
+            </div>
 
             <!-- Phase label — deliberately visible: sm text, icon, bold -->
             <div class="flex items-center gap-2 mb-5 px-1">
@@ -724,6 +759,19 @@ function sendEmailReport(): void {
               </p>
             </div>
 
+            <!-- Error message — shown ABOVE the textarea so it is always visible after failure -->
+            <div
+              v-if="error"
+              class="rounded-xl bg-red-50 border border-red-300 px-4 py-3 mb-4 text-sm text-red-800 leading-relaxed"
+              role="alert"
+            >
+              <p class="font-bold text-red-900 mb-1">⚠️ Analysis failed</p>
+              <p>{{ error }}</p>
+              <p class="mt-2 text-[11px] text-red-600">
+                Tip: Try the <strong>"↓ Use sample document"</strong> link below to test Maria with a short 350-word example document that completes in ~20 seconds.
+              </p>
+            </div>
+
             <!-- Document input -->
             <div class="mb-4">
               <label class="block text-sm font-semibold text-slate-700 mb-2" for="maria-document-input">
@@ -756,15 +804,6 @@ function sendEmailReport(): void {
                   {{ documentText.trim().split(/\s+/).filter(Boolean).length }} words
                 </p>
               </div>
-            </div>
-
-            <!-- Error message -->
-            <div
-              v-if="error"
-              class="rounded-xl bg-red-50 border border-red-200 px-4 py-3 mb-4 text-sm text-red-800 leading-relaxed"
-              role="alert"
-            >
-              <span class="font-semibold">Error:</span> {{ error }}
             </div>
 
             <!-- Analyse button -->
