@@ -136,6 +136,54 @@ function onRatingInput(e: Event): void {
   ratingInteracted.value = true
 }
 
+// ─── Sample document — short realistic board minutes for first-run testing ────
+
+const SAMPLE_DOCUMENT = `Berkshire Hills Montessori School — Board of Trustees
+Regular Meeting Minutes — 28 May 2026
+
+Present: Sarah Chen (Chair), Michael Torres (Secretary), Patricia Williams (Treasurer),
+         James Okafor (Education Committee), Linda Bergström (Community Relations)
+Apologies: None. Meeting called to order at 7:04 PM.
+
+1. MINUTES
+The minutes of the April meeting were reviewed and approved without amendment.
+
+2. FINANCIAL REPORT
+The Treasurer presented the Q2 report. Operating expenses are running 3.2% under budget.
+The board voted unanimously to approve a $15,000 transfer from the reserve fund to cover
+unexpected HVAC repairs to the Elementary building.
+
+3. ENROLLMENT
+The Head of School reported 124 students, up from 112 a year ago. The Children's House
+waitlist now stands at 37 families. No formal decision was taken on waitlist management policy.
+
+4. CURRICULUM REVIEW
+The board discussed the outdoor mathematics pilot in the Adolescent programme. Teacher
+reports indicate strong engagement. The board expressed support for continuing the pilot
+through June. No formal board resolution was recorded.
+
+5. GOVERNANCE AND COMPLIANCE
+The three-year policy review cycle has not been completed for the safeguarding and
+complaints policies, last reviewed in 2023. The Chair undertook to confirm whether the
+Head of School or the board holds authority to approve policy amendments below board
+resolution level. No decision was recorded.
+
+6. FUNDRAISING
+Patricia Williams reported the annual gala raised $47,800 against a $45,000 target.
+The board agreed in principle to retain the same event format next year but made no
+resolution on budget, date, or responsible committee.
+
+7. STRATEGIC PLANNING
+The Chair raised the need to update the school's five-year strategic plan, last approved
+in 2022. The board agreed to form a working group. Membership of the working group was
+not decided and no timeline was set.
+
+Meeting closed at 8:51 PM. Next meeting: 25 June 2026 at 7:00 PM.`
+
+function useSampleDocument(): void {
+  documentText.value = SAMPLE_DOCUMENT
+}
+
 // ─── Loading entertainment — Montessori photo carousel ───────────────────────
 
 interface MonPhoto {
@@ -578,7 +626,7 @@ function sendEmailReport(): void {
               </div>
 
               <!-- Photo or styled fallback — contain (no cropping) with emerald-50 bg for letterboxing -->
-              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-50 flex items-center justify-center" style="height:360px;">
+              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-50 flex items-center justify-center" style="height:520px;">
                 <!-- Real photo (hidden if URL empty or failed to load) -->
                 <img
                   v-if="MONTESSORI_PHOTOS[activeFactIdx].url && !failedPhotos.has(activeFactIdx)"
@@ -687,9 +735,17 @@ function sendEmailReport(): void {
                 @keydown.meta.enter.prevent="runAnalysis"
                 @keydown.ctrl.enter.prevent="runAnalysis"
               />
-              <p class="text-xs text-slate-400 mt-1.5 text-right">
-                {{ documentText.trim().split(/\s+/).filter(Boolean).length }} words
-              </p>
+              <div class="flex items-center justify-between mt-1.5">
+                <button
+                  type="button"
+                  title="Use sample document — single-click to load a short Berkshire Hills Montessori board minutes example so you can test Maria without pasting a real document"
+                  class="text-[10px] font-semibold text-teal-600 hover:text-teal-800 hover:underline transition-colors focus:outline-none"
+                  @click="useSampleDocument"
+                >↓ Use sample document to test</button>
+                <p class="text-xs text-slate-400 tabular-nums">
+                  {{ documentText.trim().split(/\s+/).filter(Boolean).length }} words
+                </p>
+              </div>
             </div>
 
             <!-- Error message -->

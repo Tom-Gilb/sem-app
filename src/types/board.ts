@@ -63,6 +63,13 @@ export interface BoardMember {
    */
   availability?: string
 
+  /**
+   * URL to a headshot or profile photo for this member.
+   * Shown in member cards and the Task Map overview.
+   * Any public URL works — Google Drive share links, Dropbox, LinkedIn photo URLs, etc.
+   */
+  photoUrl?: string
+
   /** Any other context useful for assignment decisions. */
   notes?: string
 }

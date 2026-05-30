@@ -37,12 +37,13 @@ const emit = defineEmits<{
 
 // ─── Tab navigation ────────────────────────────────────────────────────────────
 
-type HubTab = 'overview' | 'members' | 'activity'
+type HubTab = 'overview' | 'members' | 'activity' | 'taskmap'
 
 const TABS: Array<{ id: HubTab; label: string; title: string }> = [
   { id: 'overview',  label: 'Overview',  title: 'Overview — stats, recent open items, and quick actions' },
   { id: 'members',   label: 'Members',   title: 'Board Members — view and edit member profiles, contact details, and task preferences' },
   { id: 'activity',  label: 'Activity',  title: 'Activity Log — board action items imported from Maria analyses or added manually, with status and assignment tracking' },
+  { id: 'taskmap',   label: 'Task Map',  title: 'Task Map — one-page view of outstanding tasks grouped by board member' },
 ]
 
 const activeTab = ref<HubTab>('overview')
@@ -80,6 +81,21 @@ const lastAnalysisDisplay = computed<string>(() => {
     : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
       ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 })
+
+// ─── Task Map tab computed ─────────────────────────────────────────────────────
+
+/** Per-member list of outstanding (non-done) activity entries, for the Task Map tab. */
+const memberTaskMap = computed(() =>
+  members.value.map(m => ({
+    member: m,
+    tasks: entries.value.filter(e => e.status !== 'done' && e.assignedMemberIds.includes(m.id)),
+  }))
+)
+
+/** Outstanding entries not assigned to any member. */
+const unassignedTasks = computed(() =>
+  entries.value.filter(e => e.status !== 'done' && e.assignedMemberIds.length === 0)
+)
 
 // ─── Members tab state ─────────────────────────────────────────────────────────
 
@@ -469,10 +485,13 @@ function copyBoardReport(): void {
                 <div v-if="editingMemberId !== member.id" class="bg-slate-50 p-3">
                   <div class="flex items-center gap-2 mb-2">
                     <div
-                      class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-black text-white"
-                      :class="memberAvatarColor(member.id)"
+                      class="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-xs font-black text-white overflow-hidden"
+                      :class="member.photoUrl ? '' : memberAvatarColor(member.id)"
                       aria-hidden="true"
-                    >{{ memberInitials(member.name) }}</div>
+                    >
+                      <img v-if="member.photoUrl" :src="member.photoUrl" :alt="member.name" class="w-full h-full object-cover object-top" />
+                      <span v-else>{{ memberInitials(member.name) }}</span>
+                    </div>
                     <div class="min-w-0 flex-1">
                       <p class="text-xs font-bold text-slate-800 truncate">{{ member.name || '(no name)' }}</p>
                       <p class="text-[10px] text-slate-500">{{ member.role || '(no role)' }}</p>
@@ -591,6 +610,14 @@ function copyBoardReport(): void {
                         @blur="updateMember(member.id, { notes: ($event.target as HTMLInputElement).value })" />
                     </div>
                   </div>
+                  <!-- Photo URL -->
+                  <div>
+                    <label class="text-[9px] font-bold uppercase tracking-wide text-slate-400 block mb-0.5">Photo URL (optional)</label>
+                    <input type="url" :value="member.photoUrl ?? ''" placeholder="https://… headshot image URL"
+                      class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white"
+                      title="Photo URL — paste any public image URL (headshot, LinkedIn photo, Dropbox link). Shown in member cards and Task Map."
+                      @blur="updateMember(member.id, { photoUrl: ($event.target as HTMLInputElement).value || undefined })" />
+                  </div>
                   <!-- Edit mode action row -->
                   <div class="flex items-center justify-between pt-1">
                     <button
@@ -613,7 +640,7 @@ function copyBoardReport(): void {
           </div>
 
           <!-- ════════════════════════════════════════ ACTIVITY TAB ══ -->
-          <div v-else>
+          <div v-else-if="activeTab === 'activity'">
 
             <!-- Filter + action bar -->
             <div class="flex items-center gap-3 mb-4 flex-wrap">
@@ -807,6 +834,126 @@ function copyBoardReport(): void {
 
                 </div>
               </div>
+            </div>
+
+          </div>
+
+          <!-- ══════════════════════════════════════════ TASK MAP TAB ══ -->
+          <div v-else-if="activeTab === 'taskmap'">
+
+            <div class="flex items-center justify-between mb-4">
+              <p class="text-xs text-slate-500 leading-relaxed">
+                Outstanding tasks (open + in progress) grouped by assigned board member.
+                Click any task to go to the Activity tab to edit it.
+              </p>
+              <button
+                type="button"
+                title="Go to Activity tab — single-click to open the full Activity log to import, add, or update tasks"
+                class="shrink-0 ml-3 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg px-3 py-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-400"
+                @click="activeTab = 'activity'"
+              >+ Manage in Activity →</button>
+            </div>
+
+            <!-- Per-member task cards — 2-column grid -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+              <div
+                v-for="{ member, tasks } in memberTaskMap"
+                :key="member.id"
+                class="rounded-xl border border-slate-200 overflow-hidden"
+              >
+                <!-- Member header -->
+                <div class="flex items-center gap-3 px-3 py-3 bg-slate-50 border-b border-slate-200">
+                  <!-- Photo or initials -->
+                  <div
+                    class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-sm font-black text-white overflow-hidden"
+                    :class="member.photoUrl ? '' : memberAvatarColor(member.id)"
+                  >
+                    <img v-if="member.photoUrl" :src="member.photoUrl" :alt="member.name" class="w-full h-full object-cover object-top" />
+                    <span v-else>{{ memberInitials(member.name) }}</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-slate-800 truncate">{{ member.name || '(no name)' }}</p>
+                    <p class="text-[10px] text-teal-600">{{ member.role || '(no role)' }}</p>
+                  </div>
+                  <!-- Task count badge -->
+                  <span
+                    class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    :class="tasks.length === 0
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-amber-100 text-amber-800'"
+                  >{{ tasks.length === 0 ? '✓ Clear' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''}` }}</span>
+                </div>
+
+                <!-- Task list -->
+                <div class="divide-y divide-slate-100 bg-white">
+                  <div
+                    v-if="tasks.length === 0"
+                    class="px-3 py-3 text-[10px] text-emerald-600 font-medium"
+                  >All items done or unassigned — no outstanding tasks.</div>
+                  <div
+                    v-for="task in tasks"
+                    :key="task.id"
+                    class="flex items-start gap-2 px-3 py-2 hover:bg-slate-50 transition-colors cursor-pointer"
+                    :title="`${TYPE_META[task.type].label} · ${STATUS_META[task.status].label} — single-click to open in Activity tab`"
+                    @click="activeTab = 'activity'; expandedEntryId = task.id"
+                  >
+                    <span class="text-sm shrink-0 mt-0.5" aria-hidden="true">{{ TYPE_META[task.type].emoji }}</span>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-[10px] font-semibold text-slate-800 leading-snug">{{ task.title || 'Untitled' }}</p>
+                      <div class="flex items-center gap-1.5 mt-0.5">
+                        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" :class="STATUS_META[task.status].badge">
+                          {{ STATUS_META[task.status].label }}
+                        </span>
+                        <span v-if="task.dueDate" class="text-[9px] text-slate-400">{{ task.dueDate }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Unassigned tasks section -->
+            <div v-if="unassignedTasks.length > 0" class="rounded-xl border border-amber-200 overflow-hidden">
+              <div class="flex items-center gap-2 px-4 py-3 bg-amber-50 border-b border-amber-200">
+                <span class="text-base" aria-hidden="true">⚠️</span>
+                <span class="text-xs font-bold text-amber-800">Unassigned Outstanding Tasks ({{ unassignedTasks.length }})</span>
+                <button
+                  type="button"
+                  title="Go to Activity tab to assign these tasks to board members"
+                  class="ml-auto text-[10px] font-bold text-amber-700 hover:text-amber-900 hover:underline transition-colors focus:outline-none"
+                  @click="activeTab = 'activity'"
+                >Assign in Activity →</button>
+              </div>
+              <div class="divide-y divide-amber-100 bg-white">
+                <div
+                  v-for="task in unassignedTasks"
+                  :key="task.id"
+                  class="flex items-start gap-2 px-4 py-2.5 hover:bg-amber-50 transition-colors cursor-pointer"
+                  :title="`${TYPE_META[task.type].label} — unassigned — single-click to open in Activity tab and assign to a member`"
+                  @click="activeTab = 'activity'; expandedEntryId = task.id"
+                >
+                  <span class="text-sm shrink-0 mt-0.5" aria-hidden="true">{{ TYPE_META[task.type].emoji }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-[10px] font-semibold text-slate-800 leading-snug">{{ task.title || 'Untitled' }}</p>
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                      <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" :class="STATUS_META[task.status].badge">
+                        {{ STATUS_META[task.status].label }}
+                      </span>
+                      <span v-if="task.dueDate" class="text-[9px] text-slate-400">{{ task.dueDate }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty state -->
+            <div
+              v-if="memberTaskMap.every(mt => mt.tasks.length === 0) && unassignedTasks.length === 0"
+              class="text-center py-10"
+            >
+              <p class="text-2xl mb-2">✅</p>
+              <p class="text-sm font-semibold text-emerald-700 mb-1">All clear — no outstanding tasks</p>
+              <p class="text-xs text-slate-400">Run an analysis and import results to populate this view.</p>
             </div>
 
           </div>
