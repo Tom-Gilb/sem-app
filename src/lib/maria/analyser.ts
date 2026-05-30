@@ -86,13 +86,18 @@ export async function analyseDocument(
   const rawResponse = await callLlm(MARIA_SYSTEM_PROMPT, userContent, opts)
   console.log('[Maria Analyser] LLM call returned, response length:', rawResponse.length)
 
+  console.log('[Maria Analyser] Raw response first 50 chars:', rawResponse.slice(0, 50))
+  console.log('[Maria Analyser] Raw response last 50 chars:', rawResponse.slice(-50))
   console.log('[Maria Analyser] Calling parseMariaResult...')
+
+  let result: unknown
   try {
-    const result = parseMariaResult(rawResponse)
+    result = parseMariaResult(rawResponse)
     console.log('[Maria Analyser] parseMariaResult returned successfully')
-    return result
   } catch (parseErr) {
     console.error('[Maria Analyser] parseMariaResult threw error:', parseErr)
     throw parseErr
   }
+
+  return result
 }
