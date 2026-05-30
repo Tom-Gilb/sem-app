@@ -140,6 +140,16 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
     // Expose the full response text so the streaming indicator shows "received"
     // once the API responds (non-streaming: updates once, not incrementally).
     mariaStreamedText.value = textBlock.text
+
+    // DEBUG: Log response so we can diagnose parsing failures
+    console.log('[Maria] API response received', {
+      length: textBlock.text.length,
+      firstChars: textBlock.text.slice(0, 100),
+      lastChars: textBlock.text.slice(-100),
+      hasDecisionInventory: textBlock.text.includes('decisionInventory'),
+      startsWithBrace: textBlock.text.trim().startsWith('{'),
+    })
+
     return textBlock.text
   }
 }
@@ -203,10 +213,25 @@ export function useMaria(): MariaState {
 
       // Delegate all pipeline logic to the portable lib
       const parsed = await analyseDocument(documentText, callLlm, { signal: controller.signal })
+
+      // DEBUG: Log result before setting
+      console.log('[Maria] Analysis parsed successfully', {
+        hasParsed: !!parsed,
+        hasDecisionInventory: parsed?.decisionInventory?.length || 0,
+        hasAuthorityReport: parsed?.authorityReport?.length || 0,
+        hasGovernanceGaps: parsed?.governanceGaps?.length || 0,
+        hasPatternAnalysis: parsed?.patternAnalysis?.length || 0,
+      })
+
       result.value = parsed
       return parsed
     } catch (err) {
       const parsed = parseApiError(err)
+      console.log('[Maria] Analysis failed with error', {
+        title: parsed.title,
+        detail: parsed.detail,
+        originalError: err instanceof Error ? err.message : String(err),
+      })
       error.value  = `${parsed.title}: ${parsed.detail}${parsed.actionUrl ? ` ${parsed.actionUrl}` : ''}`
       return null
     } finally {
