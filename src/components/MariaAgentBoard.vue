@@ -132,9 +132,30 @@ const severityColor: Record<string, string> = {
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
-async function runAnalysis(): Promise<void> {
-  if (!hasDocument.value || loading.value) return
-  await analyse(documentText.value)
+function runAnalysis(): void {
+  if (!hasDocument.value) return
+
+  // Start background analysis with a callback that opens the email when done
+  analyse(documentText.value, (mariaResult) => {
+    if (!mariaResult) {
+      // Analysis failed — show error toast, keep panel open
+      console.error('[Maria] Analysis failed, keeping panel open')
+      return
+    }
+
+    // Analysis succeeded — build email and open it
+    const emailHtml = buildMariaEmailHtml(mariaResult)
+    const subject = `Maria Analysis Report — ${new Date().toLocaleDateString()}`
+
+    // Open the email with results pre-filled
+    openEml(emailHtml, subject)
+
+    // Close the panel (user now has the email open with results)
+    emit('close')
+  })
+
+  // Show confirmation toast
+  console.log('[Maria] Analysis submitted — running in background')
 }
 
 function startOver(): void {
