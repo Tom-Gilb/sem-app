@@ -186,11 +186,11 @@ export interface MariaState {
   /** The parsed MariaResult from the most recent successful analyse() call. Null before first run. */
   result: Ref<MariaResult | null>
   /**
-   * Submits a board document for analysis and populates result on success.
-   * Returns the MariaResult on success, null on failure (error ref is set).
-   * Cancels any previous in-flight call before starting a new one.
+   * Submits a board document for analysis. Runs in background after returning.
+   * Optional onComplete callback fires when analysis succeeds or fails.
+   * Returns immediately (so UI can close), analysis happens async.
    */
-  analyse(documentText: string): Promise<MariaResult | null>
+  analyse(documentText: string, onComplete?: (result: MariaResult | null) => void): void
   /** Resets result and error to initial state without cancelling any in-flight call. */
   reset(): void
 }
@@ -206,79 +206,76 @@ export interface MariaState {
  *
  * Mock mode: set VITE_MOCK_MODE=true in .env.local to bypass the API and
  * return buildMockMariaResult() with a 1.8 s simulated delay.
+ *
+ * Tom Gilb 2026-05-30 (redesign): Analysis now runs in background after panel
+ * closes. No blocking loading state. Results are emailed directly via openEml().
  */
 export function useMaria(): MariaState {
   const loading = ref(false)
   const error   = ref('')
   const result  = ref<MariaResult | null>(null)
 
-  async function analyse(documentText: string): Promise<MariaResult | null> {
-    cancelCurrentMaria()
-    debugLogs.value = [] // Clear prior logs at the start of each analyse() call
+  function analyse(documentText: string, onComplete?: (result: MariaResult | null) => void): void {
+    // Start the background analysis immediately, but return to let the UI close
+    // the panel before the analysis completes. This prevents the blocking loading
+    // state and the fragile result-display state machine.
 
-    loading.value = true
-    error.value   = ''
-    addDebugLog('Analysis started')
+    ;(async () => {
+      cancelCurrentMaria()
+      debugLogs.value = []
+      addDebugLog('Analysis started')
 
-    try {
-      // Mock mode — returns a realistic example result without hitting the API
-      if (import.meta.env.VITE_MOCK_MODE === 'true') {
-        addDebugLog('Using mock mode (VITE_MOCK_MODE=true)')
-        await new Promise<void>((r) => setTimeout(r, 1800))
-        result.value = buildMockMariaResult()
-        addDebugLog('Mock result generated')
-        return result.value
+      try {
+        // Mock mode
+        if (import.meta.env.VITE_MOCK_MODE === 'true') {
+          addDebugLog('Using mock mode (VITE_MOCK_MODE=true)')
+          await new Promise<void>((r) => setTimeout(r, 1800))
+          result.value = buildMockMariaResult()
+          addDebugLog('Mock result generated')
+          onComplete?.(result.value)
+          return
+        }
+
+        const controller = new AbortController()
+        _mariaController  = controller
+        const callLlm     = buildAnthropicCaller(controller.signal)
+        addDebugLog('Anthropic SDK client initialized')
+
+        addDebugLog('About to call analyseDocument...')
+        const parsed = await analyseDocument(documentText, callLlm, { signal: controller.signal })
+        addDebugLog('analyseDocument returned successfully')
+
+        const resultStats = {
+          hasParsed: !!parsed,
+          hasDecisionInventory: parsed?.decisionInventory?.length || 0,
+          hasAuthorityReport: parsed?.authorityReport?.length || 0,
+          hasGovernanceGaps: parsed?.governanceGaps?.length || 0,
+          hasPatternAnalysis: parsed?.patternAnalysis?.length || 0,
+        }
+        console.log('[Maria] Analysis parsed successfully', resultStats)
+        addDebugLog(`Parser result: ${resultStats.hasDecisionInventory} decisions, ${resultStats.hasAuthorityReport} auth gaps, ${resultStats.hasGovernanceGaps} gov gaps, ${resultStats.hasPatternAnalysis} patterns`)
+
+        result.value = parsed
+        addDebugLog(`✓ Result set: ${JSON.stringify({decisionInventory: parsed.decisionInventory.length, authorityReport: parsed.authorityReport.length, governanceGaps: parsed.governanceGaps.length, patternAnalysis: parsed.patternAnalysis.length})}`)
+        addDebugLog(`✓ Results ready: ${resultStats.hasDecisionInventory} decisions, ${resultStats.hasAuthorityReport} authority gaps, ${resultStats.hasGovernanceGaps} governance gaps, ${resultStats.hasPatternAnalysis} patterns`)
+
+        onComplete?.(parsed)
+      } catch (err) {
+        const parsed = parseApiError(err)
+        const errDetails = {
+          title: parsed.title,
+          detail: parsed.detail,
+          originalError: err instanceof Error ? err.message : String(err),
+        }
+        console.log('[Maria] Analysis failed with error', errDetails)
+        addDebugLog(`ERROR: ${errDetails.title} — ${errDetails.detail}`)
+        error.value  = `${parsed.title}: ${parsed.detail}${parsed.actionUrl ? ` ${parsed.actionUrl}` : ''}`
+        onComplete?.(null)
+      } finally {
+        loading.value = false
+        _mariaController = null
       }
-
-      // Wire the Anthropic SDK LlmCaller with a fresh AbortController
-      const controller = new AbortController()
-      _mariaController  = controller
-      const callLlm     = buildAnthropicCaller(controller.signal)
-      addDebugLog('Anthropic SDK client initialized')
-
-      // Delegate all pipeline logic to the portable lib
-      addDebugLog('About to call analyseDocument...')
-      const parsed = await analyseDocument(documentText, callLlm, { signal: controller.signal })
-      addDebugLog('analyseDocument returned successfully')
-
-      // DEBUG: Log result before setting
-      const resultStats = {
-        hasParsed: !!parsed,
-        hasDecisionInventory: parsed?.decisionInventory?.length || 0,
-        hasAuthorityReport: parsed?.authorityReport?.length || 0,
-        hasGovernanceGaps: parsed?.governanceGaps?.length || 0,
-        hasPatternAnalysis: parsed?.patternAnalysis?.length || 0,
-      }
-      console.log('[Maria] Analysis parsed successfully', resultStats)
-      addDebugLog(`Parser result: ${resultStats.hasDecisionInventory} decisions, ${resultStats.hasAuthorityReport} auth gaps, ${resultStats.hasGovernanceGaps} gov gaps, ${resultStats.hasPatternAnalysis} patterns`)
-
-      result.value = parsed
-      addDebugLog(`✓ Result set: ${JSON.stringify({decisionInventory: parsed.decisionInventory.length, authorityReport: parsed.authorityReport.length, governanceGaps: parsed.governanceGaps.length, patternAnalysis: parsed.patternAnalysis.length})}`)
-
-      // Force Vue to re-render with the new result
-      await nextTick()
-
-      // Set loading to false so the result phase displays
-      loading.value = false
-      addDebugLog('Loading state set to false')
-      addDebugLog(`✓ Results ready: ${resultStats.hasDecisionInventory} decisions, ${resultStats.hasAuthorityReport} authority gaps, ${resultStats.hasGovernanceGaps} governance gaps, ${resultStats.hasPatternAnalysis} patterns`)
-
-      return parsed
-    } catch (err) {
-      const parsed = parseApiError(err)
-      const errDetails = {
-        title: parsed.title,
-        detail: parsed.detail,
-        originalError: err instanceof Error ? err.message : String(err),
-      }
-      console.log('[Maria] Analysis failed with error', errDetails)
-      addDebugLog(`ERROR: ${errDetails.title} — ${errDetails.detail}`)
-      error.value  = `${parsed.title}: ${parsed.detail}${parsed.actionUrl ? ` ${parsed.actionUrl}` : ''}`
-      return null
-    } finally {
-      loading.value = false
-      _mariaController = null
-    }
+    })()
   }
 
   function reset(): void {
