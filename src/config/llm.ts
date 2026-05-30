@@ -9,6 +9,20 @@ export const MODEL_ID = 'claude-sonnet-4-6'
 export const SDK_VERSION = '0.92.0'
 
 /**
+ * Model ID used specifically for Maria board-document analysis.
+ * Override in .env.local via VITE_MARIA_MODEL_ID to try a faster or
+ * cheaper model without touching source code:
+ *
+ *   VITE_MARIA_MODEL_ID=claude-haiku-4-5
+ *
+ * Falls back to MODEL_ID when not set.
+ * If claude-sonnet-4-6 is consistently slow (100–180 s), switching to
+ * the haiku-class model for this task is the recommended first experiment.
+ */
+export const MARIA_MODEL_ID =
+  (import.meta.env.VITE_MARIA_MODEL_ID as string | undefined) || MODEL_ID
+
+/**
  * System prompt for the CE (Competitive Engineering) pipeline.
  *
  * Translates a SEM triple (Stakes → Ends → Means) into a structured

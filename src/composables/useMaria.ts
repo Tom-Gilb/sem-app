@@ -23,7 +23,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ref }    from 'vue'
 import type { Ref } from 'vue'
-import { MODEL_ID } from '../config/llm'
+import { MARIA_MODEL_ID } from '../config/llm'
 import { analyseDocument }         from '../lib/maria/analyser'
 import { buildMockMariaResult }    from '../lib/maria/mock'
 import type { LlmCaller }          from '../lib/maria/analyser'
@@ -108,7 +108,7 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
     // API accepting the request, not after the entire response is computed.
     const stream = client.messages.stream(
       {
-        model:      MODEL_ID,
+        model:      MARIA_MODEL_ID, // override via VITE_MARIA_MODEL_ID in .env.local
         max_tokens: 4096,
         system:     systemPrompt,
         messages:   [{ role: 'user', content: userContent }],
@@ -116,15 +116,22 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
       { signal },
     )
 
-    // Accumulate text chunks into the shared reactive ref.
-    // stream.on('text', ...) fires for each text delta event.
-    stream.on('text', (text: string) => {
-      mariaStreamedText.value += text
-    })
+    // Explicitly drive the stream via for-await — this is required.
+    // stream.on('text', ...) only registers listeners; it does NOT pull data
+    // from the async generator. Without an active consumer the generator
+    // never advances and finalMessage() deadlocks indefinitely.
+    // for-await pulls each MessageStreamEvent as it arrives from the API.
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta') {
+        // Narrow delta type — TextDelta | InputJsonDelta
+        const d = event.delta as { type: string; text?: string }
+        if (d.type === 'text_delta' && typeof d.text === 'string') {
+          mariaStreamedText.value += d.text
+        }
+      }
+    }
 
-    // Await the final message — resolves when the model stops generating.
-    // If signal is aborted (user cancels), finalMessage() throws an AbortError
-    // which propagates to useMaria's catch block and clears the loading state.
+    // Stream fully consumed — finalMessage() returns the accumulated message.
     const finalMessage = await stream.finalMessage()
 
     if (finalMessage.stop_reason === 'max_tokens') {
