@@ -142,28 +142,54 @@ function normaliseResponse(raw: Record<string, unknown>): Record<string, unknown
  * @throws {Error} when the response cannot be parsed or is missing required structure.
  */
 export function parseMariaResult(raw: string): MariaResult {
+  console.log('[Maria Parser] Starting parse, raw length:', raw.length)
+
   // Strip ALL markdown code fences (some models insert them mid-response too).
+  console.log('[Maria Parser] Stripping markdown fences...')
   const cleaned = raw
     .replace(/```(?:json)?\s*/gi, '')
     .replace(/```\s*/g, '')
     .trim()
+  console.log('[Maria Parser] After strip, cleaned length:', cleaned.length)
 
   let parsed: unknown
   try {
+    console.log('[Maria Parser] Attempting JSON.parse on cleaned string...')
     parsed = JSON.parse(cleaned)
-  } catch {
+    console.log('[Maria Parser] JSON.parse succeeded on first try')
+  } catch (e) {
+    console.log('[Maria Parser] JSON.parse failed, entering fallback logic...')
     // Some models prepend prose before the JSON block.
     // Take the LAST (largest) {...} block — it's most likely the full result
     // rather than a small object from an opening sentence.
+    console.log('[Maria Parser] Running matchAll for all {...} blocks...')
     const matches = [...cleaned.matchAll(/\{[\s\S]*?\}/g)]
+    console.log('[Maria Parser] matchAll found', matches.length, 'potential blocks')
+
     // Prefer the longest match — greedy scan of the entire string
+    console.log('[Maria Parser] Running greedy regex for largest {...} block...')
     const bigMatch = cleaned.match(/\{[\s\S]*\}/)
+    console.log('[Maria Parser] Greedy match result:', bigMatch ? `found ${bigMatch[0].length} chars` : 'no match')
+
     if (bigMatch) {
-      try { parsed = JSON.parse(bigMatch[0]) } catch { /* fall through */ }
+      try {
+        console.log('[Maria Parser] Trying to parse bigMatch...')
+        parsed = JSON.parse(bigMatch[0])
+        console.log('[Maria Parser] bigMatch JSON.parse succeeded')
+      } catch (e2) {
+        console.log('[Maria Parser] bigMatch JSON.parse failed')
+        /* fall through */
+      }
     }
     if (!parsed && matches.length > 0) {
+      console.log('[Maria Parser] Trying individual matches in reverse order...')
       for (const m of matches.reverse()) {
-        try { parsed = JSON.parse(m[0]); break } catch { /* continue */ }
+        try {
+          console.log('[Maria Parser] Trying match of', m[0].length, 'chars...')
+          parsed = JSON.parse(m[0])
+          console.log('[Maria Parser] Match parse succeeded')
+          break
+        } catch (e3) { /* continue */ }
       }
     }
     if (!parsed) {
@@ -173,11 +199,15 @@ export function parseMariaResult(raw: string): MariaResult {
     }
   }
 
+  console.log('[Maria Parser] Parsed object obtained, running normaliseResponse...')
   // Normalise field names before validation.
   const obj = normaliseResponse(parsed as Record<string, unknown>)
+  console.log('[Maria Parser] normaliseResponse complete')
 
   // Structural validation — report the actual keys returned to aid diagnosis.
+  console.log('[Maria Parser] Starting validation...')
   const actualKeys = Object.keys(obj).join(', ')
+  console.log('[Maria Parser] Actual top-level keys:', actualKeys)
 
   if (!Array.isArray(obj.decisionInventory)) {
     throw new Error(
@@ -185,26 +215,34 @@ export function parseMariaResult(raw: string): MariaResult {
       `Actual top-level keys: [${actualKeys}]`,
     )
   }
+  console.log('[Maria Parser] ✓ decisionInventory found, length:', (obj.decisionInventory as unknown[]).length)
+
   if (!Array.isArray(obj.authorityReport)) {
     throw new Error(
       `Maria response is missing required array "authorityReport". ` +
       `Actual top-level keys: [${actualKeys}]`,
     )
   }
+  console.log('[Maria Parser] ✓ authorityReport found, length:', (obj.authorityReport as unknown[]).length)
+
   if (!Array.isArray(obj.governanceGaps)) {
     throw new Error(
       `Maria response is missing required array "governanceGaps". ` +
       `Actual top-level keys: [${actualKeys}]`,
     )
   }
+  console.log('[Maria Parser] ✓ governanceGaps found, length:', (obj.governanceGaps as unknown[]).length)
+
   if (!Array.isArray(obj.patternAnalysis)) {
     throw new Error(
       `Maria response is missing required array "patternAnalysis". ` +
       `Actual top-level keys: [${actualKeys}]`,
     )
   }
+  console.log('[Maria Parser] ✓ patternAnalysis found, length:', (obj.patternAnalysis as unknown[]).length)
 
   // Defensive coercion — ensure scalar fields are the expected types.
+  console.log('[Maria Parser] Running defensive coercions...')
   if (typeof obj.generatedAt !== 'string') {
     obj.generatedAt = new Date().toISOString()
   }
@@ -213,9 +251,11 @@ export function parseMariaResult(raw: string): MariaResult {
   }
 
   // Defensive: authorityGapNote must only appear when authorityGapFlagged is true.
+  console.log('[Maria Parser] Cleaning authorityGapNote fields...')
   for (const d of obj.decisionInventory as Array<Record<string, unknown>>) {
     if (!d.authorityGapFlagged) delete d.authorityGapNote
   }
+  console.log('[Maria Parser] ✓ Parse complete, returning MariaResult')
 
   return obj as unknown as MariaResult
 }

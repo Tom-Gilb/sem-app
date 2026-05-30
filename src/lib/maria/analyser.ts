@@ -73,6 +73,8 @@ export async function analyseDocument(
   callLlm: LlmCaller,
   opts?: { signal?: AbortSignal },
 ): Promise<MariaResult> {
+  console.log('[Maria Analyser] Starting analysis, document length:', documentText.length)
+
   // Reinforce the output schema in the user message — models attend to
   // user-message reminders more reliably than distant system prompt instructions.
   const userContent =
@@ -80,6 +82,13 @@ export async function analyseDocument(
     'Board document to analyse:\n\n' +
     documentText.trim()
 
+  console.log('[Maria Analyser] Calling LLM...')
   const rawResponse = await callLlm(MARIA_SYSTEM_PROMPT, userContent, opts)
-  return parseMariaResult(rawResponse)
+  console.log('[Maria Analyser] LLM call returned, response length:', rawResponse.length)
+
+  console.log('[Maria Analyser] Calling parseMariaResult...')
+  const result = parseMariaResult(rawResponse)
+  console.log('[Maria Analyser] parseMariaResult returned successfully')
+
+  return result
 }
