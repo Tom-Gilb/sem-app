@@ -262,6 +262,9 @@ export function useMaria(): MariaState {
       // Set loading to false NOW, before the alert, so the result phase displays
       loading.value = false
 
+      // Wait for Vue to re-render the phase change BEFORE the alert blocks
+      await nextTick()
+
       // DEBUG: Show an alert so Tom knows the result was parsed successfully
       alert(`✓ Analysis succeeded!\n\n${resultStats.hasDecisionInventory} decisions\n${resultStats.hasAuthorityReport} authority gaps\n${resultStats.hasGovernanceGaps} governance gaps\n${resultStats.hasPatternAnalysis} patterns`)
 
