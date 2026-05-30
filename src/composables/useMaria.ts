@@ -28,7 +28,6 @@ import { analyseDocument }         from '../lib/maria/analyser'
 import { buildMockMariaResult }    from '../lib/maria/mock'
 import type { LlmCaller }          from '../lib/maria/analyser'
 import type { MariaResult }        from '../types/maria'
-import { useLoadingState }         from './useLoadingState'
 import { parseApiError }           from '../utils/parseApiError'
 
 // ─── Module-level singleton client ────────────────────────────────────────────
@@ -212,7 +211,6 @@ export function useMaria(): MariaState {
   const loading = ref(false)
   const error   = ref('')
   const result  = ref<MariaResult | null>(null)
-  const { startLoading, stopLoading } = useLoadingState()
 
   async function analyse(documentText: string): Promise<MariaResult | null> {
     cancelCurrentMaria()
@@ -220,7 +218,6 @@ export function useMaria(): MariaState {
 
     loading.value = true
     error.value   = ''
-    startLoading('maria:analyse', 'Maria is analysing the board document…')
     addDebugLog('Analysis started')
 
     try {
