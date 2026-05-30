@@ -668,6 +668,9 @@ function sendEmailReport(): void {
                 class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 leading-relaxed placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
                 placeholder="Paste board minutes, resolution, strategy paper, or committee report here…"
                 :disabled="loading"
+                title="Paste board document here — press ⌘ Return to analyse"
+                @keydown.meta.enter.prevent="runAnalysis"
+                @keydown.ctrl.enter.prevent="runAnalysis"
               />
               <p class="text-xs text-slate-400 mt-1.5 text-right">
                 {{ documentText.trim().split(/\s+/).filter(Boolean).length }} words
@@ -702,7 +705,7 @@ function sendEmailReport(): void {
                 Maria is analysing the document…
               </span>
               <span v-else>
-                {{ hasDocument ? '🏛 Analyse Board Document →' : 'Paste a board document above to begin' }}
+                {{ hasDocument ? '🏛 Analyse Board Document — or press ⌘ Return' : 'Paste a board document above to begin' }}
               </span>
             </button>
 
