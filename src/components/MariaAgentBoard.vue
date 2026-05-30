@@ -127,6 +127,7 @@ function startOver(): void {
   emailTo.value = ''
   reportSent.value = false
   if (_sentTimer) { clearTimeout(_sentTimer); _sentTimer = null }
+  lastMariaResult.value = null   // clear the store so reopening the panel is clean
   reset()
 }
 
@@ -574,15 +575,25 @@ function sendEmailReport(): void {
               Decision inventory · Authority clarity · Governance gaps · Pattern analysis
             </p>
           </div>
-          <!-- Start over button — only when result is present -->
+          <!-- Start over — when result is present -->
           <button
             v-if="hasResult"
             type="button"
             class="shrink-0 text-[11px] font-semibold text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-all"
-            title="Start over — clear the current analysis and paste a new board document"
+            title="Start over — single-click to clear the analysis and return to the input screen to paste a new document"
             @click="startOver"
           >
             Start over
+          </button>
+          <!-- Cancel — visible during loading from second 1, not just at 120 s -->
+          <button
+            v-if="loading"
+            type="button"
+            class="shrink-0 text-[11px] font-semibold text-white/60 hover:text-white bg-white/10 hover:bg-red-500/60 rounded-lg px-3 py-1.5 transition-all"
+            title="Cancel analysis — single-click to stop and return to the input screen (try the sample document for a fast test)"
+            @click="cancelAnalysis"
+          >
+            ✕ Cancel
           </button>
           <CloseDot
             variant="on-dark"
