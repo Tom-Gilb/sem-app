@@ -450,12 +450,15 @@ function _stopLoadingAnimation(): void {
 /** Human-readable phase label that matches the simulated progress percentage. */
 const phaseLabel = computed<string>(() => {
   const p = simulatedProgress.value
+  const e = elapsed.value
   if (p < 12) return 'Reading board document…'
   if (p < 30) return 'Extracting decisions…'
   if (p < 58) return 'Classifying governance layers…'
   if (p < 78) return 'Identifying authority gaps…'
-  if (p < 94) return 'Finalising analysis…'
-  return 'Almost done…'
+  // After 80 s in the slow linear tail: be honest about expected wait time
+  if (e <= 120) return 'Finalising analysis… (1–2 min typical)'
+  if (e <= 180) return 'Generating detailed report… (complex documents take 2–3 min)'
+  return 'Generating final report — almost there…'
 })
 
 watch(loading, (isLoading: boolean) => {
@@ -699,14 +702,16 @@ function sendEmailReport(): void {
                 Response streaming — {{ streamedChars.toLocaleString() }} chars received
               </span>
             </div>
-            <!-- Before streaming starts: neutral "waiting for API" message -->
+            <!-- Waiting for API response (non-streaming: single payload arrives after full generation) -->
             <div
               v-else
               class="flex items-center gap-2 mb-4 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
             >
-              <span class="text-slate-400 shrink-0 text-sm" aria-hidden="true">🔗</span>
-              <span class="text-[11px] text-slate-500">
-                Connecting to analysis API…
+              <span class="text-slate-400 shrink-0 text-sm animate-pulse" aria-hidden="true">🔗</span>
+              <span class="text-[11px] text-slate-500 leading-snug">
+                <template v-if="elapsed < 15">Sending document to analysis API…</template>
+                <template v-else-if="elapsed < 60">API processing — response arrives as a single package after generation completes</template>
+                <template v-else>API still generating — complex board analysis typically takes 1.5–3 min with this model</template>
               </span>
             </div>
 

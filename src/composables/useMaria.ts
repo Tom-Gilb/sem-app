@@ -104,9 +104,18 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
     // Clear the streaming buffer so the previous run's text does not show.
     mariaStreamedText.value = ''
 
-    // Open a streaming connection — first tokens arrive within seconds of the
-    // API accepting the request, not after the entire response is computed.
-    const stream = client.messages.stream(
+    // Non-streaming messages.create — the only proven-working API path in this
+    // Electron/Chromium context. MessageStream[Symbol.asyncIterator] is
+    // incompatible with the current runtime (throws "undefined is not a function")
+    // and the event-emitter streaming approach (stream.on('text', ...)) cannot
+    // self-drive data delivery before the API responds.
+    //
+    // The client timeout is set to 300 s so complex board documents have full
+    // headroom. The response arrives as a single payload after model generation
+    // completes (~100–200 s for claude-sonnet-4-6 on 3–5 k tokens).
+    //
+    // To switch to a faster model, set VITE_MARIA_MODEL_ID in .env.local.
+    const response = await client.messages.create(
       {
         model:      MARIA_MODEL_ID, // override via VITE_MARIA_MODEL_ID in .env.local
         max_tokens: 4096,
@@ -116,36 +125,22 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
       { signal },
     )
 
-    // Explicitly drive the stream via for-await — this is required.
-    // stream.on('text', ...) only registers listeners; it does NOT pull data
-    // from the async generator. Without an active consumer the generator
-    // never advances and finalMessage() deadlocks indefinitely.
-    // for-await pulls each MessageStreamEvent as it arrives from the API.
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta') {
-        // Narrow delta type — TextDelta | InputJsonDelta
-        const d = event.delta as { type: string; text?: string }
-        if (d.type === 'text_delta' && typeof d.text === 'string') {
-          mariaStreamedText.value += d.text
-        }
-      }
-    }
-
-    // Stream fully consumed — finalMessage() returns the accumulated message.
-    const finalMessage = await stream.finalMessage()
-
-    if (finalMessage.stop_reason === 'max_tokens') {
+    if (response.stop_reason === 'max_tokens') {
       throw new Error(
         "Maria's response was cut off (max_tokens limit reached). " +
         'The board document may be too long — try analysing a shorter section.',
       )
     }
 
-    if (!mariaStreamedText.value) {
-      throw new Error('Maria returned an empty response — no text in the streamed response')
+    const textBlock = response.content.find((b) => b.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('Maria returned an empty response — no text block in the API response')
     }
 
-    return mariaStreamedText.value
+    // Expose the full response text so the streaming indicator shows "received"
+    // once the API responds (non-streaming: updates once, not incrementally).
+    mariaStreamedText.value = textBlock.text
+    return textBlock.text
   }
 }
 
