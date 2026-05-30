@@ -156,6 +156,22 @@ export function parseMariaResult(raw: string): MariaResult {
     console.log('[Maria Parser] First 100 chars:', cleaned.slice(0, 100))
     console.log('[Maria Parser] Last 100 chars:', cleaned.slice(-100))
 
+  // Pre-validate: check for obvious structural issues before JSON.parse
+  console.log('[Maria Parser] Pre-validating response structure...')
+  if (!cleaned.startsWith('{') || !cleaned.endsWith('}')) {
+    throw new Error(
+      `Maria response does not have JSON structure — does not start with { or end with }. First 200 chars:\n${cleaned.slice(0, 200)}`,
+    )
+  }
+  const openBraces = (cleaned.match(/\{/g) || []).length
+  const closeBraces = (cleaned.match(/\}/g) || []).length
+  console.log(`[Maria Parser] Brace count: ${openBraces} open, ${closeBraces} close`)
+  if (openBraces !== closeBraces) {
+    throw new Error(
+      `Maria response has unbalanced braces: ${openBraces} open vs ${closeBraces} close`,
+    )
+  }
+
   let parsed: unknown
   try {
     console.log('[Maria Parser] Attempting JSON.parse on cleaned string...')
@@ -171,7 +187,7 @@ export function parseMariaResult(raw: string): MariaResult {
     if (bracketMatch) {
       try {
         console.log('[Maria Parser] Trying to parse extracted {...} block...')
-        parsed = JSON.parse(bracketMatch[0])
+        parsed = parseWithTimeout(bracketMatch[0])
         console.log('[Maria Parser] Extracted block parse succeeded')
       } catch (e2) {
         console.log('[Maria Parser] Extracted block parse also failed')
