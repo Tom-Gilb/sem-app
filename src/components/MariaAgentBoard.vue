@@ -414,8 +414,23 @@ function _startLoadingAnimation(): void {
   _animStart              = Date.now()
   elapsed.value           = 0
   simulatedProgress.value = 0
-  failedPhotos.value      = new Set()
-  activeFactIdx.value     = Math.floor(Math.random() * MONTESSORI_PHOTOS.length)
+  // Pre-mark photos with empty URLs as failed so they don't show "coming soon" placeholders
+  const emptyUrlPhotos = new Set<number>()
+  for (let i = 0; i < MONTESSORI_PHOTOS.length; i++) {
+    if (!MONTESSORI_PHOTOS[i].url || MONTESSORI_PHOTOS[i].url.trim() === '') {
+      emptyUrlPhotos.add(i)
+    }
+  }
+  failedPhotos.value = emptyUrlPhotos
+  // Find first photo with a valid URL to start with, otherwise just start at 0
+  let startIdx = 0
+  for (let i = 0; i < MONTESSORI_PHOTOS.length; i++) {
+    if (!emptyUrlPhotos.has(i)) {
+      startIdx = i
+      break
+    }
+  }
+  activeFactIdx.value = startIdx
 
   // Poll every 250 ms using Date.now() delta — immune to Electron/browser setInterval
   // throttling when the window loses focus. If the OS suspends the tab for 30 s and
@@ -771,17 +786,11 @@ function sendEmailReport(): void {
                   loading="lazy"
                   @error="handlePhotoError(activeFactIdx)"
                 />
-                <!-- Fallback: styled gradient with 📷 when URL is missing or image failed -->
+                <!-- Fallback: empty space for photos with no URL (don't show "coming soon") -->
                 <div
                   v-else
-                  class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-emerald-200 to-teal-200"
-                >
-                  <span class="text-5xl mb-2" aria-hidden="true">📷</span>
-                  <span class="text-xs text-emerald-800 font-semibold text-center px-6 leading-snug">
-                    {{ MONTESSORI_PHOTOS[activeFactIdx].label }}
-                  </span>
-                  <span class="text-[10px] text-emerald-600 mt-1">Photo coming soon</span>
-                </div>
+                  class="w-full h-full bg-emerald-50"
+                />
                 <!-- Era badge overlay -->
                 <div class="absolute bottom-2 left-2 bg-black/55 backdrop-blur-sm rounded-lg px-2.5 py-1">
                   <span class="text-[10px] font-bold text-white tracking-wide">
