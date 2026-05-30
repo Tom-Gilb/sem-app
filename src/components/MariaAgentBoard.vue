@@ -451,8 +451,29 @@ function _startLoadingAnimation(): void {
 
   // Rotate photos every 10 s (Tom 2026-05-30)
   _factTimer = setInterval(() => {
-    activeFactIdx.value = (activeFactIdx.value + 1) % MONTESSORI_PHOTOS.length
+    activeFactIdx.value = _findNextValidPhotoIdx(activeFactIdx.value, 1)
   }, 10_000)
+}
+
+/** Find the next valid photo index, skipping empty URLs and failed loads. */
+function _findNextValidPhotoIdx(currentIdx: number, direction: 1 | -1): number {
+  const emptyUrlIndices = new Set<number>()
+  for (let i = 0; i < MONTESSORI_PHOTOS.length; i++) {
+    if (!MONTESSORI_PHOTOS[i].url || MONTESSORI_PHOTOS[i].url.trim() === '') {
+      emptyUrlIndices.add(i)
+    }
+  }
+
+  let idx = currentIdx
+  for (let attempts = 0; attempts < MONTESSORI_PHOTOS.length; attempts++) {
+    idx = (idx + direction + MONTESSORI_PHOTOS.length) % MONTESSORI_PHOTOS.length
+    // Skip if URL is empty or photo has failed to load
+    if (!emptyUrlIndices.has(idx) && !failedPhotos.value.has(idx)) {
+      return idx
+    }
+  }
+  // Fallback: no valid photos found, stay at current
+  return currentIdx
 }
 
 /** Mark a photo as failed so the styled fallback renders instead. */
@@ -463,11 +484,11 @@ function handlePhotoError(idx: number): void {
 }
 
 function prevPhoto(): void {
-  activeFactIdx.value = (activeFactIdx.value - 1 + MONTESSORI_PHOTOS.length) % MONTESSORI_PHOTOS.length
+  activeFactIdx.value = _findNextValidPhotoIdx(activeFactIdx.value, -1)
 }
 
 function nextPhoto(): void {
-  activeFactIdx.value = (activeFactIdx.value + 1) % MONTESSORI_PHOTOS.length
+  activeFactIdx.value = _findNextValidPhotoIdx(activeFactIdx.value, 1)
 }
 
 function _stopLoadingAnimation(): void {
