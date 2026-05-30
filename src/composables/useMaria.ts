@@ -277,7 +277,6 @@ export function useMaria(): MariaState {
       return null
     } finally {
       loading.value = false
-      stopLoading('maria:analyse')
       _mariaController = null
     }
   }
