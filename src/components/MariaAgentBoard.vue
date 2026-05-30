@@ -195,8 +195,16 @@ not decided and no timeline was set.
 
 Meeting closed at 8:51 PM. Next meeting: 25 June 2026 at 7:00 PM.`
 
+/**
+ * Load the built-in sample board minutes and switch to input phase.
+ * Cancels any in-flight analysis, clears any previous result, and fills
+ * the textarea — so this works from loading, result, OR input phase.
+ */
 function useSampleDocument(): void {
-  documentText.value = SAMPLE_DOCUMENT
+  cancelCurrentMaria()                 // stop any in-flight call
+  lastMariaResult.value = null         // clear store so onMounted restore won't fire on next open
+  reset()                              // result=null, error='' → input phase shows
+  documentText.value = SAMPLE_DOCUMENT // fill textarea
 }
 
 // ─── Loading entertainment — Montessori photo carousel ───────────────────────
@@ -575,6 +583,15 @@ function sendEmailReport(): void {
               Decision inventory · Authority clarity · Governance gaps · Pattern analysis
             </p>
           </div>
+          <!-- Sample doc — ALWAYS visible so Tom can always get to a working test -->
+          <button
+            type="button"
+            class="shrink-0 text-[11px] font-semibold text-emerald-200 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-all"
+            title="Load sample board minutes — single-click to stop any current analysis, clear results, and fill the textarea with a short 350-word Berkshire Hills board minutes for a fast test parse"
+            @click="useSampleDocument"
+          >
+            ↓ Sample doc
+          </button>
           <!-- Start over — when result is present -->
           <button
             v-if="hasResult"
@@ -590,7 +607,7 @@ function sendEmailReport(): void {
             v-if="loading"
             type="button"
             class="shrink-0 text-[11px] font-semibold text-white/60 hover:text-white bg-white/10 hover:bg-red-500/60 rounded-lg px-3 py-1.5 transition-all"
-            title="Cancel analysis — single-click to stop and return to the input screen (try the sample document for a fast test)"
+            title="Cancel analysis — single-click to stop and return to the input screen"
             @click="cancelAnalysis"
           >
             ✕ Cancel
