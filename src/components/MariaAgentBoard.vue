@@ -564,6 +564,19 @@ function _stopLoadingAnimation(): void {
   simulatedProgress.value = 100
 }
 
+/** Big glyph that matches the current analysis phase — shown above the phase label. */
+const phaseGlyph = computed<string>(() => {
+  const p = simulatedProgress.value
+  const e = elapsed.value
+  if (p < 12) return '📄'   // Reading the document
+  if (p < 30) return '🔍'   // Searching for decisions
+  if (p < 58) return '🏛️'  // Classifying governance layers
+  if (p < 78) return '🔑'   // Identifying authority gaps
+  if (e <= 120) return '🧠'  // Deep analysis
+  if (e <= 180) return '📊'  // Building the report
+  return '✅'               // Almost done
+})
+
 /** Human-readable phase label that matches the simulated progress percentage. */
 const phaseLabel = computed<string>(() => {
   const p = simulatedProgress.value
@@ -783,15 +796,21 @@ function sendEmailReport(): void {
               >✕ Cancel</button>
             </div>
 
-            <!-- Phase label — deliberately visible: sm text, icon, bold -->
-            <div class="flex items-center gap-2 mb-2 px-1">
-              <svg class="w-3.5 h-3.5 text-emerald-500 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-              <p class="text-sm text-emerald-800 font-semibold transition-all duration-700">
-                {{ phaseLabel }}
-              </p>
+            <!-- Phase glyph + label -->
+            <div class="flex flex-col items-center gap-1 mb-3">
+              <span
+                class="text-5xl transition-all duration-700 select-none"
+                aria-hidden="true"
+              >{{ phaseGlyph }}</span>
+              <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5 text-emerald-500 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <p class="text-sm text-emerald-800 font-semibold transition-all duration-700">
+                  {{ phaseLabel }}
+                </p>
+              </div>
             </div>
 
             <!-- Streaming indicator — appears as soon as the API starts sending tokens back.
