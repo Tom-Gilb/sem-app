@@ -142,6 +142,9 @@ function runAnalysis(): void {
 
     console.log('[Maria] Starting analysis, calling analyse()...')
 
+    // Auto-open the debug panel so Tom can see live log entries during analysis
+    debugOpen.value = true
+
     // Start background analysis with a callback that opens the email when done
     analyse(documentText.value, (mariaResult: MariaResult | null) => {
       console.log('[Maria] Analysis complete callback fired, result:', !!mariaResult)
@@ -976,7 +979,7 @@ function sendEmailReport(): void {
                 ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md hover:shadow-lg'
                 : 'bg-slate-100 text-slate-400 cursor-not-allowed'"
               title="Analyse board document — Maria will extract all decisions, classify them by governance layer, identify authority gaps, flag governance gaps, and analyse patterns. Takes 10–30 seconds."
-              @click="runAnalysis"
+              @pointerup.stop="runAnalysis"
             >
               <span v-if="loading" class="flex items-center justify-center gap-2">
                 <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">

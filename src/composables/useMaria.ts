@@ -222,6 +222,7 @@ export function useMaria(): MariaState {
 
     ;(async () => {
       cancelCurrentMaria()
+      loading.value = true   // ← Immediately show spinner so Tom knows the click registered
       debugLogs.value = []
       addDebugLog('Analysis started')
 
