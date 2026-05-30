@@ -187,7 +187,7 @@ export function parseMariaResult(raw: string): MariaResult {
     if (bracketMatch) {
       try {
         console.log('[Maria Parser] Trying to parse extracted {...} block...')
-        parsed = parseWithTimeout(bracketMatch[0])
+        parsed = JSON.parse(bracketMatch[0])
         console.log('[Maria Parser] Extracted block parse succeeded')
       } catch (e2) {
         console.log('[Maria Parser] Extracted block parse also failed')
