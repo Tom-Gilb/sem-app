@@ -867,7 +867,7 @@ function sendEmailReport(): void {
               </div>
 
               <!-- Photo or styled fallback — contain (no cropping) with emerald-50 bg for letterboxing -->
-              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-50 flex items-center justify-center" style="height:520px;">
+              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-50 flex items-center justify-center" style="height:260px;">
                 <!-- Real photo (hidden if URL empty or failed to load) -->
                 <img
                   v-if="MONTESSORI_PHOTOS[activeFactIdx].url && !failedPhotos.has(activeFactIdx)"
