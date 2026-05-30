@@ -255,6 +255,10 @@ export function useMaria(): MariaState {
 
       result.value = parsed
       addDebugLog('Analysis complete ✓')
+
+      // DEBUG: Show an alert so Tom knows the result was parsed successfully
+      alert(`✓ Analysis succeeded!\n\n${resultStats.hasDecisionInventory} decisions\n${resultStats.hasAuthorityReport} authority gaps\n${resultStats.hasGovernanceGaps} governance gaps\n${resultStats.hasPatternAnalysis} patterns`)
+
       return parsed
     } catch (err) {
       const parsed = parseApiError(err)
