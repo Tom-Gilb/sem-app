@@ -733,9 +733,9 @@ function sendEmailReport(): void {
             <div class="rounded-xl border border-slate-200 overflow-hidden mb-4 bg-slate-50">
               <button
                 type="button"
-                class="w-full flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 transition-colors text-left"
-                title="Debug logs — expand to see real-time diagnostic messages from the analysis"
-                @click="debugOpen = !debugOpen"
+                class="w-full flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-slate-400"
+                title="Debug logs — expand to see real-time diagnostic messages from the analysis. Single-click to show/hide the log output."
+                @click.stop="debugOpen = !debugOpen"
               >
                 <span class="text-xs font-bold text-slate-600 flex-1">🔧 Analysis Logs ({{ debugLogs.length }} events)</span>
                 <span class="text-slate-400 text-xs">{{ debugOpen ? '▲' : '▼' }}</span>
