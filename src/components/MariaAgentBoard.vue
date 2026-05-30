@@ -25,9 +25,8 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import CloseDot from './CloseDot.vue'
-import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria, cancelCurrentMaria, mariaStreamedText, debugLogs } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
@@ -73,12 +72,24 @@ const boardOpen = ref(false)
 /** Controls debug logs collapsible panel (collapsed by default). */
 const debugOpen = ref(false)
 
+/** Template ref for debug logs container — auto-scrolls to bottom when logs update. */
+const debugLogsContainer = ref<HTMLDivElement | null>(null)
+
 // ── Live board member roster (localStorage-backed, same data as MariaBoardHub) ──
 const { members: boardMembersLive } = useBoardMembers()
 
 // ── Write each successful analysis to the module-level result store so
 //    MariaBoardHub's "Import from last analysis" button can access it. ──────────
 watch(result, (r) => { if (r) lastMariaResult.value = r })
+
+// Auto-scroll debug logs to bottom when new messages arrive
+watch(debugLogs, () => {
+  nextTick(() => {
+    if (debugLogsContainer.value) {
+      debugLogsContainer.value.scrollTop = debugLogsContainer.value.scrollHeight
+    }
+  })
+}, { deep: true })
 
 // ─── Computed helpers ─────────────────────────────────────────────────────────
 
@@ -764,16 +775,14 @@ function sendEmailReport(): void {
                 <span class="text-xs font-bold text-slate-600 flex-1">🔧 Analysis Logs ({{ debugLogs.length }} events)</span>
                 <span class="text-slate-400 text-xs">{{ debugOpen ? '▲' : '▼' }}</span>
               </button>
-              <ScrollContainer v-if="debugOpen" class="relative max-h-56 bg-slate-900" fade-from="#1e293b" :outerClass="`relative max-h-56 bg-slate-900`">
-                <div class="text-slate-100 font-mono text-[10px] p-3 space-y-1">
-                  <div v-if="debugLogs.length === 0" class="text-slate-500">
-                    (waiting for logs…)
-                  </div>
-                  <div v-for="(log, idx) in debugLogs" :key="idx" class="text-slate-300">
-                    {{ log }}
-                  </div>
+              <div v-if="debugOpen" ref="debugLogsContainer" class="max-h-80 overflow-y-auto bg-slate-900 text-slate-100 font-mono text-[10px] p-3 space-y-1">
+                <div v-if="debugLogs.length === 0" class="text-slate-500">
+                  (waiting for logs…)
                 </div>
-              </ScrollContainer>
+                <div v-for="(log, idx) in debugLogs" :key="idx" class="text-slate-300">
+                  {{ log }}
+                </div>
+              </div>
             </div>
 
             <!-- Photo carousel — Montessori Through the Decades -->
