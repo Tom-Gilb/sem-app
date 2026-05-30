@@ -27,7 +27,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
-import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria, cancelCurrentMaria, mariaStreamedText, debugLogs } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
@@ -640,10 +639,7 @@ function sendEmailReport(): void {
         </div>
 
         <!-- Body -->
-        <ScrollContainer
-          outer-class="flex-1 min-h-0 relative"
-          inner-class="p-5"
-        >
+        <div class="flex-1 min-h-0 overflow-y-auto p-5">
 
           <!-- ─── Loading phase ──────────────────────────────────────────── -->
           <div v-if="loading" class="py-4">
@@ -1272,7 +1268,7 @@ function sendEmailReport(): void {
             </div>
 
           </div>
-        </ScrollContainer>
+        </div>
 
       </div>
     </div>
