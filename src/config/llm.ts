@@ -10,17 +10,17 @@ export const SDK_VERSION = '0.92.0'
 
 /**
  * Model ID used specifically for Maria board-document analysis.
- * Override in .env.local via VITE_MARIA_MODEL_ID to try a faster or
- * cheaper model without touching source code:
+ * HARDCODED to claude-haiku-4-5 (2026-05-30).
  *
- *   VITE_MARIA_MODEL_ID=claude-haiku-4-5
+ * Reason: Environment variable VITE_MARIA_MODEL_ID was not being picked up
+ * by Vite even after .env.local update and server restart. Sonnet-4-6 takes
+ * 136+ seconds for a 350-word sample doc — unacceptable for UI testing.
+ * Haiku should complete the same doc in ~20 seconds.
  *
- * Falls back to MODEL_ID when not set.
- * If claude-sonnet-4-6 is consistently slow (100–180 s), switching to
- * the haiku-class model for this task is the recommended first experiment.
+ * To revert to Sonnet, change this line to:
+ *   export const MARIA_MODEL_ID = MODEL_ID
  */
-export const MARIA_MODEL_ID =
-  (import.meta.env.VITE_MARIA_MODEL_ID as string | undefined) || MODEL_ID
+export const MARIA_MODEL_ID = 'claude-haiku-4-5'
 
 /**
  * System prompt for the CE (Competitive Engineering) pipeline.
