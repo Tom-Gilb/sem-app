@@ -97,6 +97,10 @@ watch(debugLogs, () => {
 const hasDocument   = computed(() => documentText.value.trim().length > 0)
 const hasResult     = computed(() => result.value !== null)
 const shouldShowResult = computed(() => result.value !== null && typeof result.value === 'object')
+/** Word count of the pasted document. */
+const wordCount     = computed(() => documentText.value.trim().split(/\s+/).filter(Boolean).length)
+/** Approximate page count at 250 words/page — shown in the loading phase. */
+const pageCount     = computed(() => (wordCount.value / 250).toFixed(1))
 /** Live char count of streaming response — non-zero once API starts sending tokens back. */
 const streamedChars = computed(() => mariaStreamedText.value.length)
 
@@ -759,17 +763,17 @@ function sendEmailReport(): void {
               />
             </div>
             <!-- Long-running warnings — three tiers so the user always knows what to do -->
-            <!-- Tier 1: 75–120 s — reassurance -->
-            <div v-if="elapsed > 75 && elapsed <= 120" class="flex items-center justify-center gap-1.5 mb-1">
-              <p class="text-[11px] text-amber-600 font-medium">
-                ⏳ Large document — still working, please wait…
+            <!-- Document size — always visible during analysis -->
+            <div class="flex items-center justify-center gap-1.5 mb-1">
+              <p class="text-[11px] text-slate-500 font-medium">
+                {{ wordCount }} words · {{ pageCount }} pages · Sonnet analysing…
               </p>
             </div>
             <!-- Tier 2: 120 s+ — prominent cancel option -->
             <div v-if="elapsed > 120" class="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
               <p class="text-[11px] text-amber-800 font-medium leading-snug">
-                ⚠️ Taking longer than expected ({{ elapsed }}s). The document may be very large.
-                Try the <strong>sample document</strong> for a fast first test.
+                ⚠️ {{ elapsed }}s elapsed — {{ wordCount }} words ({{ pageCount }} pages).
+                Try the <strong>sample document</strong> for a faster first test.
               </p>
               <button
                 type="button"
