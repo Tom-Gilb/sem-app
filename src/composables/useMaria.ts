@@ -237,7 +237,9 @@ export function useMaria(): MariaState {
       addDebugLog('Anthropic SDK client initialized')
 
       // Delegate all pipeline logic to the portable lib
+      addDebugLog('About to call analyseDocument...')
       const parsed = await analyseDocument(documentText, callLlm, { signal: controller.signal })
+      addDebugLog('analyseDocument returned successfully')
 
       // DEBUG: Log result before setting
       const resultStats = {

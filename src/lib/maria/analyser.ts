@@ -87,8 +87,12 @@ export async function analyseDocument(
   console.log('[Maria Analyser] LLM call returned, response length:', rawResponse.length)
 
   console.log('[Maria Analyser] Calling parseMariaResult...')
-  const result = parseMariaResult(rawResponse)
-  console.log('[Maria Analyser] parseMariaResult returned successfully')
-
-  return result
+  try {
+    const result = parseMariaResult(rawResponse)
+    console.log('[Maria Analyser] parseMariaResult returned successfully')
+    return result
+  } catch (parseErr) {
+    console.error('[Maria Analyser] parseMariaResult threw error:', parseErr)
+    throw parseErr
+  }
 }
