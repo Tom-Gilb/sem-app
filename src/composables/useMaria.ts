@@ -21,11 +21,9 @@
 //   Business logic belongs in lib/maria/ so it can be ported to any runtime.
 
 import Anthropic from '@anthropic-ai/sdk'
-import type { BetaTextBlockParam } from '@anthropic-ai/sdk'
-import { ref }                     from 'vue'
-import type { Ref }                from 'vue'
-import { MODEL_ID }                from '../config/llm'
-import { MARIA_PROMPT_CACHE_CONTROL } from '../config/maria-prompt'
+import { ref }    from 'vue'
+import type { Ref } from 'vue'
+import { MODEL_ID } from '../config/llm'
 import { analyseDocument }         from '../lib/maria/analyser'
 import { buildMockMariaResult }    from '../lib/maria/mock'
 import type { LlmCaller }          from '../lib/maria/analyser'
@@ -86,19 +84,17 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
   return async (systemPrompt: string, userContent: string) => {
     const client = getClient()
 
-    const systemBlock: BetaTextBlockParam = {
-      type:          'text',
-      text:          systemPrompt,
-      cache_control: MARIA_PROMPT_CACHE_CONTROL,
-    }
-
-    const response = await client.beta.messages.create(
+    // Using standard messages.create (no beta/caching endpoint) for reliability.
+    // Prompt caching via beta endpoint was causing consistent 100-150 s cold-cache
+    // latency on every call past the 5-min TTL. Standard endpoint is more
+    // predictable. max_tokens 4096 is ample for any board analysis JSON output
+    // (full analysis of a long document is typically 1500-3000 tokens).
+    const response = await client.messages.create(
       {
         model:      MODEL_ID,
-        max_tokens: 8192,     // board analyses can be large; 8192 comfortably fits
-        system:     [systemBlock],
+        max_tokens: 4096,
+        system:     systemPrompt,
         messages:   [{ role: 'user', content: userContent }],
-        betas:      ['prompt-caching-2024-07-31'],
       },
       { signal },
     )
