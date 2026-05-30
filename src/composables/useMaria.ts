@@ -21,7 +21,7 @@
 //   Business logic belongs in lib/maria/ so it can be ported to any runtime.
 
 import Anthropic from '@anthropic-ai/sdk'
-import { ref }    from 'vue'
+import { ref, nextTick }    from 'vue'
 import type { Ref } from 'vue'
 import { MARIA_MODEL_ID } from '../config/llm'
 import { analyseDocument }         from '../lib/maria/analyser'
@@ -256,13 +256,11 @@ export function useMaria(): MariaState {
       result.value = parsed
       addDebugLog('Analysis complete ✓')
 
+      // Force Vue to re-render with the new result
+      await nextTick()
+
       // DEBUG: Show an alert so Tom knows the result was parsed successfully
       alert(`✓ Analysis succeeded!\n\n${resultStats.hasDecisionInventory} decisions\n${resultStats.hasAuthorityReport} authority gaps\n${resultStats.hasGovernanceGaps} governance gaps\n${resultStats.hasPatternAnalysis} patterns`)
-
-      // DEBUG: Confirm result.value is set
-      setTimeout(() => {
-        alert(`result.value is ${result.value ? 'SET ✓' : 'NOT SET ✗'}\n\nIf set, the UI should now show the results panel.`)
-      }, 100)
 
       return parsed
     } catch (err) {
