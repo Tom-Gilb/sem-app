@@ -31,6 +31,7 @@ import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria, cancelCurrentMaria, mariaStreamedText, debugLogs } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
+import type { MariaResult }    from '../types/maria'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
 import { lastMariaResult }     from '../lib/maria/mariaResultStore'
 import { useBoardMembers }     from '../composables/useBoardMembers'
@@ -133,29 +134,46 @@ const severityColor: Record<string, string> = {
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 function runAnalysis(): void {
-  if (!hasDocument.value) return
-
-  // Start background analysis with a callback that opens the email when done
-  analyse(documentText.value, (mariaResult) => {
-    if (!mariaResult) {
-      // Analysis failed — show error toast, keep panel open
-      console.error('[Maria] Analysis failed, keeping panel open')
+  try {
+    if (!hasDocument.value) {
+      console.log('[Maria] No document, returning')
       return
     }
 
-    // Analysis succeeded — build email and open it
-    const emailHtml = buildMariaEmailHtml(mariaResult)
-    const subject = `Maria Analysis Report — ${new Date().toLocaleDateString()}`
+    console.log('[Maria] Starting analysis, calling analyse()...')
 
-    // Open the email with results pre-filled
-    openEml(emailHtml, subject)
+    // Start background analysis with a callback that opens the email when done
+    analyse(documentText.value, (mariaResult: MariaResult | null) => {
+      console.log('[Maria] Analysis complete callback fired, result:', !!mariaResult)
 
-    // Close the panel (user now has the email open with results)
-    emit('close')
-  })
+      if (!mariaResult) {
+        // Analysis failed — show error toast, keep panel open
+        console.error('[Maria] Analysis failed, keeping panel open')
+        return
+      }
 
-  // Show confirmation toast
-  console.log('[Maria] Analysis submitted — running in background')
+      try {
+        // Analysis succeeded — build email and open it
+        console.log('[Maria] Building email HTML...')
+        const emailHtml = buildMariaEmailHtml(mariaResult, {})
+        const subject = `Maria Analysis Report — ${new Date().toLocaleDateString()}`
+
+        console.log('[Maria] Opening email...')
+        // Open the email with results pre-filled
+        openEml(emailHtml, subject)
+
+        console.log('[Maria] Closing panel...')
+        // Close the panel (user now has the email open with results)
+        emit('close')
+      } catch (callbackErr) {
+        console.error('[Maria] Error in completion callback:', callbackErr)
+      }
+    })
+
+    console.log('[Maria] Analysis submitted — running in background')
+  } catch (err) {
+    console.error('[Maria] Error in runAnalysis:', err)
+  }
 }
 
 function startOver(): void {
