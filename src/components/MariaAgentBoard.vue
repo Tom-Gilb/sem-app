@@ -161,31 +161,24 @@ function runAnalysis(): void {
     // Auto-open the debug panel so Tom can see live log entries during analysis
     debugOpen.value = true
 
-    // Start background analysis with a callback that opens the email when done
+    // Start background analysis — results display in-panel; email opens automatically
     analyse(documentText.value, (mariaResult: MariaResult | null) => {
       console.log('[Maria] Analysis complete callback fired, result:', !!mariaResult)
 
       if (!mariaResult) {
-        // Analysis failed — show error toast, keep panel open
         console.error('[Maria] Analysis failed, keeping panel open')
         return
       }
 
       try {
-        // Analysis succeeded — build email and open it
-        console.log('[Maria] Building email HTML...')
+        // Open the email pre-filled with the report — Mail.app opens in background
         const emailHtml = buildMariaEmailHtml(mariaResult, {})
         const subject = `Maria Analysis Report — ${new Date().toLocaleDateString()}`
-
-        console.log('[Maria] Opening email...')
-        // Open the email with results pre-filled
         openEml(emailHtml, subject)
-
-        console.log('[Maria] Closing panel...')
-        // Close the panel (user now has the email open with results)
-        emit('close')
+        // Panel stays open — results show in-panel via shouldShowResult computed
       } catch (callbackErr) {
-        console.error('[Maria] Error in completion callback:', callbackErr)
+        console.error('[Maria] Error in email callback:', callbackErr)
+        // Panel stays open regardless — results are still visible in-panel
       }
     })
 
