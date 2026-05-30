@@ -657,7 +657,7 @@ function sendEmailReport(): void {
         <div class="flex-1 min-h-0 overflow-y-auto p-5">
 
           <!-- ─── Loading phase ──────────────────────────────────────────── -->
-          <div v-if="loading" class="py-4">
+          <div v-if="loading && !result" class="py-4">
 
             <!-- Progress + timer row -->
             <div class="flex items-baseline justify-between mb-2 px-1">
@@ -844,7 +844,7 @@ function sendEmailReport(): void {
           </div>
 
           <!-- ─── Input phase ─────────────────────────────────────────────── -->
-          <div v-else-if="!hasResult">
+          <div v-else-if="!result && !loading">
 
             <!-- Intro blurb -->
             <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mb-5">
