@@ -29,7 +29,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
-import { useMaria, cancelCurrentMaria, mariaStreamedText } from '../composables/useMaria'
+import { useMaria, cancelCurrentMaria, mariaStreamedText, debugLogs } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
@@ -69,6 +69,9 @@ let _sentTimer: ReturnType<typeof setTimeout> | null = null
 
 /** Controls Board Members collapsible panel (collapsed by default). */
 const boardOpen = ref(false)
+
+/** Controls debug logs collapsible panel (collapsed by default). */
+const debugOpen = ref(false)
 
 // ── Live board member roster (localStorage-backed, same data as MariaBoardHub) ──
 const { members: boardMembersLive } = useBoardMembers()
@@ -724,6 +727,27 @@ function sendEmailReport(): void {
                 <template v-else-if="elapsed < 60">API processing — response arrives as a single package after generation completes</template>
                 <template v-else>API still generating — complex board analysis typically takes 1.5–3 min with this model</template>
               </span>
+            </div>
+
+            <!-- Debug panel — visible logs so Tom can see what's happening without Safari console -->
+            <div class="rounded-xl border border-slate-200 overflow-hidden mb-4 bg-slate-50">
+              <button
+                type="button"
+                class="w-full flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 transition-colors text-left"
+                title="Debug logs — expand to see real-time diagnostic messages from the analysis"
+                @click="debugOpen = !debugOpen"
+              >
+                <span class="text-xs font-bold text-slate-600 flex-1">🔧 Analysis Logs ({{ debugLogs.length }} events)</span>
+                <span class="text-slate-400 text-xs">{{ debugOpen ? '▲' : '▼' }}</span>
+              </button>
+              <div v-if="debugOpen" class="max-h-48 overflow-y-auto bg-slate-900 text-slate-100 font-mono text-[10px] p-3 space-y-1">
+                <div v-if="debugLogs.length === 0" class="text-slate-500">
+                  (waiting for logs…)
+                </div>
+                <div v-for="(log, idx) in debugLogs" :key="idx" class="text-slate-300">
+                  {{ log }}
+                </div>
+              </div>
             </div>
 
             <!-- Photo carousel — Montessori Through the Decades -->

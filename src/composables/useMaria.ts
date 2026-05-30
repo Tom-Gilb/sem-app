@@ -73,6 +73,25 @@ let _mariaController: AbortController | null = null
 export const mariaStreamedText = ref('')
 
 /**
+ * Debug logs ref — visible log messages that appear in the UI debug panel.
+ * Populated by addDebugLog() so Tom can diagnose analysis issues without
+ * needing to open the Safari developer console.
+ * Each entry is a timestamp + message pair for readability.
+ */
+export const debugLogs = ref<string[]>([])
+
+/**
+ * Append a debug message to the visible debug logs.
+ * Prepends with [HH:MM:SS] timestamp for easy scan.
+ * Called by diagnostic console.log statements.
+ */
+function addDebugLog(message: string): void {
+  const now = new Date()
+  const stamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`
+  debugLogs.value.push(`[${stamp}] ${message}`)
+}
+
+/**
  * Hard-cancel any in-flight analyse() call.
  * Safe to call when no call is in flight (no-op).
  * Mirrors cancelCurrentTranslate() in useSDK.ts.
@@ -100,6 +119,7 @@ export function cancelCurrentMaria(): void {
 function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
   return async (systemPrompt: string, userContent: string) => {
     const client = getClient()
+    addDebugLog('Calling Anthropic API…')
 
     // Clear the streaming buffer so the previous run's text does not show.
     mariaStreamedText.value = ''
@@ -126,15 +146,16 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
     )
 
     if (response.stop_reason === 'max_tokens') {
-      throw new Error(
-        "Maria's response was cut off (max_tokens limit reached). " +
-        'The board document may be too long — try analysing a shorter section.',
-      )
+      const msg = "Maria's response was cut off (max_tokens limit reached). The board document may be too long — try analysing a shorter section."
+      addDebugLog(`ERROR: ${msg}`)
+      throw new Error(msg)
     }
 
     const textBlock = response.content.find((b) => b.type === 'text')
     if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('Maria returned an empty response — no text block in the API response')
+      const msg = 'Maria returned an empty response — no text block in the API response'
+      addDebugLog(`ERROR: ${msg}`)
+      throw new Error(msg)
     }
 
     // Expose the full response text so the streaming indicator shows "received"
@@ -142,13 +163,15 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
     mariaStreamedText.value = textBlock.text
 
     // DEBUG: Log response so we can diagnose parsing failures
-    console.log('[Maria] API response received', {
+    const respJson = {
       length: textBlock.text.length,
       firstChars: textBlock.text.slice(0, 100),
       lastChars: textBlock.text.slice(-100),
       hasDecisionInventory: textBlock.text.includes('decisionInventory'),
       startsWithBrace: textBlock.text.trim().startsWith('{'),
-    })
+    }
+    console.log('[Maria] API response received', respJson)
+    addDebugLog(`API response received: ${respJson.length} chars, JSON valid: ${respJson.startsWithBrace}`)
 
     return textBlock.text
   }
@@ -193,16 +216,20 @@ export function useMaria(): MariaState {
 
   async function analyse(documentText: string): Promise<MariaResult | null> {
     cancelCurrentMaria()
+    debugLogs.value = [] // Clear prior logs at the start of each analyse() call
 
     loading.value = true
     error.value   = ''
     startLoading('maria:analyse', 'Maria is analysing the board document…')
+    addDebugLog('Analysis started')
 
     try {
       // Mock mode — returns a realistic example result without hitting the API
       if (import.meta.env.VITE_MOCK_MODE === 'true') {
+        addDebugLog('Using mock mode (VITE_MOCK_MODE=true)')
         await new Promise<void>((r) => setTimeout(r, 1800))
         result.value = buildMockMariaResult()
+        addDebugLog('Mock result generated')
         return result.value
       }
 
@@ -210,28 +237,34 @@ export function useMaria(): MariaState {
       const controller = new AbortController()
       _mariaController  = controller
       const callLlm     = buildAnthropicCaller(controller.signal)
+      addDebugLog('Anthropic SDK client initialized')
 
       // Delegate all pipeline logic to the portable lib
       const parsed = await analyseDocument(documentText, callLlm, { signal: controller.signal })
 
       // DEBUG: Log result before setting
-      console.log('[Maria] Analysis parsed successfully', {
+      const resultStats = {
         hasParsed: !!parsed,
         hasDecisionInventory: parsed?.decisionInventory?.length || 0,
         hasAuthorityReport: parsed?.authorityReport?.length || 0,
         hasGovernanceGaps: parsed?.governanceGaps?.length || 0,
         hasPatternAnalysis: parsed?.patternAnalysis?.length || 0,
-      })
+      }
+      console.log('[Maria] Analysis parsed successfully', resultStats)
+      addDebugLog(`Parser result: ${resultStats.hasDecisionInventory} decisions, ${resultStats.hasAuthorityReport} auth gaps, ${resultStats.hasGovernanceGaps} gov gaps, ${resultStats.hasPatternAnalysis} patterns`)
 
       result.value = parsed
+      addDebugLog('Analysis complete ✓')
       return parsed
     } catch (err) {
       const parsed = parseApiError(err)
-      console.log('[Maria] Analysis failed with error', {
+      const errDetails = {
         title: parsed.title,
         detail: parsed.detail,
         originalError: err instanceof Error ? err.message : String(err),
-      })
+      }
+      console.log('[Maria] Analysis failed with error', errDetails)
+      addDebugLog(`ERROR: ${errDetails.title} — ${errDetails.detail}`)
       error.value  = `${parsed.title}: ${parsed.detail}${parsed.actionUrl ? ` ${parsed.actionUrl}` : ''}`
       return null
     } finally {
