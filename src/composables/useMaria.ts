@@ -46,7 +46,7 @@ function getClient(): Anthropic {
     _mariaClient = new Anthropic({
       apiKey,
       dangerouslyAllowBrowser: true,
-      timeout: 150_000, // board documents can be long; allow up to 150 s (2.5 min)
+      timeout: 300_000, // board documents can be long; allow up to 300 s (5 min)
     })
   }
   return _mariaClient
@@ -60,6 +60,17 @@ export function _resetMariaClientForTest(): void {
 // ─── Module-level AbortController ─────────────────────────────────────────────
 
 let _mariaController: AbortController | null = null
+
+// ─── Streaming text buffer ─────────────────────────────────────────────────────
+
+/**
+ * Accumulates the raw text response as it streams in from the API.
+ * Updated in real-time by buildAnthropicCaller's stream.on('text') handler.
+ * Exported so MariaAgentBoard can show a "N chars received" live indicator —
+ * giving the user confidence the API is actively responding during long analyses.
+ * Cleared at the start of every new buildAnthropicCaller call.
+ */
+export const mariaStreamedText = ref('')
 
 /**
  * Hard-cancel any in-flight analyse() call.
@@ -79,17 +90,23 @@ export function cancelCurrentMaria(): void {
  * Builds the Anthropic SDK implementation of LlmCaller.
  * Called once per analyse() invocation — captures the AbortController so
  * the caller can be aborted from cancelCurrentMaria().
+ *
+ * Uses streaming (client.messages.stream) so the first tokens arrive in the
+ * UI within a few seconds of the API responding, instead of waiting for the
+ * complete response (~100–150 s). mariaStreamedText is updated reactively on
+ * every text chunk, so MariaAgentBoard can show a live "N chars received"
+ * indicator — confirming the API is actively working throughout the wait.
  */
 function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
   return async (systemPrompt: string, userContent: string) => {
     const client = getClient()
 
-    // Using standard messages.create (no beta/caching endpoint) for reliability.
-    // Prompt caching via beta endpoint was causing consistent 100-150 s cold-cache
-    // latency on every call past the 5-min TTL. Standard endpoint is more
-    // predictable. max_tokens 4096 is ample for any board analysis JSON output
-    // (full analysis of a long document is typically 1500-3000 tokens).
-    const response = await client.messages.create(
+    // Clear the streaming buffer so the previous run's text does not show.
+    mariaStreamedText.value = ''
+
+    // Open a streaming connection — first tokens arrive within seconds of the
+    // API accepting the request, not after the entire response is computed.
+    const stream = client.messages.stream(
       {
         model:      MODEL_ID,
         max_tokens: 4096,
@@ -99,19 +116,29 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
       { signal },
     )
 
-    if (response.stop_reason === 'max_tokens') {
+    // Accumulate text chunks into the shared reactive ref.
+    // stream.on('text', ...) fires for each text delta event.
+    stream.on('text', (text: string) => {
+      mariaStreamedText.value += text
+    })
+
+    // Await the final message — resolves when the model stops generating.
+    // If signal is aborted (user cancels), finalMessage() throws an AbortError
+    // which propagates to useMaria's catch block and clears the loading state.
+    const finalMessage = await stream.finalMessage()
+
+    if (finalMessage.stop_reason === 'max_tokens') {
       throw new Error(
         "Maria's response was cut off (max_tokens limit reached). " +
         'The board document may be too long — try analysing a shorter section.',
       )
     }
 
-    const textBlock = response.content.find((b) => b.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('Maria returned an empty response — no text block in the API response')
+    if (!mariaStreamedText.value) {
+      throw new Error('Maria returned an empty response — no text in the streamed response')
     }
 
-    return textBlock.text
+    return mariaStreamedText.value
   }
 }
 

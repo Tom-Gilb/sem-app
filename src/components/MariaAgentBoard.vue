@@ -29,7 +29,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
-import { useMaria, cancelCurrentMaria } from '../composables/useMaria'
+import { useMaria, cancelCurrentMaria, mariaStreamedText } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
@@ -79,8 +79,10 @@ watch(result, (r) => { if (r) lastMariaResult.value = r })
 
 // ─── Computed helpers ─────────────────────────────────────────────────────────
 
-const hasDocument = computed(() => documentText.value.trim().length > 0)
-const hasResult = computed(() => result.value !== null)
+const hasDocument   = computed(() => documentText.value.trim().length > 0)
+const hasResult     = computed(() => result.value !== null)
+/** Live char count of streaming response — non-zero once API starts sending tokens back. */
+const streamedChars = computed(() => mariaStreamedText.value.length)
 
 const ratingLabel = computed(() => {
   if (rating.value === null) return 'Not yet rated'
@@ -675,7 +677,7 @@ function sendEmailReport(): void {
             </div>
 
             <!-- Phase label — deliberately visible: sm text, icon, bold -->
-            <div class="flex items-center gap-2 mb-5 px-1">
+            <div class="flex items-center gap-2 mb-2 px-1">
               <svg class="w-3.5 h-3.5 text-emerald-500 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -683,6 +685,29 @@ function sendEmailReport(): void {
               <p class="text-sm text-emerald-800 font-semibold transition-all duration-700">
                 {{ phaseLabel }}
               </p>
+            </div>
+
+            <!-- Streaming indicator — appears as soon as the API starts sending tokens back.
+                 Gives immediate confidence that the API is actively responding (not stuck),
+                 even when the full JSON takes 100–150 s to complete. -->
+            <div
+              v-if="streamedChars > 0"
+              class="flex items-center gap-2 mb-4 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg"
+            >
+              <span class="text-emerald-500 shrink-0 animate-pulse text-sm" aria-hidden="true">📡</span>
+              <span class="text-[11px] text-emerald-700 font-medium">
+                Response streaming — {{ streamedChars.toLocaleString() }} chars received
+              </span>
+            </div>
+            <!-- Before streaming starts: neutral "waiting for API" message -->
+            <div
+              v-else
+              class="flex items-center gap-2 mb-4 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
+            >
+              <span class="text-slate-400 shrink-0 text-sm" aria-hidden="true">🔗</span>
+              <span class="text-[11px] text-slate-500">
+                Connecting to analysis API…
+              </span>
             </div>
 
             <!-- Photo carousel — Montessori Through the Decades -->
