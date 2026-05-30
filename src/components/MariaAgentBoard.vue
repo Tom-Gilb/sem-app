@@ -25,7 +25,7 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
@@ -434,6 +434,16 @@ watch(loading, (isLoading: boolean) => {
 })
 
 onUnmounted(_stopLoadingAnimation)
+
+// ─── Restore last result when panel reopens ────────────────────────────────────
+// If the user ran an analysis, closed the panel, then reopened it, result.value
+// is null (component remounted) but lastMariaResult still holds the prior run.
+// Restoring it means the panel reopens showing the results, not a blank input.
+onMounted(() => {
+  if (!result.value && lastMariaResult.value) {
+    result.value = lastMariaResult.value
+  }
+})
 
 // ─── Board member helpers ──────────────────────────────────────────────────────
 

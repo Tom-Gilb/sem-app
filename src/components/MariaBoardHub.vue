@@ -503,9 +503,15 @@ function copyBoardReport(): void {
                       @click="startEdit(member.id)"
                     >Edit</button>
                   </div>
-                  <div v-if="member.email || member.phone" class="mb-2 space-y-0.5">
+                  <div v-if="member.email || member.phone || member.website || member.linkedIn" class="mb-2 space-y-0.5">
                     <p v-if="member.email" class="text-[9px] text-slate-500 truncate">✉ {{ member.email }}</p>
                     <p v-if="member.phone" class="text-[9px] text-slate-500">📞 {{ member.phone }}</p>
+                    <a v-if="member.website" :href="member.website" target="_blank" rel="noopener noreferrer"
+                      class="block text-[9px] text-teal-600 hover:underline truncate"
+                      :title="`Website: ${member.website}`">🌐 {{ member.website.replace(/^https?:\/\//, '') }}</a>
+                    <a v-if="member.linkedIn" :href="member.linkedIn" target="_blank" rel="noopener noreferrer"
+                      class="block text-[9px] text-blue-600 hover:underline truncate"
+                      :title="`LinkedIn: ${member.linkedIn}`">in {{ member.linkedIn.replace(/.*linkedin\.com\/in\//, '') }}</a>
                   </div>
                   <div v-if="member.specialInterests.length" class="flex flex-wrap gap-1">
                     <span v-for="i in member.specialInterests.slice(0, 4)" :key="i"
@@ -564,6 +570,21 @@ function copyBoardReport(): void {
                         title="Mailing or home address"
                         @blur="updateMember(member.id, { address: ($event.target as HTMLInputElement).value })" />
                     </div>
+                  </div>
+                  <!-- Online profiles -->
+                  <div>
+                    <label class="text-[9px] font-bold uppercase tracking-wide text-slate-400 block mb-0.5">Website</label>
+                    <input type="url" :value="member.website ?? ''" placeholder="https://www.example.com"
+                      class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white"
+                      title="Personal or professional website URL (personal site, business site, school site, etc.)"
+                      @blur="updateMember(member.id, { website: ($event.target as HTMLInputElement).value || undefined })" />
+                  </div>
+                  <div>
+                    <label class="text-[9px] font-bold uppercase tracking-wide text-blue-400 block mb-0.5">LinkedIn Profile URL</label>
+                    <input type="url" :value="member.linkedIn ?? ''" placeholder="https://linkedin.com/in/username"
+                      class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                      title="LinkedIn profile URL — full URL e.g. https://linkedin.com/in/janedoe"
+                      @blur="updateMember(member.id, { linkedIn: ($event.target as HTMLInputElement).value || undefined })" />
                   </div>
                   <!-- Array fields -->
                   <div>

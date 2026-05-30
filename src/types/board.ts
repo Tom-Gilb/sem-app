@@ -25,6 +25,12 @@ export interface BoardMember {
   /** Email address for pre-populated board follow-up emails. */
   email?: string
 
+  /** Personal or professional website URL. */
+  website?: string
+
+  /** LinkedIn profile URL (full URL e.g. https://linkedin.com/in/username). */
+  linkedIn?: string
+
   /** Mailing or home address. */
   address?: string
 

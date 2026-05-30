@@ -4661,6 +4661,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
         >
           ⚡ Actions
         </button>
+
+        <!-- 🤖 Agents — also in Plan Crest Row 1 right cluster; duplicated here
+             so it is always visible in the breadcrumb bar which Tom uses as his
+             primary control row. Click opens the Maria Board Hub. -->
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
+                 text-sm font-medium text-emerald-700 hover:text-emerald-900
+                 bg-white/60 hover:bg-emerald-50 border border-emerald-300 hover:border-emerald-400
+                 shadow-sm transition-all duration-150 select-none"
+          title="Open Agent Menu — Maria analyses board documents for governance intelligence (decisions, authority gaps, patterns)"
+          aria-label="Open Agent Menu"
+          @click="agentMenuOpen = true"
+        >
+          🤖 Agents
+        </button>
       </div>
 
       <!-- Session restore banner — shown when no auth nav bar (Supabase not configured) -->
