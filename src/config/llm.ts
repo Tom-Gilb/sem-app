@@ -10,17 +10,15 @@ export const SDK_VERSION = '0.92.0'
 
 /**
  * Model ID used specifically for Maria board-document analysis.
- * HARDCODED to claude-haiku-4-5 (2026-05-30).
+ * Switched to claude-sonnet-4-6 (2026-05-30) on Tom's instruction.
  *
- * Reason: Environment variable VITE_MARIA_MODEL_ID was not being picked up
- * by Vite even after .env.local update and server restart. Sonnet-4-6 takes
- * 136+ seconds for a 350-word sample doc — unacceptable for UI testing.
- * Haiku should complete the same doc in ~20 seconds.
- *
- * To revert to Sonnet, change this line to:
- *   export const MARIA_MODEL_ID = MODEL_ID
+ * Tom Gilb 2026-05-30: "I felt Haiku was not up to the task at all."
+ * Haiku produced malformed JSON responses for complex 4-section governance
+ * reports, causing parser failures and silent hangs. Sonnet generates
+ * well-structured JSON reliably. Takes 2-3 min for complex docs — acceptable
+ * given the background email delivery architecture (panel closes immediately).
  */
-export const MARIA_MODEL_ID = 'claude-haiku-4-5'
+export const MARIA_MODEL_ID = MODEL_ID  // claude-sonnet-4-6
 
 /**
  * System prompt for the CE (Competitive Engineering) pipeline.
