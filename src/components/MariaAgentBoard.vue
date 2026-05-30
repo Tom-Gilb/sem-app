@@ -67,6 +67,10 @@ const emailTo = ref('')
 const reportSent = ref(false)
 let _sentTimer: ReturnType<typeof setTimeout> | null = null
 
+/** Controls the "copied" flash state on the copy button. */
+const copyDone = ref(false)
+let _copyTimer: ReturnType<typeof setTimeout> | null = null
+
 /** Controls Board Members collapsible panel (collapsed by default). */
 const boardOpen = ref(false)
 
@@ -193,7 +197,9 @@ function startOver(): void {
   ratingInteracted.value = false
   emailTo.value = ''
   reportSent.value = false
-  if (_sentTimer) { clearTimeout(_sentTimer); _sentTimer = null }
+  copyDone.value = false
+  if (_sentTimer)  { clearTimeout(_sentTimer);  _sentTimer  = null }
+  if (_copyTimer)  { clearTimeout(_copyTimer);  _copyTimer  = null }
   lastMariaResult.value = null   // clear the store so reopening the panel is clean
   reset()
 }
@@ -661,10 +667,39 @@ const authoritySuggestions = computed((): Record<string, MemberMatch[]> => {
   return out
 })
 
-// ─── Email export ─────────────────────────────────────────────────────────────
+// ─── Copy + Email export ──────────────────────────────────────────────────────
 
 // buildMariaEmailHtml is imported from lib/maria/email — pure, portable, no Vue.
 
+/**
+ * Copy the full coloured HTML report to the system clipboard.
+ * Writes both text/html (for Mail, Pages, Keynote, Slack rich paste)
+ * and text/plain (for plain editors) in a single ClipboardItem.
+ * Colorful Exports Rule: HTML is the canonical format; plain is fallback only.
+ */
+async function copyReport(): Promise<void> {
+  if (!result.value) return
+  const html = buildMariaEmailHtml(result.value, {
+    ratingValue:      rating.value,
+    ratingLabel:      ratingLabel.value,
+    ratingInteracted: ratingInteracted.value,
+  })
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html':  new Blob([html],  { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      }),
+    ])
+  } catch {
+    // Fallback for contexts where ClipboardItem is unavailable
+    await navigator.clipboard.writeText(plain)
+  }
+  copyDone.value = true
+  if (_copyTimer) clearTimeout(_copyTimer)
+  _copyTimer = setTimeout(() => { copyDone.value = false }, 3000)
+}
 
 function sendEmailReport(): void {
   if (!result.value) return
@@ -680,7 +715,7 @@ function sendEmailReport(): void {
   openEml(html, '🏛 Maria — Board Governance Analysis', { to })
   reportSent.value = true
   if (_sentTimer) clearTimeout(_sentTimer)
-  _sentTimer = setTimeout(() => { reportSent.value = false }, 4000)
+  _sentTimer = setTimeout(() => { reportSent.value = false }, 8000)
 }
 </script>
 
@@ -1344,35 +1379,54 @@ function sendEmailReport(): void {
               </div>
             </div>
 
-            <!-- ── Email Report ── -->
+            <!-- ── Copy + Email Report ── -->
             <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <h4 class="text-sm font-bold text-emerald-900 mb-1">📧 Email Report to Board</h4>
+              <h4 class="text-sm font-bold text-emerald-900 mb-1">📤 Share Report</h4>
               <p class="text-xs text-emerald-700 mb-3 leading-relaxed">
-                Send the full Maria governance analysis to Todd and the board.
-                Mail.app will open with the complete colored HTML report pre-filled — no pasting required.
+                Copy the full coloured HTML report to your clipboard, or save it as a .eml file to open in Mail.app.
               </p>
-              <div class="flex gap-2 mb-3">
+
+              <!-- Copy button — always the fastest path -->
+              <button
+                type="button"
+                class="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold mb-2 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                :class="copyDone
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md'"
+                title="Copy Report — single-click to copy the full coloured HTML governance report to your clipboard. Paste into Mail, Slack, Pages, Keynote, or any rich-text app."
+                @click="copyReport"
+              >
+                <span aria-hidden="true">{{ copyDone ? '✓' : '📋' }}</span>
+                <span>{{ copyDone ? 'Copied — paste into Mail, Slack, Keynote…' : 'Copy Report (rich HTML)' }}</span>
+              </button>
+
+              <!-- Email via .eml download -->
+              <div class="flex gap-2 mb-2">
                 <input
                   v-model="emailTo"
                   type="email"
                   multiple
                   class="flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="todd@board.org, chair@board.org (comma-separated)"
-                  title="Email recipients — enter one or more email addresses separated by commas. Mail.app will open with the full report pre-filled in the body."
+                  placeholder="todd@board.org, chair@board.org (optional)"
+                  title="Email recipients — optional. Enter addresses and click Save .eml to download a pre-filled Mail.app compose draft."
                 />
               </div>
               <button
                 type="button"
                 class="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
                 :class="reportSent
-                  ? 'bg-emerald-100 text-emerald-700'
+                  ? 'bg-amber-100 text-amber-800'
                   : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow-md'"
-                title="Email Report — builds a fully formatted HTML governance report and opens it in Mail.app as a pre-filled compose draft. No pasting required. Delivers Decision Inventory, Authority Clarity Report, Governance Gaps, and Pattern Analysis."
+                title="Save .eml — downloads a pre-filled Mail.app compose draft to your Downloads folder. Double-click the .eml file in Finder to open it in Mail.app as a ready-to-send email."
                 @click="sendEmailReport"
               >
                 <EmailGlyph size="compact" class="text-current" aria-hidden="true" />
-                <span>{{ reportSent ? '✓ Report opened in Mail' : 'Open Report in Mail →' }}</span>
+                <span>{{ reportSent ? '📥 Saved to Downloads — open .eml in Finder to send' : 'Save as .eml for Mail.app' }}</span>
               </button>
+              <!-- Finder hint — only shown after download -->
+              <p v-if="reportSent" class="text-[10px] text-amber-700 text-center mt-1.5 leading-snug">
+                ~/Downloads → double-click the .eml file → Mail.app opens with the full report ready to send
+              </p>
             </div>
 
           </div>
