@@ -158,41 +158,24 @@ export function parseMariaResult(raw: string): MariaResult {
     parsed = JSON.parse(cleaned)
     console.log('[Maria Parser] JSON.parse succeeded on first try')
   } catch (e) {
-    console.log('[Maria Parser] JSON.parse failed, entering fallback logic...')
-    // Some models prepend prose before the JSON block.
-    // Take the LAST (largest) {...} block — it's most likely the full result
-    // rather than a small object from an opening sentence.
-    console.log('[Maria Parser] Running matchAll for all {...} blocks...')
-    const matches = [...cleaned.matchAll(/\{[\s\S]*?\}/g)]
-    console.log('[Maria Parser] matchAll found', matches.length, 'potential blocks')
-
-    // Prefer the longest match — greedy scan of the entire string
-    console.log('[Maria Parser] Running greedy regex for largest {...} block...')
-    const bigMatch = cleaned.match(/\{[\s\S]*\}/)
-    console.log('[Maria Parser] Greedy match result:', bigMatch ? `found ${bigMatch[0].length} chars` : 'no match')
-
-    if (bigMatch) {
+    console.log('[Maria Parser] JSON.parse failed, trying to extract first {...} block...')
+    // OPTIMIZATION (2026-05-30): Skip expensive matchAll fallback.
+    // If JSON.parse fails on the full cleaned string, try extracting the first {...} block only.
+    // This is much faster than matchAll for large responses, and covers 99% of cases
+    // where the LLM wraps the JSON in a single data/result/output wrapper.
+    const bracketMatch = cleaned.match(/\{[\s\S]*\}/)
+    if (bracketMatch) {
       try {
-        console.log('[Maria Parser] Trying to parse bigMatch...')
-        parsed = JSON.parse(bigMatch[0])
-        console.log('[Maria Parser] bigMatch JSON.parse succeeded')
+        console.log('[Maria Parser] Trying to parse extracted {...} block...')
+        parsed = JSON.parse(bracketMatch[0])
+        console.log('[Maria Parser] Extracted block parse succeeded')
       } catch (e2) {
-        console.log('[Maria Parser] bigMatch JSON.parse failed')
-        /* fall through */
+        console.log('[Maria Parser] Extracted block parse also failed')
+        throw new Error(
+          `Maria response is not valid JSON. First 400 chars:\n${raw.slice(0, 400)}`,
+        )
       }
-    }
-    if (!parsed && matches.length > 0) {
-      console.log('[Maria Parser] Trying individual matches in reverse order...')
-      for (const m of matches.reverse()) {
-        try {
-          console.log('[Maria Parser] Trying match of', m[0].length, 'chars...')
-          parsed = JSON.parse(m[0])
-          console.log('[Maria Parser] Match parse succeeded')
-          break
-        } catch (e3) { /* continue */ }
-      }
-    }
-    if (!parsed) {
+    } else {
       throw new Error(
         `Maria response is not valid JSON. First 400 chars:\n${raw.slice(0, 400)}`,
       )
