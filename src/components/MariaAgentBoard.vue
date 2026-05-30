@@ -83,6 +83,7 @@ watch(result, (r) => { if (r) lastMariaResult.value = r })
 
 const hasDocument   = computed(() => documentText.value.trim().length > 0)
 const hasResult     = computed(() => result.value !== null)
+const shouldShowResult = computed(() => result.value !== null && typeof result.value === 'object')
 /** Live char count of streaming response — non-zero once API starts sending tokens back. */
 const streamedChars = computed(() => mariaStreamedText.value.length)
 
@@ -635,16 +636,6 @@ function sendEmailReport(): void {
           >
             Start over
           </button>
-          <!-- Cancel — visible during loading from second 1, not just at 120 s -->
-          <button
-            v-if="loading"
-            type="button"
-            class="shrink-0 text-[11px] font-semibold text-white/60 hover:text-white bg-white/10 hover:bg-red-500/60 rounded-lg px-3 py-1.5 transition-all"
-            title="Cancel analysis — single-click to stop and return to the input screen"
-            @click="cancelAnalysis"
-          >
-            ✕ Cancel
-          </button>
           <CloseDot
             variant="on-dark"
             aria-label="Close Maria Agent Board"
@@ -844,7 +835,7 @@ function sendEmailReport(): void {
           </div>
 
           <!-- ─── Input phase ─────────────────────────────────────────────── -->
-          <div v-else-if="!result && !loading">
+          <div v-else-if="!shouldShowResult && !loading">
 
             <!-- Intro blurb -->
             <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mb-5">
@@ -930,7 +921,8 @@ function sendEmailReport(): void {
           </div>
 
           <!-- ─── Result phase ────────────────────────────────────────────── -->
-          <div v-else-if="result">
+          <!-- Display results immediately when available, regardless of loading state -->
+          <div v-if="shouldShowResult">
 
             <!-- Summary bar -->
             <div class="grid grid-cols-4 gap-3 mb-5">
