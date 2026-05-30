@@ -251,13 +251,14 @@ export function useMaria(): MariaState {
       addDebugLog(`Parser result: ${resultStats.hasDecisionInventory} decisions, ${resultStats.hasAuthorityReport} auth gaps, ${resultStats.hasGovernanceGaps} gov gaps, ${resultStats.hasPatternAnalysis} patterns`)
 
       result.value = parsed
-      addDebugLog('Analysis complete ✓')
+      addDebugLog(`✓ Result set: ${JSON.stringify({decisionInventory: parsed.decisionInventory.length, authorityReport: parsed.authorityReport.length, governanceGaps: parsed.governanceGaps.length, patternAnalysis: parsed.patternAnalysis.length})}`)
 
       // Force Vue to re-render with the new result
       await nextTick()
 
       // Set loading to false so the result phase displays
       loading.value = false
+      addDebugLog('Loading state set to false')
       addDebugLog(`✓ Results ready: ${resultStats.hasDecisionInventory} decisions, ${resultStats.hasAuthorityReport} authority gaps, ${resultStats.hasGovernanceGaps} governance gaps, ${resultStats.hasPatternAnalysis} patterns`)
 
       return parsed
