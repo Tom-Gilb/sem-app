@@ -143,15 +143,18 @@ function normaliseResponse(raw: Record<string, unknown>): Record<string, unknown
  * @throws {Error} when the response cannot be parsed or is missing required structure.
  */
 export function parseMariaResult(raw: string): MariaResult {
-  console.log('[Maria Parser] Starting parse, raw length:', raw.length)
+  try {
+    console.log('[Maria Parser] Starting parse, raw length:', raw.length)
 
-  // Strip ALL markdown code fences (some models insert them mid-response too).
-  console.log('[Maria Parser] Stripping markdown fences...')
-  const cleaned = raw
-    .replace(/```(?:json)?\s*/gi, '')
-    .replace(/```\s*/g, '')
-    .trim()
-  console.log('[Maria Parser] After strip, cleaned length:', cleaned.length)
+    // Strip ALL markdown code fences (some models insert them mid-response too).
+    console.log('[Maria Parser] Stripping markdown fences...')
+    const cleaned = raw
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .trim()
+    console.log('[Maria Parser] After strip, cleaned length:', cleaned.length)
+    console.log('[Maria Parser] First 100 chars:', cleaned.slice(0, 100))
+    console.log('[Maria Parser] Last 100 chars:', cleaned.slice(-100))
 
   let parsed: unknown
   try {
@@ -239,7 +242,13 @@ export function parseMariaResult(raw: string): MariaResult {
   for (const d of obj.decisionInventory as Array<Record<string, unknown>>) {
     if (!d.authorityGapFlagged) delete d.authorityGapNote
   }
-  console.log('[Maria Parser] ✓ Parse complete, returning MariaResult')
+    console.log('[Maria Parser] ✓ Parse complete, returning MariaResult')
 
-  return obj as unknown as MariaResult
+    return obj as unknown as MariaResult
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    console.error('[Maria Parser] FATAL ERROR:', errMsg)
+    console.error('[Maria Parser] Error details:', err)
+    throw err
+  }
 }
