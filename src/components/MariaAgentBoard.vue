@@ -174,16 +174,9 @@ function runAnalysis(): void {
         return
       }
 
-      try {
-        // Open the email pre-filled with the report — Mail.app opens in background
-        const emailHtml = buildMariaEmailHtml(mariaResult, {})
-        const subject = `Maria Analysis Report — ${new Date().toLocaleDateString()}`
-        openEml(emailHtml, subject)
-        // Panel stays open — results show in-panel via shouldShowResult computed
-      } catch (callbackErr) {
-        console.error('[Maria] Error in email callback:', callbackErr)
-        // Panel stays open regardless — results are still visible in-panel
-      }
+      // Results are now visible in-panel via shouldShowResult.
+      // Email is sent on-demand via the "📧 Email Report" button — not auto-fired
+      // here, because openEml() previously navigated Safari away from the app.
     })
 
     console.log('[Maria] Analysis submitted — running in background')

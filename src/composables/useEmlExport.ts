@@ -156,16 +156,15 @@ export function openEml(
     const blob = new Blob([eml], { type: 'message/rfc822' })
     const url  = URL.createObjectURL(blob)
 
-    // Open in a new tab WITHOUT the `download` attribute.
-    // On macOS Safari, navigating to a blob URL of type message/rfc822 hands
-    // off to Mail.app via the OS MIME handler — the compose window opens
-    // directly without a Downloads step.  `a.download` would force the file
-    // into ~/Downloads and require the user to manually double-click it, which
-    // is the old behaviour Tom reported as broken (2026-05-29).
+    // Use a.download to save the .eml file — do NOT set a.target='_blank'.
+    // In Safari's embedded/WKWebView context, target='_blank' is silently
+    // ignored and the blob URL navigates the CURRENT window instead, wiping
+    // the entire Vue app. With a.download, macOS saves the file and the OS
+    // MIME handler (Mail.app for .eml) opens it automatically as a compose
+    // draft — no manual double-click needed on modern macOS.
     const a    = document.createElement('a')
     a.href     = url
-    a.target   = '_blank'
-    a.rel      = 'noopener noreferrer'
+    a.download = `${safeName}.eml`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
