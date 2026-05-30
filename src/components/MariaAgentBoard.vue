@@ -25,10 +25,10 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
-import { useMaria, cancelCurrentMaria, mariaStreamedText, debugLogs } from '../composables/useMaria'
+import { useMaria, cancelCurrentMaria, mariaStreamedText } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import type { MariaResult }    from '../types/maria'
@@ -74,11 +74,6 @@ let _copyTimer: ReturnType<typeof setTimeout> | null = null
 /** Controls Board Members collapsible panel (collapsed by default). */
 const boardOpen = ref(false)
 
-/** Controls debug logs collapsible panel (collapsed by default). */
-const debugOpen = ref(false)
-
-/** Template ref for debug logs container — auto-scrolls to bottom when logs update. */
-const debugLogsContainer = ref<HTMLDivElement | null>(null)
 
 // ── Live board member roster (localStorage-backed, same data as MariaBoardHub) ──
 const { members: boardMembersLive } = useBoardMembers()
@@ -89,14 +84,6 @@ const boardMembers = boardMembersLive
 //    MariaBoardHub's "Import from last analysis" button can access it. ──────────
 watch(result, (r) => { if (r) lastMariaResult.value = r })
 
-// Auto-scroll debug logs to bottom when new messages arrive
-watch(debugLogs, () => {
-  nextTick(() => {
-    if (debugLogsContainer.value) {
-      debugLogsContainer.value.scrollTop = debugLogsContainer.value.scrollHeight
-    }
-  })
-}, { deep: true })
 
 // ─── Computed helpers ─────────────────────────────────────────────────────────
 
@@ -167,9 +154,6 @@ function runAnalysis(): void {
     }
 
     console.log('[Maria] Starting analysis, calling analyse()...')
-
-    // Auto-open the debug panel so Tom can see live log entries during analysis
-    debugOpen.value = true
 
     // Start background analysis — results display in-panel; email opens automatically
     analyse(documentText.value, (mariaResult: MariaResult | null) => {
@@ -868,26 +852,6 @@ function sendEmailReport(): void {
               </span>
             </div>
 
-            <!-- Debug panel — visible logs so Tom can see what's happening without Safari console -->
-            <div class="rounded-xl border border-slate-200 overflow-hidden mb-4 bg-slate-50">
-              <button
-                type="button"
-                class="w-full flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-slate-400"
-                title="Debug logs — expand to see real-time diagnostic messages from the analysis. Single-click to show/hide the log output."
-                @click.stop="debugOpen = !debugOpen"
-              >
-                <span class="text-xs font-bold text-slate-600 flex-1">🔧 Analysis Logs ({{ debugLogs.length }} events)</span>
-                <span class="text-slate-400 text-xs">{{ debugOpen ? '▲' : '▼' }}</span>
-              </button>
-              <div v-if="debugOpen" ref="debugLogsContainer" class="max-h-80 overflow-y-auto bg-slate-900 text-slate-100 font-mono text-[10px] p-3 space-y-1">
-                <div v-if="debugLogs.length === 0" class="text-slate-500">
-                  (waiting for logs…)
-                </div>
-                <div v-for="(log, idx) in debugLogs" :key="idx" class="text-slate-300">
-                  {{ log }}
-                </div>
-              </div>
-            </div>
 
             <!-- Photo carousel — Montessori Through the Decades -->
             <div class="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 overflow-hidden">
