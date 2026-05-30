@@ -45,6 +45,7 @@ const FIELD_ALIASES: Record<string, string> = {
   governance_gaps:         'governanceGaps',
   gaps:                    'governanceGaps',
   governmentGaps:          'governanceGaps', // typo the model occasionally produces
+  governanceGaves:         'governanceGaps', // typo (missing 'p') seen 2026-05-30
   governanceIssues:        'governanceGaps',
   governance_issues:       'governanceGaps',
   missingDecisions:        'governanceGaps',
