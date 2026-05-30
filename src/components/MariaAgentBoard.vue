@@ -78,6 +78,8 @@ const debugLogsContainer = ref<HTMLDivElement | null>(null)
 
 // ── Live board member roster (localStorage-backed, same data as MariaBoardHub) ──
 const { members: boardMembersLive } = useBoardMembers()
+/** Template alias — Vue templates need a stable name; boardMembersLive is the reactive source. */
+const boardMembers = boardMembersLive
 
 // ── Write each successful analysis to the module-level result store so
 //    MariaBoardHub's "Import from last analysis" button can access it. ──────────
