@@ -1033,11 +1033,12 @@ function sendEmailReport(): void {
             <div class="rounded-xl border border-emerald-200 overflow-hidden mb-4">
               <button
                 type="button"
-                class="w-full flex items-center gap-2 px-4 py-3 bg-emerald-50 hover:bg-emerald-100 transition-colors text-left"
+                class="w-full flex items-center gap-3 px-4 py-3 bg-emerald-50 hover:bg-emerald-100 transition-colors text-left"
                 title="Decision Inventory — expand or collapse the list of all decisions extracted from the board document, each classified by governance layer (Board / Management / Operations)"
                 @click="sectionOpen.decisions = !sectionOpen.decisions"
               >
-                <span class="text-sm font-bold text-emerald-800 flex-1">🗂 Decision Inventory</span>
+                <span class="text-2xl w-11 h-11 flex items-center justify-center rounded-full bg-emerald-200 shrink-0" aria-hidden="true">⚖️</span>
+                <span class="text-sm font-bold text-emerald-800 flex-1">Decision Inventory</span>
                 <span class="text-xs text-emerald-600 font-semibold">{{ result.decisionInventory.length }} decisions</span>
                 <span class="text-emerald-500 text-xs ml-1">{{ sectionOpen.decisions ? '▲' : '▼' }}</span>
               </button>
@@ -1069,11 +1070,12 @@ function sendEmailReport(): void {
             <div class="rounded-xl border border-indigo-200 overflow-hidden mb-4">
               <button
                 type="button"
-                class="w-full flex items-center gap-2 px-4 py-3 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left"
+                class="w-full flex items-center gap-3 px-4 py-3 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left"
                 title="Authority Clarity Report — expand or collapse the list of authority clarity gaps found in the board document, with severity rating and opportunity for board action"
                 @click="sectionOpen.authority = !sectionOpen.authority"
               >
-                <span class="text-sm font-bold text-indigo-800 flex-1">⚑ Authority Clarity Report</span>
+                <span class="text-2xl w-11 h-11 flex items-center justify-center rounded-full bg-indigo-200 shrink-0" aria-hidden="true">🔑</span>
+                <span class="text-sm font-bold text-indigo-800 flex-1">Authority Clarity Report</span>
                 <span class="text-xs font-semibold" :class="result.authorityReport.length > 0 ? 'text-indigo-600' : 'text-emerald-600'">
                   {{ result.authorityReport.length > 0 ? `${result.authorityReport.length} gap${result.authorityReport.length !== 1 ? 's' : ''}` : '✓ None found' }}
                 </span>
@@ -1115,11 +1117,12 @@ function sendEmailReport(): void {
             <div class="rounded-xl border border-amber-200 overflow-hidden mb-4">
               <button
                 type="button"
-                class="w-full flex items-center gap-2 px-4 py-3 bg-amber-50 hover:bg-amber-100 transition-colors text-left"
+                class="w-full flex items-center gap-3 px-4 py-3 bg-amber-50 hover:bg-amber-100 transition-colors text-left"
                 title="Governance Gaps — topics that should have a board decision recorded but do not; expand to see each gap and the opportunity for board action"
                 @click="sectionOpen.gaps = !sectionOpen.gaps"
               >
-                <span class="text-sm font-bold text-amber-800 flex-1">📋 Governance Gaps</span>
+                <span class="text-2xl w-11 h-11 flex items-center justify-center rounded-full bg-amber-200 shrink-0" aria-hidden="true">⚠️</span>
+                <span class="text-sm font-bold text-amber-800 flex-1">Governance Gaps</span>
                 <span class="text-xs font-semibold" :class="result.governanceGaps.length > 0 ? 'text-amber-600' : 'text-emerald-600'">
                   {{ result.governanceGaps.length > 0 ? `${result.governanceGaps.length} gap${result.governanceGaps.length !== 1 ? 's' : ''}` : '✓ None found' }}
                 </span>
@@ -1158,11 +1161,12 @@ function sendEmailReport(): void {
             <div class="rounded-xl border border-violet-200 overflow-hidden mb-5">
               <button
                 type="button"
-                class="w-full flex items-center gap-2 px-4 py-3 bg-violet-50 hover:bg-violet-100 transition-colors text-left"
+                class="w-full flex items-center gap-3 px-4 py-3 bg-violet-50 hover:bg-violet-100 transition-colors text-left"
                 title="Governance Pattern Analysis — recurring themes in how the board operates; expand to see strengths and concerns with opportunities for action"
                 @click="sectionOpen.patterns = !sectionOpen.patterns"
               >
-                <span class="text-sm font-bold text-violet-800 flex-1">🔮 Governance Patterns</span>
+                <span class="text-2xl w-11 h-11 flex items-center justify-center rounded-full bg-violet-200 shrink-0" aria-hidden="true">🧩</span>
+                <span class="text-sm font-bold text-violet-800 flex-1">Governance Patterns</span>
                 <span class="text-xs text-violet-600 font-semibold">{{ result.patternAnalysis.length }} patterns</span>
                 <span class="text-violet-400 text-xs ml-1">{{ sectionOpen.patterns ? '▲' : '▼' }}</span>
               </button>
