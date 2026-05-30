@@ -48,7 +48,7 @@ function getClient(): Anthropic {
     _mariaClient = new Anthropic({
       apiKey,
       dangerouslyAllowBrowser: true,
-      timeout: 90_000, // board documents can be long; allow up to 90 s
+      timeout: 150_000, // board documents can be long; allow up to 150 s (2.5 min)
     })
   }
   return _mariaClient

@@ -328,10 +328,18 @@ function _startLoadingAnimation(): void {
   failedPhotos.value      = new Set()
   activeFactIdx.value     = Math.floor(Math.random() * MONTESSORI_PHOTOS.length)
 
-  // Tick every second: update elapsed + logarithmic progress (asymptotes at 95%)
+  // Tick every second: update elapsed + two-phase progress.
+  // Phase 1 (0–80 s): logarithmic curve (time-constant 35 s) → reaches ~90% at 80 s.
+  // Phase 2 (80 s+): slow linear climb 0.08 %/s toward 99 % cap.
+  // This keeps the bar visibly moving even during long analyses — no more "frozen at 92%" appearance.
   _elapsedTimer = setInterval(() => {
     elapsed.value++
-    simulatedProgress.value = Math.round(95 * (1 - Math.exp(-elapsed.value / 18)))
+    const e = elapsed.value
+    if (e <= 80) {
+      simulatedProgress.value = Math.round(98 * (1 - Math.exp(-e / 35)))
+    } else {
+      simulatedProgress.value = Math.min(99, Math.round(90 + (e - 80) * 0.08))
+    }
   }, 1000)
 
   // Rotate photos every 10 s (Tom 2026-05-30)
@@ -526,10 +534,13 @@ function sendEmailReport(): void {
               </span>
             </div>
 
-            <!-- Animated progress bar -->
+            <!-- Animated progress bar — pulses when elapsed > 60 s to show it's still alive -->
             <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-1.5">
               <div
-                class="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 transition-all duration-1000 ease-out"
+                :class="[
+                  'h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 transition-all duration-1000 ease-out',
+                  elapsed > 60 ? 'animate-pulse' : ''
+                ]"
                 :style="{ width: simulatedProgress + '%' }"
                 role="progressbar"
                 :aria-valuenow="simulatedProgress"
@@ -537,6 +548,10 @@ function sendEmailReport(): void {
                 aria-valuemax="100"
               />
             </div>
+            <!-- Long-running hint — shown after 75 s so user knows it hasn't crashed -->
+            <p v-if="elapsed > 75" class="text-[11px] text-amber-600 font-medium text-center mb-1">
+              ⏳ Large document — still working, please wait…
+            </p>
 
             <!-- Phase label — deliberately visible: sm text, icon, bold -->
             <div class="flex items-center gap-2 mb-5 px-1">
@@ -562,15 +577,15 @@ function sendEmailReport(): void {
                 </span>
               </div>
 
-              <!-- Photo or styled fallback — 340px gives room for landscape school photos -->
-              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-100" style="height:340px;">
+              <!-- Photo or styled fallback — contain (no cropping) with emerald-50 bg for letterboxing -->
+              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-50 flex items-center justify-center" style="height:360px;">
                 <!-- Real photo (hidden if URL empty or failed to load) -->
                 <img
                   v-if="MONTESSORI_PHOTOS[activeFactIdx].url && !failedPhotos.has(activeFactIdx)"
                   :key="activeFactIdx"
                   :src="MONTESSORI_PHOTOS[activeFactIdx].url"
                   :alt="MONTESSORI_PHOTOS[activeFactIdx].caption"
-                  class="w-full h-full object-cover object-top transition-opacity duration-500"
+                  class="max-w-full max-h-full object-contain transition-opacity duration-500"
                   loading="lazy"
                   @error="handlePhotoError(activeFactIdx)"
                 />
