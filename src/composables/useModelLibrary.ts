@@ -566,6 +566,18 @@ const CATEGORIES_KEY   = 'sem-model-categories-v1'    // category defs
 const _userEntries  = ref<ModelLibraryEntry[]>([])
 const categoryDefs  = ref<ModelCategoryDef[]>([...DEFAULT_CATEGORY_DEFS])
 
+/**
+ * The currently "active" model — the one selected by the user as the implied
+ * analysis target for cross-agent operations (Stakeholder Mapper, Evo Critiquer,
+ * Plan Agent, etc.).  Module-level so it persists across panel open/close cycles.
+ */
+const activeModelId = ref<string | null>(null)
+
+/** Set the active model.  Pass null to clear.  Twin-portable: pure state mutation. */
+function setActiveModel(id: string | null): void {
+  activeModelId.value = id
+}
+
 function _loadEntries(): void {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -932,6 +944,8 @@ export function useModelLibrary() {
   return {
     allEntries,
     categoryDefs,
+    activeModelId,
+    setActiveModel,
     entriesByCategory,
     addUserEntry,
     removeUserEntry,

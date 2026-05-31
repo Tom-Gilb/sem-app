@@ -4323,6 +4323,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <ModelLibraryPanel
     v-if="view === 'app' && modelLibraryOpen"
     @close="modelLibraryOpen = false"
+    @select-agent="(id) => { modelLibraryOpen = false; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') planImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true }"
   />
 
   <!-- Stakeholder Mapper agent panel — AI-drafted 10-attribute profiles. z-[600] -->

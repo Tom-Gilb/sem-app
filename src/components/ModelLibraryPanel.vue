@@ -37,7 +37,12 @@ import type {
 } from '../composables/useModelLibrary'
 import { useDocumentImport } from '../composables/useDocumentImport'
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{
+  close: []
+  /** Emitted when a cross-agent navigation button is clicked.
+   *  App.vue handles this the same way as AgentMenuPanel @select-agent. */
+  'select-agent': [id: string]
+}>()
 
 // ── Composables ───────────────────────────────────────────────────────────────
 
@@ -75,11 +80,13 @@ const fileInputRef    = ref<HTMLInputElement | null>(null)
 
 // ── Detail / sharpen state ────────────────────────────────────────────────────
 
-const copiedId         = ref<string | null>(null)
-const sharpenCommand   = ref('')
-const sharpenLoading   = ref(false)
-const sharpenSuccess   = ref(false)
-const sharpenError     = ref<string | null>(null)
+const copiedId               = ref<string | null>(null)
+const sharpenCommand         = ref('')
+const sharpenLoading         = ref(false)
+const sharpenSuccess         = ref(false)
+const sharpenError           = ref<string | null>(null)
+/** Whether the "Specific Model Analysis Tools" dropdown is open. */
+const specificToolsOpen      = ref(false)
 
 // Abort controller for AI calls
 let _abortController: AbortController | null = null
@@ -89,6 +96,13 @@ let _abortController: AbortController | null = null
 const selectedModel = computed<ModelLibraryEntry | null>(() =>
   selectedModelId.value
     ? library.allEntries.value.find(e => e.id === selectedModelId.value) ?? null
+    : null,
+)
+
+/** The currently active model (the implied cross-agent analysis target). */
+const activeModel = computed<ModelLibraryEntry | null>(() =>
+  library.activeModelId.value
+    ? library.allEntries.value.find(e => e.id === library.activeModelId.value) ?? null
     : null,
 )
 
@@ -200,10 +214,24 @@ function deleteCategory(cat: ModelCategoryDef): void {
 
 function viewModel(id: string): void {
   selectedModelId.value = id
+  // Viewing a model makes it the implied analysis target for cross-agent tools.
+  library.setActiveModel(id)
   mode.value = 'detail'
   sharpenCommand.value = ''
   sharpenSuccess.value = false
   sharpenError.value = null
+  specificToolsOpen.value = false
+}
+
+/**
+ * Navigate to a cross-agent tool with the current model as implied context.
+ * Sets activeModelId first so the target agent can pick it up.
+ */
+function sendToAgent(agentId: string): void {
+  if (selectedModelId.value) {
+    library.setActiveModel(selectedModelId.value)
+  }
+  emit('select-agent', agentId)
 }
 
 function backToGrid(): void {
@@ -355,6 +383,53 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
         title="Close — return to the main planning workspace"
         @click="emit('close')"
       />
+    </div>
+
+    <!-- ── Active Model Context Banner ─────────────────────────────────── -->
+    <!-- Persistent when any model is set as the implied analysis target.
+         Visible across all three panel modes (grid, bring-in, detail). -->
+    <div
+      v-if="activeModel"
+      class="flex items-center gap-2.5 px-5 py-2 bg-teal-700 border-b border-teal-600 shrink-0"
+    >
+      <span class="text-base shrink-0" aria-hidden="true">📌</span>
+      <span class="text-xs font-semibold text-white/90 flex-1 min-w-0 truncate">
+        We are using: <span class="text-white font-bold">{{ activeModel.title }}</span>
+      </span>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button
+          type="button"
+          class="flex items-center gap-1 text-[10px] font-semibold bg-teal-600 hover:bg-teal-500 text-white rounded px-2 py-1 transition-colors duration-150"
+          title="Map Stakeholders — open Stakeholder Mapper with this model as context"
+          @click="sendToAgent('stakeholder-mapper')"
+        >
+          👥 Map Stakeholders
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-1 text-[10px] font-semibold bg-teal-600 hover:bg-teal-500 text-white rounded px-2 py-1 transition-colors duration-150"
+          title="Evo Health Check — open Evo Critiquer with this model as context"
+          @click="sendToAgent('evo-step-critique')"
+        >
+          📊 Evo Check
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-1 text-[10px] font-semibold bg-teal-600 hover:bg-teal-500 text-white rounded px-2 py-1 transition-colors duration-150"
+          title="Plan Agent — open Plan Agent with this model as context"
+          @click="sendToAgent('plan-importer')"
+        >
+          📄 Plan Agent
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-1 text-[10px] font-medium bg-white/10 hover:bg-white/20 text-white/70 rounded px-2 py-1 transition-colors duration-150"
+          title="Clear active model — remove this model as the implied analysis target"
+          @click="library.setActiveModel(null)"
+        >
+          ✕ Clear
+        </button>
+      </div>
     </div>
 
     <!-- ── Body ───────────────────────────────────────────────────────────── -->
@@ -843,6 +918,109 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   :key="i"
                   class="text-xs bg-slate-100 text-slate-700 rounded-full px-2.5 py-1 font-medium"
                 >{{ s }}</span>
+              </div>
+            </div>
+
+            <!-- ── Local Analysis Actions ──────────────────────────────────── -->
+            <!-- "We are using this model" confirmed, with direct cross-agent buttons.
+                 Active model is auto-set when this view is opened (viewModel call). -->
+            <div class="rounded-xl bg-teal-50 ring-1 ring-teal-200 p-4 flex flex-col gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-base" aria-hidden="true">📌</span>
+                <div>
+                  <p class="text-xs font-bold text-teal-800 leading-tight">We are using: {{ selectedModel.title }}</p>
+                  <p class="text-[10px] text-teal-600 leading-tight mt-0.5">This model is the implied target for all analysis tools below</p>
+                </div>
+              </div>
+
+              <!-- 2×2 action button grid -->
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  class="flex items-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-3 py-2.5 text-xs font-semibold transition-colors duration-150"
+                  title="Map Stakeholders — analyse who the stakeholders are for this model, with AI-drafted attribute profiles (Power, Influence, Urgency, etc.)"
+                  @click="sendToAgent('stakeholder-mapper')"
+                >
+                  <span aria-hidden="true">👥</span>
+                  <span>Map Stakeholders</span>
+                </button>
+                <button
+                  type="button"
+                  class="flex items-center gap-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white px-3 py-2.5 text-xs font-semibold transition-colors duration-150"
+                  title="Evo Health Check — review this model against the 9-step Evo cycle with per-step critique and value delivery focus"
+                  @click="sendToAgent('evo-step-critique')"
+                >
+                  <span aria-hidden="true">📊</span>
+                  <span>Evo Health Check</span>
+                </button>
+                <button
+                  type="button"
+                  class="flex items-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white px-3 py-2.5 text-xs font-semibold transition-colors duration-150"
+                  title="Plan Agent — convert this model to a Planguage plan, analyse problems and improvements"
+                  @click="sendToAgent('plan-importer')"
+                >
+                  <span aria-hidden="true">📄</span>
+                  <span>Plan Agent</span>
+                </button>
+                <button
+                  type="button"
+                  class="flex items-center gap-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-3 py-2.5 text-xs font-semibold transition-colors duration-150"
+                  title="Decision Mapper — analyse decision options for this model using Planguage criteria"
+                  @click="sendToAgent('decisions')"
+                >
+                  <span aria-hidden="true">🎯</span>
+                  <span>Decision Mapper</span>
+                </button>
+              </div>
+
+              <!-- Specific Model Analysis Tools button + dropdown shell -->
+              <div class="relative">
+                <button
+                  type="button"
+                  class="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-teal-300 hover:border-teal-500 hover:bg-teal-100 text-teal-700 px-3 py-2 text-xs font-semibold transition-colors duration-150"
+                  title="Specific Model Analysis Tools — open additional analysis tools tailored to this model type (single-click to expand, double-click to open full tools panel)"
+                  @click="specificToolsOpen = !specificToolsOpen"
+                >
+                  <span aria-hidden="true">🔧</span>
+                  <span>Specific Model Analysis Tools</span>
+                  <span class="text-[10px]" aria-hidden="true">{{ specificToolsOpen ? '▴' : '▾' }}</span>
+                </button>
+
+                <!-- Dropdown shell — contents to be specified by Tom -->
+                <div
+                  v-if="specificToolsOpen"
+                  class="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl ring-1 ring-slate-200 shadow-lg z-10 overflow-hidden"
+                  role="menu"
+                >
+                  <div class="px-4 py-3 border-b border-slate-100">
+                    <p class="text-xs font-semibold text-slate-700">Specific Model Analysis Tools</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">Tailored tools for this model type — content being specified</p>
+                  </div>
+                  <!-- Placeholder items — Tom is specifying what goes here -->
+                  <div class="px-4 py-3 flex flex-col gap-2">
+                    <div class="flex items-center gap-2 text-xs text-slate-400 cursor-not-allowed py-1">
+                      <span aria-hidden="true">📐</span>
+                      <span>Planguage Compliance Audit</span>
+                      <span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1.5 py-0.5">Coming soon</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-slate-400 cursor-not-allowed py-1">
+                      <span aria-hidden="true">🔗</span>
+                      <span>Cross-Model Comparison</span>
+                      <span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1.5 py-0.5">Coming soon</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-slate-400 cursor-not-allowed py-1">
+                      <span aria-hidden="true">📈</span>
+                      <span>Value Gap Analysis</span>
+                      <span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1.5 py-0.5">Coming soon</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-slate-400 cursor-not-allowed py-1">
+                      <span aria-hidden="true">🌐</span>
+                      <span>Twin Export Readiness Check</span>
+                      <span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1.5 py-0.5">Coming soon</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 italic pt-1 border-t border-slate-100">Tom is specifying the full tool list for this menu</p>
+                  </div>
+                </div>
               </div>
             </div>
 
