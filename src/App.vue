@@ -3798,22 +3798,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
             : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
           @click="toggleMenu"
         ><span aria-hidden="true" style="filter: brightness(0.1);">⚡</span></button>
-        <!-- 🤖 Agents -->
+        <!-- 🦾 Agents -->
         <button
           type="button"
           :aria-expanded="agentMenuOpen"
           aria-haspopup="true"
           aria-label="Open Agent Menu"
           title="Agent Menu — Maria (Board Work Parse) · Contracts (Planguage Contract Analysis) — single-click to open"
-          data-crest-tip="🤖 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
-          class="w-8 h-8 flex items-center justify-center rounded-lg text-lg
+          data-crest-tip="🦾 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
+          class="w-10 h-10 flex items-center justify-center rounded-lg text-3xl
                  select-none transition-all shrink-0
                  focus:outline-none focus:ring-2 focus:ring-emerald-300"
           :class="agentMenuOpen
             ? 'bg-emerald-300 text-emerald-900 ring-2 ring-emerald-200'
             : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
           @click="agentMenuOpen = true"
-        ><span aria-hidden="true">🤖</span></button>
+        ><span aria-hidden="true">🦾</span></button>
       </div>
     </div>
 
