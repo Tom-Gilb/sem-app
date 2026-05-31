@@ -22,7 +22,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import {
@@ -774,6 +774,65 @@ const TYPE_BADGE_CLASS: Record<EntryType, string> = {
 }
 
 const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
+
+// ── Model Quality Score helpers ────────────────────────────────────────────
+
+function qualityRowClass(score: number): string {
+  if (score >= 80) return 'bg-blue-50 text-blue-700'
+  if (score >= 60) return 'bg-amber-50 text-amber-700'
+  return 'bg-orange-50 text-orange-700'
+}
+
+function qualityScoreLabel(score: number): string {
+  if (score >= 80) return '★ Good'
+  if (score >= 60) return '◑ Fair'
+  return '▲ Needs work'
+}
+
+// ── 3D Model View state ─────────────────────────────────────────────────────
+const viz3dLevel    = ref<'Top' | 'Medium' | 'All'>('Medium')
+const viz3dRotating = ref(false)
+const viz3dAngle    = ref(20)
+let   viz3dTimer: ReturnType<typeof setInterval> | null = null
+
+watch(viz3dRotating, (on) => {
+  if (on) {
+    viz3dTimer = setInterval(() => { viz3dAngle.value = (viz3dAngle.value + 0.5) % 360 }, 16)
+  } else {
+    if (viz3dTimer) { clearInterval(viz3dTimer); viz3dTimer = null }
+  }
+})
+
+onUnmounted(() => { if (viz3dTimer) clearInterval(viz3dTimer) })
+
+// Entry sub-sets for each cube face
+const viz3dFEntries = computed(() =>
+  (selectedModel.value?.entries ?? []).filter(e => e.type === 'F'))
+const viz3dVEntries = computed(() =>
+  viz3dLevel.value === 'Top' ? [] : (selectedModel.value?.entries ?? []).filter(e => e.type === 'V'))
+const viz3dCEntries = computed(() =>
+  viz3dLevel.value === 'All' ? (selectedModel.value?.entries ?? []).filter(e => e.type === 'C') : [])
+const viz3dREntries = computed(() =>
+  viz3dLevel.value === 'All' ? (selectedModel.value?.entries ?? []).filter(e => e.type === 'R') : [])
+const viz3dSEntries = computed(() =>
+  viz3dLevel.value !== 'Top' ? (selectedModel.value?.entries ?? []).filter(e => e.type === 'S') : [])
+
+// Helper: CSS face style (pure function, no Vue dependency — Twin-portable)
+function faceStyle(transform: string): Record<string, string> {
+  return {
+    position:           'absolute',
+    inset:              '0',
+    transform,
+    backfaceVisibility: 'hidden',
+    display:            'flex',
+    flexDirection:      'column',
+    alignItems:         'center',
+    justifyContent:     'flex-start',
+    padding:            '12px 8px',
+    borderRadius:       '8px',
+    overflow:           'hidden',
+  }
+}
 </script>
 
 <template>
@@ -1089,6 +1148,21 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   <span class="text-[10px] text-orange-700 font-medium">Analysis failed</span>
                 </div>
 
+                <!-- Model Quality Score (if defect analysis has been run) -->
+                <div
+                  v-if="library.defectResults.value.has(model.id)"
+                  class="flex items-center gap-2 px-4 py-1.5 border-b border-slate-100"
+                  :class="qualityRowClass(library.defectResults.value.get(model.id)!.overallScore)"
+                >
+                  <span class="text-[10px] font-bold">
+                    {{ qualityScoreLabel(library.defectResults.value.get(model.id)!.overallScore) }}
+                  </span>
+                  <span class="text-[10px]">Quality</span>
+                  <span class="ml-auto text-[10px] font-bold tabular-nums">
+                    {{ library.defectResults.value.get(model.id)!.overallScore }}/100
+                  </span>
+                </div>
+
                 <!-- Card body -->
                 <div class="flex-1 flex flex-col p-4 gap-3">
                   <p class="text-xs text-slate-600 leading-relaxed">{{ model.description }}</p>
@@ -1315,6 +1389,23 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
               <span aria-hidden="true">{{ copiedId === selectedModel.id ? '✓' : '📋' }}</span>
               <span>{{ copiedId === selectedModel.id ? 'Copied!' : 'Copy Planguage' }}</span>
             </button>
+          </div>
+
+          <!-- Quality indicator in detail header -->
+          <div
+            v-if="currentDefectResult"
+            class="flex items-center gap-3 px-4 py-2 border-b shrink-0"
+            :class="qualityRowClass(currentDefectResult.overallScore)"
+          >
+            <span class="text-xs font-bold">{{ qualityScoreLabel(currentDefectResult.overallScore) }} — Quality Score</span>
+            <span class="text-xs tabular-nums font-bold ml-auto">{{ currentDefectResult.overallScore }}/100</span>
+            <span class="text-[10px]">{{ currentDefectResult.defects.length }} defects</span>
+            <button
+              type="button"
+              class="text-[10px] underline ml-1"
+              title="Open defect analysis for this model — view full breakdown of issues"
+              @click="openTool('defect-analysis')"
+            >View →</button>
           </div>
 
           <!-- Tool header bar — shown when a specific tool is open -->
@@ -1668,6 +1759,139 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
 
                 <text v-if="stronglyRelLayout.nodes.length === 0" x="430" y="200" text-anchor="middle" font-size="13" fill="#94a3b8">No entries to visualize</text>
               </svg>
+            </div>
+          </ScrollContainer>
+
+          <!-- ── 3D MODEL VIEW ─────────────────────────────────────────────── -->
+          <ScrollContainer
+            v-if="toolMode === 'viz-3d' && selectedModel"
+            outer-class="flex-1 min-h-0 relative"
+            inner-class="p-5 flex flex-col gap-4"
+          >
+            <!-- Header controls -->
+            <div class="flex items-center gap-3 flex-wrap">
+              <h3 class="text-sm font-bold text-slate-800">🧊 3D Model View</h3>
+              <span class="text-xs text-slate-500">{{ selectedModel.title }}</span>
+              <div class="ml-auto flex items-center gap-2">
+                <!-- Level of detail -->
+                <div class="flex gap-1">
+                  <button
+                    v-for="lvl in (['Top', 'Medium', 'All'] as const)"
+                    :key="lvl"
+                    type="button"
+                    :class="['text-[10px] px-2 py-1 rounded font-semibold transition-colors', viz3dLevel === lvl ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+                    :title="`${lvl} level of detail — ${lvl === 'Top' ? 'F entries only' : lvl === 'Medium' ? 'F + V + Stakeholders' : 'All entry types'}`"
+                    @click="viz3dLevel = lvl"
+                  >{{ lvl }}</button>
+                </div>
+                <!-- Rotate toggle -->
+                <button
+                  type="button"
+                  :class="['text-[10px] px-2 py-1 rounded font-semibold transition-colors', viz3dRotating ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+                  :title="viz3dRotating ? 'Pause rotation — freeze the 3D view' : 'Start rotation — auto-rotate the 3D model view'"
+                  @click="viz3dRotating = !viz3dRotating"
+                >{{ viz3dRotating ? '⏸ Pause' : '▶ Rotate' }}</button>
+              </div>
+            </div>
+
+            <!-- 3D stage -->
+            <div class="relative w-full flex items-center justify-center bg-slate-900 rounded-xl overflow-hidden" style="height:420px">
+              <div style="perspective:900px; perspective-origin:50% 40%;">
+                <div
+                  :style="{
+                    transformStyle: 'preserve-3d',
+                    transform: `rotateX(-18deg) rotateY(${viz3dAngle}deg)`,
+                    transition: viz3dRotating ? 'none' : 'transform 0.4s ease',
+                    width: '280px',
+                    height: '280px',
+                    position: 'relative',
+                  }"
+                >
+                  <!-- Face: FRONT — Functions (F) -->
+                  <div :style="faceStyle('translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-orange-900/80 border border-orange-500/40">
+                    <p class="text-[9px] font-bold text-orange-300 uppercase tracking-widest mb-1">F. Functions</p>
+                    <div
+                      v-for="(e, i) in viz3dFEntries.slice(0, 6)"
+                      :key="i"
+                      class="w-full px-2 py-0.5 rounded text-[8px] text-orange-100 bg-orange-800/50 truncate text-center"
+                    >
+                      {{ e.description.slice(0, 30) }}
+                    </div>
+                    <p v-if="viz3dFEntries.length > 6" class="text-[8px] text-orange-400">+{{ viz3dFEntries.length - 6 }} more</p>
+                  </div>
+                  <!-- Face: BACK — Stakeholders (S) -->
+                  <div :style="faceStyle('rotateY(180deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-violet-900/80 border border-violet-500/40">
+                    <p class="text-[9px] font-bold text-violet-300 uppercase tracking-widest mb-1">S. Stakeholders</p>
+                    <div
+                      v-for="(e, i) in viz3dSEntries.slice(0, 6)"
+                      :key="i"
+                      class="w-full px-2 py-0.5 rounded text-[8px] text-violet-100 bg-violet-800/50 truncate text-center"
+                    >
+                      {{ e.description.slice(0, 30) }}
+                    </div>
+                    <p v-if="viz3dSEntries.length > 6" class="text-[8px] text-violet-400">+{{ viz3dSEntries.length - 6 }} more</p>
+                  </div>
+                  <!-- Face: RIGHT — Values (V) -->
+                  <div :style="faceStyle('rotateY(90deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-blue-900/80 border border-blue-500/40">
+                    <p class="text-[9px] font-bold text-blue-300 uppercase tracking-widest mb-1">V. Values</p>
+                    <div
+                      v-for="(e, i) in viz3dVEntries.slice(0, 6)"
+                      :key="i"
+                      class="w-full px-2 py-0.5 rounded text-[8px] text-blue-100 bg-blue-800/50 truncate text-center"
+                    >
+                      {{ e.description.slice(0, 30) }}
+                    </div>
+                    <p v-if="viz3dVEntries.length > 6" class="text-[8px] text-blue-400">+{{ viz3dVEntries.length - 6 }} more</p>
+                  </div>
+                  <!-- Face: LEFT — Constraints (C) -->
+                  <div :style="faceStyle('rotateY(-90deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-fuchsia-900/80 border border-fuchsia-500/40">
+                    <p class="text-[9px] font-bold text-fuchsia-300 uppercase tracking-widest mb-1">C. Constraints</p>
+                    <div
+                      v-for="(e, i) in viz3dCEntries.slice(0, 6)"
+                      :key="i"
+                      class="w-full px-2 py-0.5 rounded text-[8px] text-fuchsia-100 bg-fuchsia-800/50 truncate text-center"
+                    >
+                      {{ e.description.slice(0, 30) }}
+                    </div>
+                    <p v-if="viz3dCEntries.length > 6" class="text-[8px] text-fuchsia-400">+{{ viz3dCEntries.length - 6 }} more</p>
+                  </div>
+                  <!-- Face: TOP — Resources (R) -->
+                  <div :style="faceStyle('rotateX(90deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-sky-900/80 border border-sky-500/40">
+                    <p class="text-[9px] font-bold text-sky-300 uppercase tracking-widest mb-1">R. Resources</p>
+                    <div
+                      v-for="(e, i) in viz3dREntries.slice(0, 4)"
+                      :key="i"
+                      class="w-full px-2 py-0.5 rounded text-[8px] text-sky-100 bg-sky-800/50 truncate text-center"
+                    >
+                      {{ e.description.slice(0, 30) }}
+                    </div>
+                    <p v-if="viz3dREntries.length > 4" class="text-[8px] text-sky-400">+{{ viz3dREntries.length - 4 }} more</p>
+                  </div>
+                  <!-- Face: BOTTOM — Summary -->
+                  <div :style="faceStyle('rotateX(-90deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-2 bg-slate-800/80 border border-slate-600/40">
+                    <p class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Model Summary</p>
+                    <p class="text-[8px] text-slate-400 text-center px-2">
+                      {{ selectedModel.entries.length }} entries across
+                      {{ [viz3dFEntries.length > 0 && 'F', viz3dVEntries.length > 0 && 'V', viz3dCEntries.length > 0 && 'C', viz3dREntries.length > 0 && 'R', viz3dSEntries.length > 0 && 'S'].filter(Boolean).length }} types
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <!-- Level hint overlay -->
+              <div class="absolute bottom-3 left-3 flex gap-2">
+                <span v-if="viz3dLevel === 'Top'" class="text-[9px] text-slate-400 bg-slate-800/80 rounded px-2 py-1">Showing: Functions face</span>
+                <span v-else-if="viz3dLevel === 'Medium'" class="text-[9px] text-slate-400 bg-slate-800/80 rounded px-2 py-1">Showing: F · V · S faces</span>
+                <span v-else class="text-[9px] text-slate-400 bg-slate-800/80 rounded px-2 py-1">Showing: All 5 entry types</span>
+              </div>
+            </div>
+
+            <!-- Entry counts legend -->
+            <div class="flex flex-wrap gap-2 text-[10px]">
+              <span class="px-2 py-1 rounded bg-orange-100 text-orange-800">F. {{ viz3dFEntries.length }}</span>
+              <span v-if="viz3dLevel !== 'Top'" class="px-2 py-1 rounded bg-blue-100 text-blue-800">V. {{ viz3dVEntries.length }}</span>
+              <span v-if="viz3dLevel === 'All'" class="px-2 py-1 rounded bg-fuchsia-100 text-fuchsia-800">C. {{ viz3dCEntries.length }}</span>
+              <span v-if="viz3dLevel === 'All'" class="px-2 py-1 rounded bg-sky-100 text-sky-800">R. {{ viz3dREntries.length }}</span>
+              <span v-if="viz3dLevel !== 'Top'" class="px-2 py-1 rounded bg-violet-100 text-violet-800">S. {{ viz3dSEntries.length }}</span>
             </div>
           </ScrollContainer>
 
@@ -2220,10 +2444,10 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                     @click="openTool('viz-related')">
                     <span>🔗</span><span class="font-medium">Strongly Related</span><span class="ml-auto text-slate-400 text-[10px]">relationship graph</span>
                   </button>
-                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-400 cursor-not-allowed text-left"
-                    title="3D Rotatable Model — coming soon: CSS 3D cube with Top / Medium / All levels of detail"
-                    disabled>
-                    <span>🧊</span><span class="font-medium">3D Rotatable Model</span><span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1 py-0.5">coming soon</span>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="3D Rotatable Model — isometric CSS 3D cube showing F · V · C · R · S faces with Top / Medium / All levels of detail"
+                    @click="openTool('viz-3d')">
+                    <span>🧊</span><span class="font-medium">3D Rotatable Model</span><span class="ml-auto text-slate-400 text-[10px]">isometric view</span>
                   </button>
 
                   <!-- Sharpen Model category -->
@@ -2249,7 +2473,6 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                     @click="openTool('improve-attributes')">
                     <span>✨</span><span class="font-medium">Improve Model Attributes</span><span class="ml-auto text-slate-400 text-[10px]">AI suggestions</span>
                   </button>
-                  <p class="text-[10px] text-slate-400 italic px-4 py-2 border-t border-slate-100">More Edit Model tools coming soon</p>
                 </div>
               </div>
             </div>
