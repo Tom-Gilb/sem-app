@@ -789,6 +789,14 @@ export function useModelLibrary() {
     _saveEntries()
   }
 
+  /** Replace all entries of a user model. Used by Edit Model tools. Only works on user models. */
+  function replaceModelEntries(modelId: string, newEntries: ModelEntry[]): void {
+    const idx = _userEntries.value.findIndex(e => e.id === modelId)
+    if (idx === -1) return
+    _userEntries.value[idx].entries = [...newEntries]
+    _saveEntries()
+  }
+
   // ── AI: Analyse model text → Planguage entries ────────────────────────────
 
   /**
@@ -955,5 +963,6 @@ export function useModelLibrary() {
     renameCategory,
     analyseModelText,
     sharpenModel,
+    replaceModelEntries,
   }
 }

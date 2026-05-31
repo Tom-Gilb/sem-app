@@ -34,6 +34,7 @@ import type {
   ModelCategory,
   ModelLibraryEntry,
   ModelCategoryDef,
+  ModelEntry,
 } from '../composables/useModelLibrary'
 import { useDocumentImport } from '../composables/useDocumentImport'
 
@@ -49,9 +50,14 @@ const emit = defineEmits<{
 const library = useModelLibrary()
 const { importFromFile, importLoading: fileExtracting } = useDocumentImport()
 
+// ── Type declarations ─────────────────────────────────────────────────────────
+
+type EntryType = 'F' | 'V' | 'C' | 'R' | 'S'
+type PanelMode = 'grid' | 'bring-in' | 'detail'
+type ToolMode = 'none' | 'edit-batch' | 'edit-replace' | 'edit-manual' | 'viz-flow' | 'viz-related' | 'viz-3d' | 'sharpen'
+
 // ── Panel mode ────────────────────────────────────────────────────────────────
 
-type PanelMode = 'grid' | 'bring-in' | 'detail'
 const mode = ref<PanelMode>('grid')
 
 // ── Sidebar state ─────────────────────────────────────────────────────────────
@@ -87,6 +93,29 @@ const sharpenSuccess         = ref(false)
 const sharpenError           = ref<string | null>(null)
 /** Whether the "Specific Model Analysis Tools" dropdown is open. */
 const specificToolsOpen      = ref(false)
+
+const toolMode = ref<ToolMode>('none')
+
+// Batch change tool
+const batchTypes   = ref(new Set<EntryType>(['F', 'V', 'C', 'R', 'S']))
+const batchKeyword = ref('')
+const batchAction  = ref<'replace' | 'delete'>('replace')
+const batchNewText = ref('')
+const batchScope   = ref<'description' | 'details' | 'both'>('description')
+const batchApplied = ref(false)
+
+// Find & replace tool
+const findText           = ref('')
+const replaceText        = ref('')
+const findScope          = ref<'description' | 'details' | 'both'>('both')
+const findCaseSensitive  = ref(false)
+const findReplaceApplied = ref(false)
+
+// Manual edit tool
+const editTypes    = ref(new Set<EntryType>(['F', 'V', 'C', 'R', 'S']))
+const editKeyword  = ref('')
+const editDrafts   = ref(new Map<number, { description: string; details?: string }>())
+const editApplied  = ref(false)
 
 // Abort controller for AI calls
 let _abortController: AbortController | null = null
@@ -217,6 +246,7 @@ function viewModel(id: string): void {
   // Viewing a model makes it the implied analysis target for cross-agent tools.
   library.setActiveModel(id)
   mode.value = 'detail'
+  toolMode.value = 'none'
   sharpenCommand.value = ''
   sharpenSuccess.value = false
   sharpenError.value = null
@@ -237,6 +267,7 @@ function sendToAgent(agentId: string): void {
 function backToGrid(): void {
   selectedModelId.value = null
   mode.value = 'grid'
+  toolMode.value = 'none'
   _abortController?.abort()
 }
 
@@ -324,11 +355,276 @@ async function runSharpen(): Promise<void> {
 
 // ── Entry count helpers ───────────────────────────────────────────────────────
 
-type EntryType = 'F' | 'V' | 'C' | 'R' | 'S'
-
 function countByType(entry: ModelLibraryEntry, type: EntryType): number {
   return entry.entries.filter(e => e.type === type).length
 }
+
+// ── Specific Model Analysis Tools ─────────────────────────────────────────────
+
+const TOOL_MODE_LABELS: Record<ToolMode, string> = {
+  'none':         '',
+  'edit-batch':   '🔧 Batch Change Entries',
+  'edit-replace': '🔍 Find & Replace',
+  'edit-manual':  '✏️ Manual Edit List',
+  'viz-flow':     '📊 Value Flow',
+  'viz-related':  '🔗 Strongly Related',
+  'viz-3d':       '🧊 3D Model View',
+  'sharpen':      '✂️ Sharpen Model',
+}
+
+const batchMatchedEntries = computed<Array<{idx: number; entry: ModelEntry}>>(() => {
+  if (!selectedModel.value) return []
+  return selectedModel.value.entries
+    .map((e, idx) => ({ idx, entry: e }))
+    .filter(({ entry }) => {
+      if (!batchTypes.value.has(entry.type)) return false
+      const kw = batchKeyword.value.trim().toLowerCase()
+      if (kw) {
+        const hay = (entry.description + ' ' + (entry.details ?? '')).toLowerCase()
+        if (!hay.includes(kw)) return false
+      }
+      return true
+    })
+})
+
+const findReplacePreview = computed<Array<{
+  idx: number; field: 'description' | 'details'; original: string; result: string
+}>>(() => {
+  if (!selectedModel.value || !findText.value.trim()) return []
+  const escaped = findText.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const flags = findCaseSensitive.value ? 'g' : 'gi'
+  const out: Array<{idx: number; field: 'description' | 'details'; original: string; result: string}> = []
+  for (const [idx, entry] of selectedModel.value.entries.entries()) {
+    if (findScope.value !== 'details') {
+      const re = new RegExp(escaped, flags)
+      if (re.test(entry.description)) {
+        out.push({ idx, field: 'description', original: entry.description, result: entry.description.replace(new RegExp(escaped, flags), replaceText.value) })
+      }
+    }
+    if (findScope.value !== 'description' && entry.details) {
+      const re2 = new RegExp(escaped, flags)
+      if (re2.test(entry.details)) {
+        out.push({ idx, field: 'details', original: entry.details, result: entry.details.replace(new RegExp(escaped, flags), replaceText.value) })
+      }
+    }
+  }
+  return out
+})
+
+const editFilteredEntries = computed<Array<{idx: number; entry: ModelEntry}>>(() => {
+  if (!selectedModel.value) return []
+  return selectedModel.value.entries
+    .map((e, idx) => ({ idx, entry: e }))
+    .filter(({ entry }) => {
+      if (!editTypes.value.has(entry.type)) return false
+      const kw = editKeyword.value.trim().toLowerCase()
+      if (kw) {
+        const hay = (entry.description + ' ' + (entry.details ?? '')).toLowerCase()
+        if (!hay.includes(kw)) return false
+      }
+      return true
+    })
+})
+
+function openTool(mode: ToolMode): void {
+  specificToolsOpen.value = false
+  toolMode.value = mode
+  if (mode === 'edit-manual') initEditDrafts()
+  // Reset applied flags
+  batchApplied.value = false
+  findReplaceApplied.value = false
+  editApplied.value = false
+}
+
+function closeTool(): void {
+  toolMode.value = 'none'
+}
+
+function toggleBatchType(t: EntryType): void {
+  const s = new Set(batchTypes.value)
+  if (s.has(t)) s.delete(t)
+  else s.add(t)
+  batchTypes.value = s
+}
+
+function toggleEditType(t: EntryType): void {
+  const s = new Set(editTypes.value)
+  if (s.has(t)) s.delete(t)
+  else s.add(t)
+  editTypes.value = s
+}
+
+function applyBatchChange(): void {
+  if (!selectedModel.value) return
+  const targets = new Set(batchMatchedEntries.value.map(m => m.idx))
+  let newEntries: ModelEntry[]
+  if (batchAction.value === 'delete') {
+    newEntries = selectedModel.value.entries.filter((_, i) => !targets.has(i))
+  } else {
+    newEntries = selectedModel.value.entries.map((entry, i) => {
+      if (!targets.has(i)) return entry
+      const updated = { ...entry }
+      if (batchScope.value !== 'details')      updated.description = batchNewText.value
+      if (batchScope.value !== 'description')  updated.details     = batchNewText.value || undefined
+      return updated
+    })
+  }
+  library.replaceModelEntries(selectedModel.value.id, newEntries)
+  batchApplied.value = true
+  setTimeout(() => { batchApplied.value = false }, 3000)
+}
+
+function applyFindReplace(): void {
+  if (!selectedModel.value || findReplacePreview.value.length === 0) return
+  const changeMap = new Map<number, { description?: string; details?: string }>()
+  for (const ch of findReplacePreview.value) {
+    const existing = changeMap.get(ch.idx) ?? {}
+    if (ch.field === 'description') existing.description = ch.result
+    else                            existing.details      = ch.result
+    changeMap.set(ch.idx, existing)
+  }
+  const newEntries = selectedModel.value.entries.map((entry, i) => {
+    const ch = changeMap.get(i)
+    return ch ? { ...entry, ...ch } : entry
+  })
+  library.replaceModelEntries(selectedModel.value.id, newEntries)
+  findReplaceApplied.value = true
+  findText.value = ''
+  setTimeout(() => { findReplaceApplied.value = false }, 3000)
+}
+
+function initEditDrafts(): void {
+  const m = new Map<number, { description: string; details?: string }>()
+  if (!selectedModel.value) { editDrafts.value = m; return }
+  for (const [i, e] of selectedModel.value.entries.entries()) {
+    m.set(i, { description: e.description, details: e.details })
+  }
+  editDrafts.value = m
+}
+
+function applyManualEdits(): void {
+  if (!selectedModel.value) return
+  const newEntries = selectedModel.value.entries.map((entry, i) => {
+    const draft = editDrafts.value.get(i)
+    return draft ? { ...entry, description: draft.description, details: draft.details } : entry
+  })
+  library.replaceModelEntries(selectedModel.value.id, newEntries)
+  editApplied.value = true
+  setTimeout(() => { editApplied.value = false }, 3000)
+}
+
+// ── Visualization helpers ──────────────────────────────────────────────────────
+
+interface VizNode { id: string; label: string; type: EntryType | 'stakeholder'; x: number; y: number; w: number; h: number }
+interface VizArrow { fromId: string; toId: string; color: string; strokeWidth: number; dashed: boolean; bidir: boolean }
+
+function computeValueFlowLayout(model: ModelLibraryEntry): { nodes: VizNode[]; arrows: VizArrow[] } {
+  const nodes: VizNode[] = []
+  const arrows: VizArrow[] = []
+  const PX = { stakeholderX: 20, fnX: 230, valX: 510, constX: 230 }
+  const NODE_W = 160; const NODE_H = 36; const GAP = 12
+
+  // Stakeholders — left column
+  const stks = model.stakeholders.slice(0, 6)
+  stks.forEach((s, i) => {
+    nodes.push({ id: `stk-${i}`, label: s, type: 'stakeholder', x: PX.stakeholderX, y: 50 + i * (NODE_H + GAP), w: NODE_W, h: NODE_H })
+  })
+
+  // Functions — center column
+  const fns = model.entries.filter(e => e.type === 'F').slice(0, 7)
+  fns.forEach((e, i) => {
+    nodes.push({ id: `fn-${i}`, label: e.description, type: 'F', x: PX.fnX, y: 50 + i * (NODE_H + GAP), w: NODE_W, h: NODE_H })
+  })
+
+  // Values — right column
+  const vals = model.entries.filter(e => e.type === 'V').slice(0, 7)
+  vals.forEach((e, i) => {
+    nodes.push({ id: `val-${i}`, label: e.description, type: 'V', x: PX.valX, y: 50 + i * (NODE_H + GAP), w: NODE_W, h: NODE_H })
+  })
+
+  // Constraints + Resources — bottom row (under functions)
+  const constrs = model.entries.filter(e => e.type === 'C' || e.type === 'R').slice(0, 4)
+  const fnBottom = 50 + Math.max(fns.length, 1) * (NODE_H + GAP) + 20
+  constrs.forEach((e, i) => {
+    nodes.push({ id: `cr-${i}`, label: e.description, type: e.type as EntryType, x: PX.fnX + i * (NODE_W + 10), y: fnBottom, w: NODE_W, h: NODE_H })
+  })
+
+  // Stakeholder → Function arrows (dashed gray)
+  for (let si = 0; si < stks.length; si++) {
+    for (let fi = 0; fi < Math.min(fns.length, 2); fi++) {
+      arrows.push({ fromId: `stk-${si}`, toId: `fn-${fi}`, color: '#94a3b8', strokeWidth: 1.5, dashed: true, bidir: false })
+    }
+  }
+
+  // Function → Value arrows (solid green thick)
+  for (let fi = 0; fi < fns.length; fi++) {
+    const vi = Math.min(fi, vals.length - 1)
+    if (vi >= 0) {
+      arrows.push({ fromId: `fn-${fi}`, toId: `val-${vi}`, color: '#059669', strokeWidth: 2.5, dashed: false, bidir: false })
+    }
+  }
+
+  // Function → Constraint/Resource arrows (dashed red thin)
+  for (let fi = 0; fi < fns.length; fi++) {
+    for (let ci = 0; ci < constrs.length; ci++) {
+      arrows.push({ fromId: `fn-${fi}`, toId: `cr-${ci}`, color: '#dc2626', strokeWidth: 1, dashed: true, bidir: false })
+    }
+  }
+
+  return { nodes, arrows }
+}
+
+function computeStronglyRelatedLayout(model: ModelLibraryEntry): { nodes: VizNode[]; arrows: VizArrow[] } {
+  const nodes: VizNode[] = []
+  const arrows: VizArrow[] = []
+  const NODE_W = 130; const NODE_H = 32
+
+  const rows = {
+    stakeholders: model.stakeholders.slice(0, 5),
+    functions:    model.entries.filter(e => e.type === 'F').slice(0, 5),
+    values:       model.entries.filter(e => e.type === 'V').slice(0, 5),
+    constrs:      model.entries.filter(e => e.type === 'C' || e.type === 'R').slice(0, 5),
+  }
+
+  function rowX(count: number, i: number, totalW = 800): number {
+    const spacing = totalW / (count + 1)
+    return spacing * (i + 1) - NODE_W / 2
+  }
+
+  rows.stakeholders.forEach((s, i) => nodes.push({ id: `stk-${i}`, label: s, type: 'stakeholder', x: rowX(rows.stakeholders.length, i), y: 20,  w: NODE_W, h: NODE_H }))
+  rows.functions.forEach((e, i)    => nodes.push({ id: `fn-${i}`,  label: e.description, type: 'F', x: rowX(rows.functions.length, i),    y: 120, w: NODE_W, h: NODE_H }))
+  rows.values.forEach((e, i)       => nodes.push({ id: `val-${i}`, label: e.description, type: 'V', x: rowX(rows.values.length, i),        y: 220, w: NODE_W, h: NODE_H }))
+  rows.constrs.forEach((e, i)      => nodes.push({ id: `cr-${i}`,  label: e.description, type: e.type as EntryType, x: rowX(rows.constrs.length, i), y: 320, w: NODE_W, h: NODE_H }))
+
+  const stk = rows.stakeholders; const fns = rows.functions; const vals = rows.values; const crs = rows.constrs
+
+  // Stakeholder → Function (medium blue, bidirectional)
+  for (let si = 0; si < stk.length; si++) {
+    const fi = si % Math.max(fns.length, 1)
+    if (fi < fns.length) arrows.push({ fromId: `stk-${si}`, toId: `fn-${fi}`, color: '#2563eb', strokeWidth: 2, dashed: false, bidir: true })
+  }
+  // Function → Value (thick green)
+  for (let fi = 0; fi < fns.length; fi++) {
+    const vi = Math.min(fi, vals.length - 1)
+    if (vi >= 0) arrows.push({ fromId: `fn-${fi}`, toId: `val-${vi}`, color: '#059669', strokeWidth: 3.5, dashed: false, bidir: false })
+  }
+  // Value → Function feedback (thin dashed blue, bidirectional)
+  for (let vi = 0; vi < vals.length; vi++) {
+    const fi = vi % Math.max(fns.length, 1)
+    if (fi < fns.length) arrows.push({ fromId: `val-${vi}`, toId: `fn-${fi}`, color: '#3b82f6', strokeWidth: 1, dashed: true, bidir: true })
+  }
+  // Function → Constraint (thin red)
+  for (let fi = 0; fi < fns.length; fi++) {
+    for (let ci = 0; ci < crs.length; ci++) {
+      arrows.push({ fromId: `fn-${fi}`, toId: `cr-${ci}`, color: '#dc2626', strokeWidth: 1.2, dashed: false, bidir: false })
+    }
+  }
+
+  return { nodes, arrows }
+}
+
+const valueFlowLayout  = computed(() => selectedModel.value ? computeValueFlowLayout(selectedModel.value)  : { nodes: [], arrows: [] })
+const stronglyRelLayout = computed(() => selectedModel.value ? computeStronglyRelatedLayout(selectedModel.value) : { nodes: [], arrows: [] })
 
 // ── Tailwind class maps (static strings — no JIT runtime concatenation) ───────
 
@@ -902,7 +1198,393 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
             </button>
           </div>
 
+          <!-- Tool header bar — shown when a specific tool is open -->
+          <div
+            v-if="toolMode !== 'none' && selectedModel"
+            class="flex items-center gap-3 px-5 py-2.5 bg-slate-100 border-b border-slate-200 shrink-0"
+          >
+            <button
+              type="button"
+              class="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded px-2 py-1 transition-colors duration-150"
+              title="Back to model detail — close this tool and return to the model view"
+              @click="closeTool"
+            >← Back to Model</button>
+            <span class="text-xs font-bold text-slate-700">{{ TOOL_MODE_LABELS[toolMode] }}</span>
+            <span class="text-[10px] text-slate-400 truncate">{{ selectedModel.title }}</span>
+          </div>
+
+          <!-- Batch Change Entries tool -->
+          <ScrollContainer v-if="toolMode === 'edit-batch' && selectedModel" outer-class="flex-1 min-h-0 relative" inner-class="p-5 flex flex-col gap-4 max-w-2xl mx-auto w-full">
+            <!-- Type filter chips -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-slate-600">Target entry types</label>
+              <div class="flex gap-2 flex-wrap">
+                <button v-for="t in ENTRY_TYPES" :key="t" type="button"
+                  :class="['text-xs rounded-full px-3 py-1.5 font-semibold border transition-colors duration-150', batchTypes.has(t) ? TYPE_BADGE_CLASS[t] + ' border-transparent' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-400']"
+                  :title="`Toggle ${t}. entries — click to include or exclude from batch operation`"
+                  @click="toggleBatchType(t)">{{ t }}.</button>
+              </div>
+            </div>
+            <!-- Keyword filter -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-slate-600">Keyword filter <span class="font-normal text-slate-400">(optional — matches description or details)</span></label>
+              <input v-model="batchKeyword" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 transition"
+                placeholder="e.g. 'quality' — leave blank to match all entries of selected types"
+                title="Keyword filter — only entries containing this text will be affected" />
+            </div>
+            <!-- Action selector -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-slate-600">Action</label>
+              <div class="flex gap-3">
+                <label class="flex items-center gap-1.5 text-xs cursor-pointer" title="Replace matching entries with new text">
+                  <input type="radio" v-model="batchAction" value="replace" class="text-blue-600" /> Replace text
+                </label>
+                <label class="flex items-center gap-1.5 text-xs cursor-pointer" title="Delete all matching entries from the model">
+                  <input type="radio" v-model="batchAction" value="delete" class="text-red-600" /> Delete entries
+                </label>
+              </div>
+            </div>
+            <!-- Replace fields (only when action = replace) -->
+            <template v-if="batchAction === 'replace'">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-600">Replace with</label>
+                <input v-model="batchNewText" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  placeholder="New text to use for the matched entries"
+                  title="Replacement text — this replaces the description or details of matched entries" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-600">Apply to</label>
+                <div class="flex gap-3">
+                  <label v-for="s in [{v:'description',l:'Description'},{v:'details',l:'Details'},{v:'both',l:'Both'}]" :key="s.v"
+                    class="flex items-center gap-1.5 text-xs cursor-pointer" :title="`Apply replacement to ${s.l.toLowerCase()} field of matched entries`">
+                    <input type="radio" v-model="batchScope" :value="s.v" class="text-blue-600" /> {{ s.l }}
+                  </label>
+                </div>
+              </div>
+            </template>
+            <!-- Preview -->
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-bold text-slate-600">Preview <span class="font-normal text-slate-400">({{ batchMatchedEntries.length }} entries matched)</span></p>
+              </div>
+              <div v-if="batchMatchedEntries.length === 0" class="text-xs text-slate-400 italic py-2">No entries match the current filter</div>
+              <div v-else class="flex flex-col gap-1.5 max-h-48 overflow-y-auto rounded-xl ring-1 ring-slate-200 bg-white p-3">
+                <div v-for="m in batchMatchedEntries" :key="m.idx" class="flex items-start gap-2 text-xs">
+                  <span :class="['shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5', TYPE_BADGE_CLASS[m.entry.type]]">{{ m.entry.type }}.</span>
+                  <span v-if="batchAction === 'delete'" class="text-red-600 line-through">{{ m.entry.description }}</span>
+                  <template v-else>
+                    <span class="text-slate-500 line-through truncate">{{ m.entry.description }}</span>
+                    <span class="text-slate-300 mx-1 shrink-0">→</span>
+                    <span class="text-slate-800 truncate">{{ batchNewText || '(empty)' }}</span>
+                  </template>
+                </div>
+              </div>
+            </div>
+            <!-- Apply button -->
+            <div class="flex items-center gap-3">
+              <button type="button"
+                :disabled="batchMatchedEntries.length === 0"
+                :class="['flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-150', batchMatchedEntries.length > 0 ? (batchAction === 'delete' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white') : 'bg-slate-100 text-slate-400 cursor-not-allowed']"
+                :title="`Apply batch ${batchAction === 'delete' ? 'deletion' : 'replacement'} to ${batchMatchedEntries.length} entries`"
+                @click="applyBatchChange">
+                <span>{{ batchAction === 'delete' ? '🗑️' : '✓' }}</span>
+                <span>{{ batchAction === 'delete' ? `Delete ${batchMatchedEntries.length} entries` : `Apply to ${batchMatchedEntries.length} entries` }}</span>
+              </button>
+              <p v-if="batchApplied" class="text-xs text-emerald-700 font-medium">Changes applied ✓</p>
+            </div>
+          </ScrollContainer>
+
+          <!-- Find & Replace tool -->
+          <ScrollContainer v-if="toolMode === 'edit-replace' && selectedModel" outer-class="flex-1 min-h-0 relative" inner-class="p-5 flex flex-col gap-4 max-w-2xl mx-auto w-full">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-600">Find</label>
+                <input v-model="findText" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  placeholder="Text to search for…"
+                  title="Text to find across all entry descriptions and details" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-600">Replace with</label>
+                <input v-model="replaceText" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  placeholder="Replacement text…"
+                  title="Text to substitute in place of the found text" />
+              </div>
+            </div>
+            <div class="flex items-center gap-6">
+              <div class="flex gap-3">
+                <label v-for="s in [{v:'both',l:'All fields'},{v:'description',l:'Description only'},{v:'details',l:'Details only'}]" :key="s.v"
+                  class="flex items-center gap-1.5 text-xs cursor-pointer" :title="`Search in ${s.l}`">
+                  <input type="radio" v-model="findScope" :value="s.v" class="text-blue-600" /> {{ s.l }}
+                </label>
+              </div>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer" title="Case-sensitive search — toggle to match exact capitalisation">
+                <input type="checkbox" v-model="findCaseSensitive" class="text-blue-600 rounded" /> Case-sensitive
+              </label>
+            </div>
+            <!-- Preview table -->
+            <div v-if="findText.trim()" class="flex flex-col gap-2">
+              <p class="text-xs font-bold text-slate-600">{{ findReplacePreview.length }} match{{ findReplacePreview.length === 1 ? '' : 'es' }} found</p>
+              <div v-if="findReplacePreview.length === 0" class="text-xs text-slate-400 italic">No matches found for "{{ findText }}"</div>
+              <div v-else class="rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden max-h-64 overflow-y-auto">
+                <table class="w-full text-xs">
+                  <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr><th class="px-3 py-2 text-left font-semibold text-slate-500">Field</th><th class="px-3 py-2 text-left font-semibold text-slate-500">Original</th><th class="px-3 py-2 text-left font-semibold text-slate-500">Result</th></tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    <tr v-for="(ch, i) in findReplacePreview" :key="i">
+                      <td class="px-3 py-2 text-slate-400 shrink-0 whitespace-nowrap">{{ ch.field }}</td>
+                      <td class="px-3 py-2 text-red-600 font-mono">{{ ch.original }}</td>
+                      <td class="px-3 py-2 text-emerald-700 font-mono">{{ ch.result }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button type="button"
+                :disabled="findReplacePreview.length === 0"
+                :class="['flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-150', findReplacePreview.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed']"
+                :title="`Apply ${findReplacePreview.length} replacements across all matched entries`"
+                @click="applyFindReplace">
+                ✓ Apply {{ findReplacePreview.length }} replacement{{ findReplacePreview.length === 1 ? '' : 's' }}
+              </button>
+              <p v-if="findReplaceApplied" class="text-xs text-emerald-700 font-medium">Replacements applied ✓</p>
+            </div>
+          </ScrollContainer>
+
+          <!-- Manual Edit List tool -->
+          <ScrollContainer v-if="toolMode === 'edit-manual' && selectedModel" outer-class="flex-1 min-h-0 relative" inner-class="p-5 flex flex-col gap-4">
+            <!-- Filters -->
+            <div class="flex items-center gap-4 flex-wrap">
+              <div class="flex gap-1.5">
+                <button v-for="t in ENTRY_TYPES" :key="t" type="button"
+                  :class="['text-xs rounded-full px-2.5 py-1 font-semibold border transition-colors duration-150', editTypes.has(t) ? TYPE_BADGE_CLASS[t] + ' border-transparent' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-400']"
+                  :title="`Toggle ${t}. entries`" @click="toggleEditType(t)">{{ t }}.</button>
+              </div>
+              <input v-model="editKeyword" type="text" class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 transition"
+                placeholder="Filter by keyword…" title="Filter by keyword — only matching entries shown" />
+            </div>
+            <!-- Editable entry rows -->
+            <div v-if="editFilteredEntries.length === 0" class="text-xs text-slate-400 italic py-4 text-center">No entries match the current filter</div>
+            <div v-else class="flex flex-col gap-2">
+              <div
+                v-for="{idx, entry} in editFilteredEntries"
+                :key="idx"
+                class="flex flex-col gap-1.5 rounded-xl bg-white ring-1 ring-slate-200 px-4 py-3"
+              >
+                <div class="flex items-center gap-2 mb-1">
+                  <span :class="['shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded', TYPE_BADGE_CLASS[entry.type]]">{{ entry.type }}.</span>
+                  <span class="text-[10px] text-slate-400">Entry {{ idx + 1 }}</span>
+                </div>
+                <input
+                  :value="editDrafts.get(idx)?.description ?? entry.description"
+                  type="text"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 transition font-medium"
+                  placeholder="Entry description…"
+                  :title="`Edit description for ${entry.type}. entry ${idx + 1}`"
+                  @input="(e) => { const d = editDrafts.get(idx) ?? { description: entry.description, details: entry.details }; d.description = (e.target as HTMLInputElement).value; editDrafts.value = new Map(editDrafts.value.set(idx, d)) }"
+                />
+                <input
+                  v-if="entry.details !== undefined || editDrafts.get(idx)?.details"
+                  :value="editDrafts.get(idx)?.details ?? entry.details ?? ''"
+                  type="text"
+                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 bg-slate-50 outline-none focus:ring-2 focus:ring-blue-400 transition"
+                  placeholder="Details (Scale · Goal · …)"
+                  :title="`Edit details for ${entry.type}. entry ${idx + 1} — Scale, Goal, Tolerable etc.`"
+                  @input="(e) => { const d = editDrafts.get(idx) ?? { description: entry.description, details: entry.details }; d.details = (e.target as HTMLInputElement).value || undefined; editDrafts.value = new Map(editDrafts.value.set(idx, d)) }"
+                />
+              </div>
+            </div>
+            <div class="flex items-center gap-3 sticky bottom-0 bg-slate-50/95 backdrop-blur py-3 -mx-5 px-5 border-t border-slate-200 mt-2">
+              <button type="button"
+                :class="['flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-150', editFilteredEntries.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed']"
+                :disabled="editFilteredEntries.length === 0"
+                title="Save All — apply all edits to the model"
+                @click="applyManualEdits">
+                ✓ Save All Changes
+              </button>
+              <p v-if="editApplied" class="text-xs text-emerald-700 font-medium">Changes saved ✓</p>
+              <span class="ml-auto text-xs text-slate-400">{{ editFilteredEntries.length }} entries shown</span>
+            </div>
+          </ScrollContainer>
+
+          <!-- Value Flow visualization -->
+          <ScrollContainer v-if="toolMode === 'viz-flow' && selectedModel" outer-class="flex-1 min-h-0 relative" inner-class="p-5 flex flex-col gap-4">
+            <!-- Legend -->
+            <div class="flex flex-wrap gap-3 text-[10px] font-semibold">
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-slate-400 opacity-60"></span> Stakeholders</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-orange-500"></span> Functions</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-blue-500"></span> Values</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-red-500"></span> Constraints/Resources</span>
+              <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-emerald-600"></span> delivers value</span>
+              <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-slate-400 border-dashed"></span> contributes to</span>
+            </div>
+            <div class="rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
+              <svg
+                viewBox="0 0 900 520"
+                class="w-full"
+                xmlns="http://www.w3.org/2000/svg"
+                role="img"
+                :aria-label="`Value Flow diagram for ${selectedModel.title}`"
+              >
+                <defs>
+                  <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#059669" />
+                  </marker>
+                  <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+                  </marker>
+                  <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#dc2626" />
+                  </marker>
+                </defs>
+
+                <!-- Column header labels -->
+                <text x="100" y="20" text-anchor="middle" font-size="11" fill="#64748b" font-weight="600">STAKEHOLDERS</text>
+                <text x="390" y="20" text-anchor="middle" font-size="11" fill="#64748b" font-weight="600">FUNCTIONS</text>
+                <text x="680" y="20" text-anchor="middle" font-size="11" fill="#64748b" font-weight="600">VALUES</text>
+
+                <!-- Arrows first (behind nodes) -->
+                <template v-for="arrow in valueFlowLayout.arrows" :key="`${arrow.fromId}-${arrow.toId}`">
+                  <template v-if="valueFlowLayout.nodes.find(n=>n.id===arrow.fromId) && valueFlowLayout.nodes.find(n=>n.id===arrow.toId)">
+                    <line
+                      :x1="(valueFlowLayout.nodes.find(n=>n.id===arrow.fromId)!.x + valueFlowLayout.nodes.find(n=>n.id===arrow.fromId)!.w)"
+                      :y1="(valueFlowLayout.nodes.find(n=>n.id===arrow.fromId)!.y + valueFlowLayout.nodes.find(n=>n.id===arrow.fromId)!.h / 2)"
+                      :x2="valueFlowLayout.nodes.find(n=>n.id===arrow.toId)!.x"
+                      :y2="(valueFlowLayout.nodes.find(n=>n.id===arrow.toId)!.y + valueFlowLayout.nodes.find(n=>n.id===arrow.toId)!.h / 2)"
+                      :stroke="arrow.color"
+                      :stroke-width="arrow.strokeWidth"
+                      :stroke-dasharray="arrow.dashed ? '4 3' : 'none'"
+                      :marker-end="arrow.color === '#059669' ? 'url(#arrowGreen)' : arrow.color === '#dc2626' ? 'url(#arrowRed)' : 'url(#arrowGray)'"
+                      opacity="0.7"
+                    />
+                  </template>
+                </template>
+
+                <!-- Nodes -->
+                <template v-for="node in valueFlowLayout.nodes" :key="node.id">
+                  <!-- Node background -->
+                  <rect
+                    :x="node.x" :y="node.y" :width="node.w" :height="node.h" rx="6"
+                    :fill="node.type === 'stakeholder' ? '#e2e8f0' : node.type === 'F' ? '#fed7aa' : node.type === 'V' ? '#bfdbfe' : node.type === 'C' ? '#fecaca' : '#bbf7d0'"
+                    :stroke="node.type === 'stakeholder' ? '#94a3b8' : node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#ef4444' : '#22c55e'"
+                    stroke-width="1.5"
+                  />
+                  <!-- Type badge (for entries) -->
+                  <template v-if="node.type !== 'stakeholder'">
+                    <rect :x="node.x + 4" :y="node.y + 4" width="18" height="16" rx="3"
+                      :fill="node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#ef4444' : '#22c55e'" />
+                    <text :x="node.x + 13" :y="node.y + 15" text-anchor="middle" font-size="9" fill="white" font-weight="700">{{ node.type }}</text>
+                  </template>
+                  <!-- Label -->
+                  <text
+                    :x="node.type !== 'stakeholder' ? node.x + 26 : node.x + 8"
+                    :y="node.y + node.h / 2 + 4"
+                    font-size="10"
+                    :fill="node.type === 'stakeholder' ? '#475569' : '#1e293b'"
+                    font-weight="500"
+                  >
+                    <tspan>{{ node.label.length > 20 ? node.label.slice(0, 19) + '…' : node.label }}</tspan>
+                  </text>
+                </template>
+
+                <!-- Empty state -->
+                <text v-if="valueFlowLayout.nodes.length === 0" x="450" y="260" text-anchor="middle" font-size="13" fill="#94a3b8">No entries to visualize</text>
+              </svg>
+            </div>
+          </ScrollContainer>
+
+          <!-- Strongly Related visualization -->
+          <ScrollContainer v-if="toolMode === 'viz-related' && selectedModel" outer-class="flex-1 min-h-0 relative" inner-class="p-5 flex flex-col gap-4">
+            <div class="flex flex-wrap gap-3 text-[10px] font-semibold">
+              <span class="flex items-center gap-1"><span class="inline-block w-4" style="height:3px;background:#059669"></span> delivers value (thick)</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-blue-500"></span> ↔ stakeholder influence</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-red-500"></span> constrained by</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-blue-300"></span> feedback</span>
+            </div>
+            <div class="rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
+              <svg viewBox="0 0 860 400" class="w-full" xmlns="http://www.w3.org/2000/svg" :aria-label="`Strongly Related diagram for ${selectedModel.title}`" role="img">
+                <defs>
+                  <marker id="srArrowGreen" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#059669"/></marker>
+                  <marker id="srArrowBlue" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#2563eb"/></marker>
+                  <marker id="srArrowBlueBack" markerWidth="7" markerHeight="5" refX="0" refY="2.5" orient="auto"><polygon points="7 0,0 2.5,7 5" fill="#2563eb"/></marker>
+                  <marker id="srArrowRed" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#dc2626"/></marker>
+                  <marker id="srArrowLightBlue" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#93c5fd"/></marker>
+                </defs>
+
+                <!-- Arrows (behind nodes) -->
+                <template v-for="arrow in stronglyRelLayout.arrows" :key="`${arrow.fromId}-${arrow.toId}`">
+                  <template v-if="stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId) && stronglyRelLayout.nodes.find(n=>n.id===arrow.toId)">
+                    <line
+                      :x1="stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId)!.x + stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId)!.w/2"
+                      :y1="stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId)!.y + stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId)!.h"
+                      :x2="stronglyRelLayout.nodes.find(n=>n.id===arrow.toId)!.x + stronglyRelLayout.nodes.find(n=>n.id===arrow.toId)!.w/2"
+                      :y2="stronglyRelLayout.nodes.find(n=>n.id===arrow.toId)!.y"
+                      :stroke="arrow.color"
+                      :stroke-width="arrow.strokeWidth"
+                      :stroke-dasharray="arrow.dashed ? '4 3' : 'none'"
+                      :marker-end="arrow.color === '#059669' ? 'url(#srArrowGreen)' : arrow.color === '#2563eb' ? 'url(#srArrowBlue)' : arrow.color === '#dc2626' ? 'url(#srArrowRed)' : 'url(#srArrowLightBlue)'"
+                      :marker-start="arrow.bidir ? (arrow.color === '#2563eb' ? 'url(#srArrowBlueBack)' : '') : ''"
+                      opacity="0.75"
+                    />
+                  </template>
+                </template>
+
+                <!-- Nodes -->
+                <template v-for="node in stronglyRelLayout.nodes" :key="node.id">
+                  <rect :x="node.x" :y="node.y" :width="node.w" :height="node.h" rx="6"
+                    :fill="node.type === 'stakeholder' ? '#f1f5f9' : node.type === 'F' ? '#fff7ed' : node.type === 'V' ? '#eff6ff' : node.type === 'C' ? '#fef2f2' : '#f0fdf4'"
+                    :stroke="node.type === 'stakeholder' ? '#94a3b8' : node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#ef4444' : '#22c55e'"
+                    stroke-width="1.5" />
+                  <text :x="node.x + node.w/2" :y="node.y + node.h/2 + 4" text-anchor="middle" font-size="10"
+                    :fill="node.type === 'stakeholder' ? '#64748b' : '#1e293b'" font-weight="500">
+                    {{ node.label.length > 17 ? node.label.slice(0, 16) + '…' : node.label }}
+                  </text>
+                </template>
+
+                <!-- Row labels -->
+                <text x="10" y="36" font-size="9" fill="#94a3b8" font-weight="600">STAKEHOLDERS</text>
+                <text x="10" y="136" font-size="9" fill="#94a3b8" font-weight="600">FUNCTIONS</text>
+                <text x="10" y="236" font-size="9" fill="#94a3b8" font-weight="600">VALUES</text>
+                <text x="10" y="336" font-size="9" fill="#94a3b8" font-weight="600">CONSTRAINTS + RESOURCES</text>
+
+                <text v-if="stronglyRelLayout.nodes.length === 0" x="430" y="200" text-anchor="middle" font-size="13" fill="#94a3b8">No entries to visualize</text>
+              </svg>
+            </div>
+          </ScrollContainer>
+
+          <!-- Sharpen tool mode -->
+          <ScrollContainer v-if="toolMode === 'sharpen' && selectedModel && selectedModel.source === 'user'" outer-class="flex-1 min-h-0 relative" inner-class="p-5 max-w-2xl mx-auto w-full flex flex-col gap-3">
+            <p class="text-xs text-slate-500">Apply AI improvement commands to refine this model's Planguage entries.</p>
+            <!-- Quick pills -->
+            <div class="flex flex-wrap gap-2">
+              <button v-for="pill in SHARPEN_PILLS" :key="pill" type="button"
+                :class="['text-xs rounded-full px-3 py-1.5 font-medium transition-colors duration-150 border', sharpenCommand === pill ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:border-blue-400 hover:text-blue-600']"
+                :title="`${pill} — click to fill the command box, then press Sharpen to apply`"
+                @click="fillSharpenPill(pill)">{{ pill }}</button>
+            </div>
+            <div class="flex gap-2">
+              <input v-model="sharpenCommand" type="text" class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 transition"
+                placeholder="Or type a custom improvement command…"
+                title="Improvement command — describe how to improve this model, then click Sharpen"
+                @keydown.enter="runSharpen" />
+              <button type="button"
+                :disabled="sharpenLoading || !sharpenCommand.trim()"
+                :class="['shrink-0 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all duration-150', sharpenLoading || !sharpenCommand.trim() ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white']"
+                title="Sharpen — apply the improvement command to this model using AI"
+                @click="runSharpen">
+                <span>{{ sharpenLoading ? '⏳' : '▶' }}</span>
+                <span>{{ sharpenLoading ? 'Improving…' : 'Sharpen' }}</span>
+              </button>
+            </div>
+            <p v-if="sharpenSuccess" class="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">Model sharpened ✓</p>
+            <p v-else-if="sharpenError" class="text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">{{ sharpenError }}</p>
+            <p v-if="selectedModel.source !== 'user'" class="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">Sharpen is only available for user-added models. Built-in examples cannot be modified.</p>
+          </ScrollContainer>
+
+          <!-- Normal detail view (toolMode === 'none') -->
           <ScrollContainer
+            v-if="toolMode === 'none'"
             outer-class="flex-1 min-h-0 relative"
             inner-class="p-5 flex flex-col gap-4"
           >
@@ -986,40 +1668,62 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   <span class="text-[10px]" aria-hidden="true">{{ specificToolsOpen ? '▴' : '▾' }}</span>
                 </button>
 
-                <!-- Dropdown shell — contents to be specified by Tom -->
+                <!-- Specific Model Analysis Tools dropdown -->
                 <div
                   v-if="specificToolsOpen"
                   class="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl ring-1 ring-slate-200 shadow-lg z-10 overflow-hidden"
                   role="menu"
                 >
-                  <div class="px-4 py-3 border-b border-slate-100">
-                    <p class="text-xs font-semibold text-slate-700">Specific Model Analysis Tools</p>
-                    <p class="text-[10px] text-slate-500 mt-0.5">Tailored tools for this model type — content being specified</p>
+                  <!-- Edit Model category -->
+                  <div class="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">✏️ Edit Model</p>
                   </div>
-                  <!-- Placeholder items — Tom is specifying what goes here -->
-                  <div class="px-4 py-3 flex flex-col gap-2">
-                    <div class="flex items-center gap-2 text-xs text-slate-400 cursor-not-allowed py-1">
-                      <span aria-hidden="true">📐</span>
-                      <span>Planguage Compliance Audit</span>
-                      <span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1.5 py-0.5">Coming soon</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-400 cursor-not-allowed py-1">
-                      <span aria-hidden="true">🔗</span>
-                      <span>Cross-Model Comparison</span>
-                      <span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1.5 py-0.5">Coming soon</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-400 cursor-not-allowed py-1">
-                      <span aria-hidden="true">📈</span>
-                      <span>Value Gap Analysis</span>
-                      <span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1.5 py-0.5">Coming soon</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-400 cursor-not-allowed py-1">
-                      <span aria-hidden="true">🌐</span>
-                      <span>Twin Export Readiness Check</span>
-                      <span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1.5 py-0.5">Coming soon</span>
-                    </div>
-                    <p class="text-[10px] text-slate-400 italic pt-1 border-t border-slate-100">Tom is specifying the full tool list for this menu</p>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Batch Change Entries — filter entries by type and keyword, then replace text or delete in bulk"
+                    @click="openTool('edit-batch')">
+                    <span>🔧</span><span class="font-medium">Batch Change Entries</span><span class="ml-auto text-slate-400 text-[10px]">bulk ops</span>
+                  </button>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Find &amp; Replace — find any text across all entry descriptions and details and replace it"
+                    @click="openTool('edit-replace')">
+                    <span>🔍</span><span class="font-medium">Find &amp; Replace</span><span class="ml-auto text-slate-400 text-[10px]">text swap</span>
+                  </button>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Manual Edit List — filter entries by type or keyword and edit each one inline"
+                    @click="openTool('edit-manual')">
+                    <span>✏️</span><span class="font-medium">Manual Edit List</span><span class="ml-auto text-slate-400 text-[10px]">row editor</span>
+                  </button>
+
+                  <!-- Visualize Model category -->
+                  <div class="px-3 py-2 bg-slate-50 border-t border-b border-slate-100">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">📊 Visualize Model</p>
                   </div>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors duration-150 text-left"
+                    title="Value Flow — see how Stakeholders flow into Functions which deliver Values, with Constraints at the bottom"
+                    @click="openTool('viz-flow')">
+                    <span>📊</span><span class="font-medium">Value Flow</span><span class="ml-auto text-slate-400 text-[10px]">SVG layout</span>
+                  </button>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors duration-150 text-left"
+                    title="Strongly Related — hierarchical relationship graph with arrow thickness proportional to importance and bidirectional feedback arrows"
+                    @click="openTool('viz-related')">
+                    <span>🔗</span><span class="font-medium">Strongly Related</span><span class="ml-auto text-slate-400 text-[10px]">relationship graph</span>
+                  </button>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-400 cursor-not-allowed text-left"
+                    title="3D Rotatable Model — coming soon: CSS 3D cube with Top / Medium / All levels of detail"
+                    disabled>
+                    <span>🧊</span><span class="font-medium">3D Rotatable Model</span><span class="ml-auto text-[10px] bg-slate-100 text-slate-400 rounded px-1 py-0.5">coming soon</span>
+                  </button>
+
+                  <!-- Sharpen Model category -->
+                  <div class="px-3 py-2 bg-slate-50 border-t border-b border-slate-100">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">✂️ Sharpen Model</p>
+                  </div>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-violet-50 hover:text-violet-800 transition-colors duration-150 text-left"
+                    title="Sharpen Model — apply AI improvement commands to refine this model's entries (Simplify, Add Values, Tighten Constraints, Make More Specific)"
+                    @click="openTool('sharpen')">
+                    <span>✂️</span><span class="font-medium">AI Sharpen</span><span class="ml-auto text-slate-400 text-[10px]">improve entries</span>
+                  </button>
+                  <p class="text-[10px] text-slate-400 italic px-4 py-2 border-t border-slate-100">More Edit Model tools coming soon</p>
                 </div>
               </div>
             </div>
