@@ -113,7 +113,7 @@ function selectAgent(agent: AgentDef): void {
 
         <!-- Header -->
         <div class="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-slate-800 to-slate-700 shrink-0">
-          <span class="text-2xl" aria-hidden="true">🦾</span>
+          <span class="text-2xl" aria-hidden="true">🔭</span>
           <div class="flex-1 min-w-0">
             <h2 class="text-base font-bold text-white leading-tight tracking-tight">Agent Menu</h2>
             <p class="text-[11px] text-white/60 leading-tight mt-0.5">Explicitly-called planning agents</p>

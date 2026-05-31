@@ -3805,7 +3805,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           aria-haspopup="true"
           aria-label="Open Agent Menu"
           title="Agent Menu — Maria (Board Work Parse) · Contracts (Planguage Contract Analysis) — single-click to open"
-          data-crest-tip="🦾 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
+          data-crest-tip="🔭 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
           class="flex items-center gap-1.5 px-3 h-10 rounded-xl
                  select-none transition-all shrink-0
                  focus:outline-none focus:ring-2 focus:ring-emerald-300"
@@ -3814,7 +3814,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
           @click="agentMenuOpen = true"
         >
-          <span class="text-2xl leading-none" aria-hidden="true">🦾</span>
+          <span class="text-2xl leading-none" aria-hidden="true">🔭</span>
           <span class="text-sm font-bold leading-none">Agents</span>
         </button>
       </div>
