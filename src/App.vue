@@ -107,6 +107,8 @@ import AgentMenuPanel from './components/AgentMenuPanel.vue'
 import MariaAgentBoard from './components/MariaAgentBoard.vue'
 import MariaBoardHub   from './components/MariaBoardHub.vue'
 import ModelLibraryPanel from './components/ModelLibraryPanel.vue'
+import StakeholderMapperPanel from './components/StakeholderMapperPanel.vue'
+import EvoCritiquerPanel from './components/EvoCritiquerPanel.vue'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
@@ -540,6 +542,8 @@ const agentMenuOpen       = ref(false)
 const mariaOpen           = ref(false)           // MariaAgentBoard — analysis panel
 const mariaBoardOpen      = ref(false)           // MariaBoardHub   — settings + activity log
 const modelLibraryOpen    = ref(false)           // ModelLibraryPanel — domain model library
+const stakeholderMapperOpen = ref(false)         // StakeholderMapperPanel — AI attribute profiles
+const evoCritiquerOpen      = ref(false)         // EvoCritiquerPanel — Evo health check
 // --- Spec Direct Relations (SDR) ---
 const sdrOpen      = ref(false)
 const _sdrEntryId  = ref('')
@@ -3326,6 +3330,8 @@ registerExclusiveSurface('agentMenu',         agentMenuOpen)
 registerExclusiveSurface('mariaAgent',        mariaOpen)
 registerExclusiveSurface('mariaBoardHub',     mariaBoardOpen)
 registerExclusiveSurface('modelLibrary',      modelLibraryOpen)
+registerExclusiveSurface('stakeholderMapper', stakeholderMapperOpen)
+registerExclusiveSurface('evoCritiquer',      evoCritiquerOpen)
 
 // ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
 // Replaces the old inline text dropdown. Each tile in ActionsHubPanel emits
@@ -4289,7 +4295,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
@@ -4311,6 +4317,18 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <ModelLibraryPanel
     v-if="view === 'app' && modelLibraryOpen"
     @close="modelLibraryOpen = false"
+  />
+
+  <!-- Stakeholder Mapper agent panel — AI-drafted 10-attribute profiles. z-[600] -->
+  <StakeholderMapperPanel
+    v-if="view === 'app' && stakeholderMapperOpen"
+    @close="stakeholderMapperOpen = false"
+  />
+
+  <!-- Evo Critiquer agent panel — Evo health check + value delivery review. z-[600] -->
+  <EvoCritiquerPanel
+    v-if="view === 'app' && evoCritiquerOpen"
+    @close="evoCritiquerOpen = false"
   />
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->

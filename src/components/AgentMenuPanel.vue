@@ -77,19 +77,19 @@ const AGENTS: AgentDef[] = [
     id: 'stakeholder-mapper',
     emoji: '👥',
     label: 'Stakeholder Mapper',
-    subtitle: 'Coming Soon',
-    blurb: 'Automatically identifies all stakeholders in a document and maps their concerns to Planguage Value and Constraint entries.',
+    subtitle: 'AI-Drafted Attribute Profiles',
+    blurb: 'Name any stakeholder — person, organisation, government, or inanimate entity — and AI immediately drafts all 10 attribute levels (Power, Interest, Influence, Support…) with a source URL and fact for each. Updates automatically when you refine the stakeholder context.',
     color: 'indigo',
-    status: 'coming-soon',
+    status: 'live',
   },
   {
     id: 'evo-step-critique',
     emoji: '🔬',
     label: 'Evo Critiquer',
-    subtitle: 'Coming Soon',
-    blurb: 'Reviews an Evo step plan and flags value delivery gaps, missing measurement criteria, and ordering improvements.',
+    subtitle: 'Evo Health Check & Value Delivery',
+    blurb: 'AI reviews your plan against all 9 steps of the Evo cycle. Scores 10 health dimensions (Stakeholder Coverage, Values Completeness, Priority Alignment…), critiques each planning step, and gives a deep-dive on the Value Delivery cycle (Develop → Deliver → Measure → Learn) with practical tasks.',
     color: 'violet',
-    status: 'coming-soon',
+    status: 'live',
   },
 ]
 
@@ -263,7 +263,60 @@ function selectAgent(agent: AgentDef): void {
                   </svg>
                 </div>
 
-                <!-- Coming-soon agents: generic placeholder thumbnail -->
+                <!-- Stakeholder Mapper: mini attribute matrix thumbnail -->
+                <div v-else-if="agent.id === 'stakeholder-mapper'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
+                  <svg width="72" height="53" viewBox="0 0 100 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect width="100" height="72" rx="5" fill="#312e81"/>
+                    <rect width="100" height="16" rx="5" fill="#4338ca"/>
+                    <text x="5" y="11" fill="white" font-size="7" font-weight="bold" font-family="system-ui,sans-serif">👥 Stakeholder Mapper</text>
+                    <text x="4" y="26" fill="#a5b4fc" font-size="5" font-family="system-ui,sans-serif">Power</text>
+                    <circle cx="42" cy="23" r="3" fill="#6366f1"/><circle cx="50" cy="23" r="3" fill="#6366f1"/>
+                    <circle cx="58" cy="23" r="3" fill="#6366f1"/><circle cx="66" cy="23" r="3" fill="#6366f1"/>
+                    <circle cx="74" cy="23" r="3" fill="#312e81"/>
+                    <text x="78" y="26" fill="#818cf8" font-size="5" font-family="system-ui,sans-serif">4/5</text>
+                    <text x="4" y="36" fill="#a5b4fc" font-size="5" font-family="system-ui,sans-serif">Interest</text>
+                    <circle cx="42" cy="33" r="3" fill="#6366f1"/><circle cx="50" cy="33" r="3" fill="#6366f1"/>
+                    <circle cx="58" cy="33" r="3" fill="#6366f1"/><circle cx="66" cy="33" r="3" fill="#312e81"/>
+                    <circle cx="74" cy="33" r="3" fill="#312e81"/>
+                    <text x="78" y="36" fill="#818cf8" font-size="5" font-family="system-ui,sans-serif">3/5</text>
+                    <text x="4" y="46" fill="#a5b4fc" font-size="5" font-family="system-ui,sans-serif">Support</text>
+                    <circle cx="42" cy="43" r="3" fill="#6366f1"/><circle cx="50" cy="43" r="3" fill="#6366f1"/>
+                    <circle cx="58" cy="43" r="3" fill="#6366f1"/><circle cx="66" cy="43" r="3" fill="#6366f1"/>
+                    <circle cx="74" cy="43" r="3" fill="#6366f1"/>
+                    <text x="78" y="46" fill="#10b981" font-size="5" font-family="system-ui,sans-serif">5/5</text>
+                    <rect x="4" y="52" width="92" height="8" rx="2" fill="#1e1b4b"/>
+                    <text x="6" y="58" fill="#6366f1" font-size="4" font-family="system-ui,sans-serif">📎 wikipedia.org · "$2T market cap 2024"</text>
+                    <rect x="80" y="60" width="16" height="7" rx="2" fill="#1d4ed8"/>
+                    <text x="82" y="65.5" fill="white" font-size="4" font-family="system-ui,sans-serif">High</text>
+                  </svg>
+                </div>
+
+                <!-- Evo Critiquer: mini health check report thumbnail -->
+                <div v-else-if="agent.id === 'evo-step-critique'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
+                  <svg width="72" height="53" viewBox="0 0 100 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect width="100" height="72" rx="5" fill="#2e1065"/>
+                    <rect width="100" height="16" rx="5" fill="#7c3aed"/>
+                    <text x="5" y="11" fill="white" font-size="7" font-weight="bold" font-family="system-ui,sans-serif">🔬 Evo Critiquer</text>
+                    <circle cx="15" cy="35" r="10" fill="#1e1b4b" stroke="#7c3aed" stroke-width="2"/>
+                    <text x="15" y="38" fill="#a78bfa" font-size="8" font-weight="bold" text-anchor="middle" font-family="system-ui,sans-serif">B</text>
+                    <text x="30" y="25" fill="#c4b5fd" font-size="5" font-family="system-ui,sans-serif">Stakeholder</text>
+                    <rect x="30" y="27" width="55" height="4" rx="2" fill="#1e1b4b"/>
+                    <rect x="30" y="27" width="38" height="4" rx="2" fill="#10b981"/>
+                    <text x="88" y="31" fill="#6ee7b7" font-size="4" font-family="system-ui,sans-serif">72</text>
+                    <text x="30" y="37" fill="#c4b5fd" font-size="5" font-family="system-ui,sans-serif">Values</text>
+                    <rect x="30" y="39" width="55" height="4" rx="2" fill="#1e1b4b"/>
+                    <rect x="30" y="39" width="28" height="4" rx="2" fill="#f59e0b"/>
+                    <text x="88" y="43" fill="#fcd34d" font-size="4" font-family="system-ui,sans-serif">51</text>
+                    <text x="30" y="49" fill="#c4b5fd" font-size="5" font-family="system-ui,sans-serif">Value Delivery</text>
+                    <rect x="30" y="51" width="55" height="4" rx="2" fill="#1e1b4b"/>
+                    <rect x="30" y="51" width="44" height="4" rx="2" fill="#6366f1"/>
+                    <text x="88" y="55" fill="#818cf8" font-size="4" font-family="system-ui,sans-serif">80</text>
+                    <rect x="4" y="63" width="92" height="7" rx="2" fill="#3b0764"/>
+                    <text x="6" y="68" fill="#a78bfa" font-size="4" font-family="system-ui,sans-serif">▶ 8 tasks · 3 critical · 2 references</text>
+                  </svg>
+                </div>
+
+                <!-- Fallback for any future coming-soon agents -->
                 <div v-else class="rounded-md overflow-hidden bg-white/80 shadow-sm ring-1 ring-white/30 shrink-0 flex items-center justify-center" style="width:72px;height:53px;">
                   <span class="text-2xl opacity-40" aria-hidden="true">{{ agent.emoji }}</span>
                 </div>
@@ -303,7 +356,9 @@ function selectAgent(agent: AgentDef): void {
                           ? 'bg-teal-600 hover:bg-teal-700 focus-visible:outline-teal-600'
                           : agent.id === 'models'
                             ? 'bg-blue-600 hover:bg-blue-700 focus-visible:outline-blue-600'
-                            : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
+                            : agent.id === 'evo-step-critique'
+                              ? 'bg-violet-600 hover:bg-violet-700 focus-visible:outline-violet-600'
+                              : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
                     ]"
                     :title="`Launch ${agent.label} — ${agent.blurb}`"
                     @click.stop="selectAgent(agent)"
