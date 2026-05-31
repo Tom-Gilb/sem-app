@@ -248,6 +248,13 @@ function _buildSampleHabitPlan(): ImportedPlan {
 // ── Boot: load from localStorage ──────────────────────────────────────────────
 
 loadPlans()
+// Auto-select the first plan so the panel is never blank when plans exist.
+// loadPlans() restores the plans array but does NOT restore selectedPlanId
+// (not persisted), so without this, MODE B renders with selectedPlan=null
+// and all content branches are skipped → blank white panel body.
+if (plans.value.length > 0 && selectedPlanId.value === null) {
+  selectedPlanId.value = plans.value[0].id
+}
 
 // ── Plan mutation helpers ─────────────────────────────────────────────────────
 
