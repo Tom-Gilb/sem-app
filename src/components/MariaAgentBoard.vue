@@ -473,11 +473,13 @@ let _factTimer:   ReturnType<typeof setInterval> | null = null
 /** Wall-clock start time for elapsed computation — immune to setInterval throttling. */
 let _animStart: number = 0
 
-function _startLoadingAnimation(): void {
-  _animStart              = Date.now()
-  elapsed.value           = 0
-  simulatedProgress.value = 0
-  // Pre-mark photos with empty URLs as failed so they don't show "coming soon" placeholders
+// ─── Carousel timer — independent of analysis loading state ───────────────────
+// Tom 2026-06-01: "amuse me back, where did it go?" — carousel must rotate
+// whenever the panel is open, not only during analysis. Separated from the
+// progress/elapsed animation so the two lifecycles are independent.
+
+function _startCarouselTimer(): void {
+  // Pre-mark photos with empty URLs so they show the blank fallback, not an error state.
   const emptyUrlPhotos = new Set<number>()
   for (let i = 0; i < MONTESSORI_PHOTOS.length; i++) {
     if (!MONTESSORI_PHOTOS[i].url || MONTESSORI_PHOTOS[i].url.trim() === '') {
@@ -485,20 +487,29 @@ function _startLoadingAnimation(): void {
     }
   }
   failedPhotos.value = emptyUrlPhotos
-  // Find first photo with a valid URL to start with, otherwise just start at 0
+  // Start at first photo with a real URL
   let startIdx = 0
   for (let i = 0; i < MONTESSORI_PHOTOS.length; i++) {
-    if (!emptyUrlPhotos.has(i)) {
-      startIdx = i
-      break
-    }
+    if (!emptyUrlPhotos.has(i)) { startIdx = i; break }
   }
   activeFactIdx.value = startIdx
+  // Guard: clear any existing timer before starting a new one
+  if (_factTimer) { clearInterval(_factTimer); _factTimer = null }
+  _factTimer = setInterval(() => {
+    activeFactIdx.value = _findNextValidPhotoIdx(activeFactIdx.value, 1)
+  }, 10_000)
+}
 
+function _stopCarouselTimer(): void {
+  if (_factTimer) { clearInterval(_factTimer); _factTimer = null }
+}
+
+function _startLoadingAnimation(): void {
+  _animStart              = Date.now()
+  elapsed.value           = 0
+  simulatedProgress.value = 0
   // Poll every 250 ms using Date.now() delta — immune to Electron/browser setInterval
-  // throttling when the window loses focus. If the OS suspends the tab for 30 s and
-  // then resumes it, the counter catches up immediately to the true elapsed time
-  // instead of appearing frozen.
+  // throttling when the window loses focus. Catches up immediately on focus return.
   // Phase 1 (0–80 s): logarithmic (time-constant 35 s) → ~90% at 80 s, visibly moves.
   // Phase 2 (80 s+): linear +0.08%/s toward 99% cap — never appears frozen.
   _elapsedTimer = setInterval(() => {
@@ -510,11 +521,7 @@ function _startLoadingAnimation(): void {
       simulatedProgress.value = Math.min(99, Math.round(90 + (e - 80) * 0.08))
     }
   }, 250)
-
-  // Rotate photos every 10 s (Tom 2026-05-30)
-  _factTimer = setInterval(() => {
-    activeFactIdx.value = _findNextValidPhotoIdx(activeFactIdx.value, 1)
-  }, 10_000)
+  // Carousel continues independently — do NOT restart _factTimer here.
 }
 
 /** Find the next valid photo index, skipping empty URLs and failed loads. */
@@ -555,7 +562,7 @@ function nextPhoto(): void {
 
 function _stopLoadingAnimation(): void {
   if (_elapsedTimer) { clearInterval(_elapsedTimer); _elapsedTimer = null }
-  if (_factTimer)   { clearInterval(_factTimer);   _factTimer   = null }
+  // Do NOT stop _factTimer — carousel continues between analyses.
   simulatedProgress.value = 100
 }
 
@@ -591,10 +598,15 @@ watch(loading, (isLoading: boolean) => {
   else           _stopLoadingAnimation()
 })
 
-onUnmounted(_stopLoadingAnimation)
+onUnmounted(() => {
+  _stopLoadingAnimation()
+  _stopCarouselTimer()
+})
 
 // ─── Restore last result when panel reopens ────────────────────────────────────
 onMounted(() => {
+  // Carousel rotates from the moment the panel opens — not just during analysis.
+  _startCarouselTimer()
   if (!result.value && lastMariaResult.value) {
     result.value = lastMariaResult.value
   }
@@ -1098,6 +1110,42 @@ async function sendEmailReport(): Promise<void> {
                 {{ hasDocument ? '🏛 Analyse Board Document — paste to auto-start, or press ⌘ Return' : 'Paste a board document above to begin' }}
               </span>
             </button>
+
+            <!-- Montessori carousel — always visible in the input phase so
+                 Maria is never a blank form. Same carousel shown during loading.
+                 Tom 2026-06-01: "amuse me back, where did it go?" -->
+            <div class="mt-5 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 overflow-hidden">
+              <div class="flex items-center justify-between px-4 pt-3 pb-2">
+                <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Montessori Through the Decades</span>
+                <span class="text-[10px] text-slate-400 tabular-nums font-medium">{{ activeFactIdx + 1 }} / {{ MONTESSORI_PHOTOS.length }}</span>
+              </div>
+              <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-50 flex items-center justify-center" style="height:200px;">
+                <img
+                  v-if="MONTESSORI_PHOTOS[activeFactIdx].url && !failedPhotos.has(activeFactIdx)"
+                  :key="activeFactIdx"
+                  :src="MONTESSORI_PHOTOS[activeFactIdx].url"
+                  :alt="MONTESSORI_PHOTOS[activeFactIdx].caption"
+                  class="max-w-full max-h-full object-contain transition-opacity duration-500"
+                  loading="lazy"
+                  @error="handlePhotoError(activeFactIdx)"
+                />
+                <div v-else class="w-full h-full bg-emerald-50" />
+                <div class="absolute bottom-2 left-2 bg-black/55 backdrop-blur-sm rounded-lg px-2.5 py-1">
+                  <span class="text-[10px] font-bold text-white tracking-wide">{{ MONTESSORI_PHOTOS[activeFactIdx].label }}</span>
+                </div>
+              </div>
+              <div class="px-4 pt-3 pb-2">
+                <p class="text-xs text-slate-700 leading-relaxed">{{ MONTESSORI_PHOTOS[activeFactIdx].caption }}</p>
+              </div>
+              <div class="h-0.5 bg-emerald-100 mx-4 rounded-full mb-3">
+                <div class="h-full bg-emerald-400 rounded-full transition-all duration-700" :style="{ width: ((activeFactIdx + 1) / MONTESSORI_PHOTOS.length * 100) + '%' }" />
+              </div>
+              <div class="flex items-center justify-between px-4 pb-4">
+                <button type="button" title="Previous photo — single-click to go back one" aria-label="Previous Montessori photo" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 transition-colors text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-400" @click="prevPhoto">◀ Prev</button>
+                <span class="text-[10px] text-slate-400 tabular-nums">rotates every 10 s</span>
+                <button type="button" title="Next photo — single-click to advance one" aria-label="Next Montessori photo" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 transition-colors text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-400" @click="nextPhoto">Next ▶</button>
+              </div>
+            </div>
 
           </div>
 
