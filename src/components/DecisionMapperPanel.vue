@@ -208,8 +208,11 @@ function tabClass(tab: Tab): string {
     />
 
     <!-- Panel card -->
+    <!-- translateZ(0) forces GPU compositing so this layer correctly sits above
+         the Plan Crest shimmer animation in Safari (same fix as ContractHub). -->
     <div
       class="fixed inset-0 z-[600] flex flex-col"
+      style="transform: translateZ(0);"
       role="dialog"
       aria-modal="true"
       aria-label="Decisions Agent — Planguage decision analysis and matrix"

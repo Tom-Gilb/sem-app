@@ -504,8 +504,11 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
 
 <template>
   <Teleport to="body">
+    <!-- translateZ(0) forces GPU compositing so this layer correctly sits above
+         the Plan Crest shimmer animation in Safari (same fix as ContractHub). -->
     <div
       class="fixed inset-0 z-[600] flex flex-col bg-gray-950"
+      style="transform: translateZ(0);"
       role="dialog"
       aria-modal="true"
       aria-label="Spec Editor"

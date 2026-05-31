@@ -433,10 +433,15 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
 </script>
 
 <template>
-  <!-- Full-screen teal surface — z-[600] (below SelectionDefiner z-[10100]) -->
+  <!-- Full-screen teal surface — z-[600] (below SelectionDefiner z-[10100]).
+       translateZ(0) forces GPU compositing so this layer correctly sits above
+       the Plan Crest (z-[300]) in Safari, which otherwise renders the shimmer-
+       animated Plan Crest in a separate GPU pass above non-composited fixed
+       elements regardless of CSS z-index. -->
   <Teleport to="body">
     <div
       class="fixed inset-0 z-[600] flex flex-col bg-slate-50"
+      style="transform: translateZ(0);"
       role="dialog"
       aria-modal="true"
       aria-label="Contracts — Planguage Contract Analysis"
@@ -477,7 +482,12 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
 
         <!-- CloseDot -->
         <div class="ml-auto shrink-0">
-          <CloseDot variant="on-dark" ariaLabel="Close Contracts mode" @click="emit('close')" />
+          <CloseDot
+            variant="on-dark"
+            title="Close Contracts — return to main workspace"
+            ariaLabel="Close Contracts mode"
+            @click="emit('close')"
+          />
         </div>
       </div>
 
@@ -487,7 +497,10 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
           v-for="tab in (['clauses', 'entries', 'matrix', 'export'] as const)"
           :key="tab"
           type="button"
-          :title="`Switch to ${tab} view`"
+          :title="tab === 'clauses'  ? 'Clauses — browse each clause and see its extracted Planguage obligations'
+                : tab === 'entries'  ? 'Entries — all Planguage entries across the contract, filterable by type (F./V./C./R./S.)'
+                : tab === 'matrix'   ? 'Matrix — party × obligation type grid showing which party owes which obligations'
+                :                     'Export — copy a colorful HTML table to paste into Keynote, Numbers, or Mail'"
           class="px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
           :class="activeTab === tab
             ? 'bg-teal-700 text-white shadow-sm'
@@ -539,6 +552,7 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
             </p>
             <button
               type="button"
+              title="Import your first contract — paste or upload contract text; SEM converts it to Planguage obligations automatically"
               class="mt-2 px-5 py-2.5 bg-teal-700 hover:bg-teal-600 text-white font-bold rounded-xl shadow transition-all text-sm"
               @click="openImport"
             >Import your first contract</button>
