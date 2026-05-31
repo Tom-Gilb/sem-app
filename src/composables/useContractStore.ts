@@ -25,6 +25,8 @@ import type {
 
 const STORAGE_KEY = 'sem-app:contracts:v1'
 const CURRENT_KEY = 'sem-app:contracts:current:v1'
+const SNAPSHOT_KEY    = 'sem-contract-snapshots-v1'
+const MAX_SNAPSHOTS   = 20
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,43 @@ function _migrate(c: ContractModel): ContractModel {
     ...c,
     schemaVersion: 1,
   }
+}
+
+// ── Contract snapshot ─────────────────────────────────────────────────────────
+
+/**
+ * A lightweight snapshot of a fully-parsed contract — stored separately from
+ * the live ContractModel so HistoryPanel can list past analyses without loading
+ * the full clause payload.  The `contractId` field links back to the live record
+ * in `_contracts` for "restore" (switch current contract) operations.
+ *
+ * Twin-portable: no Vue types, no browser APIs, plain serialisable record.
+ */
+export interface ContractSnapshot {
+  id:                 string
+  contractId:         string
+  contractTitle:      string
+  contractType:       ContractType
+  takenAt:            string       // ISO
+  clauseCount:        number
+  entryCount:         number
+  entryTypeBreakdown: Partial<Record<ContractEntryType, number>>
+}
+
+function _loadSnapshots(): ContractSnapshot[] {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as ContractSnapshot[]
+  } catch {
+    return []
+  }
+}
+
+function _saveSnapshots(snaps: ContractSnapshot[]): void {
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snaps))
+  } catch { /* ignore */ }
 }
 
 // ── Persistence ───────────────────────────────────────────────────────────────
@@ -87,6 +126,7 @@ function _saveCurrentId(id: string | null): void {
 
 const _contracts    = ref<ContractModel[]>(_loadAll())
 const _currentId    = ref<string | null>(_loadCurrentId())
+const _snapshots = ref<ContractSnapshot[]>(_loadSnapshots())
 
 // ── Derived ───────────────────────────────────────────────────────────────────
 
@@ -104,6 +144,30 @@ function _upsert(contract: ContractModel): void {
     _contracts.value.unshift(contract)
   }
   _saveAll(_contracts.value)
+}
+
+/** Take a lightweight snapshot of a contract when all its clauses are parsed. */
+function _takeSnapshot(contractId: string): void {
+  const c = _contracts.value.find(x => x.id === contractId)
+  if (!c) return
+  const allEntries = c.clauses.flatMap(cl => cl.entries)
+  const breakdown: Partial<Record<ContractEntryType, number>> = {}
+  for (const e of allEntries) {
+    breakdown[e.type] = (breakdown[e.type] ?? 0) + 1
+  }
+  const snap: ContractSnapshot = {
+    id:                 `csnap-${Date.now()}`,
+    contractId:         c.id,
+    contractTitle:      c.title,
+    contractType:       c.contractType,
+    takenAt:            _now(),
+    clauseCount:        c.clauses.length,
+    entryCount:         allEntries.length,
+    entryTypeBreakdown: breakdown,
+  }
+  const updated = [snap, ..._snapshots.value].slice(0, MAX_SNAPSHOTS)
+  _snapshots.value = updated
+  _saveSnapshots(updated)
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -179,6 +243,15 @@ export function useContractStore() {
         : cl
     )
     _upsert({ ...c, clauses: updatedClauses })
+    // Auto-snapshot when all clauses have finished parsing.
+    const updated2 = _contracts.value.find(x => x.id === contractId)
+    if (
+      updated2 &&
+      updated2.clauses.length > 0 &&
+      updated2.clauses.every(cl => cl.parseStatus === 'done')
+    ) {
+      _takeSnapshot(contractId)
+    }
   }
 
   /** Mark a single clause as currently being parsed. */
@@ -258,6 +331,7 @@ export function useContractStore() {
     contracts:         _contracts,
     currentId:         _currentId,
     currentContract:   _currentContract,
+    contractSnapshots: _snapshots,
     allEntries,
     entryCounts,
     obligationMatrix,

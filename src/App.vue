@@ -106,6 +106,7 @@ import ActionsHubPanel from './components/ActionsHubPanel.vue'
 import AgentMenuPanel from './components/AgentMenuPanel.vue'
 import MariaAgentBoard from './components/MariaAgentBoard.vue'
 import MariaBoardHub   from './components/MariaBoardHub.vue'
+import HistoryPanel from './components/HistoryPanel.vue'
 import ModelLibraryPanel from './components/ModelLibraryPanel.vue'
 import StakeholderMapperPanel from './components/StakeholderMapperPanel.vue'
 import EvoCritiquerPanel from './components/EvoCritiquerPanel.vue'
@@ -543,6 +544,7 @@ const planTargetsOpen     = ref(false)
 const agentMenuOpen       = ref(false)
 const mariaOpen           = ref(false)           // MariaAgentBoard — analysis panel
 const mariaBoardOpen      = ref(false)           // MariaBoardHub   — settings + activity log
+const unifiedHistoryOpen  = ref(false)           // HistoryPanel — unified history across all entities
 const modelLibraryOpen    = ref(false)           // ModelLibraryPanel — domain model library
 const stakeholderMapperOpen = ref(false)         // StakeholderMapperPanel — AI attribute profiles
 const evoCritiquerOpen      = ref(false)         // EvoCritiquerPanel — Evo health check
@@ -3030,6 +3032,12 @@ const searchEntries = computed((): SearchEntry[] => {
       context: 'Planning', action: () => { historyOpen.value = true },
     },
     {
+      id: 'unifiedHistory', icon: '🗂️', name: 'All History',
+      description: 'Browse and restore version history for Plans, Models, Contracts, and Maria analyses.',
+      keywords: ['history', 'all history', 'versions', 'restore', 'contracts history', 'models history', 'maria history', 'unified history'],
+      context: 'Planning', action: () => { unifiedHistoryOpen.value = true },
+    },
+    {
       id: 'conflicts', icon: '⚠️', name: 'Conflict Analysis',
       description: 'Detect stakeholder conflicts in the spec',
       keywords: ['conflict', 'clash', 'stakeholder', 'analysis', 'compare values'],
@@ -3338,6 +3346,7 @@ registerExclusiveSurface('stakeholderMapper', stakeholderMapperOpen)
 registerExclusiveSurface('evoCritiquer',      evoCritiquerOpen)
 registerExclusiveSurface('planImporter',      planImporterOpen)
 registerExclusiveSurface('decisionMapper',    decisionMapperOpen)
+registerExclusiveSurface('unifiedHistory',    unifiedHistoryOpen)
 
 // ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
 // Replaces the old inline text dropdown. Each tile in ActionsHubPanel emits
@@ -3371,6 +3380,7 @@ function handleAction(id: string): void {
     case 'previousPlan':     modelsOpen.value = true; renamePopoverOpen.value = false; break
     case 'saveCheckpoint':   savePlanNow();                      break
     case 'planHistory':      historyOpen.value          = true; break
+    case 'unifiedHistory':   unifiedHistoryOpen.value   = true; break
     case 'specHistory':      dashboardOpen.value        = true; break
     case 'renamePlan':       openRenamePopover();                break
     case 'startOver':        requestStartOver();                  break
@@ -4316,7 +4326,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') planImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') planImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true; if (id === 'history') unifiedHistoryOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
@@ -4332,6 +4342,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
     v-if="view === 'app' && mariaBoardOpen"
     @close="mariaBoardOpen = false"
     @open-analysis="mariaBoardOpen = false; mariaOpen = true"
+  />
+
+  <!-- Unified History Panel — Plans / Models / Contracts / Maria tabs -->
+  <HistoryPanel
+    v-if="unifiedHistoryOpen"
+    @close="unifiedHistoryOpen = false"
+    @load-plan="(planId, versionId) => { unifiedHistoryOpen = false; planImporterOpen = true }"
+    @restore-model="(modelId, versionId) => { unifiedHistoryOpen = false }"
+    @load-contract="(contractId) => { unifiedHistoryOpen = false; contractsOpen = true }"
+    @load-maria="(result) => { unifiedHistoryOpen = false; mariaOpen = true }"
   />
 
   <!-- Domain Model Library — 18 built-in Planguage models across 6 categories. z-[600] -->

@@ -7,6 +7,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { MODEL_ID } from '../config/llm'
 import type { SpecBlock } from '../types/spec'
 import { parseApiError } from '../utils/parseApiError'
+import { useAgentContext } from './useAgentContext'
 
 export interface CoachMessage {
   id: string
@@ -42,6 +43,7 @@ export function useSpecCoach() {
   const messages = ref<CoachMessage[]>([])
   const loading = ref(false)
   const error = ref('')
+  const { contextSummary } = useAgentContext()
 
   async function ask(question: string, spec: SpecBlock): Promise<void> {
     loading.value = true
@@ -71,7 +73,7 @@ export function useSpecCoach() {
           dangerouslyAllowBrowser: true,
           timeout: 90_000,
         })
-        const specContext = `Here is the user's spec as JSON:\n${JSON.stringify(spec, null, 2)}`
+        const specContext = `Here is the user's spec as JSON:\n${JSON.stringify(spec, null, 2)}${contextSummary.value}`
 
         // Build conversation history: include all prior turns so follow-up
         // questions have context. CoachMessage.role 'coach' → 'assistant' in API.

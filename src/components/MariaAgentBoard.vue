@@ -34,7 +34,7 @@ import { buildEml }            from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import type { MariaResult }    from '../types/maria'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
-import { lastMariaResult }     from '../lib/maria/mariaResultStore'
+import { lastMariaResult, pushMariaResult } from '../lib/maria/mariaResultStore'
 import { useBoardMembers }     from '../composables/useBoardMembers'
 import type { MemberMatch }    from '../lib/maria/boardMatcher'
 
@@ -86,7 +86,12 @@ const boardMembers = boardMembersLive
 
 // ── Write each successful analysis to the module-level result store so
 //    MariaBoardHub's "Import from last analysis" button can access it. ──────────
-watch(result, (r) => { if (r) lastMariaResult.value = r })
+watch(result, (r) => {
+  if (!r) return
+  // Extract document title from the first non-empty line of the pasted text
+  const firstLine = documentText.value.split('\n').find(l => l.trim().length > 0) ?? ''
+  pushMariaResult(r, firstLine.slice(0, 80))
+})
 
 
 // ─── Computed helpers ─────────────────────────────────────────────────────────

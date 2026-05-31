@@ -517,6 +517,20 @@ function selectPlan(id: string | null): void {
   selectedPlanId.value = id
 }
 
+/**
+ * Restore a specific version of a plan as the active view, without discarding
+ * the version history.  Used by HistoryPanel to jump to any past snapshot.
+ */
+function setCurrentVersion(planId: string, versionId: string): void {
+  const plan = plans.value.find(p => p.id === planId)
+  if (!plan) return
+  const versionExists = plan.versions.some(v => v.id === versionId)
+  if (!versionExists) return
+  plan.currentVersionId = versionId
+  selectedPlanId.value  = planId
+  savePlans()
+}
+
 function cancelImport(): void {
   _abortController.value?.abort()
   _abortController.value = null
@@ -555,6 +569,7 @@ export function usePlanImporter() {
     applySuggestion,
     removePlan,
     selectPlan,
+    setCurrentVersion,
     cancelImport,
     loadSampleHotel,
     loadSampleHabit,
