@@ -29,7 +29,7 @@ import {
   scoreToGrade,
 } from '../composables/useEvoCritiquer'
 import type { HealthDimension, EvoStepCritique, HealthFinding, ImprovementTask } from '../composables/useEvoCritiquer'
-import { usePlanModel } from '../composables/usePlanModel'
+import { usePlanModel, listRecentPlans, loadPlanByTag } from '../composables/usePlanModel'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -37,6 +37,21 @@ const emit = defineEmits<{ close: [] }>()
 
 const { critiqueResult, critiqueLoading, critiqueError, runEvoCritique } = useEvoCritiquer()
 const { currentModel: planModel } = usePlanModel()
+
+// ── Recent plans (shown when no plan is loaded) ───────────────────────────────
+
+const recentPlans    = listRecentPlans()
+const planSearchQ    = ref('')
+const filteredRecent = computed(() => {
+  const q = planSearchQ.value.toLowerCase().trim()
+  if (!q) return recentPlans
+  return recentPlans.filter(p => p.name.toLowerCase().includes(q))
+})
+
+function loadRecent(tag: string, version: string): void {
+  loadPlanByTag(tag, version)
+  planSearchQ.value = ''
+}
 
 // ── Tab state ─────────────────────────────────────────────────────────────────
 
@@ -305,9 +320,37 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
                 The AI will score 10 health dimensions, critique each planning step, and
                 give a deep dive on the Value Delivery cycle.
               </p>
-              <p v-if="!planModel" class="text-xs text-amber-600 mb-4">
-                No active plan loaded — open a plan in the main workspace first.
-              </p>
+              <!-- No plan loaded — show recent plans picker -->
+              <div v-if="!planModel" class="w-full max-w-md mx-auto mt-2">
+                <p class="text-xs font-semibold text-amber-700 mb-3">No active plan loaded — choose a recent plan:</p>
+                <input
+                  v-model="planSearchQ"
+                  type="text"
+                  placeholder="Search recent plans…"
+                  class="w-full px-3 py-2 rounded-lg border border-amber-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 mb-2"
+                  title="Search your saved plans by name — click a plan to load it and enable analysis"
+                />
+                <div v-if="filteredRecent.length === 0" class="text-xs text-slate-400 text-center py-3">
+                  No saved plans found — open a plan in the main workspace first.
+                </div>
+                <div v-else class="flex flex-col gap-1.5 max-h-44 overflow-y-auto">
+                  <button
+                    v-for="plan in filteredRecent"
+                    :key="plan.tag + plan.version"
+                    type="button"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50 hover:bg-violet-50 border border-amber-100 hover:border-violet-200 text-left transition-colors"
+                    :title="`Load plan: ${plan.name} — updated ${plan.updatedAt.slice(0, 10)}`"
+                    @click="loadRecent(plan.tag, plan.version)"
+                  >
+                    <span class="text-base shrink-0" aria-hidden="true">📋</span>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-xs font-semibold text-slate-800 truncate">{{ plan.name }}</p>
+                      <p class="text-[10px] text-slate-400">Updated {{ plan.updatedAt.slice(0, 10) }}</p>
+                    </div>
+                    <span class="text-[10px] text-violet-600 font-semibold shrink-0">Load →</span>
+                  </button>
+                </div>
+              </div>
               <button
                 type="button"
                 :disabled="!planModel"

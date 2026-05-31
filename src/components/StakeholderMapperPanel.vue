@@ -26,12 +26,21 @@ import {
   ATTRIBUTE_DEFS,
 } from '../composables/useStakeholderMapper'
 import type { MappedStakeholder, StakeholderType, AttributeLevel } from '../composables/useStakeholderMapper'
+import { useModelLibrary } from '../composables/useModelLibrary'
 
 const emit = defineEmits<{ close: [] }>()
 
 // ── Composable ────────────────────────────────────────────────────────────────
 
-const mapper = useStakeholderMapper()
+const mapper  = useStakeholderMapper()
+const library = useModelLibrary()
+
+/** Active model from Model Library (set when opened via → Map Stakeholders). */
+const activeModel = computed(() =>
+  library.activeModelId.value
+    ? library.allEntries.value.find(e => e.id === library.activeModelId.value) ?? null
+    : null,
+)
 
 // ── Navigation / form state ───────────────────────────────────────────────────
 
@@ -250,9 +259,10 @@ function avgScore(sh: MappedStakeholder): number | null {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search entities…"
+              placeholder="Search entities in current model…"
               class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400"
               aria-label="Filter stakeholders by name or role"
+              title="Search stakeholder entities — filters by name or role within the current model context"
             />
           </div>
 
@@ -386,10 +396,32 @@ function avgScore(sh: MappedStakeholder): number | null {
 
             <!-- Empty search state -->
             <div
-              v-if="filteredStakeholders.length === 0"
+              v-if="filteredStakeholders.length === 0 && searchQuery"
+              class="px-3 py-5 flex flex-col gap-3"
+            >
+              <p class="text-xs text-slate-500 text-center">
+                No entities match "{{ searchQuery }}"
+                <span v-if="activeModel" class="block text-[10px] text-indigo-400 mt-0.5">
+                  Searching in Model: <strong>{{ activeModel.title }}</strong>
+                </span>
+              </p>
+              <!-- Create shortcut -->
+              <button
+                type="button"
+                class="w-full px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-xs text-indigo-700 font-semibold transition-colors text-left flex items-center gap-2"
+                :title="`Create '${searchQuery}' as a new stakeholder entity${activeModel ? ' for model: ' + activeModel.title : ''}`"
+                @click="newName = searchQuery; openAdd()"
+              >
+                <span class="text-base">＋</span>
+                <span>Create <em>"{{ searchQuery }}"</em> as new entity<span v-if="activeModel"> for <strong>{{ activeModel.title }}</strong></span></span>
+              </button>
+            </div>
+            <!-- Empty list (no search active) -->
+            <div
+              v-else-if="filteredStakeholders.length === 0 && !searchQuery"
               class="text-center text-xs text-slate-400 py-6"
             >
-              No entities match "{{ searchQuery }}"
+              No entities yet — add one above
             </div>
           </ScrollContainer>
         </div>
@@ -471,10 +503,10 @@ function avgScore(sh: MappedStakeholder): number | null {
                 <button
                   type="button"
                   class="px-2.5 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-600 text-xs font-semibold transition-colors"
-                  title="Remove this stakeholder entity permanently"
+                  title="Remove Stakeholder Record — permanently deletes this entity and all its attribute data"
                   @click="removeSelected"
                 >
-                  Remove
+                  Remove Stakeholder Record
                 </button>
               </div>
             </div>

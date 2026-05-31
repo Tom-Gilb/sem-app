@@ -421,6 +421,20 @@ function _saveAll(models: PlanModel[]): void {
 }
 
 /**
+ * List all stored plans as lightweight summaries — for "recent plans" UI
+ * in panels that need to help users pick a plan when none is loaded.
+ * Returns newest-first (sorted by updatedAt descending).
+ * Twin-portable: pure data transform, no Vue dependency.
+ */
+export function listRecentPlans(): { tag: string; version: string; name: string; updatedAt: string }[] {
+  const all = _loadAll()
+  return all
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map(m => ({ tag: m.tag, version: m.version, name: m.name || m.tag, updatedAt: m.updatedAt }))
+    .slice(0, 10)
+}
+
+/**
  * Derive a model name from the spec's Value entries.
  *
  * Format: "Improve [top value keywords] & [2nd value keywords]"
