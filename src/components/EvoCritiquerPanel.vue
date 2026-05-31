@@ -81,56 +81,56 @@ async function runAnalysis(): Promise<void> {
 // ── Score colour helpers (static class maps) ──────────────────────────────────
 
 const SCORE_BAR_CLASS: Record<string, string> = {
-  emerald: 'bg-emerald-500',
   blue:    'bg-blue-500',
+  blueMed: 'bg-blue-400',
   amber:   'bg-amber-400',
-  red:     'bg-red-500',
+  orange:  'bg-orange-500',
 }
 
 function scoreBarColor(score: number): string {
-  if (score >= 75) return SCORE_BAR_CLASS.emerald
-  if (score >= 60) return SCORE_BAR_CLASS.blue
+  if (score >= 75) return SCORE_BAR_CLASS.blue
+  if (score >= 60) return SCORE_BAR_CLASS.blueMed
   if (score >= 40) return SCORE_BAR_CLASS.amber
-  return SCORE_BAR_CLASS.red
+  return SCORE_BAR_CLASS.orange
 }
 
 const SCORE_CIRCLE_CLASS: Record<string, string> = {
-  emerald: 'text-emerald-600',
   blue:    'text-blue-600',
+  blueMed: 'text-blue-500',
   amber:   'text-amber-500',
-  red:     'text-red-600',
+  orange:  'text-orange-600',
 }
 
 function scoreCircleColor(score: number): string {
-  if (score >= 75) return SCORE_CIRCLE_CLASS.emerald
-  if (score >= 60) return SCORE_CIRCLE_CLASS.blue
+  if (score >= 75) return SCORE_CIRCLE_CLASS.blue
+  if (score >= 60) return SCORE_CIRCLE_CLASS.blueMed
   if (score >= 40) return SCORE_CIRCLE_CLASS.amber
-  return SCORE_CIRCLE_CLASS.red
+  return SCORE_CIRCLE_CLASS.orange
 }
 
 // ── Grade badge classes (static) ──────────────────────────────────────────────
 
 const GRADE_CLASS: Record<string, string> = {
-  A: 'bg-emerald-100 text-emerald-800',
-  B: 'bg-blue-100 text-blue-800',
+  A: 'bg-blue-100 text-blue-800',
+  B: 'bg-sky-100 text-sky-800',
   C: 'bg-amber-100 text-amber-700',
   D: 'bg-orange-100 text-orange-700',
-  F: 'bg-red-100 text-red-700',
+  F: 'bg-rose-100 text-rose-700',
 }
 
 // ── Severity dot classes (static) ─────────────────────────────────────────────
 
 const SEVERITY_CLASS: Record<string, string> = {
-  critical: 'bg-red-500',
+  critical: 'bg-rose-500',
   major:    'bg-orange-400',
   minor:    'bg-amber-400',
-  positive: 'bg-emerald-500',
+  positive: 'bg-blue-500',
 }
 
 // ── Priority pill classes (static) ────────────────────────────────────────────
 
 const PRIORITY_CLASS: Record<string, string> = {
-  now:   'bg-red-100 text-red-700',
+  now:   'bg-orange-100 text-orange-700',
   soon:  'bg-amber-100 text-amber-700',
   later: 'bg-slate-100 text-slate-600',
 }
@@ -342,11 +342,11 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
           >
             <div>
               <div class="text-4xl mb-3" aria-hidden="true">⚠️</div>
-              <h4 class="text-sm font-semibold text-red-600 mb-1">Analysis Failed</h4>
+              <h4 class="text-sm font-semibold text-orange-600 mb-1">Analysis Failed</h4>
               <p class="text-xs text-slate-500 max-w-sm mb-4">{{ critiqueError }}</p>
               <button
                 type="button"
-                class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors"
+                class="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition-colors"
                 title="Retry Evo analysis"
                 @click="runAnalysis"
               >
@@ -368,10 +368,10 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
                 <div
                   :class="[
                     'w-16 h-16 rounded-full border-4 flex flex-col items-center justify-center',
-                    critiqueResult.overallScore >= 75 ? 'border-emerald-400 bg-emerald-50' :
-                    critiqueResult.overallScore >= 60 ? 'border-blue-400 bg-blue-50' :
+                    critiqueResult.overallScore >= 75 ? 'border-blue-400 bg-blue-50' :
+                    critiqueResult.overallScore >= 60 ? 'border-blue-300 bg-blue-50' :
                     critiqueResult.overallScore >= 40 ? 'border-amber-400 bg-amber-50' :
-                    'border-red-400 bg-red-50',
+                    'border-orange-400 bg-orange-50',
                   ]"
                 >
                   <span
@@ -593,10 +593,10 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
                 <div
                   :class="[
                     'shrink-0 w-10 h-10 rounded-full border-2 flex flex-col items-center justify-center',
-                    step.overallScore >= 75 ? 'border-emerald-400 bg-emerald-50' :
-                    step.overallScore >= 60 ? 'border-blue-400 bg-blue-50' :
+                    step.overallScore >= 75 ? 'border-blue-400 bg-blue-50' :
+                    step.overallScore >= 60 ? 'border-blue-300 bg-blue-50' :
                     step.overallScore >= 40 ? 'border-amber-400 bg-amber-50' :
-                    'border-red-400 bg-red-50',
+                    'border-orange-400 bg-orange-50',
                   ]"
                 >
                   <span :class="['text-sm font-black leading-none', scoreCircleColor(step.overallScore)]">
@@ -666,10 +666,10 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
                 <div
                   :class="[
                     'shrink-0 w-10 h-10 rounded-full border-2 flex flex-col items-center justify-center',
-                    step.overallScore >= 75 ? 'border-emerald-400 bg-emerald-50' :
-                    step.overallScore >= 60 ? 'border-blue-400 bg-blue-50' :
+                    step.overallScore >= 75 ? 'border-blue-400 bg-blue-50' :
+                    step.overallScore >= 60 ? 'border-blue-300 bg-blue-50' :
                     step.overallScore >= 40 ? 'border-amber-400 bg-amber-50' :
-                    'border-red-400 bg-red-50',
+                    'border-orange-400 bg-orange-50',
                   ]"
                 >
                   <span :class="['text-sm font-black leading-none', scoreCircleColor(step.overallScore)]">
@@ -761,10 +761,10 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
                   <div
                     :class="[
                       'w-14 h-14 rounded-full border-4 flex flex-col items-center justify-center',
-                      step.overallScore >= 75 ? 'border-emerald-400 bg-emerald-50' :
-                      step.overallScore >= 60 ? 'border-blue-400 bg-blue-50' :
+                      step.overallScore >= 75 ? 'border-blue-400 bg-blue-50' :
+                      step.overallScore >= 60 ? 'border-blue-300 bg-blue-50' :
                       step.overallScore >= 40 ? 'border-amber-400 bg-amber-50' :
-                      'border-red-400 bg-red-50',
+                      'border-orange-400 bg-orange-50',
                     ]"
                   >
                     <span :class="['text-lg font-black leading-none', scoreCircleColor(step.overallScore)]">
@@ -781,15 +781,15 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
             </div>
 
             <!-- Top Risk card -->
-            <div class="p-4 rounded-xl bg-red-50 border border-red-200">
-              <p class="text-xs font-bold text-red-600 uppercase tracking-wide mb-1">Top Risk</p>
-              <p class="text-sm text-red-800 leading-relaxed">{{ critiqueResult.valueDeliveryFocus.topRisk }}</p>
+            <div class="p-4 rounded-xl bg-orange-50 border border-orange-200">
+              <p class="text-xs font-bold text-orange-600 uppercase tracking-wide mb-1">Top Risk</p>
+              <p class="text-sm text-orange-800 leading-relaxed">{{ critiqueResult.valueDeliveryFocus.topRisk }}</p>
             </div>
 
             <!-- What Good Looks Like card -->
-            <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-              <p class="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">What Good Looks Like</p>
-              <p class="text-sm text-emerald-800 leading-relaxed">{{ critiqueResult.valueDeliveryFocus.goodLooks }}</p>
+            <div class="p-4 rounded-xl bg-blue-50 border border-blue-200">
+              <p class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">What Good Looks Like</p>
+              <p class="text-sm text-blue-800 leading-relaxed">{{ critiqueResult.valueDeliveryFocus.goodLooks }}</p>
             </div>
 
             <!-- Practical tasks sorted by priority -->

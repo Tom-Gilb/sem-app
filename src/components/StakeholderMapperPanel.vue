@@ -69,9 +69,9 @@ const selected = computed<MappedStakeholder | null>(() => {
 const TYPE_CHIP_CLASS: Record<StakeholderType, string> = {
   organization: 'bg-blue-100 text-blue-700',
   government:   'bg-purple-100 text-purple-700',
-  person:       'bg-green-100 text-green-700',
+  person:       'bg-sky-100 text-sky-700',
   system:       'bg-amber-100 text-amber-700',
-  regulatory:   'bg-red-100 text-red-700',
+  regulatory:   'bg-fuchsia-100 text-fuchsia-700',
   inanimate:    'bg-slate-100 text-slate-600',
 }
 
@@ -89,7 +89,7 @@ const TYPE_LABEL: Record<StakeholderType, string> = {
 const CONF_CLASS: Record<string, string> = {
   high:   'bg-blue-100 text-blue-700',
   medium: 'bg-amber-100 text-amber-700',
-  low:    'bg-red-100 text-red-700',
+  low:    'bg-orange-100 text-orange-700',
 }
 
 const CONF_LABEL: Record<string, string> = {
@@ -364,13 +364,13 @@ function avgScore(sh: MappedStakeholder): number | null {
                   </span>
                   <span
                     v-else-if="sh.draftStatus === 'done'"
-                    :class="['text-[9px]', mapper.selectedId.value === sh.id ? 'text-white/70' : 'text-emerald-600']"
+                    :class="['text-[9px]', mapper.selectedId.value === sh.id ? 'text-white/70' : 'text-blue-600']"
                   >
                     ✓ Analyzed
                   </span>
                   <span
                     v-else-if="sh.draftStatus === 'error'"
-                    :class="['text-[9px]', mapper.selectedId.value === sh.id ? 'text-red-200' : 'text-red-500']"
+                    :class="['text-[9px]', mapper.selectedId.value === sh.id ? 'text-orange-200' : 'text-orange-500']"
                   >
                     ✕ Error
                   </span>
@@ -470,7 +470,7 @@ function avgScore(sh: MappedStakeholder): number | null {
                 <!-- Delete button -->
                 <button
                   type="button"
-                  class="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold transition-colors"
+                  class="px-2.5 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-600 text-xs font-semibold transition-colors"
                   title="Remove this stakeholder entity permanently"
                   @click="removeSelected"
                 >
@@ -557,11 +557,11 @@ function avgScore(sh: MappedStakeholder): number | null {
                 class="flex flex-col items-center justify-center py-12 text-center"
               >
                 <div class="text-4xl mb-3" aria-hidden="true">⚠️</div>
-                <h4 class="text-sm font-semibold text-red-600 mb-1">Analysis Failed</h4>
+                <h4 class="text-sm font-semibold text-orange-600 mb-1">Analysis Failed</h4>
                 <p class="text-xs text-slate-500 max-w-sm mb-4">{{ selected.draftError ?? 'Unknown error' }}</p>
                 <button
                   type="button"
-                  class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors"
+                  class="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition-colors"
                   title="Retry AI attribute analysis"
                   @click="analyze(selected.id)"
                 >

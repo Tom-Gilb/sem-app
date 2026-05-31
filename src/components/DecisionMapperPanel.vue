@@ -98,17 +98,17 @@ async function triggerCompare(): Promise<void> {
 // ── Score cell colour helpers (static class maps) ─────────────────────────────
 
 const SCORE_CELL_CLASS: Record<string, string> = {
-  emerald: 'bg-emerald-500',
-  blue: 'bg-blue-400',
-  amber: 'bg-amber-400',
-  red: 'bg-red-400',
+  blue:    'bg-blue-500',
+  blueMed: 'bg-blue-400',
+  amber:   'bg-amber-400',
+  orange:  'bg-orange-400',
 }
 
 function scoreCellBg(score: number): string {
-  if (score >= 75) return SCORE_CELL_CLASS.emerald
-  if (score >= 60) return SCORE_CELL_CLASS.blue
+  if (score >= 75) return SCORE_CELL_CLASS.blue
+  if (score >= 60) return SCORE_CELL_CLASS.blueMed
   if (score >= 40) return SCORE_CELL_CLASS.amber
-  return SCORE_CELL_CLASS.red
+  return SCORE_CELL_CLASS.orange
 }
 
 // ── Weighted value score for an option ───────────────────────────────────────
@@ -140,15 +140,15 @@ const constraintCriteria = computed<DecisionCriterion[]>(() =>
 const ENTRY_TYPE_CLASSES: Record<string, string> = {
   F: 'bg-orange-500 text-white',
   V: 'bg-blue-500 text-white',
-  C: 'bg-red-500 text-white',
-  R: 'bg-emerald-600 text-white',
+  C: 'bg-fuchsia-600 text-white',
+  R: 'bg-sky-600 text-white',
   S: 'bg-violet-500 text-white',
 }
 const ENTRY_CARD_CLASSES: Record<string, string> = {
   F: 'bg-orange-50 border-orange-100',
   V: 'bg-blue-50 border-blue-100',
-  C: 'bg-red-50 border-red-100',
-  R: 'bg-emerald-50 border-emerald-100',
+  C: 'bg-fuchsia-50 border-fuchsia-100',
+  R: 'bg-sky-50 border-sky-100',
   S: 'bg-violet-50 border-violet-100',
 }
 function entryTypeBadge(type: string): string {
@@ -161,28 +161,28 @@ function entryCardBg(type: string): string {
 // ── Score circle ──────────────────────────────────────────────────────────────
 
 const CIRCLE_BORDER: Record<string, string> = {
-  emerald: 'border-emerald-400 bg-emerald-50',
-  blue: 'border-blue-400 bg-blue-50',
-  amber: 'border-amber-400 bg-amber-50',
-  red: 'border-red-400 bg-red-50',
+  blue:    'border-blue-400 bg-blue-50',
+  blueMed: 'border-blue-400 bg-blue-50',
+  amber:   'border-amber-400 bg-amber-50',
+  orange:  'border-orange-400 bg-orange-50',
 }
 const CIRCLE_TEXT: Record<string, string> = {
-  emerald: 'text-emerald-700',
-  blue: 'text-blue-700',
-  amber: 'text-amber-600',
-  red: 'text-red-600',
+  blue:    'text-blue-700',
+  blueMed: 'text-blue-700',
+  amber:   'text-amber-600',
+  orange:  'text-orange-600',
 }
 function circleKey(score: number): string {
-  if (score >= 75) return 'emerald'
-  if (score >= 60) return 'blue'
+  if (score >= 75) return 'blue'
+  if (score >= 60) return 'blueMed'
   if (score >= 40) return 'amber'
-  return 'red'
+  return 'orange'
 }
 function circleBorder(score: number): string {
-  return CIRCLE_BORDER[circleKey(score)] ?? CIRCLE_BORDER.red
+  return CIRCLE_BORDER[circleKey(score)] ?? CIRCLE_BORDER.orange
 }
 function circleText(score: number): string {
-  return CIRCLE_TEXT[circleKey(score)] ?? CIRCLE_TEXT.red
+  return CIRCLE_TEXT[circleKey(score)] ?? CIRCLE_TEXT.orange
 }
 
 // ── Tab bar active/inactive classes ──────────────────────────────────────────
@@ -379,7 +379,7 @@ function tabClass(tab: Tab): string {
           <div class="flex-1 flex items-center justify-center text-center px-8">
             <div>
               <div class="text-4xl mb-3" aria-hidden="true">⚠️</div>
-              <h4 class="text-sm font-semibold text-red-600 mb-1">Analysis Failed</h4>
+              <h4 class="text-sm font-semibold text-orange-600 mb-1">Analysis Failed</h4>
               <p class="text-xs text-slate-500 max-w-sm mb-4">{{ selectedDecision.analysisError }}</p>
               <button
                 type="button"
@@ -453,7 +453,7 @@ function tabClass(tab: Tab): string {
                       v-for="criterion in selectedDecision.criteria"
                       :key="criterion.id"
                       class="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px]"
-                      :class="criterion.type === 'constraint' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-blue-50 border-blue-200 text-blue-700'"
+                      :class="criterion.type === 'constraint' ? 'bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700' : 'bg-blue-50 border-blue-200 text-blue-700'"
                       :title="`${criterion.label}: ${criterion.description}${criterion.scale ? ' — Scale: ' + criterion.scale : ''}`"
                     >
                       <span class="font-bold">{{ criterion.type === 'constraint' ? 'C' : 'V' }}</span>
@@ -480,7 +480,7 @@ function tabClass(tab: Tab): string {
                         <th
                           v-for="criterion in constraintCriteria"
                           :key="criterion.id"
-                          class="text-center px-2 py-2 font-bold text-red-700 border-b border-slate-200 min-w-[60px]"
+                          class="text-center px-2 py-2 font-bold text-fuchsia-700 border-b border-slate-200 min-w-[60px]"
                           :title="`${criterion.label} — constraint: ${criterion.description}`"
                         >
                           {{ criterion.label }}
@@ -527,7 +527,7 @@ function tabClass(tab: Tab): string {
                           <span
                             :class="[
                               'text-sm font-bold',
-                              option.constraintsMet[criterion.id] !== false ? 'text-emerald-600' : 'text-red-500',
+                              option.constraintsMet[criterion.id] !== false ? 'text-blue-600' : 'text-orange-500',
                             ]"
                             :title="`${criterion.label}: ${option.constraintsMet[criterion.id] !== false ? 'met' : 'NOT met'}`"
                           >
@@ -722,27 +722,27 @@ function tabClass(tab: Tab): string {
                     <!-- Pros + Cons -->
                     <div class="grid grid-cols-2 gap-3">
                       <div>
-                        <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1 select-none">Pros</p>
+                        <p class="text-[10px] font-bold text-blue-700 uppercase tracking-wide mb-1 select-none">Pros</p>
                         <ul class="space-y-1">
                           <li
                             v-for="(pro, pi) in option.pros"
                             :key="pi"
                             class="text-[11px] text-slate-600 flex items-start gap-1.5"
                           >
-                            <span class="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                            <span class="mt-0.5 w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                             {{ pro }}
                           </li>
                         </ul>
                       </div>
                       <div>
-                        <p class="text-[10px] font-bold text-red-600 uppercase tracking-wide mb-1 select-none">Cons</p>
+                        <p class="text-[10px] font-bold text-orange-600 uppercase tracking-wide mb-1 select-none">Cons</p>
                         <ul class="space-y-1">
                           <li
                             v-for="(con, ci) in option.cons"
                             :key="ci"
                             class="text-[11px] text-slate-600 flex items-start gap-1.5"
                           >
-                            <span class="mt-0.5 w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                            <span class="mt-0.5 w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
                             {{ con }}
                           </li>
                         </ul>
@@ -833,7 +833,7 @@ function tabClass(tab: Tab): string {
                       type="button"
                       class="text-xs px-3 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-semibold transition-colors"
                       title="Use the Habit Tracker brief as the comparison target"
-                      @click="comparisonText = \"We're building a mobile app to help users build better daily habits. Key features: habit tracking, reminders, streaks, social sharing. Must work offline. Target: 100K users year 1.\""
+                      @click="comparisonText = 'We are building a mobile app to help users build better daily habits. Key features: habit tracking, reminders, streaks, social sharing. Must work offline. Target: 100K users year 1.'"
                     >
                       Habit Tracker Plan
                     </button>

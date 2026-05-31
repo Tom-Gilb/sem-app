@@ -526,7 +526,7 @@ function restoreVersion(versionId: string): void {
 // ── Static class maps for boundaries ─────────────────────────────────────
 
 const BOUNDARY_HEADER_CLASS: Record<BoundaryType, string> = {
-  'our-org':       'bg-emerald-100 text-emerald-800 border-emerald-300',
+  'our-org':       'bg-blue-100 text-blue-800 border-blue-300',
   'product-line':  'bg-amber-100 text-amber-800 border-amber-300',
   'national':      'bg-blue-100 text-blue-800 border-blue-300',
   'international': 'bg-indigo-100 text-indigo-800 border-indigo-300',
@@ -547,13 +547,13 @@ const BOUNDARY_RING_STROKE: Record<BoundaryType, string> = {
   'universe':      '#7c3aed',
 }
 const SEVERITY_CLASS: Record<string, string> = {
-  critical: 'bg-red-100 text-red-700 border-red-300',
+  critical: 'bg-rose-100 text-rose-700 border-rose-300',
   major:    'bg-orange-100 text-orange-700 border-orange-300',
   minor:    'bg-amber-100 text-amber-700 border-amber-300',
   info:     'bg-blue-100 text-blue-700 border-blue-300',
 }
 const SEVERITY_DOT: Record<string, string> = {
-  critical: 'bg-red-500',
+  critical: 'bg-rose-500',
   major:    'bg-orange-500',
   minor:    'bg-amber-400',
   info:     'bg-blue-400',
@@ -675,18 +675,18 @@ function computeValueFlowLayout(model: ModelLibraryEntry): { nodes: VizNode[]; a
     }
   }
 
-  // Function → Value arrows (solid green thick)
+  // Function → Value arrows (solid blue thick)
   for (let fi = 0; fi < fns.length; fi++) {
     const vi = Math.min(fi, vals.length - 1)
     if (vi >= 0) {
-      arrows.push({ fromId: `fn-${fi}`, toId: `val-${vi}`, color: '#059669', strokeWidth: 2.5, dashed: false, bidir: false })
+      arrows.push({ fromId: `fn-${fi}`, toId: `val-${vi}`, color: '#2563eb', strokeWidth: 2.5, dashed: false, bidir: false })
     }
   }
 
-  // Function → Constraint/Resource arrows (dashed red thin)
+  // Function → Constraint/Resource arrows (dashed orange thin)
   for (let fi = 0; fi < fns.length; fi++) {
     for (let ci = 0; ci < constrs.length; ci++) {
-      arrows.push({ fromId: `fn-${fi}`, toId: `cr-${ci}`, color: '#dc2626', strokeWidth: 1, dashed: true, bidir: false })
+      arrows.push({ fromId: `fn-${fi}`, toId: `cr-${ci}`, color: '#f97316', strokeWidth: 1, dashed: true, bidir: false })
     }
   }
 
@@ -722,20 +722,20 @@ function computeStronglyRelatedLayout(model: ModelLibraryEntry): { nodes: VizNod
     const fi = si % Math.max(fns.length, 1)
     if (fi < fns.length) arrows.push({ fromId: `stk-${si}`, toId: `fn-${fi}`, color: '#2563eb', strokeWidth: 2, dashed: false, bidir: true })
   }
-  // Function → Value (thick green)
+  // Function → Value (thick blue)
   for (let fi = 0; fi < fns.length; fi++) {
     const vi = Math.min(fi, vals.length - 1)
-    if (vi >= 0) arrows.push({ fromId: `fn-${fi}`, toId: `val-${vi}`, color: '#059669', strokeWidth: 3.5, dashed: false, bidir: false })
+    if (vi >= 0) arrows.push({ fromId: `fn-${fi}`, toId: `val-${vi}`, color: '#2563eb', strokeWidth: 3.5, dashed: false, bidir: false })
   }
   // Value → Function feedback (thin dashed blue, bidirectional)
   for (let vi = 0; vi < vals.length; vi++) {
     const fi = vi % Math.max(fns.length, 1)
     if (fi < fns.length) arrows.push({ fromId: `val-${vi}`, toId: `fn-${fi}`, color: '#3b82f6', strokeWidth: 1, dashed: true, bidir: true })
   }
-  // Function → Constraint (thin red)
+  // Function → Constraint (thin orange)
   for (let fi = 0; fi < fns.length; fi++) {
     for (let ci = 0; ci < crs.length; ci++) {
-      arrows.push({ fromId: `fn-${fi}`, toId: `cr-${ci}`, color: '#dc2626', strokeWidth: 1.2, dashed: false, bidir: false })
+      arrows.push({ fromId: `fn-${fi}`, toId: `cr-${ci}`, color: '#f97316', strokeWidth: 1.2, dashed: false, bidir: false })
     }
   }
 
@@ -766,11 +766,11 @@ const CAT_BUTTON_CLASS: Record<ModelCategory, string> = {
 }
 
 const TYPE_BADGE_CLASS: Record<EntryType, string> = {
-  F: 'bg-orange-100 text-orange-700',
-  V: 'bg-blue-100 text-blue-700',
-  C: 'bg-red-100 text-red-700',
-  R: 'bg-emerald-100 text-emerald-700',
-  S: 'bg-violet-100 text-violet-700',
+  F: 'bg-orange-100 text-orange-800',
+  V: 'bg-blue-100 text-blue-800',
+  C: 'bg-fuchsia-100 text-fuchsia-800',
+  R: 'bg-sky-100 text-sky-800',
+  S: 'bg-violet-100 text-violet-800',
 }
 
 const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
@@ -1083,10 +1083,10 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 </div>
                 <div
                   v-else-if="model.source === 'user' && model.analysisStatus === 'error'"
-                  class="flex items-center gap-1.5 px-4 py-1.5 bg-red-50 border-b border-red-100"
+                  class="flex items-center gap-1.5 px-4 py-1.5 bg-orange-50 border-b border-orange-100"
                 >
-                  <span class="inline-block w-2 h-2 rounded-full bg-red-500" aria-hidden="true" />
-                  <span class="text-[10px] text-red-700 font-medium">Analysis failed</span>
+                  <span class="inline-block w-2 h-2 rounded-full bg-orange-500" aria-hidden="true" />
+                  <span class="text-[10px] text-orange-700 font-medium">Analysis failed</span>
                 </div>
 
                 <!-- Card body -->
@@ -1306,7 +1306,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
               :class="[
                 'shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150',
                 copiedId === selectedModel.id
-                  ? 'bg-emerald-100 text-emerald-700'
+                  ? 'bg-blue-100 text-blue-700'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
               ]"
               title="Copy Planguage — copy this model's full Planguage text to clipboard"
@@ -1409,7 +1409,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 <span>{{ batchAction === 'delete' ? '🗑️' : '✓' }}</span>
                 <span>{{ batchAction === 'delete' ? `Delete ${batchMatchedEntries.length} entries` : `Apply to ${batchMatchedEntries.length} entries` }}</span>
               </button>
-              <p v-if="batchApplied" class="text-xs text-emerald-700 font-medium">Changes applied ✓</p>
+              <p v-if="batchApplied" class="text-xs text-blue-700 font-medium">Changes applied ✓</p>
             </div>
           </ScrollContainer>
 
@@ -1452,8 +1452,8 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   <tbody class="divide-y divide-slate-100">
                     <tr v-for="(ch, i) in findReplacePreview" :key="i">
                       <td class="px-3 py-2 text-slate-400 shrink-0 whitespace-nowrap">{{ ch.field }}</td>
-                      <td class="px-3 py-2 text-red-600 font-mono">{{ ch.original }}</td>
-                      <td class="px-3 py-2 text-emerald-700 font-mono">{{ ch.result }}</td>
+                      <td class="px-3 py-2 text-orange-600 font-mono">{{ ch.original }}</td>
+                      <td class="px-3 py-2 text-blue-700 font-mono">{{ ch.result }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1467,7 +1467,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 @click="applyFindReplace">
                 ✓ Apply {{ findReplacePreview.length }} replacement{{ findReplacePreview.length === 1 ? '' : 's' }}
               </button>
-              <p v-if="findReplaceApplied" class="text-xs text-emerald-700 font-medium">Replacements applied ✓</p>
+              <p v-if="findReplaceApplied" class="text-xs text-blue-700 font-medium">Replacements applied ✓</p>
             </div>
           </ScrollContainer>
 
@@ -1522,7 +1522,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 @click="applyManualEdits">
                 ✓ Save All Changes
               </button>
-              <p v-if="editApplied" class="text-xs text-emerald-700 font-medium">Changes saved ✓</p>
+              <p v-if="editApplied" class="text-xs text-blue-700 font-medium">Changes saved ✓</p>
               <span class="ml-auto text-xs text-slate-400">{{ editFilteredEntries.length }} entries shown</span>
             </div>
           </ScrollContainer>
@@ -1534,8 +1534,8 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
               <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-slate-400 opacity-60"></span> Stakeholders</span>
               <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-orange-500"></span> Functions</span>
               <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-blue-500"></span> Values</span>
-              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-red-500"></span> Constraints/Resources</span>
-              <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-emerald-600"></span> delivers value</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-fuchsia-500"></span> Constraints / <span class="inline-block w-3 h-3 rounded bg-sky-500 ml-1"></span> Resources</span>
+              <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-blue-600"></span> delivers value</span>
               <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-slate-400 border-dashed"></span> contributes to</span>
             </div>
             <div class="rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
@@ -1547,14 +1547,14 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 :aria-label="`Value Flow diagram for ${selectedModel.title}`"
               >
                 <defs>
-                  <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                    <polygon points="0 0, 8 3, 0 6" fill="#059669" />
+                  <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#2563eb" />
                   </marker>
                   <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                     <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
                   </marker>
-                  <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                    <polygon points="0 0, 8 3, 0 6" fill="#dc2626" />
+                  <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#f97316" />
                   </marker>
                 </defs>
 
@@ -1574,7 +1574,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                       :stroke="arrow.color"
                       :stroke-width="arrow.strokeWidth"
                       :stroke-dasharray="arrow.dashed ? '4 3' : 'none'"
-                      :marker-end="arrow.color === '#059669' ? 'url(#arrowGreen)' : arrow.color === '#dc2626' ? 'url(#arrowRed)' : 'url(#arrowGray)'"
+                      :marker-end="arrow.color === '#2563eb' ? 'url(#arrowBlue)' : arrow.color === '#f97316' ? 'url(#arrowOrange)' : 'url(#arrowGray)'"
                       opacity="0.7"
                     />
                   </template>
@@ -1585,14 +1585,14 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   <!-- Node background -->
                   <rect
                     :x="node.x" :y="node.y" :width="node.w" :height="node.h" rx="6"
-                    :fill="node.type === 'stakeholder' ? '#e2e8f0' : node.type === 'F' ? '#fed7aa' : node.type === 'V' ? '#bfdbfe' : node.type === 'C' ? '#fecaca' : '#bbf7d0'"
-                    :stroke="node.type === 'stakeholder' ? '#94a3b8' : node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#ef4444' : '#22c55e'"
+                    :fill="node.type === 'stakeholder' ? '#e2e8f0' : node.type === 'F' ? '#fed7aa' : node.type === 'V' ? '#bfdbfe' : node.type === 'C' ? '#fdf4ff' : '#f0f9ff'"
+                    :stroke="node.type === 'stakeholder' ? '#94a3b8' : node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#c026d3' : '#0284c7'"
                     stroke-width="1.5"
                   />
                   <!-- Type badge (for entries) -->
                   <template v-if="node.type !== 'stakeholder'">
                     <rect :x="node.x + 4" :y="node.y + 4" width="18" height="16" rx="3"
-                      :fill="node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#ef4444' : '#22c55e'" />
+                      :fill="node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#d946ef' : '#0ea5e9'" />
                     <text :x="node.x + 13" :y="node.y + 15" text-anchor="middle" font-size="9" fill="white" font-weight="700">{{ node.type }}</text>
                   </template>
                   <!-- Label -->
@@ -1616,18 +1616,17 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
           <!-- Strongly Related visualization -->
           <ScrollContainer v-if="toolMode === 'viz-related' && selectedModel" outer-class="flex-1 min-h-0 relative" inner-class="p-5 flex flex-col gap-4">
             <div class="flex flex-wrap gap-3 text-[10px] font-semibold">
-              <span class="flex items-center gap-1"><span class="inline-block w-4" style="height:3px;background:#059669"></span> delivers value (thick)</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-4" style="height:3px;background:#2563eb"></span> delivers value (thick)</span>
               <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-blue-500"></span> ↔ stakeholder influence</span>
-              <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-red-500"></span> constrained by</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-orange-500"></span> constrained by</span>
               <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-blue-300"></span> feedback</span>
             </div>
             <div class="rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
               <svg viewBox="0 0 860 400" class="w-full" xmlns="http://www.w3.org/2000/svg" :aria-label="`Strongly Related diagram for ${selectedModel.title}`" role="img">
                 <defs>
-                  <marker id="srArrowGreen" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#059669"/></marker>
                   <marker id="srArrowBlue" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#2563eb"/></marker>
                   <marker id="srArrowBlueBack" markerWidth="7" markerHeight="5" refX="0" refY="2.5" orient="auto"><polygon points="7 0,0 2.5,7 5" fill="#2563eb"/></marker>
-                  <marker id="srArrowRed" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#dc2626"/></marker>
+                  <marker id="srArrowOrange" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#f97316"/></marker>
                   <marker id="srArrowLightBlue" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#93c5fd"/></marker>
                 </defs>
 
@@ -1642,7 +1641,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                       :stroke="arrow.color"
                       :stroke-width="arrow.strokeWidth"
                       :stroke-dasharray="arrow.dashed ? '4 3' : 'none'"
-                      :marker-end="arrow.color === '#059669' ? 'url(#srArrowGreen)' : arrow.color === '#2563eb' ? 'url(#srArrowBlue)' : arrow.color === '#dc2626' ? 'url(#srArrowRed)' : 'url(#srArrowLightBlue)'"
+                      :marker-end="arrow.color === '#2563eb' ? 'url(#srArrowBlue)' : arrow.color === '#f97316' ? 'url(#srArrowOrange)' : 'url(#srArrowLightBlue)'"
                       :marker-start="arrow.bidir ? (arrow.color === '#2563eb' ? 'url(#srArrowBlueBack)' : '') : ''"
                       opacity="0.75"
                     />
@@ -1652,8 +1651,8 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 <!-- Nodes -->
                 <template v-for="node in stronglyRelLayout.nodes" :key="node.id">
                   <rect :x="node.x" :y="node.y" :width="node.w" :height="node.h" rx="6"
-                    :fill="node.type === 'stakeholder' ? '#f1f5f9' : node.type === 'F' ? '#fff7ed' : node.type === 'V' ? '#eff6ff' : node.type === 'C' ? '#fef2f2' : '#f0fdf4'"
-                    :stroke="node.type === 'stakeholder' ? '#94a3b8' : node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#ef4444' : '#22c55e'"
+                    :fill="node.type === 'stakeholder' ? '#f1f5f9' : node.type === 'F' ? '#fff7ed' : node.type === 'V' ? '#eff6ff' : node.type === 'C' ? '#fdf4ff' : '#f0f9ff'"
+                    :stroke="node.type === 'stakeholder' ? '#94a3b8' : node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#c026d3' : '#0284c7'"
                     stroke-width="1.5" />
                   <text :x="node.x + node.w/2" :y="node.y + node.h/2 + 4" text-anchor="middle" font-size="10"
                     :fill="node.type === 'stakeholder' ? '#64748b' : '#1e293b'" font-weight="500">
@@ -1696,8 +1695,8 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 <span>{{ sharpenLoading ? 'Improving…' : 'Sharpen' }}</span>
               </button>
             </div>
-            <p v-if="sharpenSuccess" class="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">Model sharpened ✓</p>
-            <p v-else-if="sharpenError" class="text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">{{ sharpenError }}</p>
+            <p v-if="sharpenSuccess" class="text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-2">Model sharpened ✓</p>
+            <p v-else-if="sharpenError" class="text-xs text-orange-700 bg-orange-50 rounded-lg px-3 py-2">{{ sharpenError }}</p>
             <p v-if="selectedModel.source !== 'user'" class="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">Sharpen is only available for user-added models. Built-in examples cannot be modified.</p>
           </ScrollContainer>
 
@@ -1739,7 +1738,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 :disabled="defectRunning"
                 :class="[
                   'flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-150',
-                  defectRunning ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white',
+                  defectRunning ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white',
                 ]"
                 title="Run Defect Analysis — AI analyses this model for inconsistencies, missing elements, and boundary violations"
                 @click="runDefectAnalysis"
@@ -1747,7 +1746,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 <span aria-hidden="true">{{ defectRunning ? '⏳' : '🔬' }}</span>
                 <span>{{ defectRunning ? 'Analysing…' : 'Run Defect Analysis' }}</span>
               </button>
-              <p v-if="defectError" class="text-xs text-red-600">{{ defectError }}</p>
+              <p v-if="defectError" class="text-xs text-orange-600">{{ defectError }}</p>
             </div>
 
             <!-- ── Elegant Boundary Diagram ────────────────────────────────────── -->
@@ -1796,11 +1795,11 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
 
                   <!-- Our Org ring -->
                   <circle cx="280" cy="220" r="50"
-                    :fill="currentDefectResult.boundaryType === 'our-org' ? '#022c22' : 'transparent'"
-                    :stroke="currentDefectResult.boundaryType === 'our-org' ? '#059669' : '#065f46'"
+                    :fill="currentDefectResult.boundaryType === 'our-org' ? '#172554' : 'transparent'"
+                    :stroke="currentDefectResult.boundaryType === 'our-org' ? '#2563eb' : '#1e40af'"
                     :stroke-width="currentDefectResult.boundaryType === 'our-org' ? 2.5 : 1"
                   />
-                  <text x="280" y="173" text-anchor="middle" font-size="9" fill="#34d399" font-weight="600" opacity="0.9">🏢 OUR ORG</text>
+                  <text x="280" y="173" text-anchor="middle" font-size="9" fill="#60a5fa" font-weight="600" opacity="0.9">🏢 OUR ORG</text>
 
                   <!-- System Core (center) -->
                   <circle cx="280" cy="220" r="26" fill="#1e293b" stroke="#94a3b8" stroke-width="1.5" />
@@ -1809,13 +1808,13 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   </text>
                   <text x="280" y="225" text-anchor="middle" font-size="6" fill="#94a3b8">SYSTEM</text>
 
-                  <!-- In-boundary entry dots (green, inside the selected ring) -->
+                  <!-- In-boundary entry dots (blue, inside the selected ring) -->
                   <template v-for="(idx, i) in currentDefectResult.inBoundaryIndices.slice(0, 12)" :key="`in-${idx}`">
                     <circle
                       :cx="280 + (30 + (i % 4) * 10) * Math.cos((i * 67 * Math.PI) / 180)"
                       :cy="220 + (30 + (i % 4) * 10) * Math.sin((i * 67 * Math.PI) / 180)"
                       r="5"
-                      fill="#34d399"
+                      fill="#2563eb"
                       opacity="0.9"
                       :title="`In-boundary: ${selectedModel.entries[idx]?.type ?? '?'}. ${selectedModel.entries[idx]?.description ?? ''}`"
                     />
@@ -1826,13 +1825,13 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                     >{{ selectedModel.entries[idx]?.type ?? '' }}</text>
                   </template>
 
-                  <!-- Out-of-boundary dots (red, OUTSIDE the selected ring) -->
+                  <!-- Out-of-boundary dots (orange, OUTSIDE the selected ring) -->
                   <template v-for="(idx, i) in currentDefectResult.outOfBoundaryIndices.slice(0, 8)" :key="`out-${idx}`">
                     <circle
                       :cx="280 + (currentDefectResult.boundaryType === 'our-org' ? 68 : currentDefectResult.boundaryType === 'product-line' ? 100 : currentDefectResult.boundaryType === 'national' ? 136 : currentDefectResult.boundaryType === 'international' ? 172 : 200) * Math.cos((i * 45 * Math.PI) / 180)"
                       :cy="220 + (currentDefectResult.boundaryType === 'our-org' ? 68 : currentDefectResult.boundaryType === 'product-line' ? 100 : currentDefectResult.boundaryType === 'national' ? 136 : currentDefectResult.boundaryType === 'international' ? 172 : 200) * Math.sin((i * 45 * Math.PI) / 180)"
                       r="6"
-                      fill="#ef4444"
+                      fill="#f97316"
                       opacity="0.9"
                     />
                     <text
@@ -1843,21 +1842,21 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   </template>
 
                   <!-- ⚠ violation warning triangle (if any out-of-boundary) -->
-                  <text v-if="currentDefectResult.outOfBoundaryIndices.length > 0" x="500" y="50" font-size="18" fill="#ef4444">⚠</text>
-                  <text v-if="currentDefectResult.outOfBoundaryIndices.length > 0" x="500" y="65" text-anchor="middle" font-size="8" fill="#ef4444">{{ currentDefectResult.outOfBoundaryIndices.length }} violation{{ currentDefectResult.outOfBoundaryIndices.length === 1 ? '' : 's' }}</text>
+                  <text v-if="currentDefectResult.outOfBoundaryIndices.length > 0" x="500" y="50" font-size="18" fill="#f97316">⚠</text>
+                  <text v-if="currentDefectResult.outOfBoundaryIndices.length > 0" x="500" y="65" text-anchor="middle" font-size="8" fill="#f97316">{{ currentDefectResult.outOfBoundaryIndices.length }} violation{{ currentDefectResult.outOfBoundaryIndices.length === 1 ? '' : 's' }}</text>
 
                   <!-- Legend -->
-                  <circle cx="30" cy="390" r="4" fill="#34d399" />
+                  <circle cx="30" cy="390" r="4" fill="#2563eb" />
                   <text x="38" y="394" font-size="8" fill="#94a3b8">In boundary</text>
-                  <circle cx="110" cy="390" r="4" fill="#ef4444" />
+                  <circle cx="110" cy="390" r="4" fill="#f97316" />
                   <text x="118" y="394" font-size="8" fill="#94a3b8">Out of boundary</text>
                   <text x="280" y="394" text-anchor="middle" font-size="8" fill="#475569">Boundary: {{ BOUNDARY_TYPES.find(b => b.id === currentDefectResult.boundaryType)?.label }}</text>
-                  <text x="530" y="394" text-anchor="middle" font-size="8" :fill="currentDefectResult.overallScore >= 80 ? '#34d399' : currentDefectResult.overallScore >= 60 ? '#fbbf24' : '#ef4444'">Score: {{ currentDefectResult.overallScore }}/100</text>
+                  <text x="530" y="394" text-anchor="middle" font-size="8" :fill="currentDefectResult.overallScore >= 80 ? '#2563eb' : currentDefectResult.overallScore >= 60 ? '#fbbf24' : '#f97316'">Score: {{ currentDefectResult.overallScore }}/100</text>
                 </svg>
               </div>
 
               <!-- Summary -->
-              <div :class="['rounded-xl px-4 py-3 text-sm border', currentDefectResult.overallScore >= 80 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : currentDefectResult.overallScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-800']">
+              <div :class="['rounded-xl px-4 py-3 text-sm border', currentDefectResult.overallScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-800' : currentDefectResult.overallScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-orange-50 border-orange-200 text-orange-800']">
                 <div class="flex items-center gap-2 mb-1">
                   <span class="font-bold text-lg">{{ currentDefectResult.overallScore }}/100</span>
                   <span class="text-xs font-semibold">Model Health Score</span>
@@ -1872,7 +1871,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   <div
                     v-for="defect in currentDefectResult.defects"
                     :key="defect.id"
-                    :class="['rounded-xl bg-white ring-1 px-4 py-3 flex flex-col gap-1.5', defect.severity === 'critical' ? 'ring-red-200' : defect.severity === 'major' ? 'ring-orange-200' : defect.severity === 'minor' ? 'ring-amber-200' : 'ring-blue-200']"
+                    :class="['rounded-xl bg-white ring-1 px-4 py-3 flex flex-col gap-1.5', defect.severity === 'critical' ? 'ring-rose-200' : defect.severity === 'major' ? 'ring-orange-200' : defect.severity === 'minor' ? 'ring-amber-200' : 'ring-blue-200']"
                   >
                     <div class="flex items-center gap-2">
                       <span :class="['shrink-0 w-2 h-2 rounded-full', SEVERITY_DOT[defect.severity]]" />
@@ -1891,7 +1890,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   </div>
                 </div>
               </div>
-              <div v-else class="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-xl ring-1 ring-emerald-200 text-xs text-emerald-800 font-semibold">
+              <div v-else class="flex items-center gap-2 px-4 py-3 bg-blue-50 rounded-xl ring-1 ring-blue-200 text-xs text-blue-800 font-semibold">
                 <span>✓</span><span>No defects found — model is clean within the {{ BOUNDARY_TYPES.find(b => b.id === currentDefectResult.boundaryType)?.label }} boundary</span>
               </div>
             </div>
@@ -1972,7 +1971,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                 <span aria-hidden="true">{{ improveRunning ? '⏳' : '✨' }}</span>
                 <span>{{ improveRunning ? `Generating ${improveCount} suggestion${improveCount > 1 ? 's' : ''}…` : `Generate ${improveCount} Suggestion${improveCount > 1 ? 's' : ''}` }}</span>
               </button>
-              <p v-if="improveError" class="text-xs text-red-600">{{ improveError }}</p>
+              <p v-if="improveError" class="text-xs text-orange-600">{{ improveError }}</p>
             </div>
 
             <!-- Suggestion cards -->
@@ -2035,9 +2034,9 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
 
                   <!-- Impact + Trade-offs -->
                   <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-emerald-50 rounded-xl px-3 py-2.5">
-                      <p class="text-[9px] font-bold text-emerald-600 uppercase tracking-wide mb-1">Impact</p>
-                      <p class="text-xs text-emerald-800">{{ suggestion.impactSummary }}</p>
+                    <div class="bg-blue-50 rounded-xl px-3 py-2.5">
+                      <p class="text-[9px] font-bold text-blue-600 uppercase tracking-wide mb-1">Impact</p>
+                      <p class="text-xs text-blue-800">{{ suggestion.impactSummary }}</p>
                     </div>
                     <div class="bg-amber-50 rounded-xl px-3 py-2.5">
                       <p class="text-[9px] font-bold text-amber-600 uppercase tracking-wide mb-1">Trade-offs</p>
@@ -2054,7 +2053,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                       :class="[
                         'flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all duration-150',
                         improveAppliedId === suggestion.id
-                          ? 'bg-emerald-100 text-emerald-700 cursor-default'
+                          ? 'bg-blue-100 text-blue-700 cursor-default'
                           : 'bg-purple-600 hover:bg-purple-700 text-white',
                       ]"
                       :title="`Apply '${suggestion.title}' as a new model version — adds new entries and stakeholders, saves current state first`"
@@ -2211,12 +2210,12 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   <div class="px-3 py-2 bg-slate-50 border-t border-b border-slate-100">
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">📊 Visualize Model</p>
                   </div>
-                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors duration-150 text-left"
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
                     title="Value Flow — see how Stakeholders flow into Functions which deliver Values, with Constraints at the bottom"
                     @click="openTool('viz-flow')">
                     <span>📊</span><span class="font-medium">Value Flow</span><span class="ml-auto text-slate-400 text-[10px]">SVG layout</span>
                   </button>
-                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors duration-150 text-left"
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
                     title="Strongly Related — hierarchical relationship graph with arrow thickness proportional to importance and bidirectional feedback arrows"
                     @click="openTool('viz-related')">
                     <span>🔗</span><span class="font-medium">Strongly Related</span><span class="ml-auto text-slate-400 text-[10px]">relationship graph</span>
@@ -2240,7 +2239,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                   <div class="px-3 py-2 bg-slate-50 border-t border-b border-slate-100">
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">🔬 Analyse Model</p>
                   </div>
-                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-red-50 hover:text-red-800 transition-colors duration-150 text-left"
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-orange-50 hover:text-orange-800 transition-colors duration-150 text-left"
                     title="Model Defect Analysis — find inconsistencies, missing elements, and boundary violations in this model with an elegant boundary diagram"
                     @click="openTool('defect-analysis')">
                     <span>🔬</span><span class="font-medium">Model Defect Analysis</span><span class="ml-auto text-slate-400 text-[10px]">find issues</span>
@@ -2283,7 +2282,7 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
               </div>
               <p
                 v-if="selectedModel.analysisStatus === 'error'"
-                class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2"
+                class="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2"
               >
                 Analysis failed: {{ selectedModel.analysisError ?? 'Unknown error' }}
               </p>
@@ -2367,13 +2366,13 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
               <!-- Sharpen status -->
               <p
                 v-if="sharpenSuccess"
-                class="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2"
+                class="text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-2"
               >
                 Model sharpened ✓
               </p>
               <p
                 v-else-if="sharpenError"
-                class="text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2"
+                class="text-xs text-orange-700 bg-orange-50 rounded-lg px-3 py-2"
               >
                 {{ sharpenError }}
               </p>

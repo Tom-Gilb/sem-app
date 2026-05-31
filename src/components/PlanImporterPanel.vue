@@ -127,16 +127,16 @@ function setQuickCommand(cmd: string): void {
 const ENTRY_TYPE_CLASSES: Record<string, string> = {
   F: 'bg-orange-500 text-white',
   V: 'bg-blue-500 text-white',
-  C: 'bg-red-500 text-white',
-  R: 'bg-emerald-600 text-white',
+  C: 'bg-fuchsia-600 text-white',
+  R: 'bg-sky-600 text-white',
   S: 'bg-violet-500 text-white',
 }
 
 const ENTRY_CARD_CLASSES: Record<string, string> = {
   F: 'bg-orange-50 border-orange-100',
   V: 'bg-blue-50 border-blue-100',
-  C: 'bg-red-50 border-red-100',
-  R: 'bg-emerald-50 border-emerald-100',
+  C: 'bg-fuchsia-50 border-fuchsia-100',
+  R: 'bg-sky-50 border-sky-100',
   S: 'bg-violet-50 border-violet-100',
 }
 
@@ -151,45 +151,45 @@ function entryCardBg(type: string): string {
 // ── Score circle colour ───────────────────────────────────────────────────────
 
 const SCORE_BORDER_CLASS: Record<string, string> = {
-  emerald: 'border-emerald-400 bg-emerald-50',
-  blue: 'border-blue-400 bg-blue-50',
-  amber: 'border-amber-400 bg-amber-50',
-  red: 'border-red-400 bg-red-50',
+  blue:    'border-blue-400 bg-blue-50',
+  blueMed: 'border-blue-400 bg-blue-50',
+  amber:   'border-amber-400 bg-amber-50',
+  orange:  'border-orange-400 bg-orange-50',
 }
 const SCORE_TEXT_CLASS: Record<string, string> = {
-  emerald: 'text-emerald-700',
-  blue: 'text-blue-700',
-  amber: 'text-amber-600',
-  red: 'text-red-600',
+  blue:    'text-blue-700',
+  blueMed: 'text-blue-700',
+  amber:   'text-amber-600',
+  orange:  'text-orange-600',
 }
 
 function scoreKey(score: number): string {
-  if (score >= 75) return 'emerald'
-  if (score >= 60) return 'blue'
+  if (score >= 75) return 'blue'
+  if (score >= 60) return 'blueMed'
   if (score >= 40) return 'amber'
-  return 'red'
+  return 'orange'
 }
 
 function scoreBorderClass(score: number): string {
-  return SCORE_BORDER_CLASS[scoreKey(score)] ?? SCORE_BORDER_CLASS.red
+  return SCORE_BORDER_CLASS[scoreKey(score)] ?? SCORE_BORDER_CLASS.orange
 }
 function scoreTextClass(score: number): string {
-  return SCORE_TEXT_CLASS[scoreKey(score)] ?? SCORE_TEXT_CLASS.red
+  return SCORE_TEXT_CLASS[scoreKey(score)] ?? SCORE_TEXT_CLASS.orange
 }
 
 // ── Severity dot classes ──────────────────────────────────────────────────────
 
 const SEVERITY_DOT: Record<string, string> = {
-  critical: 'bg-red-500',
+  critical: 'bg-rose-500',
   major: 'bg-orange-400',
   minor: 'bg-amber-400',
-  opportunity: 'bg-emerald-500',
+  opportunity: 'bg-blue-500',
 }
 const SEVERITY_BADGE: Record<string, string> = {
-  critical: 'bg-red-100 text-red-700',
+  critical: 'bg-rose-100 text-rose-700',
   major: 'bg-orange-100 text-orange-700',
   minor: 'bg-amber-100 text-amber-700',
-  opportunity: 'bg-emerald-100 text-emerald-700',
+  opportunity: 'bg-blue-100 text-blue-700',
 }
 
 function severityDot(s: string): string {
@@ -202,9 +202,9 @@ function severityBadge(s: string): string {
 // ── Confidence badge ──────────────────────────────────────────────────────────
 
 const CONF_CLASS: Record<string, string> = {
-  high: 'bg-emerald-100 text-emerald-700',
+  high: 'bg-blue-100 text-blue-700',
   medium: 'bg-amber-100 text-amber-700',
-  low: 'bg-red-100 text-red-700',
+  low: 'bg-orange-100 text-orange-700',
 }
 function confClass(c: string): string {
   return CONF_CLASS[c] ?? 'bg-slate-100 text-slate-500'
@@ -449,7 +449,7 @@ const unappliedProblemCount = computed<number>(() => {
           >
             <div>
               <div class="text-4xl mb-3" aria-hidden="true">⚠️</div>
-              <h4 class="text-sm font-semibold text-red-600 mb-1">Import Failed</h4>
+              <h4 class="text-sm font-semibold text-orange-600 mb-1">Import Failed</h4>
               <p class="text-xs text-slate-500 max-w-sm mb-4">{{ selectedPlan.importError }}</p>
               <button
                 type="button"
@@ -501,8 +501,8 @@ const unappliedProblemCount = computed<number>(() => {
                       v-if="plan.importStatus === 'done' && plan.versions.length > 0"
                       :class="[
                         'text-[9px] font-bold px-1 py-0.5 rounded',
-                        plan.versions[plan.versions.length - 1]?.overallScore >= 75 ? 'bg-emerald-100 text-emerald-700' :
-                        plan.versions[plan.versions.length - 1]?.overallScore >= 60 ? 'bg-blue-100 text-blue-700' :
+                        plan.versions[plan.versions.length - 1]?.overallScore >= 75 ? 'bg-blue-100 text-blue-700' :
+                        plan.versions[plan.versions.length - 1]?.overallScore >= 60 ? 'bg-sky-100 text-sky-700' :
                         'bg-amber-100 text-amber-700',
                       ]"
                     >
@@ -576,7 +576,7 @@ const unappliedProblemCount = computed<number>(() => {
                   <!-- Problem indicator -->
                   <div
                     v-if="entryHasProblem(entry, currentVersion)"
-                    class="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-400"
+                    class="absolute top-2 right-2 w-2 h-2 rounded-full bg-orange-400"
                     title="This entry has an unapplied problem — see the right column"
                   />
                   <!-- Header row -->
@@ -609,13 +609,13 @@ const unappliedProblemCount = computed<number>(() => {
                   <p class="text-xs font-bold text-slate-700 uppercase tracking-wide">Problems</p>
                   <span
                     v-if="unappliedProblemCount > 0"
-                    class="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded"
+                    class="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded"
                   >
                     {{ unappliedProblemCount }} {{ unappliedProblemCount === 1 ? 'issue' : 'issues' }} found
                   </span>
                   <span
                     v-else
-                    class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded"
+                    class="text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded"
                   >
                     All resolved
                   </span>
@@ -636,7 +636,7 @@ const unappliedProblemCount = computed<number>(() => {
                     <div class="flex-1 min-w-0 flex items-center gap-1 flex-wrap">
                       <span :class="['text-[9px] font-bold px-1 py-0.5 rounded', severityBadge(problem.severity)]">{{ problem.severity }}</span>
                       <span v-if="problem.entryRef" class="text-[9px] font-mono bg-slate-100 text-slate-600 px-1 py-0.5 rounded">{{ problem.entryRef }}</span>
-                      <span v-if="problem.applied" class="text-[9px] font-bold text-emerald-600">✓ Applied</span>
+                      <span v-if="problem.applied" class="text-[9px] font-bold text-blue-600">✓ Applied</span>
                     </div>
                   </div>
                   <!-- Description -->
@@ -677,7 +677,7 @@ const unappliedProblemCount = computed<number>(() => {
                   </div>
 
                   <div v-if="selectedPlan.improvingStatus === 'error'" class="mb-2">
-                    <p class="text-[11px] text-red-600">{{ selectedPlan.improvingError }}</p>
+                    <p class="text-[11px] text-orange-600">{{ selectedPlan.improvingError }}</p>
                   </div>
 
                   <!-- Command textarea -->
