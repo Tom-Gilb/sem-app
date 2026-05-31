@@ -199,11 +199,30 @@ async function doImport(): Promise<void> {
   showImport.value  = false
 
   try {
-    const clauses = await parser.splitIntoClauses(rawText)
+    let clauses = await parser.splitIntoClauses(rawText)
+
+    // Fallback: if the LLM found no clause structure (e.g. historical documents,
+    // unusual formatting), split by double-newline so something is always analysed.
+    if (clauses.length === 0) {
+      const paras = rawText.split(/\n{2,}/).map((p: string) => p.trim()).filter((p: string) => p.length > 20)
+      if (paras.length > 0) {
+        clauses = paras.map((p: string, i: number): ContractClause => ({
+          id:          `para-${Date.now()}-${i}`,
+          number:      `§${i + 1}`,
+          heading:     p.split('\n')[0].slice(0, 70).trim() || `Paragraph ${i + 1}`,
+          rawText:     p,
+          entries:     [],
+          parseStatus: 'pending',
+        }))
+      }
+    }
+
     store.setClauses(contract.id, clauses)
-    store.updateContract(contract.id, { parseStatus: 'parsing' })
-    await _parseAllClauses(contract.id, clauses, [])
-    store.updateContract(contract.id, { parseStatus: 'complete' })
+    store.updateContract(contract.id, { parseStatus: clauses.length > 0 ? 'parsing' : 'complete' })
+    if (clauses.length > 0) {
+      await _parseAllClauses(contract.id, clauses, [])
+      store.updateContract(contract.id, { parseStatus: 'complete' })
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     store.updateContract(contract.id, { parseStatus: 'error', parseError: msg })
@@ -598,12 +617,30 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
                 :no-pill="true"
               >
                 <!-- Empty state for no clauses yet -->
-                <div v-if="selectedContract.clauses.length === 0" class="px-3 py-8 text-center">
-                  <p class="text-xs text-slate-400">
-                    <span v-if="selectedContract.parseStatus === 'splitting'">Splitting clauses…</span>
-                    <span v-else-if="selectedContract.parseStatus === 'empty'">Paste contract text to begin</span>
-                    <span v-else>No clauses found</span>
-                  </p>
+                <div v-if="selectedContract.clauses.length === 0" class="px-3 py-6 text-center space-y-3">
+                  <div v-if="selectedContract.parseStatus === 'splitting' || selectedContract.parseStatus === 'parsing'">
+                    <p class="text-xs text-teal-600 font-medium">⏳ Analysing…</p>
+                  </div>
+                  <template v-else-if="selectedContract.parseStatus === 'error'">
+                    <p class="text-xs font-semibold text-red-600">⚠ Analysis failed</p>
+                    <p class="text-[10px] text-red-500 leading-relaxed">{{ selectedContract.parseError }}</p>
+                    <button
+                      type="button"
+                      title="Re-import this contract and try again"
+                      class="mt-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+                      @click="openImport"
+                    >↩ Re-import</button>
+                  </template>
+                  <template v-else>
+                    <p class="text-[11px] text-slate-500 font-medium">No clauses extracted</p>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">The document may use an unusual layout or be a scanned image with no text layer.</p>
+                    <button
+                      type="button"
+                      title="Go back and re-import — try pasting the text manually"
+                      class="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+                      @click="openImport"
+                    >↩ Re-import</button>
+                  </template>
                 </div>
                 <button
                   v-for="clause in selectedContract.clauses"

@@ -4663,7 +4663,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           aria-label="Open Agent Menu"
           @click="agentMenuOpen = true"
         >
-          🤖 Agents
+          🦾 Agents
         </button>
       </div>
 

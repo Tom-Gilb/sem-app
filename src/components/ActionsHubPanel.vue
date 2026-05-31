@@ -215,7 +215,7 @@ const allSections = computed<SectionDef[]>(() => [
 
   // ── 11. AGENTS ─────────────────────────────────────────────────────────────
   {
-    key: 'agents', label: 'AGENTS', emoji: '🤖',
+    key: 'agents', label: 'AGENTS', emoji: '🦾',
     blurb: 'AI planning agents — call on-demand for deep analysis, governance review, and board-level insight.',
     tiles: [
       {
