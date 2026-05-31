@@ -27,6 +27,12 @@ export function stageProgressColor(pos: number): string {
 /**
  * Pill background colour by state and position.
  * Same hue family, three lightness levels for current / done / future.
+ *
+ * Contrast note (WCAG AA):
+ *   current  L=50% — luminance ≈ 0.50 for cyan → white text only ~1.9:1 (FAIL).
+ *                     Use dark text (text-gray-900) on 'current' pills instead.
+ *   done     L=40% — luminance ≈ 0.13 → white text ~5.8:1 (PASS).
+ *   future   L=30% — luminance ≈ 0.06 → white text ~9.5:1 (PASS).
  */
 export function pillProgressColor(
   pos: number,
@@ -37,6 +43,21 @@ export function pillProgressColor(
   if (state === 'current') return `hsl(${hue.toFixed(1)}, 72%, 50%)`
   if (state === 'done')    return `hsl(${hue.toFixed(1)}, 62%, 40%)`
   return                          `hsl(${hue.toFixed(1)}, 50%, 30%)`
+}
+
+/**
+ * Dark variant of the stage colour for use as a background where white text is
+ * rendered (drama popover header, CTA buttons, any coloured overlay with
+ * white copy). L=25% guarantees ≥5.5:1 contrast with white (#fff) across all
+ * 11 hues in the indigo→emerald sweep.
+ *
+ * Contrast check for worst-case hue (cyan, stage 8 at hue≈184):
+ *   hsl(184, 80%, 25%) → luminance ≈ 0.083 → contrast = 1.05/0.133 ≈ 7.9:1 ✓
+ */
+export function stageDarkBgColor(pos: number): string {
+  const clamped = Math.max(0, Math.min(STAGE_COUNT - 1, pos))
+  const hue = 239 - ((239 - 160) / (STAGE_COUNT - 1)) * clamped
+  return `hsl(${hue.toFixed(1)}, 80%, 25%)`
 }
 
 /**

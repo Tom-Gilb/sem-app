@@ -44,6 +44,7 @@ import CloseDot from './CloseDot.vue'
 import {
   pillProgressColor,
   stageProgressColor,
+  stageDarkBgColor,
   arrowProgressColors,
   arrowShaftWidth,
 } from '../utils/stageProgressColors'
@@ -150,14 +151,17 @@ function glowStyle(s: number): Record<string, string> {
 function badgeClass(s: number): string {
   const state = stageStatus(s)
   if (state === 'done')    return 'text-emerald-300'
-  if (state === 'current') return 'text-indigo-200'
+  // 'current' pill is hsl(hue, 72%, 50%) — luminance ≈ 0.50 for cyan hues.
+  // White text on L=50% cyan = ~1.9:1 contrast (WCAG fail). Use dark text instead.
+  if (state === 'current') return 'text-gray-900'
   return 'text-slate-300'
 }
 
 function labelClass(s: number): string {
   const state = stageStatus(s)
   if (state === 'done')    return 'text-emerald-300'
-  if (state === 'current') return 'text-white'
+  // Same contrast fix: dark text on the bright current-stage pill.
+  if (state === 'current') return 'text-gray-900 font-extrabold'
   return 'text-slate-400'
 }
 
@@ -240,9 +244,11 @@ const activePopoverData = computed(() =>
     : null
 )
 
+// stageDarkBgColor (L=25%) ensures white text on the header gradient is ≥5.5:1
+// contrast. Previously used stageProgressColor (L=65%) which gave ~1.4:1 for cyan.
 const popoverHeaderGradient = computed((): string => {
   if (activePopoverStage.value === null) return ''
-  const col = stageProgressColor(pos(activePopoverStage.value))
+  const col = stageDarkBgColor(pos(activePopoverStage.value))
   return `linear-gradient(135deg, ${col}cc 0%, ${col} 60%, ${col}dd 100%)`
 })
 
@@ -415,11 +421,13 @@ onUnmounted(() => {
           :title="`${step.title} · click for overview · dbl-click for INFO`"
           @click="handlePillClick(step.stage)"
         >
-          <!-- Stage Halo — pulsating white ring on active stage (3s breathing animation) -->
+          <!-- Stage Halo — pulsating dark ring on active stage (3s breathing animation).
+               Dark ring (rgba(0,0,0,0.55)) instead of white: bright teal pill L=50%
+               needs a dark border to be visible (white on light = poor contrast). -->
           <div
             v-if="step.stage === currentStage"
             class="stage-halo absolute inset-0 pointer-events-none"
-            style="border-radius: 16px; box-shadow: 0 0 0 3px rgba(255,255,255,0.85);"
+            style="border-radius: 16px; box-shadow: 0 0 0 3px rgba(0,0,0,0.55);"
             aria-hidden="true"
           />
 
@@ -440,10 +448,11 @@ onUnmounted(() => {
             class="active-label-bar absolute z-20 pointer-events-none inset-x-0 top-[30px] flex justify-center"
             aria-hidden="true"
           >
+            <!-- Dark text + dark-tinted bg on the bright current-stage pill for legibility. -->
             <span
-              class="text-[8px] font-extrabold uppercase tracking-[0.12em] text-white
-                     bg-white/25 rounded-full px-2 py-0.5 whitespace-nowrap
-                     ring-1 ring-white/50"
+              class="text-[8px] font-extrabold uppercase tracking-[0.12em] text-gray-900
+                     bg-black/20 rounded-full px-2 py-0.5 whitespace-nowrap
+                     ring-1 ring-black/30"
             >✦ ACTIVE</span>
           </div>
 
