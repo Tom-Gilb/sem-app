@@ -647,6 +647,21 @@ const categoryDefs  = ref<ModelCategoryDef[]>([...DEFAULT_CATEGORY_DEFS])
  */
 const activeModelId = ref<string | null>(null)
 
+/**
+ * Per-model auto-generate status.
+ * 'idle'       — not yet triggered
+ * 'generating' — Claude call in flight
+ * 'done'       — entries written to model; won't trigger again
+ * 'error'      — Claude call failed; surface error to panel
+ *
+ * Tom 2026-05-31: "if there are not [stakeholders], planguage was not generated,
+ * then there needs to be automatic generation of a Planguage model, including
+ * some stakeholders, which are then displayed. The same applies to any missing
+ * components like solutions and evo steps."
+ */
+const _autoGenerateStatus = ref<Map<string, 'idle' | 'generating' | 'done' | 'error'>>(new Map())
+const _autoGenerateError  = ref<Map<string, string>>(new Map())
+
 /** Last defect analysis result per model id. Module-level = persists across panel mounts. */
 const _defectResults = ref(new Map<string, DefectAnalysisResult>())
 /** Last improvement result per model id. Module-level = persists across panel mounts. */
@@ -1265,6 +1280,105 @@ export function useModelLibrary() {
     _saveEntries()
   }
 
+  // ── AI: Auto-generate initial Planguage model when entries are empty ──────────
+
+  /**
+   * Generate a full initial Planguage model (S./F./V./C./R. entries) for a user
+   * model that has no entries yet.  Idempotent: no-op if entries already exist or
+   * status is 'generating' / 'done'.  Only works for user models (source='user');
+   * built-in models have pre-authored entries and are skipped.
+   *
+   * Tom 2026-05-31: "if there are not [stakeholders], planguage was not generated,
+   * then there needs to be automatic generation of a Planguage model, including
+   * some stakeholders, which are then displayed. The same applies to any missing
+   * components like solutions and evo steps. Generate if necessary, the first
+   * Planguage model of the entity."
+   */
+  async function generateInitialModel(modelId: string, signal?: AbortSignal): Promise<void> {
+    const entry = _userEntries.value.find(e => e.id === modelId)
+    if (!entry) return  // built-in or not found — skip
+
+    // Already populated — nothing to generate
+    if (entry.entries.length > 0) {
+      _autoGenerateStatus.value = new Map(_autoGenerateStatus.value).set(modelId, 'done')
+      return
+    }
+
+    const currentStatus = _autoGenerateStatus.value.get(modelId)
+    if (currentStatus === 'generating' || currentStatus === 'done') return
+
+    _autoGenerateStatus.value = new Map(_autoGenerateStatus.value).set(modelId, 'generating')
+
+    const systemPrompt =
+      'You are a Planguage specification expert (Tom Gilb method). ' +
+      'Generate a complete initial Planguage model for the domain entity described. ' +
+      'Include ALL five entry types:\n' +
+      '  S. = Stakeholder — who is affected (include INANIMATE entities: data, regulations, systems; ' +
+      '       Tom Gilb: "all data is a stakeholder, it has needs like GDPR").\n' +
+      '  F. = Function — binary capability the system provides; present/absent; NO quantities inside F.\n' +
+      '  V. = Value — measurable improvement goal; MUST include "Scale: [metric] · Goal: [target]".\n' +
+      '  C. = Constraint — hard rule; MUST start with "Must ".\n' +
+      '  R. = Resource — budget, time, or headcount.\n' +
+      'Minimum counts: S.≥4, F.≥4, V.≥3, C.≥3, R.≥2. ' +
+      'The "stakeholders" array in the response should list stakeholder names matching S. entries. ' +
+      'Return ONLY valid JSON:\n' +
+      '{"entries":[{"type":"F"|"V"|"C"|"R"|"S","description":"string","details":"string|null"}],' +
+      '"stakeholders":["string"]}'
+
+    const userPrompt =
+      `Entity: ${entry.title}\nDescription: ${entry.description?.trim() || entry.title}`
+
+    type GenResult = {
+      entries?: Array<{ type: string; description: string; details?: string | null }>
+      stakeholders?: string[]
+    }
+
+    try {
+      const client = _getClient()
+      const response = await client.messages.create(
+        { model: MODEL_ID, max_tokens: 4096, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] },
+        { signal },
+      )
+      const text = response.content
+        .filter(b => b.type === 'text')
+        .map(b => (b as { type: 'text'; text: string }).text)
+        .join('')
+
+      const parsed = _extractJson<GenResult>(text)
+
+      const idx = _userEntries.value.findIndex(e => e.id === modelId)
+      if (idx === -1) return
+
+      const target = _userEntries.value[idx]
+
+      if (Array.isArray(parsed.entries) && parsed.entries.length > 0) {
+        target.entries = parsed.entries.map(e => ({
+          type: (['F', 'V', 'C', 'R', 'S'].includes(e.type ?? '') ? e.type : 'F') as ModelEntry['type'],
+          description: e.description ?? '',
+          details: e.details ?? undefined,
+        }))
+      }
+      if (Array.isArray(parsed.stakeholders) && parsed.stakeholders.length > 0) {
+        target.stakeholders = parsed.stakeholders
+      }
+
+      // Tag analysisStatus so library cards know this model has been auto-generated
+      target.analysisStatus = 'done'
+      _saveEntries()
+      _autoGenerateStatus.value = new Map(_autoGenerateStatus.value).set(modelId, 'done')
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name === 'AbortError') {
+        _autoGenerateStatus.value = new Map(_autoGenerateStatus.value).set(modelId, 'idle')
+        return
+      }
+      _autoGenerateStatus.value = new Map(_autoGenerateStatus.value).set(modelId, 'error')
+      _autoGenerateError.value = new Map(_autoGenerateError.value).set(
+        modelId,
+        err instanceof Error ? err.message : 'Auto-generate failed',
+      )
+    }
+  }
+
   return {
     allEntries,
     categoryDefs,
@@ -1285,6 +1399,9 @@ export function useModelLibrary() {
     applyImprovementSuggestion,
     createModelVersion,
     restoreModelVersion,
+    generateInitialModel,
+    autoGenerateStatus: _autoGenerateStatus,
+    autoGenerateError: _autoGenerateError,
     defectResults: _defectResults,
     improvementResults: _improvementResults,
   }

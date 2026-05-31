@@ -18,7 +18,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import {
@@ -39,12 +39,55 @@ const emit = defineEmits<{
 
 const mapper  = useStakeholderMapper()
 const library = useModelLibrary()
+const {
+  generateInitialModel,
+  autoGenerateStatus,
+  autoGenerateError,
+} = library
 
 /** Active model from Model Library (set when opened via → Map Stakeholders). */
 const activeModel = computed(() =>
   library.activeModelId.value
     ? library.allEntries.value.find(e => e.id === library.activeModelId.value) ?? null
     : null,
+)
+
+// ── Auto-generate: trigger initial Planguage model when entries are empty ─────
+
+/**
+ * Per-active-model auto-generate status convenience computed.
+ * Tom 2026-05-31: "if there are not [stakeholders], planguage was not generated,
+ * then there needs to be automatic generation of a Planguage model, including
+ * some stakeholders, which are then displayed."
+ */
+const autoGenStatus = computed<'idle' | 'generating' | 'done' | 'error'>(() =>
+  activeModel.value
+    ? (autoGenerateStatus.value.get(activeModel.value.id) ?? 'idle')
+    : 'idle',
+)
+
+const autoGenErrorMsg = computed<string>(() =>
+  activeModel.value
+    ? (autoGenerateError.value.get(activeModel.value.id) ?? '')
+    : '',
+)
+
+/**
+ * Trigger auto-generation when a model is active and has no entries yet.
+ * immediate:true handles the case where the model was already set when the
+ * panel mounted.  Guards prevent re-triggering if already running or done.
+ */
+watch(
+  activeModel,
+  (model) => {
+    if (!model) return
+    if (model.entries.length > 0) return           // already has Planguage content
+    if (model.source === 'built-in') return        // built-in models are pre-authored
+    const status = autoGenerateStatus.value.get(model.id)
+    if (status === 'generating' || status === 'done') return
+    void generateInitialModel(model.id)
+  },
+  { immediate: true },
 )
 
 // ── Navigation / form state ───────────────────────────────────────────────────
@@ -486,7 +529,43 @@ function avgScore(sh: MappedStakeholder): number | null {
                 <span>Create <em>"{{ searchQuery }}"</em> as new entity<span v-if="activeModel"> for <strong>{{ activeModel.title }}</strong></span></span>
               </button>
             </div>
-            <!-- Empty list (no search active) -->
+            <!-- Auto-generating: spinner + status -->
+            <div
+              v-else-if="filteredStakeholders.length === 0 && !searchQuery && autoGenStatus === 'generating'"
+              class="flex flex-col items-center justify-center gap-3 py-8 px-3"
+            >
+              <svg class="animate-spin h-6 w-6 text-indigo-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <p class="text-xs font-semibold text-indigo-600 text-center">
+                Generating initial Planguage model…
+              </p>
+              <p class="text-[10px] text-slate-400 text-center leading-snug">
+                AI is creating S./F./V./C./R. entries for<br>
+                <strong class="text-slate-600">{{ activeModel?.title }}</strong>
+              </p>
+            </div>
+
+            <!-- Auto-generate error -->
+            <div
+              v-else-if="filteredStakeholders.length === 0 && !searchQuery && autoGenStatus === 'error'"
+              class="flex flex-col items-center gap-2 py-6 px-3"
+            >
+              <span class="text-2xl" aria-hidden="true">⚠️</span>
+              <p class="text-xs font-semibold text-orange-600 text-center">Auto-generate failed</p>
+              <p class="text-[10px] text-slate-400 text-center leading-snug">{{ autoGenErrorMsg || 'Unknown error' }}</p>
+              <button
+                type="button"
+                class="mt-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors"
+                title="Retry generating the initial Planguage model for this entity"
+                @click="activeModel && generateInitialModel(activeModel.id)"
+              >
+                Retry
+              </button>
+            </div>
+
+            <!-- Truly empty (no model active, or model is built-in with no S. entries) -->
             <div
               v-else-if="filteredStakeholders.length === 0 && !searchQuery"
               class="text-center text-xs text-slate-400 py-6"
@@ -498,9 +577,29 @@ function avgScore(sh: MappedStakeholder): number | null {
 
         <!-- RIGHT CONTENT -->
         <div class="flex-1 min-w-0 flex flex-col">
-          <!-- No selection state -->
+          <!-- Auto-generating: full-panel loading state -->
           <div
-            v-if="!selected && !showAddForm"
+            v-if="!selected && !showAddForm && autoGenStatus === 'generating'"
+            class="flex-1 flex items-center justify-center text-center px-8"
+          >
+            <div class="max-w-sm">
+              <svg class="animate-spin h-12 w-12 text-indigo-400 mx-auto mb-5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <h3 class="text-lg font-semibold text-indigo-700 mb-2">Generating Planguage Model…</h3>
+              <p class="text-sm text-slate-500 leading-relaxed">
+                AI is generating the initial S. (Stakeholders), F. (Functions),
+                V. (Values), C. (Constraints), and R. (Resources) entries for
+                <strong class="text-slate-700">{{ activeModel?.title }}</strong>.
+              </p>
+              <p class="text-xs text-slate-400 mt-3">This may take 15–30 seconds.</p>
+            </div>
+          </div>
+
+          <!-- No selection state (normal empty state) -->
+          <div
+            v-else-if="!selected && !showAddForm"
             class="flex-1 flex items-center justify-center text-center px-8"
           >
             <div>
