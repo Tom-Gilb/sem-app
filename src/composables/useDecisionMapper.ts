@@ -204,6 +204,11 @@ function _loadDecisions(): void {
             d.redoStatus = 'error'
           }
         }
+        // Auto-select first decision so DecisionMapperPanel never shows a blank
+        // body (selectedDecision is null when selectedDecisionId is null).
+        if (selectedDecisionId.value === null) {
+          selectedDecisionId.value = decisions.value[0].id
+        }
         return
       }
     }

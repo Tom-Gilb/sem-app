@@ -442,10 +442,14 @@ function selectAgent(agent: AgentDef): void {
               </div>
 
               <!-- Tile body — blurb + launch button -->
-              <div class="flex-1 flex flex-col gap-3 p-4">
-                <p class="text-xs text-slate-600 leading-relaxed line-clamp-3">{{ agent.blurb }}</p>
+              <!-- min-h-0: prevents flex children from overflowing a constrained row.
+                   overflow-hidden: defensive clip so blurb never bleeds past card edge. -->
+              <div class="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-hidden">
+                <p class="text-xs text-slate-600 leading-relaxed line-clamp-3 min-h-0">{{ agent.blurb }}</p>
 
-                <div class="mt-auto">
+                <!-- shrink-0: button container must never compress — guarantees it is
+                     always fully visible and never overlaps the blurb text above. -->
+                <div class="mt-auto shrink-0">
                   <button
                     v-if="agent.status === 'live'"
                     type="button"

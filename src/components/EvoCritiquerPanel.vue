@@ -29,30 +29,48 @@ import {
   scoreToGrade,
 } from '../composables/useEvoCritiquer'
 import type { HealthDimension, EvoStepCritique, HealthFinding, ImprovementTask } from '../composables/useEvoCritiquer'
-import { usePlanModel, listRecentPlans, loadPlanByTag } from '../composables/usePlanModel'
+import { usePlanModel, activatePlanModel, type PlanModel } from '../composables/usePlanModel'
 
 const emit = defineEmits<{
   close: []
   'open-agents': []
+  /** Request the parent to open the full plan history browser (ModelHistory). */
+  'open-history': []
 }>()
 
 // ── Composables ───────────────────────────────────────────────────────────────
 
 const { critiqueResult, critiqueLoading, critiqueError, runEvoCritique } = useEvoCritiquer()
-const { currentModel: planModel } = usePlanModel()
+const { currentModel: planModel, allModels } = usePlanModel()
 
-// ── Recent plans (shown when no plan is loaded) ───────────────────────────────
+// ── Plan picker (shown when no plan is loaded) ────────────────────────────────
+// Uses reactive allModels (not static listRecentPlans) so plans added after
+// mount are immediately visible. AND-token search across name + tag + owners + planners.
 
-const recentPlans    = listRecentPlans()
-const planSearchQ    = ref('')
-const filteredRecent = computed(() => {
-  const q = planSearchQ.value.toLowerCase().trim()
-  if (!q) return recentPlans
-  return recentPlans.filter(p => p.name.toLowerCase().includes(q))
+const planSearchQ = ref('')
+
+const _planTokens = computed(() =>
+  planSearchQ.value.toLowerCase().split(/\s+/).filter(Boolean)
+)
+
+const filteredRecent = computed((): PlanModel[] => {
+  const tokens = _planTokens.value
+  return allModels.value.filter(m => {
+    if (tokens.length === 0) return true
+    const hay = [
+      m.name,
+      m.tag,
+      m.version,
+      m.specSource ?? '',
+      ...(m.owners   ?? []).map(o => o.name),
+      ...(m.planners ?? []).map(p => p.name),
+    ].join(' ').toLowerCase()
+    return tokens.every(t => hay.includes(t))
+  })
 })
 
-function loadRecent(tag: string, version: string): void {
-  loadPlanByTag(tag, version)
+function loadRecent(model: PlanModel): void {
+  activatePlanModel(model)
   planSearchQ.value = ''
 }
 
@@ -335,36 +353,70 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
                 The AI will score 10 health dimensions, critique each planning step, and
                 give a deep dive on the Value Delivery cycle.
               </p>
-              <!-- No plan loaded — show recent plans picker -->
+              <!-- No plan loaded — show reactive plan picker -->
               <div v-if="!planModel" class="w-full max-w-md mx-auto mt-2">
-                <p class="text-xs font-semibold text-amber-700 mb-3">No active plan loaded — choose a recent plan:</p>
+                <!-- Header row: label + Full History button -->
+                <div class="flex items-center justify-between mb-2">
+                  <p class="text-xs font-semibold text-amber-700">
+                    No active plan loaded — choose a plan:
+                  </p>
+                  <button
+                    type="button"
+                    class="text-[10px] font-semibold text-violet-600 hover:text-violet-800 underline-offset-2 hover:underline transition-colors"
+                    title="Open full plan history browser — search, filter, and load any saved plan"
+                    @click="emit('open-history')"
+                  >🗂️ Full History</button>
+                </div>
+                <!-- Search -->
                 <input
                   v-model="planSearchQ"
-                  type="text"
-                  placeholder="Search recent plans…"
+                  type="search"
+                  placeholder="Search by name, tag, or owner…"
                   class="w-full px-3 py-2 rounded-lg border border-amber-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder-slate-400 mb-2"
-                  title="Search your saved plans by name — click a plan to load it and enable analysis"
+                  title="Search all saved plans by name, tag, or owner — click a plan to load it"
                 />
-                <div v-if="filteredRecent.length === 0" class="text-xs text-slate-400 text-center py-3">
-                  No saved plans found — open a plan in the main workspace first.
+                <!-- Empty state -->
+                <div
+                  v-if="allModels.length === 0"
+                  class="text-xs text-slate-400 text-center py-3"
+                >
+                  No saved plans yet — parse and save a plan in the main workspace first.
                 </div>
-                <div v-else class="flex flex-col gap-1.5 max-h-44 overflow-y-auto">
+                <div
+                  v-else-if="filteredRecent.length === 0"
+                  class="text-xs text-slate-400 text-center py-3"
+                >
+                  No plans match <em>{{ planSearchQ }}</em> — try a different keyword.
+                </div>
+                <!-- Plan list — ScrollContainer (ScrollContainer rule) -->
+                <ScrollContainer
+                  v-else
+                  outer-class="relative"
+                  inner-class="flex flex-col gap-1.5"
+                  :style="{ maxHeight: '11rem' }"
+                  :no-pill="true"
+                >
                   <button
                     v-for="plan in filteredRecent"
-                    :key="plan.tag + plan.version"
+                    :key="plan.id"
                     type="button"
                     class="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50 hover:bg-violet-50 border border-amber-100 hover:border-violet-200 text-left transition-colors"
-                    :title="`Load plan: ${plan.name} — updated ${plan.updatedAt.slice(0, 10)}`"
-                    @click="loadRecent(plan.tag, plan.version)"
+                    :title="`Load plan: ${plan.name} v${plan.version} — updated ${plan.updatedAt.slice(0, 10)} — single-click to make this the active plan`"
+                    @click="loadRecent(plan)"
                   >
-                    <span class="text-base shrink-0" aria-hidden="true">📋</span>
+                    <span class="text-base shrink-0" aria-hidden="true">{{ plan.workingMode === 'model' ? '🏗️' : '📋' }}</span>
                     <div class="flex-1 min-w-0">
                       <p class="text-xs font-semibold text-slate-800 truncate">{{ plan.name }}</p>
-                      <p class="text-[10px] text-slate-400">Updated {{ plan.updatedAt.slice(0, 10) }}</p>
+                      <p class="text-[10px] text-slate-400 truncate">
+                        v{{ plan.version }} · {{ plan.updatedAt.slice(0, 10) }}
+                        <template v-if="(plan.owners ?? []).length > 0">
+                          · {{ plan.owners![0].name }}
+                        </template>
+                      </p>
                     </div>
                     <span class="text-[10px] text-violet-600 font-semibold shrink-0">Load →</span>
                   </button>
-                </div>
+                </ScrollContainer>
               </div>
               <button
                 type="button"

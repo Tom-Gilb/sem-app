@@ -4373,6 +4373,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     v-if="view === 'app' && evoCritiquerOpen"
     @close="evoCritiquerOpen = false"
     @open-agents="evoCritiquerOpen = false; agentMenuOpen = true"
+    @open-history="evoCritiquerOpen = false; modelHistoryOpen = true"
   />
 
   <!-- Plan Importer agent panel — universal Planguage converter. z-[600] -->
@@ -4652,8 +4653,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
            width = content_width + padding = full viewport. But items-center was
            CENTERING the child first, so -ml-4 was overshooting ~72-88px left,
            hiding stage 1. self-start restores the intended flex-start alignment
-           for just this child; the calc widths and -ml-4 then work correctly. -->
-      <div class="self-start -ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]">
+           for just this child; the calc widths and -ml-4 then work correctly.
+           sticky top-[100px] (2026-05-31 fix): Tom "overlap not fixed" — the stage
+           bar was scrolling BEHIND the 100px-tall Plan Crest. Making the bar sticky
+           at exactly the Plan Crest's bottom edge (py-1.5 + h-12 + h-10 + py-1.5 =
+           6+48+40+6 = 100px) keeps the navigation permanently visible as the user
+           scrolls the plan content below. z-[250] stays below the Plan Crest z-[300]
+           and below all modals/panels (≥z-[380]). -->
+      <div class="sticky top-[100px] z-[250] self-start -ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]">
         <ValueCounter
           :current-stage="planningStage"
           :extra-right-pad="!planModel ? 440 : 0"
