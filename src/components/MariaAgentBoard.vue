@@ -11,8 +11,9 @@
          so SelectionDefiner at z-[10100] stays above this panel
        - All buttons have title= — DD-009 / Interaction Disclosure Rule (Rule 7)
        - No select-none on body content — Define-by-Selection Rule
-       - Email via openEml() — Tom Gilb 2026-05-29: "I do not want to paste
-         into the email. I want it ready pasted." (useEmlExport.ts pattern)
+       - Email via mailto: + clipboard — Tom Gilb 2026-05-30: "I want you to
+         open my email and fill in the html." mailto: is OS-handled so the PWA
+         window stays intact; clipboard pre-loads rich HTML so ⌘V pastes it.
 
      Tom Gilb, 2026-05-29:
        "Input: Board documents (Todd uploads). Process: Parse decisions /
@@ -29,7 +30,6 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria, cancelCurrentMaria, mariaStreamedText } from '../composables/useMaria'
-import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import type { MariaResult }    from '../types/maria'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
@@ -584,12 +584,17 @@ watch(loading, (isLoading: boolean) => {
 onUnmounted(_stopLoadingAnimation)
 
 // ─── Restore last result when panel reopens ────────────────────────────────────
-// If the user ran an analysis, closed the panel, then reopened it, result.value
-// is null (component remounted) but lastMariaResult still holds the prior run.
-// Restoring it means the panel reopens showing the results, not a blank input.
 onMounted(() => {
   if (!result.value && lastMariaResult.value) {
     result.value = lastMariaResult.value
+  }
+  // Auto-populate the To: field with the chairman's email if it is known
+  // and the field has not already been filled by the user.
+  if (!emailTo.value) {
+    const chair = boardMembers.value.find(
+      (m) => m.role.toLowerCase().includes('chair') && m.email,
+    )
+    if (chair?.email) emailTo.value = chair.email
   }
 })
 
@@ -685,21 +690,59 @@ async function copyReport(): Promise<void> {
   _copyTimer = setTimeout(() => { copyDone.value = false }, 3000)
 }
 
+/**
+ * Open Mail.app with the governance report pre-addressed and subject filled.
+ *
+ * Strategy:
+ *   1. Build the full coloured HTML report.
+ *   2. Copy it to the system clipboard (text/html + text/plain).
+ *   3. Open a mailto: link — the OS hands this to Mail.app without navigating
+ *      the PWA window away (mailto: is an OS-level scheme, not a browser URL).
+ *   4. Mail.app opens with To: and Subject pre-filled. The user presses ⌘V
+ *      once to paste the rich HTML report into the body — one keystroke.
+ *
+ * To: address priority:
+ *   (a) Whatever is typed in the emailTo field.
+ *   (b) Chairman's email auto-detected from the board member roster.
+ *   (c) Blank — user fills it in Mail.app.
+ */
 function sendEmailReport(): void {
   if (!result.value) return
+
+  // 1 — Build HTML report
   const html = buildMariaEmailHtml(result.value, {
     ratingValue:      rating.value,
     ratingLabel:      ratingLabel.value,
     ratingInteracted: ratingInteracted.value,
   })
-  const to = emailTo.value
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  openEml(html, '🏛 Maria — Board Governance Analysis', { to })
+
+  // 2 — Copy to clipboard so the user can ⌘V into Mail.app body
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  navigator.clipboard
+    .write([new ClipboardItem({
+      'text/html':  new Blob([html],  { type: 'text/html' }),
+      'text/plain': new Blob([plain], { type: 'text/plain' }),
+    })])
+    .catch(() => navigator.clipboard.writeText(plain))
+
+  // 3 — Determine To: address
+  const typedAddr   = emailTo.value.trim()
+  const chairMember = boardMembers.value.find(
+    (m) => m.role.toLowerCase().includes('chair') && m.email,
+  )
+  const toAddr = typedAddr || chairMember?.email || ''
+  if (!typedAddr && toAddr) emailTo.value = toAddr  // fill the field so user sees it
+
+  // 4 — Open Mail.app via mailto: — OS handles this; PWA window stays intact
+  const subject = '🏛 Maria — Board Governance Analysis'
+  const mailtoUrl = toAddr
+    ? `mailto:${encodeURIComponent(toAddr)}?subject=${encodeURIComponent(subject)}`
+    : `mailto:?subject=${encodeURIComponent(subject)}`
+  window.location.href = mailtoUrl
+
   reportSent.value = true
   if (_sentTimer) clearTimeout(_sentTimer)
-  _sentTimer = setTimeout(() => { reportSent.value = false }, 8000)
+  _sentTimer = setTimeout(() => { reportSent.value = false }, 10_000)
 }
 </script>
 
@@ -1347,7 +1390,8 @@ function sendEmailReport(): void {
             <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
               <h4 class="text-sm font-bold text-emerald-900 mb-1">📤 Share Report</h4>
               <p class="text-xs text-emerald-700 mb-3 leading-relaxed">
-                Copy the full coloured HTML report to your clipboard, or save it as a .eml file to open in Mail.app.
+                Copy the full coloured HTML report to your clipboard, or open Mail.app directly with the report
+                pre-loaded on the clipboard — one ⌘V to paste.
               </p>
 
               <!-- Copy button — always the fastest path -->
@@ -1357,39 +1401,39 @@ function sendEmailReport(): void {
                 :class="copyDone
                   ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md'"
-                title="Copy Report — single-click to copy the full coloured HTML governance report to your clipboard. Paste into Mail, Slack, Pages, Keynote, or any rich-text app."
+                title="Copy Report — single-click to copy the full coloured HTML governance report to your clipboard. Paste into Mail, Slack, Pages, Keynote, or any rich-text app with ⌘V."
                 @click="copyReport"
               >
                 <span aria-hidden="true">{{ copyDone ? '✓' : '📋' }}</span>
-                <span>{{ copyDone ? 'Copied — paste into Mail, Slack, Keynote…' : 'Copy Report (rich HTML)' }}</span>
+                <span>{{ copyDone ? 'Copied — press ⌘V to paste into Mail, Slack, Keynote…' : 'Copy Report (rich HTML)' }}</span>
               </button>
 
-              <!-- Email via .eml download -->
+              <!-- Email via mailto: + clipboard -->
               <div class="flex gap-2 mb-2">
                 <input
                   v-model="emailTo"
                   type="email"
                   multiple
                   class="flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="todd@board.org, chair@board.org (optional)"
-                  title="Email recipients — optional. Enter addresses and click Save .eml to download a pre-filled Mail.app compose draft."
+                  placeholder="Chair auto-detected · or type address here"
+                  title="Email recipient — optional. The chairman's email is auto-detected from the Board Members roster. You can also type any address here. Click 'Open Mail.app' to open a pre-addressed compose window; press ⌘V once to paste the full report."
                 />
               </div>
               <button
                 type="button"
                 class="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
                 :class="reportSent
-                  ? 'bg-amber-100 text-amber-800'
+                  ? 'bg-emerald-100 text-emerald-800'
                   : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow-md'"
-                title="Save .eml — downloads a pre-filled Mail.app compose draft to your Downloads folder. Double-click the .eml file in Finder to open it in Mail.app as a ready-to-send email."
+                title="Open Mail.app — single-click to open Mail.app with the To: and Subject pre-filled, and the full coloured report already on your clipboard. Press ⌘V once in Mail.app to paste the report into the body."
                 @click="sendEmailReport"
               >
                 <EmailGlyph size="compact" class="text-current" aria-hidden="true" />
-                <span>{{ reportSent ? '📥 Saved to Downloads — open .eml in Finder to send' : 'Save as .eml for Mail.app' }}</span>
+                <span>{{ reportSent ? '📬 Mail.app opened · press ⌘V to paste the report' : '📧 Open Mail.app with Report' }}</span>
               </button>
-              <!-- Finder hint — only shown after download -->
-              <p v-if="reportSent" class="text-[10px] text-amber-700 text-center mt-1.5 leading-snug">
-                ~/Downloads → double-click the .eml file → Mail.app opens with the full report ready to send
+              <!-- Paste reminder — only shown after Mail.app opened -->
+              <p v-if="reportSent" class="text-[10px] text-emerald-700 text-center mt-1.5 leading-snug">
+                Mail.app is open with To: and Subject pre-filled — click in the body and press ⌘V to paste the full report
               </p>
             </div>
 
