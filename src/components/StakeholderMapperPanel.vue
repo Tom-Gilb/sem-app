@@ -27,6 +27,7 @@ import {
 } from '../composables/useStakeholderMapper'
 import type { MappedStakeholder, StakeholderType, AttributeLevel } from '../composables/useStakeholderMapper'
 import { useModelLibrary } from '../composables/useModelLibrary'
+import type { ModelEntry } from '../composables/useModelLibrary'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -59,8 +60,52 @@ const editAttrFact     = ref('')
 
 // ── Derived data ──────────────────────────────────────────────────────────────
 
+/**
+ * Model S. entries when an active model is set.
+ * Tom 2026-05-31: "logic error, we need to look at the stakeholders of
+ * the current model only, and those should be listed on left instead."
+ * When a model is active, only its S. (Stakeholder) type entries are shown
+ * in the sidebar. When no model is active, fall back to the global list.
+ */
+const modelSEntries = computed<ModelEntry[]>(() =>
+  (activeModel.value?.entries ?? []).filter(e => e.type === 'S'),
+)
+
+/**
+ * Sidebar display list.
+ * Priority: if active model set → filter to model's S. entries only
+ * (cross-referenced with mapper to show analysis status).
+ * If no active model → show entire global mapper list (legacy).
+ */
 const filteredStakeholders = computed<MappedStakeholder[]>(() => {
   const q = searchQuery.value.toLowerCase().trim()
+  if (activeModel.value) {
+    // When model is set, derive sidebar from model's S. entries
+    // Any S. entry that already has a MappedStakeholder record (name match)
+    // is shown in full; others appear with a minimal synthesised record so
+    // the user can click "Analyze" from the sidebar.
+    const mapped = mapper.stakeholders.value
+    const candidates: MappedStakeholder[] = modelSEntries.value
+      .map(entry => {
+        const name = entry.description.trim()
+        const existing = mapped.find(s => s.name.toLowerCase() === name.toLowerCase())
+        if (existing) return existing
+        // Synthesise a lightweight placeholder so the entry shows in the list
+        return {
+          id:          `model-seed-${entry.id ?? name}`,
+          name,
+          role:        entry.details?.trim() || 'Stakeholder from model',
+          type:        'organization' as StakeholderType,
+          description: entry.details?.trim() || '',
+          attributes:  {},
+        } satisfies MappedStakeholder
+      })
+    if (!q) return candidates
+    return candidates.filter(
+      s => s.name.toLowerCase().includes(q) || s.role.toLowerCase().includes(q),
+    )
+  }
+  // No active model — show global store
   if (!q) return mapper.stakeholders.value
   return mapper.stakeholders.value.filter(
     s => s.name.toLowerCase().includes(q) || s.role.toLowerCase().includes(q),
@@ -254,15 +299,23 @@ function avgScore(sh: MappedStakeholder): number | null {
 
         <!-- LEFT SIDEBAR -->
         <div class="w-72 shrink-0 flex flex-col border-r border-indigo-100 bg-indigo-50/40">
-          <!-- Search -->
-          <div class="p-3 border-b border-indigo-100 shrink-0">
+          <!-- Context label + search -->
+          <div class="p-3 border-b border-indigo-100 shrink-0 flex flex-col gap-2">
+            <!-- Model context label — tells user which source is shown -->
+            <p v-if="activeModel" class="text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded px-2 py-1">
+              📌 S. entries in <strong>{{ activeModel.title }}</strong>
+              <span class="text-indigo-400 font-normal ml-1">({{ modelSEntries.length }} stakeholder{{ modelSEntries.length !== 1 ? 's' : '' }})</span>
+            </p>
+            <p v-else class="text-[10px] text-slate-500 bg-slate-50 border border-slate-200 rounded px-2 py-1">
+              Global stakeholder profiles — load a model to see its S. entries
+            </p>
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search entities in current model…"
+              :placeholder="activeModel ? `Search ${activeModel.title} stakeholders…` : 'Search all stakeholder entities…'"
               class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400"
               aria-label="Filter stakeholders by name or role"
-              title="Search stakeholder entities — filters by name or role within the current model context"
+              title="Search stakeholder entities — filters by name or role"
             />
           </div>
 

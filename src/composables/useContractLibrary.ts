@@ -169,12 +169,75 @@ After probation, either party may terminate by giving the notice period in Sched
 11. GOVERNING LAW
 This Agreement is governed by the laws of England and Wales.`
 
+const USS_MONITOR_CONTRACT = `CONTRACT FOR THE CONSTRUCTION OF AN IRON-CLAD STEAM BATTERY
+United States Navy Department — Washington City, October 4, 1861
+
+This Agreement is between the United States of America, acting through the Secretary of the Navy ("the Government"), and John Ericsson, Naval Engineer, and the Continental Iron Works of Greenpoint, Brooklyn, New York ("the Contractors").
+
+PREAMBLE
+The Government requires, in the current national emergency, an iron-clad floating battery of novel and experimental design, capable of engaging and disabling enemy vessels of superior conventional armament. The Contractors represent that they are able and willing to design, construct, and deliver such a vessel within the time and to the specifications herein set forth.
+
+1. SCOPE OF WORK
+The Contractors shall design, supply all materials for, and construct to completion a single iron-clad steam-propelled battery, to be known provisionally as the "Ericsson Battery," conforming to the general specifications set out in Schedule A hereto. The vessel shall incorporate a revolving armoured turret of the Contractors' own invention, carrying two XI-inch Dahlgren smooth-bore naval guns of the heaviest practicable calibre. The hull shall be of iron plate construction, flush with or below the waterline save for the turret, pilot-house, and necessary stacks, so as to present the smallest possible target to enemy fire.
+
+2. COMPLETION DEADLINE
+The Contractors shall deliver the completed vessel, fully fitted, armed, and ready for sea service, to the Navy Yard at New York not later than one hundred (100) days from the date of this Agreement. Time is of the essence. Failure to deliver within this period shall entitle the Government to withhold the final payment instalment and to assess liquidated damages at Three Hundred Dollars ($300) per day for each day of delay beyond the deadline.
+
+3. CONTRACT PRICE AND PAYMENT SCHEDULE
+The total fixed price for design, materials, labour, armament installation, and delivery is Two Hundred and Seventy-Five Thousand Dollars ($275,000), payable in four instalments:
+  (a) First instalment: $50,000 on signing of this Agreement.
+  (b) Second instalment: $50,000 on successful laying of the keel and confirmation of frame construction.
+  (c) Third instalment: $75,000 on launch and completion of hull integrity trials.
+  (d) Final instalment: $100,000 on acceptance by the Government following performance trials (Clause 5).
+
+4. PERFORMANCE BOND AND REFUND PROVISION
+The Contractors acknowledge that this vessel is of wholly experimental character. In the event that, upon performance trials (Clause 5), the vessel fails to demonstrate the offensive and defensive capabilities represented to the Government, the Contractors shall refund to the Government all monies paid hereunder, without deduction for materials, labour, or design costs. This provision reflects the exceptional nature of the public trust and the urgency of the national need.
+
+5. ACCEPTANCE TRIALS
+Upon completion the vessel shall be subjected to Government acceptance trials conducted by officers designated by the Secretary of the Navy. Trials shall include: (a) propulsion and manoeuvrability at speed not less than six (6) knots in calm water; (b) turret rotation through 360 degrees, loaded and unloaded, in not more than three (3) minutes per revolution; (c) gun-firing trials demonstrating structural integrity of the turret under repeated discharge; (d) flooding resistance trial — the vessel to withstand moderate sea-state for a period of not less than two (2) hours without ingress of water exceeding the capacity of the bilge pumps. The Government's acceptance is final and not subject to arbitration.
+
+6. ARMAMENT AND ORDNANCE
+The two XI-inch Dahlgren guns shall be supplied by the Bureau of Ordnance, United States Navy, and delivered to the Contractors at the Continental Iron Works. Installation, traversing gear, and training mechanisms within the turret are included in the Contractors' scope. Ammunition is Government-furnished and not within this contract.
+
+7. MATERIALS AND WORKMANSHIP
+All iron plate used in the construction of the hull and turret shall be of rolled wrought iron of not less than the thickness specified in Schedule A. No cast iron shall be used in any structural or armoured element. The Contractors warrant that all materials are of first quality and that the workmanship is equal to the best standard of naval construction currently practiced.
+
+8. GOVERNMENT ACCESS AND INSPECTION
+Officers and agents of the Navy Department shall have free access to the Contractors' works at all times during construction to inspect materials, workmanship, and progress. The Contractors shall remedy, at their own expense, any deficiency identified by Government inspectors within five (5) working days of written notice.
+
+9. CONFIDENTIALITY AND SECRECY
+The Contractors shall not, without the written permission of the Secretary of the Navy, disclose to any third party the design, dimensions, armament, or construction details of the vessel. No publication, illustration, or public description of the vessel shall be permitted prior to the Government's formal announcement. This obligation survives delivery and acceptance of the vessel and shall continue for so long as the Government deems operational security to require it.
+
+10. TITLE AND DELIVERY
+Title to the vessel and all materials incorporated therein shall vest in the United States from the moment each instalment is paid. Upon delivery the Contractors shall execute a formal Bill of Sale and transfer all design drawings, patterns, and specifications to the Navy Department.
+
+11. FORCE MAJEURE
+Neither party shall be liable for delays caused by acts of God, enemy action, or circumstances wholly beyond the party's reasonable control; provided, however, that the national emergency which gives rise to this contract shall not itself be pleaded as force majeure by either party.
+
+12. GOVERNING LAW AND JURISDICTION
+This Agreement is governed by the laws of the United States of America. Any dispute shall be referred to the Secretary of the Navy, whose decision shall be final and binding upon both parties.
+
+SCHEDULE A — PRINCIPAL DIMENSIONS (attached separately — hull length approx. 172 ft, beam approx. 41 ft, draught approx. 10 ft 6 in; turret diameter 20 ft, plate thickness 8 in laminated; deck plate 1 in; side armour at waterline 5 in).
+
+Signed at Washington City this fourth day of October, in the year of our Lord eighteen hundred and sixty-one.
+
+For the United States:   Gideon Welles, Secretary of the Navy
+For the Contractors:     John Ericsson; Thomas F. Rowland, Continental Iron Works`
+
 // ── Built-in registry ─────────────────────────────────────────────────────────
 
 const BUILT_IN_ENTRIES: ContractLibraryEntry[] = [
   {
+    id:           'built-in-uss-monitor-1861',
+    title:        'USS Monitor — Naval Construction Contract (1861)',
+    text:         USS_MONITOR_CONTRACT,
+    contractType: 'procurement',
+    source:       'built-in',
+    createdAt:    0,
+  },
+  {
     id:           'built-in-monitor',
-    title:        'The Monitor Contract',
+    title:        'IT Monitoring Services Agreement',
     text:         MONITOR_CONTRACT,
     contractType: 'service-agreement',
     source:       'built-in',

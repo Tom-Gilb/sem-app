@@ -76,9 +76,12 @@ defineEmits<{ click: [MouseEvent] }>()
     :aria-label="ariaLabel"
     @click="$emit('click', $event)"
   >
+    <!-- macOS traffic-light: glyph hidden at rest, appears on hover only.
+         Tom 2026-05-31: "the close dot is visually big and you see the - in middle."
+         Fix: opacity-0 at rest → opacity-100 on group-hover, matching macOS. -->
     <span
       :class="[
-        'opacity-80 group-hover:opacity-100 transition-opacity',
+        'opacity-0 group-hover:opacity-100 transition-opacity',
         'text-[11px] font-black leading-none select-none',
         variant === 'on-light' && 'text-white',
         variant === 'on-dark'  && 'text-white',
