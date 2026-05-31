@@ -20,7 +20,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import {
@@ -113,6 +113,115 @@ async function runAnalysis(): Promise<void> {
   abortCtl = new AbortController()
   await runEvoCritique(planModel.value.spec, planModel.value, abortCtl.signal)
 }
+
+// ── Loading animation: elapsed secs, simulated %, wisdom carousel ─────────────
+// Mirrors the pattern in MariaAgentBoard: elapsed + simulated progress tick
+// every 250 ms; wisdom cards rotate every 8 s. Stopped on unmount or when
+// critiqueLoading becomes false.
+
+const EVO_WISDOM = [
+  {
+    emoji: '🔄',
+    title: 'Evo Is Cyclic, Not Linear',
+    text: 'The 9 Evo steps form two interlocking sub-cycles: Planning (1–5) and Value Delivery (6–9). You can re-enter any step at any time — that IS Evo.',
+    ref: 'Tom Gilb, EVO 2024 Ch.2 p.19',
+  },
+  {
+    emoji: '📐',
+    title: 'Values Before Solutions',
+    text: 'Never specify a solution before you have quantified the values it must deliver. Solutions are hypotheses; Values are the acceptance test.',
+    ref: 'Competitive Engineering, Gilb 2005',
+  },
+  {
+    emoji: '📏',
+    title: 'The Scale Principle',
+    text: 'If you can\'t measure it, you can\'t manage it. Every Value needs a Scale (what to measure) and a Meter (how to measure it) before you set goals.',
+    ref: 'Planguage Glossary — Scale, Meter',
+  },
+  {
+    emoji: '⚡',
+    title: 'Evo Steps Deliver Real Value',
+    text: 'Each Evo Step must move a measurable stakeholder value. Steps that produce only deliverables — but no measured value change — are not Evo Steps.',
+    ref: 'Tom Gilb, EVO 2024 Ch.3',
+  },
+  {
+    emoji: '🎯',
+    title: 'Tolerable vs Goal',
+    text: 'The gap between Tolerable and Goal is your "value improvement space." Tolerable = minimally acceptable. Goal = stakeholder delight. The gap drives prioritisation.',
+    ref: 'Competitive Engineering, Gilb 2005',
+  },
+  {
+    emoji: '👥',
+    title: 'Stakeholders Include the Inanimate',
+    text: 'Data, systems, laws, and regulations are stakeholders too. GDPR is a stakeholder. A database has needs. Their requirements are always Constraints — binary compliance.',
+    ref: 'Tom Gilb, 2026-05-15',
+  },
+  {
+    emoji: '🏆',
+    title: 'Success = All Values Within All Constraints',
+    text: 'Partial delivery is not success. Every named Value must reach at least Tolerable level, and every Constraint respected, before an Evo Step qualifies as successful.',
+    ref: 'Tom Gilb, SUCCESS book',
+  },
+  {
+    emoji: '📊',
+    title: 'Measure to Learn, Not to Report',
+    text: 'Step 8 (Measure) and Step 9 (Learn) are distinct. Measure = collect data. Learn = update the plan. You cannot Learn from data you have not Measured.',
+    ref: 'Deming letter to Tom Gilb, 18 May 1991',
+  },
+  {
+    emoji: '🔍',
+    title: 'The Full 9-Step Cycle',
+    text: '"My Evo cycle has nine. AI means we no longer have to pander to the masses and their need for simplification. For the first time in history we can afford to DO IT RIGHT."',
+    ref: 'Tom Gilb, 2026-05-23',
+  },
+] as const
+
+const elapsed           = ref(0)
+const simulatedProgress = ref(0)
+const activeWisdomIdx   = ref(0)
+
+let _elapsedTimer: ReturnType<typeof setInterval> | null = null
+let _wisdomTimer:  ReturnType<typeof setInterval> | null = null
+let _animStart = 0
+
+function _startLoadingAnimation(): void {
+  _animStart = Date.now()
+  elapsed.value = 0
+  simulatedProgress.value = 0
+  if (_elapsedTimer) { clearInterval(_elapsedTimer); _elapsedTimer = null }
+  if (_wisdomTimer)  { clearInterval(_wisdomTimer);  _wisdomTimer  = null }
+
+  _elapsedTimer = setInterval(() => {
+    const secs = Math.round((Date.now() - _animStart) / 1000)
+    elapsed.value = secs
+    // Asymptotic toward 95%: reaches ~50% at ~30s, ~80% at ~55s, ~95% at ~100s.
+    simulatedProgress.value = Math.round(Math.min(95, (1 - Math.exp(-secs / 45)) * 100))
+  }, 250)
+
+  _wisdomTimer = setInterval(() => {
+    activeWisdomIdx.value = (activeWisdomIdx.value + 1) % EVO_WISDOM.length
+  }, 8_000)
+}
+
+function _stopLoadingAnimation(): void {
+  if (_elapsedTimer) { clearInterval(_elapsedTimer); _elapsedTimer = null }
+  if (_wisdomTimer)  { clearInterval(_wisdomTimer);  _wisdomTimer  = null }
+  simulatedProgress.value = 100
+}
+
+// Watch critiqueLoading: start animation when loading begins, stop when done.
+watch(critiqueLoading, (nowLoading) => {
+  if (nowLoading) {
+    activeWisdomIdx.value = 0
+    _startLoadingAnimation()
+  } else {
+    _stopLoadingAnimation()
+  }
+})
+
+onUnmounted(() => {
+  _stopLoadingAnimation()
+})
 
 // ── Score colour helpers (static class maps) ──────────────────────────────────
 
@@ -430,18 +539,61 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
             </div>
           </div>
 
-          <!-- Loading -->
+          <!-- Loading — bar + % + secs + rotating Evo wisdom cards (amuse) -->
           <div
             v-else-if="critiqueLoading"
-            class="h-full flex items-center justify-center text-center px-8"
+            class="h-full flex flex-col items-center justify-center px-8 py-6 gap-6"
           >
-            <div>
-              <svg class="animate-spin h-10 w-10 text-violet-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <!-- Spinner + status -->
+            <div class="flex flex-col items-center gap-3">
+              <svg class="animate-spin h-10 w-10 text-violet-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              <p class="text-sm font-medium text-violet-600">Analyzing plan against the 9-step Evo cycle…</p>
-              <p class="text-xs text-slate-400 mt-1">This may take 30–60 seconds</p>
+              <div class="text-center">
+                <p class="text-sm font-semibold text-violet-700">Analyzing plan against the 9-step Evo cycle…</p>
+                <p class="text-xs text-slate-400 mt-0.5">{{ elapsed }}s elapsed · this may take 30–60 seconds</p>
+              </div>
+            </div>
+
+            <!-- Progress bar + % -->
+            <div class="w-full max-w-xs">
+              <div class="flex justify-between text-[10px] font-medium text-slate-400 mb-1.5">
+                <span>Progress</span>
+                <span>{{ simulatedProgress }}%</span>
+              </div>
+              <div class="h-2 bg-violet-100 rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-violet-500 rounded-full transition-all duration-500"
+                  :style="{ width: simulatedProgress + '%' }"
+                />
+              </div>
+            </div>
+
+            <!-- Wisdom carousel — rotating Evo methodology insight cards -->
+            <div class="w-full max-w-xs bg-violet-50 border border-violet-100 rounded-2xl p-4 shadow-sm">
+              <div class="flex items-start gap-3">
+                <span class="text-3xl leading-none shrink-0 drop-shadow-sm" aria-hidden="true">{{ EVO_WISDOM[activeWisdomIdx].emoji }}</span>
+                <div class="min-w-0">
+                  <p class="text-[10px] font-extrabold text-violet-600 uppercase tracking-[0.14em] mb-1 leading-none">{{ EVO_WISDOM[activeWisdomIdx].title }}</p>
+                  <p class="text-[12px] text-slate-600 leading-relaxed">{{ EVO_WISDOM[activeWisdomIdx].text }}</p>
+                  <p class="text-[10px] text-slate-400 mt-2 italic">— {{ EVO_WISDOM[activeWisdomIdx].ref }}</p>
+                </div>
+              </div>
+              <!-- Dot navigation -->
+              <div class="flex justify-center gap-1.5 mt-3" role="tablist" aria-label="Evo wisdom cards">
+                <button
+                  v-for="(_, i) in EVO_WISDOM"
+                  :key="i"
+                  type="button"
+                  role="tab"
+                  :aria-selected="i === activeWisdomIdx"
+                  :class="['h-1.5 rounded-full transition-all duration-300 focus:outline-none',
+                            i === activeWisdomIdx ? 'w-4 bg-violet-500' : 'w-1.5 bg-violet-200 hover:bg-violet-300']"
+                  :title="`Evo insight ${i + 1} of ${EVO_WISDOM.length} — click to read`"
+                  @click="activeWisdomIdx = i"
+                />
+              </div>
             </div>
           </div>
 
