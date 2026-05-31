@@ -39,6 +39,7 @@ import type {
   BoundaryType,
 } from '../composables/useModelLibrary'
 import { useDocumentImport } from '../composables/useDocumentImport'
+import { openEml } from '../composables/useEmlExport'
 
 const emit = defineEmits<{
   close: []
@@ -455,6 +456,109 @@ function openTool(mode: ToolMode): void {
 
 function closeTool(): void {
   toolMode.value = 'none'
+}
+
+// ── Model display export (Copy + Email) ───────────────────────────────────
+//    Tom 2026-05-31: "copy, we need copy this display, and email this display
+//    on all model displays"
+//    Twin-portable: buildModelExportHtml is a pure function (no Vue API).
+
+/** Visual feedback ref — shows ✓ on the Copy button for 2s after copy. */
+const copiedToolExport = ref(false)
+
+/**
+ * Build a colorful HTML email / clipboard export for the currently displayed
+ * model tool view. Follows the Colorful Exports Rule: colored HTML table,
+ * never pure text.
+ *
+ * @param model     The active ModelLibraryEntry.
+ * @param toolLabel Human-readable label from TOOL_MODE_LABELS (or 'Model Detail').
+ */
+function buildModelExportHtml(model: ModelLibraryEntry, toolLabel: string): string {
+  const TYPE_STYLE: Record<string, { bg: string; border: string; badge: string; label: string }> = {
+    F: { bg: '#fff7ed', border: '#f97316', badge: 'background:#f97316;color:#fff', label: 'F. Function' },
+    V: { bg: '#eff6ff', border: '#3b82f6', badge: 'background:#3b82f6;color:#fff', label: 'V. Value' },
+    C: { bg: '#fdf4ff', border: '#c026d3', badge: 'background:#c026d3;color:#fff', label: 'C. Constraint' },
+    R: { bg: '#f0f9ff', border: '#0284c7', badge: 'background:#0284c7;color:#fff', label: 'R. Resource' },
+    S: { bg: '#f5f3ff', border: '#7c3aed', badge: 'background:#7c3aed;color:#fff', label: 'S. Stakeholder' },
+  }
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const today = new Date().toISOString().slice(0, 10)
+
+  const rows = model.entries.map(e => {
+    const st = TYPE_STYLE[e.type] ?? { bg: '#f8fafc', border: '#94a3b8', badge: 'background:#94a3b8;color:#fff', label: e.type }
+    return [
+      `<tr style="background:${st.bg};border-left:4px solid ${st.border}">`,
+      `<td style="padding:6px 10px;white-space:nowrap;">`,
+      `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;${st.badge}">${esc(e.type)}.</span>`,
+      `</td>`,
+      `<td style="padding:6px 10px;font-size:12px;color:#1e293b;">${esc(e.description)}</td>`,
+      `<td style="padding:6px 10px;font-size:11px;color:#64748b;">${esc(e.details ?? '')}</td>`,
+      `</tr>`,
+    ].join('')
+  }).join('')
+
+  // Category row label — group entries by type with a divider row
+  const groupedRows = (['F', 'V', 'C', 'R', 'S'] as const).map(t => {
+    const entries = model.entries.filter(e => e.type === t)
+    if (entries.length === 0) return ''
+    const st = TYPE_STYLE[t]
+    const header = `<tr><td colspan="3" style="padding:4px 10px 2px;background:#f1f5f9;font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.08em;">${st.label} (${entries.length})</td></tr>`
+    const entryRows = entries.map(e =>
+      `<tr style="background:${st.bg};border-left:4px solid ${st.border}">` +
+      `<td style="padding:6px 10px;white-space:nowrap;"><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;${st.badge}">${esc(e.type)}.</span></td>` +
+      `<td style="padding:6px 10px;font-size:12px;color:#1e293b;">${esc(e.description)}</td>` +
+      `<td style="padding:6px 10px;font-size:11px;color:#64748b;">${esc(e.details ?? '')}</td>` +
+      `</tr>`
+    ).join('')
+    return header + entryRows
+  }).join('')
+
+  return [
+    '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:820px;padding:16px;color:#0f172a;">',
+    // Title block
+    `<div style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);border-radius:8px;padding:16px 20px;margin-bottom:16px;">`,
+    `<h2 style="margin:0 0 4px 0;color:#f8fafc;font-size:16px;font-weight:800;">${esc(toolLabel)}</h2>`,
+    `<p style="margin:0;color:#94a3b8;font-size:12px;font-weight:600;">${esc(model.title)}</p>`,
+    `<p style="margin:4px 0 0 0;color:#64748b;font-size:11px;">Category: ${esc(model.exampleSubCategory ?? model.categoryId ?? '')} · ${model.entries.length} entries · SEM App · ${today}</p>`,
+    `</div>`,
+    // Entry table
+    `<table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);">`,
+    `<thead><tr style="background:#1e293b;"><th style="padding:8px 10px;text-align:left;color:#e2e8f0;font-size:11px;font-weight:700;">Type</th>`,
+    `<th style="padding:8px 10px;text-align:left;color:#e2e8f0;font-size:11px;font-weight:700;">Description</th>`,
+    `<th style="padding:8px 10px;text-align:left;color:#e2e8f0;font-size:11px;font-weight:700;">Details</th></tr></thead>`,
+    `<tbody>${groupedRows || rows}</tbody>`,
+    `</table>`,
+    `<p style="margin:12px 0 0;color:#94a3b8;font-size:10px;">Generated by SEM App — ${toolLabel} · ${today}</p>`,
+    `</div>`,
+  ].join('')
+}
+
+async function copyToolExport(): Promise<void> {
+  const model = selectedModel.value
+  if (!model) return
+  const label = toolMode.value !== 'none' ? TOOL_MODE_LABELS[toolMode.value] : 'Model Detail'
+  const html = buildModelExportHtml(model, label)
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) }),
+    ])
+  } catch {
+    // Fallback: copy as text
+    const text = model.entries.map(e => `${e.type}. ${e.description}${e.details ? ' — ' + e.details : ''}`).join('\n')
+    await navigator.clipboard.writeText(text)
+  }
+  copiedToolExport.value = true
+  setTimeout(() => { copiedToolExport.value = false }, 2000)
+}
+
+function emailToolExport(): void {
+  const model = selectedModel.value
+  if (!model) return
+  const label = toolMode.value !== 'none' ? TOOL_MODE_LABELS[toolMode.value] : 'Model Detail'
+  const html = buildModelExportHtml(model, label)
+  const plain = model.entries.map(e => `${e.type}. ${e.description}${e.details ? ' — ' + e.details : ''}`).join('\n')
+  openEml(html, `${label} — ${model.title}`, { plainBody: plain })
 }
 
 // ── Computed results for new analysis tools ───────────────────────────────
@@ -1422,19 +1526,31 @@ function faceStyle(transform: string): Record<string, string> {
                 {{ library.categoryDefs.value.find(c => c.id === selectedModel.categoryId)?.label }}
               </span>
             </div>
+            <!-- Copy as colored HTML table — Colorful Exports Rule -->
             <button
               type="button"
               :class="[
                 'shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150',
-                copiedId === selectedModel.id
-                  ? 'bg-blue-100 text-blue-700'
+                copiedToolExport
+                  ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
               ]"
-              title="Copy Planguage — copy this model's full Planguage text to clipboard"
-              @click="copyPlanguage(selectedModel)"
+              title="Copy Model — copies a colored HTML table of all Planguage entries; paste into Mail, Notes, Keynote etc."
+              @click="copyToolExport"
             >
-              <span aria-hidden="true">{{ copiedId === selectedModel.id ? '✓' : '📋' }}</span>
-              <span>{{ copiedId === selectedModel.id ? 'Copied!' : 'Copy Planguage' }}</span>
+              <span aria-hidden="true">{{ copiedToolExport ? '✓' : '📋' }}</span>
+              <span>{{ copiedToolExport ? 'Copied!' : 'Copy' }}</span>
+            </button>
+            <!-- Email via .eml draft -->
+            <button
+              type="button"
+              class="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold
+                     bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-150"
+              title="Email Model — opens Mail.app with this model's Planguage entries as a colored table pre-filled in the email body"
+              @click="emailToolExport"
+            >
+              <span aria-hidden="true">📧</span>
+              <span>Mail</span>
             </button>
           </div>
 
@@ -1455,19 +1571,49 @@ function faceStyle(transform: string): Record<string, string> {
             >View →</button>
           </div>
 
-          <!-- Tool header bar — shown when a specific tool is open -->
+          <!-- Tool header bar — shown when a specific tool is open.
+               Tom 2026-05-31: "I cannot see the name of the specific modelling tool here,
+               this needs to be clear in every display or analysis (general design rule)"
+               Tool name is now prominent (large bold, dark) with model name below. -->
           <div
             v-if="toolMode !== 'none' && selectedModel"
-            class="flex items-center gap-3 px-5 py-2.5 bg-slate-100 border-b border-slate-200 shrink-0"
+            class="flex items-center gap-3 px-4 py-3 bg-slate-800 border-b border-slate-900 shrink-0"
           >
             <button
               type="button"
-              class="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded px-2 py-1 transition-colors duration-150"
-              title="Back to model detail — close this tool and return to the model view"
+              class="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700 rounded px-2 py-1.5 transition-colors duration-150 shrink-0"
+              title="Back to model detail — close this tool and return to the model entry view"
               @click="closeTool"
-            >← Back to Model</button>
-            <span class="text-xs font-bold text-slate-700">{{ TOOL_MODE_LABELS[toolMode] }}</span>
-            <span class="text-[10px] text-slate-400 truncate">{{ selectedModel.title }}</span>
+            >← Back</button>
+            <!-- Prominent tool name + model sub-label -->
+            <div class="flex-1 min-w-0">
+              <h3 class="text-sm font-black text-white leading-tight">{{ TOOL_MODE_LABELS[toolMode] }}</h3>
+              <p class="text-[10px] text-slate-400 truncate leading-tight mt-0.5">{{ selectedModel.title }}</p>
+            </div>
+            <!-- Copy + Email export buttons — Tom 2026-05-31: "copy this display, email this display on all model displays" -->
+            <button
+              type="button"
+              :class="[
+                'shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                copiedToolExport
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-slate-600 text-slate-200 hover:bg-slate-500',
+              ]"
+              :title="`Copy ${TOOL_MODE_LABELS[toolMode]} — copies a colored HTML table of this model's entries to clipboard`"
+              @click="copyToolExport"
+            >
+              <span aria-hidden="true">{{ copiedToolExport ? '✓' : '📋' }}</span>
+              {{ copiedToolExport ? 'Copied!' : 'Copy' }}
+            </button>
+            <button
+              type="button"
+              class="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold
+                     bg-slate-600 text-slate-200 hover:bg-slate-500 transition-colors"
+              :title="`Email ${TOOL_MODE_LABELS[toolMode]} — opens Mail.app with this model's colored entry table pre-filled`"
+              @click="emailToolExport"
+            >
+              <span aria-hidden="true">📧</span> Mail
+            </button>
           </div>
 
           <!-- Batch Change Entries tool -->
