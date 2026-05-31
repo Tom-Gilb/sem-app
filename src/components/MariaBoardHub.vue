@@ -28,7 +28,7 @@ import { resolveIcon } from '../composables/iconRegistry'
 import { useBoardMembers }      from '../composables/useBoardMembers'
 import { useBoardActivityLog }  from '../composables/useBoardActivityLog'
 import { lastMariaResult }      from '../lib/maria/mariaResultStore'
-import { openEml }              from '../composables/useEmlExport'
+import { buildEml }             from '../composables/useEmlExport'
 import type { ActivityStatus, ActivityType } from '../types/board'
 
 const emit = defineEmits<{
@@ -290,9 +290,37 @@ ${openItems.length === 0
 </body></html>`
 }
 
-function sendBoardReport(): void {
-  const html = buildReportHtml()
-  openEml(html, '🏛 Maria — Board Support Report', { to: [] })
+async function sendBoardReport(): Promise<void> {
+  const html    = buildReportHtml()
+  const subject = '🏛 Maria — Board Support Report'
+  const plain   = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const eml     = buildEml(html, plain, subject, [])
+
+  // Primary: POST to Vite dev-server plugin → `open <file.eml>` → Mail.app
+  // with HTML body pre-filled. Same pattern as MariaAgentBoard.vue.
+  let preFilled = false
+  try {
+    const resp = await fetch('/api/open-eml', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ eml }),
+    })
+    preFilled = resp.ok
+  } catch {
+    // Network error or endpoint absent (production build) — fall through to mailto: fallback
+  }
+
+  // Fallback: clipboard + mailto: (Mail.app opens but body requires one ⌘V paste)
+  if (!preFilled) {
+    navigator.clipboard
+      .write([new ClipboardItem({
+        'text/html':  new Blob([html],  { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })])
+      .catch(() => navigator.clipboard.writeText(plain))
+
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}`
+  }
 }
 
 function copyBoardReport(): void {
@@ -311,14 +339,14 @@ function copyBoardReport(): void {
   <Teleport to="body">
     <!-- Backdrop -->
     <div
-      class="fixed inset-0 z-[493] bg-black/60 backdrop-blur-sm"
+      class="fixed top-[68px] inset-x-0 bottom-0 z-[493] bg-black/60 backdrop-blur-sm"
       aria-hidden="true"
       @click="emit('close')"
     />
 
     <!-- Panel card -->
     <div
-      class="fixed inset-0 z-[497] flex items-center justify-center p-4 pointer-events-none"
+      class="fixed top-[68px] inset-x-0 bottom-0 z-[497] flex items-center justify-center p-4 pointer-events-none"
       role="dialog"
       aria-modal="true"
       aria-label="Maria Board Support Hub"

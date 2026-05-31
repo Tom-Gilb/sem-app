@@ -27,6 +27,8 @@ withDefaults(defineProps<{
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 36 48"
+    width="36"
+    height="48"
     :width="size === 'xl' ? 42 : size === 'lg' ? 33 : 24"
     :height="size === 'xl' ? 56 : size === 'lg' ? 44 : 32"
     fill="none"

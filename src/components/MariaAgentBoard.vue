@@ -786,14 +786,14 @@ async function sendEmailReport(): Promise<void> {
   <Teleport to="body">
     <!-- Backdrop -->
     <div
-      class="fixed inset-0 z-[493] bg-black/60 backdrop-blur-sm"
+      class="fixed top-[68px] inset-x-0 bottom-0 z-[493] bg-black/60 backdrop-blur-sm"
       aria-hidden="true"
       @click="emit('close')"
     />
 
     <!-- Panel card -->
     <div
-      class="fixed inset-0 z-[497] flex items-center justify-center p-4 pointer-events-none"
+      class="fixed top-[68px] inset-x-0 bottom-0 z-[497] flex items-center justify-center p-4 pointer-events-none"
       role="dialog"
       aria-modal="true"
       aria-label="Maria Agent — Board Work Parse"
