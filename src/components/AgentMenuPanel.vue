@@ -69,7 +69,7 @@ const AGENTS: AgentDef[] = [
     emoji: '🗂️',
     label: 'Models',
     subtitle: 'Plan Model Library',
-    blurb: 'Browse, load, and manage all your saved plan models. Switch between projects, rename, delete, and restore from a JSON backup.',
+    blurb: 'Browse 18 built-in domain models across 6 categories — Organizational, Project, Product, National, International, and Software. View Planguage F./V./C./R. entries, copy any model, and add your own.',
     color: 'blue',
     status: 'live',
   },

@@ -106,6 +106,7 @@ import ActionsHubPanel from './components/ActionsHubPanel.vue'
 import AgentMenuPanel from './components/AgentMenuPanel.vue'
 import MariaAgentBoard from './components/MariaAgentBoard.vue'
 import MariaBoardHub   from './components/MariaBoardHub.vue'
+import ModelLibraryPanel from './components/ModelLibraryPanel.vue'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
@@ -538,6 +539,7 @@ const planTargetsOpen     = ref(false)
 const agentMenuOpen       = ref(false)
 const mariaOpen           = ref(false)           // MariaAgentBoard — analysis panel
 const mariaBoardOpen      = ref(false)           // MariaBoardHub   — settings + activity log
+const modelLibraryOpen    = ref(false)           // ModelLibraryPanel — domain model library
 // --- Spec Direct Relations (SDR) ---
 const sdrOpen      = ref(false)
 const _sdrEntryId  = ref('')
@@ -3323,6 +3325,7 @@ registerExclusiveSurface('actionsHub',        menuOpen)
 registerExclusiveSurface('agentMenu',         agentMenuOpen)
 registerExclusiveSurface('mariaAgent',        mariaOpen)
 registerExclusiveSurface('mariaBoardHub',     mariaBoardOpen)
+registerExclusiveSurface('modelLibrary',      modelLibraryOpen)
 
 // ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
 // Replaces the old inline text dropdown. Each tile in ActionsHubPanel emits
@@ -4286,7 +4289,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelsOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
@@ -4302,6 +4305,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
     v-if="view === 'app' && mariaBoardOpen"
     @close="mariaBoardOpen = false"
     @open-analysis="mariaBoardOpen = false; mariaOpen = true"
+  />
+
+  <!-- Domain Model Library — 18 built-in Planguage models across 6 categories. z-[600] -->
+  <ModelLibraryPanel
+    v-if="view === 'app' && modelLibraryOpen"
+    @close="modelLibraryOpen = false"
   />
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->
