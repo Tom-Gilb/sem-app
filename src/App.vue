@@ -3806,7 +3806,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           aria-label="Open Agent Menu"
           title="Agent Menu — Maria (Board Work Parse) · Contracts (Planguage Contract Analysis) — single-click to open"
           data-crest-tip="🦾 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
-          class="w-10 h-10 flex items-center justify-center rounded-lg text-3xl
+          class="w-14 h-14 flex items-center justify-center rounded-xl text-5xl
                  select-none transition-all shrink-0
                  focus:outline-none focus:ring-2 focus:ring-emerald-300"
           :class="agentMenuOpen
