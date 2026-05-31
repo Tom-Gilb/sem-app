@@ -32,7 +32,6 @@ import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria, cancelCurrentMaria, mariaStreamedText } from '../composables/useMaria'
 import { buildEml }            from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
-import { useDocumentImport }   from '../composables/useDocumentImport'
 import type { MariaResult }    from '../types/maria'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
 import { lastMariaResult }     from '../lib/maria/mariaResultStore'
@@ -78,39 +77,6 @@ let _copyTimer: ReturnType<typeof setTimeout> | null = null
 
 /** Controls Board Members collapsible panel (collapsed by default). */
 const boardOpen = ref(false)
-
-// ── File import (PDF / DOCX / plain text) ─────────────────────────────────────
-const { importFromFile, importLoading, importError, clearImport } = useDocumentImport()
-/** Ref to the hidden <input type="file"> so we can trigger it programmatically. */
-const fileInputRef = ref<HTMLInputElement | null>(null)
-
-/** Open the OS file picker. */
-function triggerFileInput(): void {
-  clearImport()
-  fileInputRef.value?.click()
-}
-
-/**
- * Handle file selection: extract text via useDocumentImport, fill the document
- * textarea, and auto-start analysis — same flow as pasting text directly.
- * Supports: PDF (.pdf), Word (.docx), plain text (.txt / .md / .html / .csv / .rtf).
- */
-async function handleFileImport(e: Event): Promise<void> {
-  const input = e.target as HTMLInputElement
-  const file  = input.files?.[0]
-  // Reset the input value so the same file can be re-imported if the user
-  // wants to try again after an error (browsers suppress 'change' if the
-  // value didn't change, so we must clear it immediately).
-  input.value = ''
-  if (!file) return
-
-  const text = await importFromFile(file)
-  if (!text) return  // importError is set by the composable; shown in template
-
-  documentText.value = text
-  // Auto-start — identical to the onDocumentPaste flow
-  if (!loading.value) runAnalysis()
-}
 
 
 // ── Live board member roster (localStorage-backed, same data as MariaBoardHub) ──
@@ -223,7 +189,6 @@ function startOver(): void {
   copyDone.value = false
   if (_sentTimer)  { clearTimeout(_sentTimer);  _sentTimer  = null }
   if (_copyTimer)  { clearTimeout(_copyTimer);  _copyTimer  = null }
-  clearImport()
   lastMariaResult.value = null   // clear the store so reopening the panel is clean
   reset()
 }
@@ -1074,74 +1039,35 @@ async function sendEmailReport(): Promise<void> {
             <!-- Document input -->
             <div class="mb-4">
               <label class="block text-sm font-semibold text-slate-700 mb-2" for="maria-document-input">
-                Board document
+                Paste the board document
               </label>
               <p class="text-xs text-slate-500 mb-3 leading-relaxed">
-                Paste or import any board-level text: minutes, a resolution, a strategy paper, or a committee report.
-                Accepted formats: PDF, Word (.docx), plain text, Markdown, HTML, CSV.
-                Maria extracts every decision, classifies each by governance layer, and surfaces authority and governance gaps.
+                Paste any board-level text: minutes, a resolution, a strategy paper, or a committee report.
+                Maria reads the full document and extracts every decision, classifies each by governance layer,
+                and surfaces authority and governance gaps.
               </p>
               <textarea
                 id="maria-document-input"
                 v-model="documentText"
                 rows="12"
                 class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 leading-relaxed placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
-                placeholder="Paste board minutes, resolution, strategy paper, or committee report here — or use the Import file button below"
-                :disabled="loading || importLoading"
-                title="Paste board document here — paste to auto-start analysis, or press ⌘ Return to analyse manually. You can also use the Import file button below to load a PDF, Word, or text file."
+                placeholder="Paste board minutes, resolution, strategy paper, or committee report here…"
+                :disabled="loading"
+                title="Paste board document here — paste to auto-start analysis, or press ⌘ Return to analyse manually"
                 @paste="onDocumentPaste"
                 @keydown.meta.enter.prevent="runAnalysis"
                 @keydown.ctrl.enter.prevent="runAnalysis"
               />
-
-              <!-- Bottom row: sample doc · import file · word count -->
-              <div class="flex items-center justify-between mt-1.5 gap-2">
-                <div class="flex items-center gap-3 min-w-0">
-                  <button
-                    type="button"
-                    title="Use sample document — single-click to load the Berkshire Hills board minutes and immediately start analysis. No second click needed."
-                    class="text-[10px] font-semibold text-teal-600 hover:text-teal-800 hover:underline transition-colors focus:outline-none shrink-0"
-                    @click="useSampleDocument"
-                  >↓ Sample doc</button>
-                  <span class="text-slate-300 text-[10px] shrink-0">|</span>
-                  <!-- Hidden file input — triggered programmatically by the button below -->
-                  <input
-                    ref="fileInputRef"
-                    type="file"
-                    accept=".pdf,.docx,.txt,.md,.markdown,.rtf,.html,.htm,.csv"
-                    class="sr-only"
-                    :disabled="loading || importLoading"
-                    @change="handleFileImport"
-                  />
-                  <button
-                    type="button"
-                    title="Import file — single-click to open a file picker. Supported formats: PDF (.pdf), Word (.docx), plain text (.txt / .md), HTML, CSV. Text is extracted and auto-analysed — no paste required."
-                    class="flex items-center gap-1 text-[10px] font-semibold transition-colors focus:outline-none shrink-0"
-                    :class="importLoading
-                      ? 'text-slate-400 cursor-wait'
-                      : 'text-emerald-600 hover:text-emerald-800 hover:underline'"
-                    :disabled="loading || importLoading"
-                    @click="triggerFileInput"
-                  >
-                    <svg v-if="importLoading" class="w-3 h-3 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    <span>{{ importLoading ? 'Extracting…' : '📂 Import file' }}</span>
-                  </button>
-                </div>
-                <p class="text-xs text-slate-400 tabular-nums shrink-0">
+              <div class="flex items-center justify-between mt-1.5">
+                <button
+                  type="button"
+                  title="Use sample document — single-click to load the Berkshire Hills board minutes and immediately start analysis. No second click needed."
+                  class="text-[10px] font-semibold text-teal-600 hover:text-teal-800 hover:underline transition-colors focus:outline-none"
+                  @click="useSampleDocument"
+                >↓ Use sample document to test</button>
+                <p class="text-xs text-slate-400 tabular-nums">
                   {{ documentText.trim().split(/\s+/).filter(Boolean).length }} words
                 </p>
-              </div>
-
-              <!-- File import error — shown inline below the bottom row -->
-              <div
-                v-if="importError"
-                class="mt-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-[11px] text-red-700 leading-snug"
-                role="alert"
-              >
-                ⚠️ {{ importError }}
               </div>
             </div>
 

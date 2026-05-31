@@ -22,6 +22,7 @@ import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import { useContractStore } from '../composables/useContractStore'
 import { useContractParser } from '../composables/useContractParser'
+import { useDocumentImport } from '../composables/useDocumentImport'
 import type {
   ContractModel,
   ContractClause,
@@ -81,6 +82,7 @@ function openImport(): void {
   importType.value  = 'other'
   importLoading.value = false
   importError.value   = null
+  clearImport()
   showImport.value  = true
 }
 
@@ -96,6 +98,37 @@ function _extractTitle(text: string): string {
 
 const importLoading = ref(false)
 const importError   = ref<string | null>(null)
+
+// ── File import — PDF / DOCX / plain text ────────────────────────────────────
+const { importFromFile, importLoading: fileExtracting, importError: fileExtractError, clearImport } = useDocumentImport()
+/** Ref to the hidden <input type="file"> so we can trigger it programmatically. */
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+function triggerFileInput(): void {
+  clearImport()
+  importError.value = null
+  fileInputRef.value?.click()
+}
+
+/**
+ * Handle file selection: extract text via useDocumentImport, fill importText,
+ * then auto-submit for analysis — no paste step needed.
+ * Supports: PDF (.pdf), Word (.docx), Markdown, HTML, CSV, plain text.
+ */
+async function handleFileImport(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const file  = input.files?.[0]
+  // Reset immediately so the same file can be re-imported after an error
+  input.value = ''
+  if (!file) return
+  const text = await importFromFile(file)
+  if (!text) return  // fileExtractError shown in template
+  importText.value = text
+  // Auto-title from filename (without extension) if user hasn't typed one
+  if (!importTitle.value.trim()) {
+    importTitle.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+  }
+}
 
 async function doImport(): Promise<void> {
   const rawText = importText.value.trim()
@@ -843,16 +876,54 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Contract text *</label>
                 <p class="text-[11px] text-slate-500 mb-2">
-                  Paste your contract — SLA, NDA, service agreement, or any legal text.
+                  Paste your contract, or import a file — PDF, Word (.docx), Markdown, HTML, or plain text.
                   SEM splits it into clauses and converts each to Planguage automatically.
                   Party names, types, and obligations are detected from the text.
                 </p>
+
+                <!-- File import row — sits above the textarea -->
+                <div class="flex items-center gap-2 mb-2">
+                  <!-- Hidden file input — triggered by button below -->
+                  <input
+                    ref="fileInputRef"
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md,.markdown,.rtf,.html,.htm,.csv"
+                    class="sr-only"
+                    :disabled="importLoading || fileExtracting"
+                    @change="handleFileImport"
+                  />
+                  <button
+                    type="button"
+                    title="Import file — single-click to open a file picker. Supported: PDF (.pdf), Word (.docx), Markdown (.md), HTML, CSV, plain text. Text is extracted and filled into the contract field automatically."
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    :class="fileExtracting
+                      ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-wait'
+                      : 'border-teal-300 bg-teal-50 text-teal-700 hover:bg-teal-100'"
+                    :disabled="importLoading || fileExtracting"
+                    @click="triggerFileInput"
+                  >
+                    <svg v-if="fileExtracting" class="w-3 h-3 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    <span>{{ fileExtracting ? 'Extracting…' : '📂 Import file (PDF / Word / text)' }}</span>
+                  </button>
+                  <span class="text-[10px] text-slate-400">or paste below</span>
+                </div>
+
+                <!-- File extraction error -->
+                <p v-if="fileExtractError" class="text-[11px] text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200 mb-2">⚠ {{ fileExtractError }}</p>
+
                 <textarea
                   v-model="importText"
-                  rows="12"
-                  placeholder="Paste contract text here…&#10;SEM will find the parties, extract obligations, and identify vague language automatically."
+                  rows="10"
+                  placeholder="Paste contract text here — or use Import file above for PDF / Word / text files.&#10;SEM will find the parties, extract obligations, and identify vague language automatically."
                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none leading-relaxed"
+                  :class="importText ? 'border-teal-300' : ''"
                 />
+                <p v-if="importText" class="text-[10px] text-slate-400 mt-1 tabular-nums">
+                  {{ importText.trim().split(/\s+/).filter(Boolean).length }} words
+                </p>
               </div>
               <p v-if="importError" class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">⚠ {{ importError }}</p>
               <div class="flex justify-end pt-2">
