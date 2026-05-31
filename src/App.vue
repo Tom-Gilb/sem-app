@@ -3667,7 +3667,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
        z-[300] sits above normal content and below the demo bar (z-50+).  -->
   <div
     v-if="view === 'app' && planModel"
-    class="fixed top-0 left-0 right-0 z-[300] flex flex-col px-4 py-1.5
+    class="fixed top-0 left-0 right-0 z-[300] flex flex-col px-4 py-1.5 relative
            bg-gradient-to-r from-indigo-800 via-indigo-600 to-violet-600
            text-white shadow-lg ring-1 ring-black/10 select-none"
     aria-label="Plan Crest — active plan"
@@ -3766,58 +3766,59 @@ function handleApertureLoadPlan(model: PlanModel): void {
         >Enter saves · Esc cancels</span>
       </div>
 
-      <!-- ── Right pin cluster: SOS · ⚡ Actions · 🤖 Agents ──────────────────
-           Absolute-right in Row 1 so they are NEVER clipped by Row 2's
-           overflow-x-clip. Control-pins-at-top rule: topmost row, right side.
-           Moved here 2026-05-29 — overflow-x-clip on Row 2 was clipping
-           these at 1024–1180 px viewport widths. -->
-      <div class="absolute right-0 inset-y-0 flex items-center gap-1 pr-0.5">
-        <!-- 🆘 SOS -->
-        <button
-          type="button"
-          class="h-8 w-8 flex items-center justify-center rounded-lg text-base
-                 bg-red-600/80 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300
-                 focus:outline-none focus:ring-2 focus:ring-red-300 transition-all shrink-0"
-          aria-label="SOS — open reset menu (Blank Canvas, Save & Stop, Rollback, Close stuck UI)"
-          title="🆘 SOS — Blank Canvas / Save & Stop / Cancel Changes / Close stuck UI"
-          @click="freshStartOpen = true"
-        >🆘</button>
-        <!-- ⚡ Actions hub -->
-        <button
-          type="button"
-          :aria-expanded="menuOpen"
-          aria-haspopup="true"
-          aria-label="Open Actions menu (⌘A)"
-          title="Actions menu — press ⌘A from anywhere"
-          data-crest-tip="⚡ Actions — plan management, saves, exports & shortcuts (⌘A)"
-          class="w-8 h-8 flex items-center justify-center rounded-lg text-lg
-                 select-none transition-all shrink-0
-                 focus:outline-none focus:ring-2 focus:ring-amber-300"
-          :class="menuOpen
-            ? 'bg-amber-300 text-amber-900 ring-2 ring-amber-200'
-            : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
-          @click="toggleMenu"
-        ><span aria-hidden="true" style="filter: brightness(0.1);">⚡</span></button>
-        <!-- 🦾 Agents -->
-        <button
-          type="button"
-          :aria-expanded="agentMenuOpen"
-          aria-haspopup="true"
-          aria-label="Open Agent Menu"
-          title="Agent Menu — Maria (Board Work Parse) · Contracts (Planguage Contract Analysis) — single-click to open"
-          data-crest-tip="🔭 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
-          class="flex items-center gap-1.5 px-3 h-10 rounded-xl
-                 select-none transition-all shrink-0
-                 focus:outline-none focus:ring-2 focus:ring-emerald-300"
-          :class="agentMenuOpen
-            ? 'bg-emerald-300 text-emerald-900 ring-2 ring-emerald-200'
-            : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
-          @click="agentMenuOpen = true"
-        >
-          <span class="text-2xl leading-none" aria-hidden="true">🔭</span>
-          <span class="text-sm font-bold leading-none">Agents</span>
-        </button>
-      </div>
+    </div>
+
+    <!-- ── Right pin cluster: 🆘 SOS · ⚡ Actions · 🔭 Agents ─────────────────
+         Absolute on the OUTER crest bar (relative), pinned top-right.
+         Sits at the very top of the screen — maximum distance from stage bar.
+         Control-pins-at-top rule. Moved to outer crest bar 2026-05-31:
+         was vertically centred in Row 1 which felt too close to stage buttons. -->
+    <div class="absolute top-1.5 right-1 flex items-center gap-1 pr-0.5">
+      <!-- 🆘 SOS -->
+      <button
+        type="button"
+        class="h-8 w-8 flex items-center justify-center rounded-lg text-base
+               bg-red-600/80 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300
+               focus:outline-none focus:ring-2 focus:ring-red-300 transition-all shrink-0"
+        aria-label="SOS — open reset menu (Blank Canvas, Save & Stop, Rollback, Close stuck UI)"
+        title="🆘 SOS — Blank Canvas / Save & Stop / Cancel Changes / Close stuck UI"
+        @click="freshStartOpen = true"
+      >🆘</button>
+      <!-- ⚡ Actions hub -->
+      <button
+        type="button"
+        :aria-expanded="menuOpen"
+        aria-haspopup="true"
+        aria-label="Open Actions menu (⌘A)"
+        title="Actions menu — press ⌘A from anywhere"
+        data-crest-tip="⚡ Actions — plan management, saves, exports & shortcuts (⌘A)"
+        class="w-8 h-8 flex items-center justify-center rounded-lg text-lg
+               select-none transition-all shrink-0
+               focus:outline-none focus:ring-2 focus:ring-amber-300"
+        :class="menuOpen
+          ? 'bg-amber-300 text-amber-900 ring-2 ring-amber-200'
+          : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
+        @click="toggleMenu"
+      ><span aria-hidden="true" style="filter: brightness(0.1);">⚡</span></button>
+      <!-- 🔭 Agents -->
+      <button
+        type="button"
+        :aria-expanded="agentMenuOpen"
+        aria-haspopup="true"
+        aria-label="Open Agent Menu"
+        title="Agent Menu — Maria (Board Work Parse) · Contracts (Planguage Contract Analysis) — single-click to open"
+        data-crest-tip="🔭 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
+        class="flex items-center gap-1.5 px-3 h-10 rounded-xl
+               select-none transition-all shrink-0
+               focus:outline-none focus:ring-2 focus:ring-emerald-300"
+        :class="agentMenuOpen
+          ? 'bg-emerald-300 text-emerald-900 ring-2 ring-emerald-200'
+          : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
+        @click="agentMenuOpen = true"
+      >
+        <span class="text-2xl leading-none" aria-hidden="true">🔭</span>
+        <span class="text-sm font-bold leading-none">Agents</span>
+      </button>
     </div>
 
     <!-- ── Row 2: META + CONTROLS ──────────────────────────────────────────
