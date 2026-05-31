@@ -109,6 +109,8 @@ import MariaBoardHub   from './components/MariaBoardHub.vue'
 import ModelLibraryPanel from './components/ModelLibraryPanel.vue'
 import StakeholderMapperPanel from './components/StakeholderMapperPanel.vue'
 import EvoCritiquerPanel from './components/EvoCritiquerPanel.vue'
+import PlanImporterPanel from './components/PlanImporterPanel.vue'
+import DecisionMapperPanel from './components/DecisionMapperPanel.vue'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
@@ -544,6 +546,8 @@ const mariaBoardOpen      = ref(false)           // MariaBoardHub   — settings
 const modelLibraryOpen    = ref(false)           // ModelLibraryPanel — domain model library
 const stakeholderMapperOpen = ref(false)         // StakeholderMapperPanel — AI attribute profiles
 const evoCritiquerOpen      = ref(false)         // EvoCritiquerPanel — Evo health check
+const planImporterOpen      = ref(false)         // PlanImporterPanel — universal Planguage converter
+const decisionMapperOpen    = ref(false)         // DecisionMapperPanel — decision analysis
 // --- Spec Direct Relations (SDR) ---
 const sdrOpen      = ref(false)
 const _sdrEntryId  = ref('')
@@ -3332,6 +3336,8 @@ registerExclusiveSurface('mariaBoardHub',     mariaBoardOpen)
 registerExclusiveSurface('modelLibrary',      modelLibraryOpen)
 registerExclusiveSurface('stakeholderMapper', stakeholderMapperOpen)
 registerExclusiveSurface('evoCritiquer',      evoCritiquerOpen)
+registerExclusiveSurface('planImporter',      planImporterOpen)
+registerExclusiveSurface('decisionMapper',    decisionMapperOpen)
 
 // ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
 // Replaces the old inline text dropdown. Each tile in ActionsHubPanel emits
@@ -4295,7 +4301,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') planImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
@@ -4329,6 +4335,18 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <EvoCritiquerPanel
     v-if="view === 'app' && evoCritiquerOpen"
     @close="evoCritiquerOpen = false"
+  />
+
+  <!-- Plan Importer agent panel — universal Planguage converter. z-[600] -->
+  <PlanImporterPanel
+    v-if="view === 'app' && planImporterOpen"
+    @close="planImporterOpen = false"
+  />
+
+  <!-- Decision Mapper agent panel — structured decision analysis. z-[600] -->
+  <DecisionMapperPanel
+    v-if="view === 'app' && decisionMapperOpen"
+    @close="decisionMapperOpen = false"
   />
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->

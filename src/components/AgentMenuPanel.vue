@@ -91,6 +91,24 @@ const AGENTS: AgentDef[] = [
     color: 'violet',
     status: 'live',
   },
+  {
+    id: 'plan-importer',
+    emoji: '📄',
+    label: 'Plan Agent',
+    subtitle: 'Universal Planguage Converter',
+    blurb: 'Paste any text — business brief, roadmap, strategy doc, rough notes — and AI converts it to full Planguage F./V./C./R./S. entries. Then analyses problems and inconsistencies, suggests improvements, and applies them on your command ("simplify", "innovate", "make measurable"). Full version history with before/after comparison.',
+    color: 'orange',
+    status: 'live',
+  },
+  {
+    id: 'decisions',
+    emoji: '🎯',
+    label: 'Decisions',
+    subtitle: 'Planguage Decision Analysis',
+    blurb: 'Describe any decision and its options. AI builds a scored decision matrix (options × Planguage criteria), models each option as F./V./C. entries, recommends the best path with rationale, and compares options against any other plan you load separately. Redo the analysis with new instructions at any time.',
+    color: 'rose',
+    status: 'live',
+  },
 ]
 
 function selectAgent(agent: AgentDef): void {
@@ -162,7 +180,9 @@ function selectAgent(agent: AgentDef): void {
                   agent.id === 'contracts'           ? 'bg-gradient-to-r from-teal-700 to-teal-600' :
                   agent.id === 'models'              ? 'bg-gradient-to-r from-blue-700 to-blue-600' :
                   agent.id === 'stakeholder-mapper'  ? 'bg-gradient-to-r from-indigo-700 to-indigo-600' :
-                  'bg-gradient-to-r from-violet-700 to-violet-600',
+                  agent.id === 'evo-step-critique'   ? 'bg-gradient-to-r from-violet-700 to-violet-600' :
+                  agent.id === 'plan-importer'       ? 'bg-gradient-to-r from-orange-700 to-orange-600' :
+                  'bg-gradient-to-r from-rose-700 to-rose-600',
                 ]"
               >
                 <!-- Maria: governance-layer mini-table thumbnail -->
@@ -316,6 +336,88 @@ function selectAgent(agent: AgentDef): void {
                   </svg>
                 </div>
 
+                <!-- plan-importer: text input → arrow → F./V./C. entries thumbnail -->
+                <div v-else-if="agent.id === 'plan-importer'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
+                  <svg width="72" height="53" viewBox="0 0 72 53" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect width="72" height="12" fill="#c2410c"/>
+                    <text x="4" y="9" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">📄 Plan Agent</text>
+                    <!-- Input text block left -->
+                    <rect x="2" y="14" width="24" height="33" rx="2" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+                    <rect x="4" y="17" width="18" height="1.5" rx="0.5" fill="#9ca3af"/>
+                    <rect x="4" y="20.5" width="14" height="1.5" rx="0.5" fill="#9ca3af"/>
+                    <rect x="4" y="24" width="16" height="1.5" rx="0.5" fill="#9ca3af"/>
+                    <rect x="4" y="27.5" width="11" height="1.5" rx="0.5" fill="#9ca3af"/>
+                    <rect x="4" y="31" width="15" height="1.5" rx="0.5" fill="#9ca3af"/>
+                    <text x="6" y="44" font-size="4" fill="#f97316" font-family="system-ui,sans-serif">Any text</text>
+                    <!-- Arrow -->
+                    <text x="28" y="32" font-size="9" fill="#f97316" font-family="system-ui,sans-serif">→</text>
+                    <!-- Planguage entries right -->
+                    <rect x="40" y="14" width="30" height="7" rx="1.5" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+                    <rect x="42" y="16.5" width="6" height="4" rx="1" fill="#f97316"/>
+                    <text x="43" y="19.5" font-size="3.5" fill="white" font-family="system-ui,sans-serif" font-weight="700">F.1</text>
+                    <rect x="50" y="17.5" width="16" height="1.5" rx="0.5" fill="#9ca3af"/>
+                    <rect x="40" y="23" width="30" height="7" rx="1.5" fill="#eff6ff" stroke="#bfdbfe" stroke-width="0.5"/>
+                    <rect x="42" y="25.5" width="6" height="4" rx="1" fill="#3b82f6"/>
+                    <text x="43" y="28.5" font-size="3.5" fill="white" font-family="system-ui,sans-serif" font-weight="700">V.1</text>
+                    <rect x="50" y="26.5" width="16" height="1.5" rx="0.5" fill="#9ca3af"/>
+                    <rect x="40" y="32" width="30" height="7" rx="1.5" fill="#fef2f2" stroke="#fecaca" stroke-width="0.5"/>
+                    <rect x="42" y="34.5" width="6" height="4" rx="1" fill="#ef4444"/>
+                    <text x="43" y="37.5" font-size="3.5" fill="white" font-family="system-ui,sans-serif" font-weight="700">C.1</text>
+                    <rect x="50" y="35.5" width="14" height="1.5" rx="0.5" fill="#9ca3af"/>
+                    <rect x="40" y="41" width="30" height="7" rx="1.5" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="0.5"/>
+                    <rect x="42" y="43.5" width="6" height="4" rx="1" fill="#10b981"/>
+                    <text x="43" y="46.5" font-size="3.5" fill="white" font-family="system-ui,sans-serif" font-weight="700">R.1</text>
+                    <rect x="50" y="44.5" width="12" height="1.5" rx="0.5" fill="#9ca3af"/>
+                  </svg>
+                </div>
+
+                <!-- decisions: mini decision matrix thumbnail -->
+                <div v-else-if="agent.id === 'decisions'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
+                  <svg width="72" height="53" viewBox="0 0 72 53" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect width="72" height="12" fill="#be123c"/>
+                    <text x="4" y="9" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">🎯 Decisions</text>
+                    <!-- Matrix header row -->
+                    <rect x="0" y="12" width="72" height="8" fill="#fff1f2"/>
+                    <text x="20" y="18" font-size="4" fill="#9f1239" font-family="system-ui,sans-serif" font-weight="600">Cost</text>
+                    <text x="34" y="18" font-size="4" fill="#9f1239" font-family="system-ui,sans-serif" font-weight="600">Speed</text>
+                    <text x="50" y="18" font-size="4" fill="#9f1239" font-family="system-ui,sans-serif" font-weight="600">Fit</text>
+                    <text x="61" y="18" font-size="4" fill="#9f1239" font-family="system-ui,sans-serif" font-weight="600">Score</text>
+                    <!-- Row 1: Build -->
+                    <rect x="0" y="20" width="72" height="9" fill="white"/>
+                    <text x="2" y="26" font-size="4" fill="#374151" font-family="system-ui,sans-serif">Build</text>
+                    <rect x="18" y="22" width="12" height="5" rx="1" fill="#10b981"/>
+                    <text x="20" y="26" font-size="3.5" fill="white" font-family="system-ui,sans-serif">85</text>
+                    <rect x="32" y="22" width="12" height="5" rx="1" fill="#f59e0b"/>
+                    <text x="34" y="26" font-size="3.5" fill="white" font-family="system-ui,sans-serif">52</text>
+                    <rect x="48" y="22" width="12" height="5" rx="1" fill="#10b981"/>
+                    <text x="50" y="26" font-size="3.5" fill="white" font-family="system-ui,sans-serif">90</text>
+                    <text x="62" y="26" font-size="4" fill="#374151" font-family="system-ui,sans-serif" font-weight="600">76</text>
+                    <!-- Row 2: Buy ⭐ -->
+                    <rect x="0" y="29" width="72" height="9" fill="#fff1f2"/>
+                    <text x="2" y="35" font-size="4" fill="#374151" font-family="system-ui,sans-serif">Buy ⭐</text>
+                    <rect x="18" y="31" width="12" height="5" rx="1" fill="#ef4444"/>
+                    <text x="20" y="35" font-size="3.5" fill="white" font-family="system-ui,sans-serif">35</text>
+                    <rect x="32" y="31" width="12" height="5" rx="1" fill="#10b981"/>
+                    <text x="34" y="35" font-size="3.5" fill="white" font-family="system-ui,sans-serif">91</text>
+                    <rect x="48" y="31" width="12" height="5" rx="1" fill="#f59e0b"/>
+                    <text x="50" y="35" font-size="3.5" fill="white" font-family="system-ui,sans-serif">68</text>
+                    <text x="61" y="35" font-size="4" fill="#be123c" font-family="system-ui,sans-serif" font-weight="700">82</text>
+                    <!-- Row 3: Hybrid -->
+                    <rect x="0" y="38" width="72" height="9" fill="white"/>
+                    <text x="2" y="44" font-size="4" fill="#374151" font-family="system-ui,sans-serif">Hybrid</text>
+                    <rect x="18" y="40" width="12" height="5" rx="1" fill="#f59e0b"/>
+                    <text x="20" y="44" font-size="3.5" fill="white" font-family="system-ui,sans-serif">61</text>
+                    <rect x="32" y="40" width="12" height="5" rx="1" fill="#f59e0b"/>
+                    <text x="34" y="44" font-size="3.5" fill="white" font-family="system-ui,sans-serif">58</text>
+                    <rect x="48" y="40" width="12" height="5" rx="1" fill="#10b981"/>
+                    <text x="50" y="44" font-size="3.5" fill="white" font-family="system-ui,sans-serif">79</text>
+                    <text x="62" y="44" font-size="4" fill="#374151" font-family="system-ui,sans-serif" font-weight="600">67</text>
+                    <!-- Footer -->
+                    <rect x="0" y="47" width="72" height="6" fill="#fff1f2"/>
+                    <text x="4" y="52" font-size="3.5" fill="#9f1239" font-family="system-ui,sans-serif">Recommendation: Buy → fastest value delivery</text>
+                  </svg>
+                </div>
+
                 <!-- Fallback for any future coming-soon agents -->
                 <div v-else class="rounded-md overflow-hidden bg-white/80 shadow-sm ring-1 ring-white/30 shrink-0 flex items-center justify-center" style="width:72px;height:53px;">
                   <span class="text-2xl opacity-40" aria-hidden="true">{{ agent.emoji }}</span>
@@ -358,7 +460,11 @@ function selectAgent(agent: AgentDef): void {
                             ? 'bg-blue-600 hover:bg-blue-700 focus-visible:outline-blue-600'
                             : agent.id === 'evo-step-critique'
                               ? 'bg-violet-600 hover:bg-violet-700 focus-visible:outline-violet-600'
-                              : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
+                              : agent.id === 'plan-importer'
+                                ? 'bg-orange-600 hover:bg-orange-700 focus-visible:outline-orange-600'
+                                : agent.id === 'decisions'
+                                  ? 'bg-rose-600 hover:bg-rose-700 focus-visible:outline-rose-600'
+                                  : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
                     ]"
                     :title="`Launch ${agent.label} — ${agent.blurb}`"
                     @click.stop="selectAgent(agent)"
