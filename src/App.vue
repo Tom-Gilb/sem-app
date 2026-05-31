@@ -3806,8 +3806,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
         :aria-expanded="agentMenuOpen"
         aria-haspopup="true"
         aria-label="Open Agent Menu"
-        title="Agent Menu — Maria (Board Work Parse) · Contracts (Planguage Contract Analysis) — single-click to open"
-        data-crest-tip="🦾 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
+        title="Agent Menu — Maria · Contracts · Models — single-click to open"
+        data-crest-tip="🦾 Agents — Maria: Board governance · Contracts: Planguage analysis · Models: Plan library"
         class="flex items-center gap-1.5 px-3 h-10 rounded-xl
                select-none transition-all shrink-0
                focus:outline-none focus:ring-2 focus:ring-emerald-300"
@@ -4286,7 +4286,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelsOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->

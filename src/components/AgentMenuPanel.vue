@@ -65,6 +65,15 @@ const AGENTS: AgentDef[] = [
     status: 'live',
   },
   {
+    id: 'models',
+    emoji: '🗂️',
+    label: 'Models',
+    subtitle: 'Plan Model Library',
+    blurb: 'Browse, load, and manage all your saved plan models. Switch between projects, rename, delete, and restore from a JSON backup.',
+    color: 'blue',
+    status: 'live',
+  },
+  {
     id: 'stakeholder-mapper',
     emoji: '👥',
     label: 'Stakeholder Mapper',
@@ -151,6 +160,7 @@ function selectAgent(agent: AgentDef): void {
                   'px-4 py-3 flex items-center gap-3',
                   agent.id === 'maria'              ? 'bg-gradient-to-r from-emerald-700 to-emerald-600' :
                   agent.id === 'contracts'           ? 'bg-gradient-to-r from-teal-700 to-teal-600' :
+                  agent.id === 'models'              ? 'bg-gradient-to-r from-blue-700 to-blue-600' :
                   agent.id === 'stakeholder-mapper'  ? 'bg-gradient-to-r from-indigo-700 to-indigo-600' :
                   'bg-gradient-to-r from-violet-700 to-violet-600',
                 ]"
@@ -218,6 +228,41 @@ function selectAgent(agent: AgentDef): void {
                   </svg>
                 </div>
 
+                <!-- Models: plan model library mini-list thumbnail -->
+                <div v-else-if="agent.id === 'models'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
+                  <svg width="72" height="53" viewBox="0 0 72 53" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <!-- Blue header -->
+                    <rect width="72" height="11" fill="#1d4ed8"/>
+                    <text x="4" y="8" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">Plan Models</text>
+                    <!-- Active model row (blue accent) -->
+                    <rect x="0" y="11" width="72" height="11" fill="#eff6ff"/>
+                    <rect x="2" y="13" width="3" height="7" rx="1" fill="#3b82f6"/>
+                    <text x="7" y="17.5" font-size="4" fill="#1d4ed8" font-family="system-ui,sans-serif" font-weight="700">★</text>
+                    <rect x="13" y="14" width="28" height="2" rx="1" fill="#3b82f6"/>
+                    <rect x="13" y="18" width="16" height="1.5" rx="0.75" fill="#93c5fd"/>
+                    <text x="54" y="18.5" font-size="4" fill="#1d4ed8" font-family="system-ui,sans-serif" font-weight="700">Active</text>
+                    <!-- Model row 2 -->
+                    <rect x="0" y="22" width="72" height="10" fill="#fafafa"/>
+                    <rect x="2" y="24" width="3" height="6" rx="1" fill="#cbd5e1"/>
+                    <rect x="7" y="25" width="2" height="2" rx="1" fill="#94a3b8"/>
+                    <rect x="11" y="24.5" width="26" height="2" rx="1" fill="#94a3b8"/>
+                    <rect x="11" y="28" width="18" height="1.5" rx="0.75" fill="#cbd5e1"/>
+                    <!-- Model row 3 -->
+                    <rect x="0" y="32" width="72" height="10" fill="#f8fafc"/>
+                    <rect x="2" y="34" width="3" height="6" rx="1" fill="#e2e8f0"/>
+                    <rect x="7" y="35" width="2" height="2" rx="1" fill="#94a3b8"/>
+                    <rect x="11" y="34.5" width="22" height="2" rx="1" fill="#cbd5e1"/>
+                    <rect x="11" y="38" width="14" height="1.5" rx="0.75" fill="#e2e8f0"/>
+                    <!-- Dividers -->
+                    <line x1="0" y1="22" x2="72" y2="22" stroke="#e2e8f0" stroke-width="0.5"/>
+                    <line x1="0" y1="32" x2="72" y2="32" stroke="#e2e8f0" stroke-width="0.5"/>
+                    <line x1="0" y1="42" x2="72" y2="42" stroke="#e2e8f0" stroke-width="0.5"/>
+                    <!-- Footer -->
+                    <rect x="0" y="42" width="72" height="11" fill="#f1f5f9"/>
+                    <text x="4" y="49" font-size="3" fill="#64748b" font-family="system-ui,sans-serif">Browse · Load · Rename · Backup</text>
+                  </svg>
+                </div>
+
                 <!-- Coming-soon agents: generic placeholder thumbnail -->
                 <div v-else class="rounded-md overflow-hidden bg-white/80 shadow-sm ring-1 ring-white/30 shrink-0 flex items-center justify-center" style="width:72px;height:53px;">
                   <span class="text-2xl opacity-40" aria-hidden="true">{{ agent.emoji }}</span>
@@ -256,7 +301,9 @@ function selectAgent(agent: AgentDef): void {
                         ? 'bg-emerald-600 hover:bg-emerald-700 focus-visible:outline-emerald-600'
                         : agent.id === 'contracts'
                           ? 'bg-teal-600 hover:bg-teal-700 focus-visible:outline-teal-600'
-                          : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
+                          : agent.id === 'models'
+                            ? 'bg-blue-600 hover:bg-blue-700 focus-visible:outline-blue-600'
+                            : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
                     ]"
                     :title="`Launch ${agent.label} — ${agent.blurb}`"
                     @click.stop="selectAgent(agent)"
