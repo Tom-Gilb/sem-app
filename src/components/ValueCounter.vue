@@ -384,22 +384,19 @@ onUnmounted(() => {
       <span class="text-2xl leading-none font-bold" aria-hidden="true">◀</span>
     </button>
 
-    <!-- Native overflow-x-auto: ScrollContainer only handles vertical scroll.
-         scrollWrapRef + pillRefs allow scrollToActive to center the active tile.
-         pr-20 ensures the last tile isn't hidden behind the ▶ Next button. -->
+    <!-- Tom 2026-06-01: "just fit it in" — tiles now flex-1 so all 11 stages fill
+         the fixed bar width with no horizontal scroll. overflow-x-auto kept only
+         as a fallback for very narrow viewports (< ~700px).
+         scrollToActive is retained (no-op when bar doesn't scroll). -->
     <div
       ref="scrollWrapRef"
-      class="overflow-x-auto scrollbar-none w-full"
-      style="scroll-behavior: auto;"
+      class="overflow-x-auto w-full"
     >
-      <!-- pl-3: minimal left indent so stage 1 is fully visible at scroll=0.
-           paddingRight: 5rem base (▶ Next button) + extraRightPad px to clear
-           the fixed SOS/Mic/Speaker/Actions cluster when it is visible.
-           Tom 2026-05-29: "old bug: stage 1 is still hidden off to left."
-           Tom 2026-05-31: "buttons overlap stage steps" — fixed via extraRightPad. -->
+      <!-- gap-0 + px-1: tiles are flex-1 so gaps would waste space; tiny px-1
+           keeps stages off the very edge of the nav chrome. No paddingRight
+           needed: the stage bar is fixed left-0 right-0 and nothing overlaps it. -->
       <div
-        class="flex items-end gap-3 pl-3 pb-1 min-w-max"
-        :style="{ paddingRight: `calc(5rem + ${props.extraRightPad}px)` }"
+        class="flex items-end gap-0 px-1 pb-1"
       >
       <template v-for="(step, idx) in STAGES" :key="step.stage">
 
@@ -409,10 +406,10 @@ onUnmounted(() => {
         <button
           :ref="(el) => { if (el) pillRefs[idx] = el as HTMLButtonElement }"
           type="button"
-          class="relative flex flex-col items-center gap-1.5 shrink-0 focus:outline-none
+          class="relative flex flex-col items-center gap-1.5 flex-1 min-w-[56px] focus:outline-none
                  focus-visible:ring-2 focus-visible:ring-white/60 rounded-2xl
                  transition-all duration-300 hover:scale-105 active:scale-95"
-          :style="{ ...pillStyle(step.stage), width: '96px', height: '96px', borderRadius: '16px' }"
+          :style="{ ...pillStyle(step.stage), height: '96px', borderRadius: '16px' }"
           :aria-label="`Stage ${step.stage}: ${step.label} — click for overview · double-click for full INFO`"
           :aria-current="step.stage === currentStage ? 'step' : undefined"
           :title="`${step.title} · click for overview · dbl-click for INFO`"
@@ -477,15 +474,16 @@ onUnmounted(() => {
                  hover:scale-110 active:scale-95 transition-transform
                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded
                  group"
-          style="width:64px; height:52px;"
+          style="width:20px; height:52px; flex-shrink:0;"
           :aria-label="`${step.label} to ${STAGES[idx + 1].label} transition — click for INFO`"
           :title="`Stage ${step.stage}→${step.stage + 1}: ${step.label} → ${STAGES[idx + 1].label} · click for INFO (history · Planguage · fun fact)`"
           @click="openArrow(idx)"
         >
           <svg
             viewBox="0 0 64 52"
-            width="64"
+            width="20"
             height="52"
+            preserveAspectRatio="none"
             fill="none"
             :style="arrowStyle(idx)"
             aria-hidden="true"
