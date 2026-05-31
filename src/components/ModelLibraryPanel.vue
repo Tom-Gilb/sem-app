@@ -383,7 +383,7 @@ const TOOL_MODE_LABELS: Record<ToolMode, string> = {
   'edit-manual':       '✏️ Manual Edit List',
   'viz-flow':          '📊 Value Flow',
   'viz-related':       '🔗 Strongly Related',
-  'viz-3d':            '🧊 3D Model View',
+  'viz-3d':            '🧊 Model Visualizer (3D · 2D)',
   'sharpen':           '✂️ Sharpen Model',
   'defect-analysis':   '🔬 Model Defect Analysis',
   'improve-attributes': '✨ Improve Model Attributes',
@@ -789,7 +789,14 @@ function qualityScoreLabel(score: number): string {
   return '▲ Needs work'
 }
 
-// ── 3D Model View state ─────────────────────────────────────────────────────
+// ── Model Visualizer state (3D + 2D modes) ───────────────────────────────────
+// vizRenderMode: top-level render mode selector.
+//   '3d'         — CSS 3D cube with 6 entry-type faces (rotating or static)
+//   '2d-simple'  — flat SVG node map: coloured circles/rects per entry, grouped by type
+//   '2d-colored' — Kanban-style card columns, one column per entry type, colorised
+type VizRenderMode = '3d' | '2d-simple' | '2d-colored'
+const vizRenderMode = ref<VizRenderMode>('3d')
+
 const viz3dLevel    = ref<'Top' | 'Medium' | 'All'>('Medium')
 const viz3dRotating = ref(false)
 const viz3dAngle    = ref(20)
@@ -805,17 +812,57 @@ watch(viz3dRotating, (on) => {
 
 onUnmounted(() => { if (viz3dTimer) clearInterval(viz3dTimer) })
 
-// Entry sub-sets for each cube face
-const viz3dFEntries = computed(() =>
-  (selectedModel.value?.entries ?? []).filter(e => e.type === 'F'))
+// All entries by type — used by all three render modes
+const vizAllFEntries = computed(() => (selectedModel.value?.entries ?? []).filter(e => e.type === 'F'))
+const vizAllVEntries = computed(() => (selectedModel.value?.entries ?? []).filter(e => e.type === 'V'))
+const vizAllCEntries = computed(() => (selectedModel.value?.entries ?? []).filter(e => e.type === 'C'))
+const vizAllREntries = computed(() => (selectedModel.value?.entries ?? []).filter(e => e.type === 'R'))
+const vizAllSEntries = computed(() => (selectedModel.value?.entries ?? []).filter(e => e.type === 'S'))
+
+// Entry sub-sets for each cube face (respects level-of-detail for 3D mode)
+const viz3dFEntries = computed(() => vizAllFEntries.value)
 const viz3dVEntries = computed(() =>
-  viz3dLevel.value === 'Top' ? [] : (selectedModel.value?.entries ?? []).filter(e => e.type === 'V'))
+  viz3dLevel.value === 'Top' ? [] : vizAllVEntries.value)
 const viz3dCEntries = computed(() =>
-  viz3dLevel.value === 'All' ? (selectedModel.value?.entries ?? []).filter(e => e.type === 'C') : [])
+  viz3dLevel.value === 'All' ? vizAllCEntries.value : [])
 const viz3dREntries = computed(() =>
-  viz3dLevel.value === 'All' ? (selectedModel.value?.entries ?? []).filter(e => e.type === 'R') : [])
+  viz3dLevel.value === 'All' ? vizAllREntries.value : [])
 const viz3dSEntries = computed(() =>
-  viz3dLevel.value !== 'Top' ? (selectedModel.value?.entries ?? []).filter(e => e.type === 'S') : [])
+  viz3dLevel.value !== 'Top' ? vizAllSEntries.value : [])
+
+// 2D mode: columns config — defines display order and colour tokens
+// Pure data — Twin-portable (no Vue API).
+const VIZ2D_COLS = [
+  { type: 'F', label: 'F. Functions',    bg: 'bg-orange-50',  border: 'border-orange-200',  badge: 'bg-orange-100 text-orange-800',  dot: 'bg-orange-400' },
+  { type: 'V', label: 'V. Values',       bg: 'bg-blue-50',    border: 'border-blue-200',    badge: 'bg-blue-100 text-blue-800',      dot: 'bg-blue-400'   },
+  { type: 'C', label: 'C. Constraints',  bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', badge: 'bg-fuchsia-100 text-fuchsia-800',dot: 'bg-fuchsia-400'},
+  { type: 'R', label: 'R. Resources',    bg: 'bg-sky-50',     border: 'border-sky-200',     badge: 'bg-sky-100 text-sky-800',        dot: 'bg-sky-400'    },
+  { type: 'S', label: 'S. Stakeholders', bg: 'bg-violet-50',  border: 'border-violet-200',  badge: 'bg-violet-100 text-violet-800',  dot: 'bg-violet-400' },
+] as const
+
+function viz2dEntries(type: string) {
+  switch (type) {
+    case 'F': return vizAllFEntries.value
+    case 'V': return vizAllVEntries.value
+    case 'C': return vizAllCEntries.value
+    case 'R': return vizAllREntries.value
+    case 'S': return vizAllSEntries.value
+    default: return []
+  }
+}
+
+// 2D Simple: SVG layout constants.
+// Nodes are arranged in a radial/row layout per type-group.
+// Each node is 140×28px; 8px gap; 5 cols max per row.
+const VIZ2D_NODE_W = 148
+const VIZ2D_NODE_H = 28
+const VIZ2D_GAP    = 8
+const VIZ2D_COL_W  = VIZ2D_NODE_W + VIZ2D_GAP
+
+// SVG node dot colour per type (small circle left of label).
+const VIZ2D_DOT: Record<string, string> = {
+  F: '#f97316', V: '#3b82f6', C: '#d946ef', R: '#0ea5e9', S: '#8b5cf6',
+}
 
 // Helper: CSS face style (pure function, no Vue dependency — Twin-portable)
 function faceStyle(transform: string): Record<string, string> {
@@ -1770,9 +1817,31 @@ function faceStyle(transform: string): Record<string, string> {
           >
             <!-- Header controls -->
             <div class="flex items-center gap-3 flex-wrap">
-              <h3 class="text-sm font-bold text-slate-800">🧊 3D Model View</h3>
-              <span class="text-xs text-slate-500">{{ selectedModel.title }}</span>
-              <div class="ml-auto flex items-center gap-2">
+              <!-- Title + model name -->
+              <div class="flex items-center gap-2 min-w-0">
+                <h3 class="text-sm font-bold text-slate-800 shrink-0">
+                  {{ vizRenderMode === '3d' ? '🧊 3D View' : vizRenderMode === '2d-simple' ? '📐 2D Simple' : '🎨 2D Colored' }}
+                </h3>
+                <span class="text-xs text-slate-500 truncate">{{ selectedModel.title }}</span>
+              </div>
+
+              <!-- Render mode selector: [🧊 3D] [📐 Simple] [🎨 Colored] -->
+              <div class="flex gap-1 shrink-0">
+                <button type="button"
+                  v-for="opt in ([
+                    { mode: '3d',         label: '🧊 3D',      tip: '3D cube view — each face shows one Planguage entry type; rotate or stay static' },
+                    { mode: '2d-simple',  label: '📐 Simple',  tip: '2D Simple — minimalist node map on dark canvas, grouped by entry type in columns' },
+                    { mode: '2d-colored', label: '🎨 Colored', tip: '2D Colored — Kanban column board, one column per Planguage entry type, light background' },
+                  ] as { mode: VizRenderMode; label: string; tip: string }[])"
+                  :key="opt.mode"
+                  :class="['text-[10px] px-2 py-1 rounded font-semibold transition-colors', vizRenderMode === opt.mode ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+                  :title="opt.tip"
+                  @click="vizRenderMode = opt.mode"
+                >{{ opt.label }}</button>
+              </div>
+
+              <!-- 3D-only controls -->
+              <div v-if="vizRenderMode === '3d'" class="ml-auto flex items-center gap-2 shrink-0">
                 <!-- Level of detail -->
                 <div class="flex gap-1">
                   <button
@@ -1788,14 +1857,14 @@ function faceStyle(transform: string): Record<string, string> {
                 <button
                   type="button"
                   :class="['text-[10px] px-2 py-1 rounded font-semibold transition-colors', viz3dRotating ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
-                  :title="viz3dRotating ? 'Pause rotation — freeze the 3D view' : 'Start rotation — auto-rotate the 3D model view'"
+                  :title="viz3dRotating ? 'Pause rotation — freeze the 3D cube in place' : 'Start rotation — auto-rotate the 3D model cube at 0.5° per frame'"
                   @click="viz3dRotating = !viz3dRotating"
                 >{{ viz3dRotating ? '⏸ Pause' : '▶ Rotate' }}</button>
               </div>
             </div>
 
-            <!-- 3D stage -->
-            <div class="relative w-full flex items-center justify-center bg-slate-900 rounded-xl overflow-hidden" style="height:420px">
+            <!-- ── 3D stage (only in 3D render mode) ──────────────────────────── -->
+            <div v-if="vizRenderMode === '3d'" class="relative w-full flex items-center justify-center bg-slate-900 rounded-xl overflow-hidden" style="height:420px">
               <div style="perspective:900px; perspective-origin:50% 40%;">
                 <div
                   :style="{
@@ -1885,14 +1954,81 @@ function faceStyle(transform: string): Record<string, string> {
               </div>
             </div>
 
-            <!-- Entry counts legend -->
-            <div class="flex flex-wrap gap-2 text-[10px]">
+            <!-- Entry counts legend (3D level-aware) -->
+            <div v-if="vizRenderMode === '3d'" class="flex flex-wrap gap-2 text-[10px]">
               <span class="px-2 py-1 rounded bg-orange-100 text-orange-800">F. {{ viz3dFEntries.length }}</span>
               <span v-if="viz3dLevel !== 'Top'" class="px-2 py-1 rounded bg-blue-100 text-blue-800">V. {{ viz3dVEntries.length }}</span>
               <span v-if="viz3dLevel === 'All'" class="px-2 py-1 rounded bg-fuchsia-100 text-fuchsia-800">C. {{ viz3dCEntries.length }}</span>
               <span v-if="viz3dLevel === 'All'" class="px-2 py-1 rounded bg-sky-100 text-sky-800">R. {{ viz3dREntries.length }}</span>
               <span v-if="viz3dLevel !== 'Top'" class="px-2 py-1 rounded bg-violet-100 text-violet-800">S. {{ viz3dSEntries.length }}</span>
             </div>
+
+            <!-- ── 2D Simple: dark node-map (5 type columns, same canvas feel as 3D) -->
+            <template v-if="vizRenderMode === '2d-simple'">
+              <div class="relative w-full bg-slate-900 rounded-xl overflow-hidden flex gap-2 p-4" style="min-height:380px">
+                <div
+                  v-for="col in VIZ2D_COLS"
+                  :key="col.type"
+                  class="flex-1 flex flex-col gap-1 min-w-0"
+                >
+                  <!-- Column type header -->
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: VIZ2D_DOT[col.type] }" />
+                    <span class="text-[9px] font-bold uppercase tracking-widest truncate" :style="{ color: VIZ2D_DOT[col.type] }">{{ col.label }}</span>
+                  </div>
+                  <!-- Entry count badge -->
+                  <span class="text-[8px] text-slate-500 mb-0.5">{{ viz2dEntries(col.type).length }} entries</span>
+                  <!-- Entry nodes -->
+                  <div
+                    v-for="(entry, i) in viz2dEntries(col.type).slice(0, 12)"
+                    :key="entry.id ?? i"
+                    class="flex items-center gap-1.5 px-2 py-1 rounded text-[9px] leading-tight text-slate-200 bg-slate-800/70 border border-slate-700/50 truncate"
+                    :title="entry.description"
+                  >
+                    <span class="inline-block w-1.5 h-1.5 rounded-full shrink-0 opacity-80" :style="{ background: VIZ2D_DOT[col.type] }" />
+                    <span class="truncate">{{ entry.description.slice(0, 32) }}</span>
+                  </div>
+                  <p v-if="viz2dEntries(col.type).length > 12" class="text-[8px] mt-0.5" :style="{ color: VIZ2D_DOT[col.type] + 'aa' }">+{{ viz2dEntries(col.type).length - 12 }} more</p>
+                </div>
+              </div>
+              <!-- Simple entry count legend -->
+              <div class="flex flex-wrap gap-2 text-[10px]">
+                <span v-for="col in VIZ2D_COLS" :key="col.type" :class="['px-2 py-1 rounded', col.badge]">
+                  {{ col.type }}. {{ viz2dEntries(col.type).length }}
+                </span>
+              </div>
+            </template>
+
+            <!-- ── 2D Colored: Kanban column board (light bg, card-per-entry) ────── -->
+            <template v-if="vizRenderMode === '2d-colored'">
+              <div class="flex gap-3 overflow-x-auto pb-2" style="min-height:380px">
+                <div
+                  v-for="col in VIZ2D_COLS"
+                  :key="col.type"
+                  :class="['flex flex-col gap-1.5 rounded-xl border p-3 min-w-[160px] max-w-[200px]', col.bg, col.border]"
+                  style="flex: 1 1 160px;"
+                >
+                  <!-- Column header -->
+                  <div class="flex items-center justify-between mb-1">
+                    <span :class="['text-[10px] font-bold uppercase tracking-wide', col.badge.split(' ').find((c: string) => c.startsWith('text-')) ?? 'text-slate-700']">{{ col.label }}</span>
+                    <span :class="['text-[10px] font-bold px-1.5 py-0.5 rounded-full', col.badge]">{{ viz2dEntries(col.type).length }}</span>
+                  </div>
+                  <!-- Entry cards -->
+                  <div
+                    v-for="(entry, i) in viz2dEntries(col.type).slice(0, 15)"
+                    :key="entry.id ?? i"
+                    :class="['px-2 py-1.5 rounded-lg border text-[10px] leading-tight text-slate-700 bg-white/70 shadow-sm', col.border]"
+                    :title="entry.description"
+                  >
+                    <div class="flex items-start gap-1">
+                      <span class="inline-block w-1.5 h-1.5 rounded-full mt-0.5 shrink-0" :style="{ background: VIZ2D_DOT[col.type] }" />
+                      <span>{{ entry.description.slice(0, 48) }}</span>
+                    </div>
+                  </div>
+                  <p v-if="viz2dEntries(col.type).length > 15" :class="['text-[9px] font-semibold mt-1', col.badge.split(' ').find((c: string) => c.startsWith('text-')) ?? 'text-slate-600']">+{{ viz2dEntries(col.type).length - 15 }} more</p>
+                </div>
+              </div>
+            </template>
           </ScrollContainer>
 
           <!-- Sharpen tool mode -->
@@ -2445,9 +2581,9 @@ function faceStyle(transform: string): Record<string, string> {
                     <span>🔗</span><span class="font-medium">Strongly Related</span><span class="ml-auto text-slate-400 text-[10px]">relationship graph</span>
                   </button>
                   <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
-                    title="3D Rotatable Model — isometric CSS 3D cube showing F · V · C · R · S faces with Top / Medium / All levels of detail"
+                    title="Model Visualizer — 3D rotating/static cube · 2D Simple node map · 2D Colored Kanban board. Switch modes with the top selector bar."
                     @click="openTool('viz-3d')">
-                    <span>🧊</span><span class="font-medium">3D Rotatable Model</span><span class="ml-auto text-slate-400 text-[10px]">isometric view</span>
+                    <span>🧊</span><span class="font-medium">Model Visualizer</span><span class="ml-auto text-slate-400 text-[10px]">3D · 2D Simple · 2D Colored</span>
                   </button>
 
                   <!-- Sharpen Model category -->
