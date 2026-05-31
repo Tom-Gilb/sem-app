@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── scrollbar-none utility ──────────────────────────────────────────────────
+   Used by ValueCounter and other horizontal-scroll containers.
+   Tailwind has no built-in scrollbar-hide without a plugin, so we define it here.
+   Hides scrollbar while keeping scroll functionality.
+   Fixes: "blue bar at bottom" overlap on the stage bar. */
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE / Edge legacy */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;             /* Chrome / Safari / Chromium Edge */
+}
+
+/* ── ScrollContainer inner: same hiding for any overflow-y-auto within ──── */
+.scroll-hidden-y {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scroll-hidden-y::-webkit-scrollbar {
+  display: none;
+}
