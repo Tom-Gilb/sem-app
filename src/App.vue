@@ -4345,12 +4345,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <StakeholderMapperPanel
     v-if="view === 'app' && stakeholderMapperOpen"
     @close="stakeholderMapperOpen = false"
+    @open-agents="stakeholderMapperOpen = false; agentMenuOpen = true"
   />
 
   <!-- Evo Critiquer agent panel — Evo health check + value delivery review. z-[600] -->
   <EvoCritiquerPanel
     v-if="view === 'app' && evoCritiquerOpen"
     @close="evoCritiquerOpen = false"
+    @open-agents="evoCritiquerOpen = false; agentMenuOpen = true"
   />
 
   <!-- Plan Importer agent panel — universal Planguage converter. z-[600] -->
@@ -4363,6 +4365,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <DecisionMapperPanel
     v-if="view === 'app' && decisionMapperOpen"
     @close="decisionMapperOpen = false"
+    @open-agents="decisionMapperOpen = false; agentMenuOpen = true"
   />
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->

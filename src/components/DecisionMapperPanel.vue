@@ -27,7 +27,11 @@ import {
 } from '../composables/useDecisionMapper'
 import type { DecisionOption, DecisionCriterion, PlanguagizedEntry } from '../composables/useDecisionMapper'
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{
+  close: []
+  /** User clicked the Agents button — App.vue should close this panel and open AgentMenuPanel. */
+  'open-agents': []
+}>()
 
 // ── Composable ────────────────────────────────────────────────────────────────
 
@@ -247,8 +251,23 @@ function tabClass(tab: Tab): string {
           + New
         </button>
 
+        <!-- 🦾 Agents navigation — lets the user jump to any other agent without
+             going back to the main screen first. Tom 2026-05-31: "has no agents button". -->
+        <button
+          type="button"
+          class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg
+                 bg-white/15 hover:bg-white/30 text-white text-xs font-semibold
+                 border border-white/20 hover:border-white/50 transition-colors"
+          title="Open Agent Menu — switch to another agent (Maria, Contracts, Models, Stakeholders, Evo, Decisions, Plan Agent)"
+          aria-label="Open Agent Menu"
+          @click="emit('open-agents')"
+        >
+          <span aria-hidden="true">🦾</span> Agents
+        </button>
+
         <CloseDot
           variant="on-dark"
+          aria-label="Close Decisions Agent — return to main workspace"
           title="Close Decisions Agent — return to the main planning workspace"
           @click="emit('close')"
         />
