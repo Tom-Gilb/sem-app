@@ -538,6 +538,40 @@ const planDNAOpen         = ref(false)
 function _togglePlanStory(): void {
   planDNAOpen.value = !planDNAOpen.value
 }
+
+// ── Stage bar layout: fixed positioning driven by live Plan Crest height ──────
+// The ValueCounter (stage bar) is fixed at top=[planCrestH] when a plan is
+// loaded so it is always visible below the Plan Crest without ever blocking
+// scrolled content. Using fixed (not sticky) because sticky cannot prevent
+// content from scrolling behind the bar — it only keeps the bar in view, not
+// the content below it. ResizeObserver keeps planCrestH live so toggling the
+// DNA strip (which makes the Plan Crest taller) automatically adjusts the bar
+// position and content padding-top without any hardcoded magic numbers.
+const STAGE_BAR_H  = 120    // ValueCounter nav: py-3(12px) + pill(96px) + py-3(12px) = 120px
+const planCrestEl  = ref<HTMLElement | null>(null)
+const planCrestH   = ref(0)
+let _planCrestRO: ResizeObserver | null = null
+watch(planCrestEl, (el) => {
+  _planCrestRO?.disconnect()
+  _planCrestRO = null
+  if (!el) { planCrestH.value = 0; return }
+  _planCrestRO = new ResizeObserver(() => {
+    planCrestH.value = Math.round(el.getBoundingClientRect().height)
+  })
+  _planCrestRO.observe(el)
+  planCrestH.value = Math.round(el.getBoundingClientRect().height)
+})
+onUnmounted(() => _planCrestRO?.disconnect())
+// stageBarTop: top-offset of the fixed stage bar (= Plan Crest bottom edge).
+const stageBarTop = computed(() => planCrestH.value)
+// contentTopPad: padding-top on the main content div.
+// When plan loaded: Plan Crest + stage bar must both be cleared before content.
+// When no plan: stage bar is in document flow (not fixed), no extra padding needed.
+const contentTopPad = computed(() =>
+  (view.value === 'app' && planModel.value)
+    ? planCrestH.value + STAGE_BAR_H
+    : undefined
+)
 // --- Feature #195: Plan Targets ---
 const planTargetsOpen     = ref(false)
 // --- Agent Menu + Maria panels (2026-05-29 / 2026-05-30) ---
@@ -3691,6 +3725,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
        sharpen rounds, manual edits, days active).
        z-[300] sits above normal content and below the demo bar (z-50+).  -->
   <div
+    ref="planCrestEl"
     v-if="view === 'app' && planModel"
     class="fixed top-0 left-0 right-0 z-[300] flex flex-col px-4 py-1.5 relative
            bg-gradient-to-r from-indigo-800 via-indigo-600 to-violet-600
@@ -4534,10 +4569,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
     @go-to-tasks="_onGoToTasks"
   />
 
+  <!-- Main content wrapper.
+       When plan loaded: padding-top is driven by contentTopPad computed =
+       planCrestH (live ResizeObserver) + STAGE_BAR_H (120px constant).
+       This guarantees the content never starts under either fixed header,
+       regardless of whether the DNA strip is open or closed.
+       When no plan: pt-8 static (stage bar is in flow, not fixed). -->
   <div
     class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-16 px-4 md:pr-40
            overflow-x-clip"
-    :class="view === 'app' && planModel ? (planDNAOpen ? 'pt-[20rem]' : 'pt-36') : 'pt-8'"
+    :class="!(view === 'app' && planModel) ? 'pt-8' : ''"
+    :style="contentTopPad !== undefined ? { paddingTop: contentTopPad + 'px' } : undefined"
   >
 
     <!-- Loading state while session is being restored.
@@ -4654,13 +4696,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
            CENTERING the child first, so -ml-4 was overshooting ~72-88px left,
            hiding stage 1. self-start restores the intended flex-start alignment
            for just this child; the calc widths and -ml-4 then work correctly.
-           sticky top-[100px] (2026-05-31 fix): Tom "overlap not fixed" — the stage
-           bar was scrolling BEHIND the 100px-tall Plan Crest. Making the bar sticky
-           at exactly the Plan Crest's bottom edge (py-1.5 + h-12 + h-10 + py-1.5 =
-           6+48+40+6 = 100px) keeps the navigation permanently visible as the user
-           scrolls the plan content below. z-[250] stays below the Plan Crest z-[300]
-           and below all modals/panels (≥z-[380]). -->
-      <div class="sticky top-[100px] z-[250] self-start -ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]">
+           fixed (2026-06-01 fix): Tom "stage bar blocks scrolled content" — sticky
+           cannot prevent blocking because it removes the element from the viewport
+           but the element below it still scrolls behind it. fixed + planCrestH
+           ResizeObserver is the correct solution: stage bar is taken out of the
+           document flow entirely; content padding-top = planCrestH + STAGE_BAR_H
+           covers both fixed headers. When no plan (planCrestEl unmounted) the stage
+           bar is in-flow with the original breakout classes so the no-plan layout
+           is unchanged. z-[250] stays below the Plan Crest z-[300] and below all
+           modals/panels (≥z-[380]). -->
+      <div
+        :class="planModel
+          ? 'fixed left-0 right-0 z-[250]'
+          : 'self-start -ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]'"
+        :style="planModel ? { top: stageBarTop + 'px' } : undefined"
+      >
         <ValueCounter
           :current-stage="planningStage"
           :extra-right-pad="!planModel ? 440 : 0"
