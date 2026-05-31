@@ -30,6 +30,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria, cancelCurrentMaria, mariaStreamedText } from '../composables/useMaria'
+import { buildEml }            from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import type { MariaResult }    from '../types/maria'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
@@ -65,6 +66,9 @@ const emailTo = ref('')
 
 /** Controls the "report sent" flash state. */
 const reportSent = ref(false)
+/** True when the local /api/open-eml server endpoint pre-filled the Mail.app body directly.
+ *  False = clipboard-paste fallback was used (Vite server unavailable in production builds). */
+const mailPreFilled = ref(false)
 let _sentTimer: ReturnType<typeof setTimeout> | null = null
 
 /** Controls the "copied" flash state on the copy button. */
@@ -181,6 +185,7 @@ function startOver(): void {
   ratingInteracted.value = false
   emailTo.value = ''
   reportSent.value = false
+  mailPreFilled.value = false
   copyDone.value = false
   if (_sentTimer)  { clearTimeout(_sentTimer);  _sentTimer  = null }
   if (_copyTimer)  { clearTimeout(_copyTimer);  _copyTimer  = null }
@@ -691,58 +696,84 @@ async function copyReport(): Promise<void> {
 }
 
 /**
- * Open Mail.app with the governance report pre-addressed and subject filled.
+ * Open Mail.app with the governance report pre-addressed, subject filled, and
+ * HTML body already in the compose window — no user paste action required.
  *
- * Strategy:
- *   1. Build the full coloured HTML report.
- *   2. Copy it to the system clipboard (text/html + text/plain).
- *   3. Open a mailto: link — the OS hands this to Mail.app without navigating
- *      the PWA window away (mailto: is an OS-level scheme, not a browser URL).
- *   4. Mail.app opens with To: and Subject pre-filled. The user presses ⌘V
- *      once to paste the rich HTML report into the body — one keystroke.
+ * Primary path (Vite dev server present — the normal case for this app):
+ *   1. Build full coloured HTML + RFC 2822 .eml via buildEml().
+ *   2. POST the .eml string to /api/open-eml (served by mariaMailPlugin in vite.config.ts).
+ *   3. The Vite plugin writes it to /tmp/maria-report-<ts>.eml and calls macOS `open`.
+ *   4. Mail.app opens a compose draft with To:, Subject:, AND the HTML body pre-filled.
+ *      Tom presses Send — done. Zero paste required.
+ *
+ * Fallback path (production build / Vite server absent):
+ *   - Copy HTML to clipboard (text/html + text/plain).
+ *   - Fire mailto: link — OS-handled, PWA window stays intact.
+ *   - Mail.app opens with To: + Subject filled; user presses ⌘V once for HTML body.
  *
  * To: address priority:
  *   (a) Whatever is typed in the emailTo field.
  *   (b) Chairman's email auto-detected from the board member roster.
  *   (c) Blank — user fills it in Mail.app.
  */
-function sendEmailReport(): void {
+async function sendEmailReport(): Promise<void> {
   if (!result.value) return
 
-  // 1 — Build HTML report
-  const html = buildMariaEmailHtml(result.value, {
+  // 1 — Build report content
+  const html  = buildMariaEmailHtml(result.value, {
     ratingValue:      rating.value,
     ratingLabel:      ratingLabel.value,
     ratingInteracted: ratingInteracted.value,
   })
+  const plain   = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const subject = '🏛 Maria — Board Governance Analysis'
 
-  // 2 — Copy to clipboard so the user can ⌘V into Mail.app body
-  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-  navigator.clipboard
-    .write([new ClipboardItem({
-      'text/html':  new Blob([html],  { type: 'text/html' }),
-      'text/plain': new Blob([plain], { type: 'text/plain' }),
-    })])
-    .catch(() => navigator.clipboard.writeText(plain))
-
-  // 3 — Determine To: address
+  // 2 — Determine To: address
   const typedAddr   = emailTo.value.trim()
   const chairMember = boardMembers.value.find(
     (m) => m.role.toLowerCase().includes('chair') && m.email,
   )
   const toAddr = typedAddr || chairMember?.email || ''
-  if (!typedAddr && toAddr) emailTo.value = toAddr  // fill the field so user sees it
+  if (!typedAddr && toAddr) emailTo.value = toAddr  // fill field so user sees it
 
-  // 4 — Open Mail.app via mailto: — OS handles this; PWA window stays intact
-  const subject = '🏛 Maria — Board Governance Analysis'
-  const mailtoUrl = toAddr
-    ? `mailto:${encodeURIComponent(toAddr)}?subject=${encodeURIComponent(subject)}`
-    : `mailto:?subject=${encodeURIComponent(subject)}`
-  window.location.href = mailtoUrl
+  // 3 — Build the full RFC 2822 .eml
+  const eml = buildEml(html, plain, subject, toAddr ? [toAddr] : [])
 
+  // 4 — Primary: POST to local Vite dev-server endpoint → `open` → Mail.app with HTML body
+  let preFilled = false
+  try {
+    const resp = await fetch('/api/open-eml', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ eml }),
+    })
+    preFilled = resp.ok
+  } catch {
+    // Network error or endpoint absent (production build) — fall through to mailto: fallback
+  }
+
+  // 5 — Fallback: clipboard + mailto: (Mail.app opens but body requires one ⌘V paste)
+  if (!preFilled) {
+    navigator.clipboard
+      .write([new ClipboardItem({
+        'text/html':  new Blob([html],  { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })])
+      .catch(() => navigator.clipboard.writeText(plain))
+
+    const mailtoUrl = toAddr
+      ? `mailto:${encodeURIComponent(toAddr)}?subject=${encodeURIComponent(subject)}`
+      : `mailto:?subject=${encodeURIComponent(subject)}`
+    window.location.href = mailtoUrl
+  }
+
+  mailPreFilled.value = preFilled
   reportSent.value = true
   if (_sentTimer) clearTimeout(_sentTimer)
-  _sentTimer = setTimeout(() => { reportSent.value = false }, 10_000)
+  _sentTimer = setTimeout(() => {
+    reportSent.value    = false
+    mailPreFilled.value = false
+  }, 10_000)
 }
 </script>
 
@@ -1425,14 +1456,19 @@ function sendEmailReport(): void {
                 :class="reportSent
                   ? 'bg-emerald-100 text-emerald-800'
                   : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow-md'"
-                title="Open Mail.app — single-click to open Mail.app with the To: and Subject pre-filled, and the full coloured report already on your clipboard. Press ⌘V once in Mail.app to paste the report into the body."
+                title="Open Mail.app — single-click to open Mail.app with To:, Subject:, and the full coloured governance report already in the email body. Just press Send."
                 @click="sendEmailReport"
               >
                 <EmailGlyph size="compact" class="text-current" aria-hidden="true" />
-                <span>{{ reportSent ? '📬 Mail.app opened · press ⌘V to paste the report' : '📧 Open Mail.app with Report' }}</span>
+                <span v-if="reportSent && mailPreFilled">📬 Mail.app opened — report is in the body, press Send</span>
+                <span v-else-if="reportSent && !mailPreFilled">📬 Mail.app opened · press ⌘V to paste the report</span>
+                <span v-else>📧 Open Mail.app with Report</span>
               </button>
-              <!-- Paste reminder — only shown after Mail.app opened -->
-              <p v-if="reportSent" class="text-[10px] text-emerald-700 text-center mt-1.5 leading-snug">
+              <!-- Status note — only shown after Mail.app opened -->
+              <p v-if="reportSent && mailPreFilled" class="text-[10px] text-emerald-700 text-center mt-1.5 leading-snug">
+                Mail.app is open — To:, Subject:, and the full coloured report are already filled in. Just press Send.
+              </p>
+              <p v-else-if="reportSent && !mailPreFilled" class="text-[10px] text-amber-700 text-center mt-1.5 leading-snug">
                 Mail.app is open with To: and Subject pre-filled — click in the body and press ⌘V to paste the full report
               </p>
             </div>

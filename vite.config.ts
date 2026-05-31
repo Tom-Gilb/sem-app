@@ -1,7 +1,9 @@
 import { defineConfig } from 'vitest/config'
 import { loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { exec } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Plugin } from 'vite'
 
@@ -134,6 +136,84 @@ function findNearMatchOptions(prefix: string, files: string[], limit = 3): strin
 }
 
 /**
+ * Vite dev-server plugin: POST /api/open-eml
+ *
+ * Receives a pre-built RFC 2822 .eml string, writes it to a temp file, and
+ * calls macOS `open` to hand it to Mail.app — which opens a compose draft with
+ * the full HTML body already populated. No user paste required.
+ *
+ * Design rationale (Tom Gilb 2026-05-31):
+ *   - `mailto:` scheme only supports plain-text body — cannot carry HTML.
+ *   - `a.download` blob approach saves to ~/Downloads but PWA dock apps do not
+ *     auto-open downloaded files (no Finder integration in WKWebView).
+ *   - This plugin runs only in dev mode (Vite server present). In production
+ *     builds the endpoint is absent and the caller falls back to mailto: +
+ *     clipboard (plain-text body in Mail.app + HTML copy for manual paste).
+ *   - `open <file.eml>` is the macOS-native way to invoke the registered .eml
+ *     handler (Mail.app / Mimestream / Spark) — equivalent to double-clicking
+ *     in Finder, which is the only path that pre-fills the HTML body.
+ *
+ * Request body: `{ eml: string }` — the complete RFC 2822 multipart/alternative
+ * email string built by `buildEml()` in useEmlExport.ts.
+ *
+ * Response: `{ ok: true, path: string }` on success; `{ ok: false, error: string }` on failure.
+ */
+function mariaMailPlugin(): Plugin {
+  return {
+    name: 'vite-plugin-maria-mail',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/api/open-eml', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method not allowed')
+          return
+        }
+
+        let body = ''
+        req.on('data', (chunk: Buffer) => { body += chunk.toString('utf-8') })
+        req.on('end', () => {
+          try {
+            const parsed = JSON.parse(body) as { eml?: unknown }
+            const eml = parsed.eml
+            if (typeof eml !== 'string' || !eml.length) {
+              res.statusCode = 400
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ ok: false, error: 'Missing or empty eml string in request body' }))
+              return
+            }
+
+            // Unique temp path — timestamp suffix prevents concurrent-analysis collisions.
+            // /tmp is cleaned by macOS periodically; no manual cleanup needed.
+            const tmpPath = join(tmpdir(), `maria-report-${Date.now()}.eml`)
+            writeFileSync(tmpPath, eml, 'utf-8')
+
+            // `open` asks macOS to open the file with its registered MIME handler
+            // (Mail.app for .eml / message/rfc822). Returns immediately — Mail.app
+            // launches asynchronously. -W would wait for Mail.app to close, which
+            // we do not want; omitting -W is the correct behaviour for a fire-and-forget.
+            exec(`open "${tmpPath}"`, (err) => {
+              res.setHeader('Content-Type', 'application/json')
+              if (err) {
+                res.statusCode = 500
+                res.end(JSON.stringify({ ok: false, error: err.message }))
+              } else {
+                res.statusCode = 200
+                res.end(JSON.stringify({ ok: true, path: tmpPath }))
+              }
+            })
+          } catch (err: unknown) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: false, error: String(err) }))
+          }
+        })
+      })
+    },
+  }
+}
+
+/**
  * Vite dev-server plugin: serves glossary markdown files at /api/glossary?term=<TermName>.
  *
  * Resolution order (first hit wins):
@@ -256,7 +336,7 @@ export default defineConfig(({ mode }) => {
   const useOllama = Boolean(env.VITE_OLLAMA_MODEL)
 
   return {
-  plugins: [vue(), glossaryPlugin()],
+  plugins: [vue(), mariaMailPlugin(), glossaryPlugin()],
   resolve: {
     alias: useOllama ? {
       // Local dev only — route all SDK imports to the Ollama drop-in adapter
