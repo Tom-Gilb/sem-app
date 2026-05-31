@@ -204,7 +204,7 @@ function isReachable(s: typeof STAGES[number]): boolean {
           <!-- Stage number badge (top-left) -->
           <span
             class="absolute top-1.5 left-2 text-[10px] font-bold leading-none"
-            :class="isActive(s) ? 'text-white/80' : 'text-slate-500'"
+            :class="isActive(s) ? 'text-white/80' : 'text-slate-300'"
             aria-hidden="true"
           >{{ s.n }}</span>
 
@@ -213,10 +213,10 @@ function isReachable(s: typeof STAGES[number]): boolean {
 
             <!-- Stakes icon: stakeholder circle + goal arrow -->
             <svg v-if="s.icon === 'stakes'" viewBox="0 0 40 40" class="w-10 h-10">
-              <circle cx="14" cy="12" r="5" :fill="isActive(s) ? '#c4b5fd' : '#7c3aed'" opacity="0.9"/>
-              <path d="M6 28c0-5 4-8 8-8h5" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" fill="none"/>
-              <circle cx="28" cy="20" r="7" fill="none" :stroke="isActive(s) ? '#fde68a' : '#d97706'" stroke-width="2"/>
-              <path d="M24 20h8M28 16v8" :stroke="isActive(s) ? '#fde68a' : '#d97706'" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="14" cy="12" r="5" :fill="isActive(s) ? '#c4b5fd' : '#a78bfa'" opacity="0.9"/>
+              <path d="M6 28c0-5 4-8 8-8h5" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" fill="none"/>
+              <circle cx="28" cy="20" r="7" fill="none" :stroke="isActive(s) ? '#fde68a' : '#fbbf24'" stroke-width="2"/>
+              <path d="M24 20h8M28 16v8" :stroke="isActive(s) ? '#fde68a' : '#fbbf24'" stroke-width="2" stroke-linecap="round"/>
             </svg>
 
             <!-- Solutions icon: bracket with forward arrow [→] -->
@@ -228,25 +228,25 @@ function isReachable(s: typeof STAGES[number]): boolean {
 
             <!-- Sharpen icon: two arrows converging to a point -->
             <svg v-else-if="s.icon === 'sharpen'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 10l12 10" :stroke="isActive(s) ? '#7dd3fc' : '#0284c7'" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M8 30l12-10" :stroke="isActive(s) ? '#7dd3fc' : '#0284c7'" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="22" cy="20" r="3" :fill="isActive(s) ? '#38bdf8' : '#0ea5e9'"/>
-              <path d="M25 20h7" :stroke="isActive(s) ? '#bae6fd' : '#7dd3fc'" stroke-width="2" stroke-linecap="round"/>
+              <path d="M8 10l12 10" :stroke="isActive(s) ? '#7dd3fc' : '#38bdf8'" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M8 30l12-10" :stroke="isActive(s) ? '#7dd3fc' : '#38bdf8'" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="22" cy="20" r="3" :fill="isActive(s) ? '#38bdf8' : '#7dd3fc'"/>
+              <path d="M25 20h7" :stroke="isActive(s) ? '#bae6fd' : '#bae6fd'" stroke-width="2" stroke-linecap="round"/>
             </svg>
 
             <!-- Impacts icon: arrows hitting target -->
             <svg v-else-if="s.icon === 'impacts'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 14l8 6" :stroke="isActive(s) ? '#67e8f9' : '#0891b2'" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M8 26l8-6" :stroke="isActive(s) ? '#67e8f9' : '#0891b2'" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M16 20h8" :stroke="isActive(s) ? '#a5f3fc' : '#06b6d4'" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="26" cy="20" r="6" fill="none" :stroke="isActive(s) ? '#a5f3fc' : '#06b6d4'" stroke-width="2"/>
-              <circle cx="26" cy="20" r="2.5" :fill="isActive(s) ? '#a5f3fc' : '#0891b2'"/>
+              <path d="M8 14l8 6" :stroke="isActive(s) ? '#67e8f9' : '#22d3ee'" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M8 26l8-6" :stroke="isActive(s) ? '#67e8f9' : '#22d3ee'" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M16 20h8" :stroke="isActive(s) ? '#a5f3fc' : '#67e8f9'" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="26" cy="20" r="6" fill="none" :stroke="isActive(s) ? '#a5f3fc' : '#67e8f9'" stroke-width="2"/>
+              <circle cx="26" cy="20" r="2.5" :fill="isActive(s) ? '#a5f3fc' : '#22d3ee'"/>
             </svg>
 
             <!-- Refine icon: funnel / narrowing brackets -->
             <svg v-else-if="s.icon === 'refine'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 10h24l-9 12v8l-6-3V22z" :fill="isActive(s) ? '#a5b4fc' : '#4f46e5'" opacity="0.85"/>
-              <path d="M8 10h24l-9 12v8l-6-3V22z" stroke="#818cf8" stroke-width="1" stroke-linejoin="round" fill="none"/>
+              <path d="M8 10h24l-9 12v8l-6-3V22z" :fill="isActive(s) ? '#a5b4fc' : '#818cf8'" opacity="0.85"/>
+              <path d="M8 10h24l-9 12v8l-6-3V22z" stroke="#c7d2fe" stroke-width="1" stroke-linejoin="round" fill="none"/>
             </svg>
 
             <!-- Evo Steps icon: cycling arrows -->
@@ -262,45 +262,45 @@ function isReachable(s: typeof STAGES[number]): boolean {
 
             <!-- Evo Impact icon: crossed measurement arrows -->
             <svg v-else-if="s.icon === 'evo-impact'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M10 30l20-20" :stroke="isActive(s) ? '#fda4af' : '#e11d48'" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M10 10l20 20" :stroke="isActive(s) ? '#fda4af' : '#be123c'" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="20" cy="20" r="5" fill="none" :stroke="isActive(s) ? '#fb7185' : '#f43f5e'" stroke-width="2"/>
-              <path d="M20 8v4M20 28v4M8 20h4M28 20h4" :stroke="isActive(s) ? '#fecdd3' : '#fb7185'" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M10 30l20-20" :stroke="isActive(s) ? '#fda4af' : '#fb7185'" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M10 10l20 20" :stroke="isActive(s) ? '#fda4af' : '#fb7185'" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="20" cy="20" r="5" fill="none" :stroke="isActive(s) ? '#fb7185' : '#fda4af'" stroke-width="2"/>
+              <path d="M20 8v4M20 28v4M8 20h4M28 20h4" :stroke="isActive(s) ? '#fecdd3' : '#fecdd3'" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
 
             <!-- Tasks icon: stacked checklist rows -->
             <svg v-else-if="s.icon === 'tasks'" viewBox="0 0 40 40" class="w-10 h-10">
-              <rect x="8" y="10" width="24" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#db2777'" opacity="0.9"/>
-              <rect x="8" y="18" width="18" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#db2777'" opacity="0.7"/>
-              <rect x="8" y="26" width="22" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#db2777'" opacity="0.5"/>
-              <path d="M34 19l-4 4-2-2" :stroke="isActive(s) ? '#fce7f3' : '#fda4af'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <rect x="8" y="10" width="24" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#f472b6'" opacity="0.9"/>
+              <rect x="8" y="18" width="18" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#f472b6'" opacity="0.7"/>
+              <rect x="8" y="26" width="22" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#f472b6'" opacity="0.5"/>
+              <path d="M34 19l-4 4-2-2" :stroke="isActive(s) ? '#fce7f3' : '#fce7f3'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
             </svg>
 
             <!-- Study-Act icon: Deming cycle (circular arrows with book) -->
             <svg v-else-if="s.icon === 'study-act'" viewBox="0 0 40 40" class="w-10 h-10">
-              <circle cx="20" cy="20" r="12" fill="none" :stroke="isActive(s) ? '#fcd34d' : '#d97706'" stroke-width="2"/>
-              <path d="M20 8v4M32 20h-4M20 32v-4M8 20h4" :stroke="isActive(s) ? '#fde68a' : '#f59e0b'" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M14 14h12v8H14z" :fill="isActive(s) ? '#fef3c7' : '#fbbf24'" opacity="0.8"/>
-              <path d="M20 14v8" :stroke="isActive(s) ? '#d97706' : '#92400e'" stroke-width="1.5"/>
+              <circle cx="20" cy="20" r="12" fill="none" :stroke="isActive(s) ? '#fcd34d' : '#fbbf24'" stroke-width="2"/>
+              <path d="M20 8v4M32 20h-4M20 32v-4M8 20h4" :stroke="isActive(s) ? '#fde68a' : '#fcd34d'" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M14 14h12v8H14z" :fill="isActive(s) ? '#fef3c7' : '#fef3c7'" opacity="0.8"/>
+              <path d="M20 14v8" :stroke="isActive(s) ? '#d97706' : '#d97706'" stroke-width="1.5"/>
               <!-- Arrow at top indicating cycle -->
-              <path d="M16 9l4-3 4 3" :stroke="isActive(s) ? '#fcd34d' : '#d97706'" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M16 9l4-3 4 3" :stroke="isActive(s) ? '#fcd34d' : '#fbbf24'" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
 
             <!-- Plan icon: upward growth chart -->
             <svg v-else-if="s.icon === 'plan'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 32V24l6-4 6 2 6-8 6-4" :stroke="isActive(s) ? '#6ee7b7' : '#059669'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <circle cx="14" cy="20" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#10b981'"/>
-              <circle cx="20" cy="22" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#10b981'"/>
-              <circle cx="26" cy="14" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#10b981'"/>
-              <circle cx="32" cy="10" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#10b981'"/>
-              <path d="M8 32h24" stroke="#374151" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M8 32V24l6-4 6 2 6-8 6-4" :stroke="isActive(s) ? '#6ee7b7' : '#34d399'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <circle cx="14" cy="20" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#34d399'"/>
+              <circle cx="20" cy="22" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#34d399'"/>
+              <circle cx="26" cy="14" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#34d399'"/>
+              <circle cx="32" cy="10" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#34d399'"/>
+              <path d="M8 32h24" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
 
             <!-- Export icon: box with outward arrow -->
             <svg v-else-if="s.icon === 'export'" viewBox="0 0 40 40" class="w-10 h-10">
-              <rect x="8" y="18" width="16" height="14" rx="3" :fill="isActive(s) ? '#a78bfa' : '#6d28d9'" opacity="0.85"/>
-              <path d="M20 10h10M25 6l5 4-5 4" :stroke="isActive(s) ? '#ddd6fe' : '#8b5cf6'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <path d="M20 24h4" stroke="#c4b5fd" stroke-width="1.5" stroke-linecap="round"/>
+              <rect x="8" y="18" width="16" height="14" rx="3" :fill="isActive(s) ? '#a78bfa' : '#8b5cf6'" opacity="0.85"/>
+              <path d="M20 10h10M25 6l5 4-5 4" :stroke="isActive(s) ? '#ddd6fe' : '#c4b5fd'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <path d="M20 24h4" stroke="#ddd6fe" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
 
           </div>
@@ -308,7 +308,7 @@ function isReachable(s: typeof STAGES[number]): boolean {
           <!-- Stage label (bottom) -->
           <span
             class="text-[10px] font-bold leading-none text-center px-0.5 truncate w-full"
-            :class="isActive(s) ? 'text-white' : 'text-slate-400'"
+            :class="isActive(s) ? 'text-white' : 'text-slate-200'"
           >
             <span v-if="isActive(s)" class="opacity-70" aria-hidden="true">▶ </span>{{ s.label }}
           </span>
