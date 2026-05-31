@@ -4175,6 +4175,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
           >{{ specHistory.length }}</span>
         </div>
 
+        <!-- ── Next Step button — control-pins-at-top rule (2026-05-31). ─────────
+             Moved from fixed bottom-52 left-6 (violation) into this top bar.
+             Shows the primary workflow-advance action for the current stage.
+             Only visible when there is a clear next step. -->
+        <button
+          v-if="nextActionLabel"
+          type="button"
+          :title="`Advance to the next workflow step: ${nextActionLabel}`"
+          :aria-label="`Next Step: ${nextActionLabel}`"
+          class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold
+                 bg-indigo-500 text-white hover:bg-indigo-400 shadow-sm shrink-0
+                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
+          @click="goNext"
+        >{{ nextActionLabel }} <span aria-hidden="true">→</span></button>
+
         <!-- (SOS moved to Row 1 absolute-right cluster — never clips there) -->
 
         <!-- ── Control pins — 🎤 Mic · 🔊 Speaker ──────────────────────────────
@@ -5600,24 +5615,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
          and can never be obscured by any ancestor's stacking context.
          Button layout: ⚡ Actions + Mic + Speaker sit at top-4 right-4 (control-pins rule
          2026-05-26 — all control pins at TOP, never floating bottom).
-         Next Step pill sits at left-6 bottom-52 (left side, primary forward action). -->
-    <!-- Next Step pill — hidden when PlanOwnerPanel is open to prevent left-side overlap. -->
-    <Teleport to="body">
-      <button
-        v-if="nextActionLabel && !planOwnerPanelOpen"
-        type="button"
-        :aria-label="nextActionLabel"
-        class="fixed bottom-52 left-6 z-[370] flex items-center gap-1.5 px-4 py-2.5
-               rounded-full shadow-lg text-sm font-semibold select-none
-               bg-indigo-600 text-white
-               hover:bg-indigo-700 active:bg-indigo-800
-               transition-colors duration-150
-               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400"
-        @click="goNext"
-      >
-        {{ nextActionLabel }} <span aria-hidden="true">→</span>
-      </button>
-    </Teleport>
+         Next Step pill MOVED 2026-05-31 — was bottom-52 left-6 (violation); now lives
+         in the plan identity bar action cluster. -->
 
     <!-- 🆘 Fresh Start pill REMOVED 2026-05-27 — control-pins rule ("ALL CONTROL PINS
          ARE AT TOP LINES, NEVER FLOATING BOTTOM LEFT OR RIGHT", Tom 2026-05-26).
