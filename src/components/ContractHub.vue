@@ -23,6 +23,8 @@ import ScrollContainer from './ScrollContainer.vue'
 import { useContractStore } from '../composables/useContractStore'
 import { useContractParser } from '../composables/useContractParser'
 import { useDocumentImport } from '../composables/useDocumentImport'
+import { useContractLibrary } from '../composables/useContractLibrary'
+import type { ContractLibraryEntry } from '../composables/useContractLibrary'
 import type {
   ContractModel,
   ContractClause,
@@ -128,6 +130,54 @@ async function handleFileImport(e: Event): Promise<void> {
   if (!importTitle.value.trim()) {
     importTitle.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
   }
+}
+
+// ── Contract Library ──────────────────────────────────────────────────────────
+
+const library = useContractLibrary()
+
+/** Separate useDocumentImport instance for library uploads (own loading/error state). */
+const { importFromFile: libImportFromFile, importLoading: libExtracting } = useDocumentImport()
+
+const libOpen           = ref(false)
+const libFileInputRef   = ref<HTMLInputElement | null>(null)
+/** Inline rename: tracks which user entry is being renamed. */
+const libRenamingId     = ref<string | null>(null)
+const libRenameDraft    = ref('')
+
+/** Load a library entry into the import form and close the library panel. */
+function loadFromLibrary(entry: ContractLibraryEntry): void {
+  importTitle.value = entry.title
+  importText.value  = entry.text
+  importType.value  = entry.contractType
+  libOpen.value     = false
+}
+
+function triggerLibFileInput(): void {
+  libFileInputRef.value?.click()
+}
+
+async function handleLibFileImport(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const file  = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  const text = await libImportFromFile(file)
+  if (!text) return
+  const title = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+  library.addUserEntry(title, text, 'other')
+}
+
+function startRename(entry: ContractLibraryEntry): void {
+  libRenamingId.value  = entry.id
+  libRenameDraft.value = entry.title
+}
+
+function commitRename(): void {
+  if (libRenamingId.value) {
+    library.renameUserEntry(libRenamingId.value, libRenameDraft.value)
+  }
+  libRenamingId.value = null
 }
 
 async function doImport(): Promise<void> {
@@ -873,6 +923,104 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
+              <!-- ── Library picker ──────────────────────────────────────── -->
+              <div class="rounded-xl border border-teal-200 overflow-hidden">
+                <!-- Toggle bar -->
+                <button
+                  type="button"
+                  title="Contract library — load a sample or upload your own · single-click to expand"
+                  class="w-full flex items-center gap-2 px-4 py-2.5 bg-teal-50 hover:bg-teal-100 transition-colors text-xs font-bold text-teal-800 select-none"
+                  @click="libOpen = !libOpen"
+                >
+                  <span>📚 Contract Library</span>
+                  <span class="font-normal text-teal-500">({{ library.allEntries.value.length }})</span>
+                  <span class="ml-auto text-teal-400 text-[10px]">{{ libOpen ? '▲ hide' : '▼ show' }}</span>
+                </button>
+
+                <!-- Expanded library list -->
+                <div v-if="libOpen" class="border-t border-teal-100">
+                  <!-- Scrollable entry list -->
+                  <div class="max-h-44 overflow-y-auto divide-y divide-slate-100">
+                    <div
+                      v-for="entry in library.allEntries.value"
+                      :key="entry.id"
+                      class="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 group"
+                    >
+                      <!-- Source badge -->
+                      <span
+                        class="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                        :class="entry.source === 'built-in'
+                          ? 'bg-teal-100 text-teal-700'
+                          : 'bg-violet-100 text-violet-700'"
+                      >{{ entry.source === 'built-in' ? 'Built-in' : 'Mine' }}</span>
+
+                      <!-- Title / rename input -->
+                      <input
+                        v-if="libRenamingId === entry.id"
+                        v-model="libRenameDraft"
+                        type="text"
+                        class="flex-1 min-w-0 text-xs border border-teal-300 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                        @keydown.enter.prevent="commitRename"
+                        @keydown.esc.prevent="libRenamingId = null"
+                        @blur="commitRename"
+                      />
+                      <span v-else class="flex-1 min-w-0 text-xs text-slate-700 truncate">{{ entry.title }}</span>
+
+                      <!-- Rename (user only) -->
+                      <button
+                        v-if="entry.source === 'user' && libRenamingId !== entry.id"
+                        type="button"
+                        title="Rename this library entry"
+                        class="shrink-0 text-[10px] text-slate-400 hover:text-slate-600 px-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        @click="startRename(entry)"
+                      >✏️</button>
+
+                      <!-- Load button -->
+                      <button
+                        type="button"
+                        :title="`Load '${entry.title}' into the import form`"
+                        class="shrink-0 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-teal-600 hover:bg-teal-700 text-white transition-colors"
+                        @click="loadFromLibrary(entry)"
+                      >Load</button>
+
+                      <!-- Delete (user only) -->
+                      <button
+                        v-if="entry.source === 'user'"
+                        type="button"
+                        title="Remove from library — cannot be undone"
+                        class="shrink-0 text-[10px] text-red-400 hover:text-red-600 px-1 transition-colors"
+                        @click="library.removeUserEntry(entry.id)"
+                      >✕</button>
+                    </div>
+                  </div>
+
+                  <!-- Upload-to-library row -->
+                  <div class="px-3 py-2 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                    <input
+                      ref="libFileInputRef"
+                      type="file"
+                      accept=".pdf,.docx,.txt,.md,.markdown,.rtf,.html,.htm,.csv"
+                      class="sr-only"
+                      @change="handleLibFileImport"
+                    />
+                    <button
+                      type="button"
+                      title="Upload a contract file to your library — saved for future sessions. Supported: PDF, Word, Markdown, plain text."
+                      class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-dashed text-[11px] transition-colors focus:outline-none focus:ring-1 focus:ring-teal-400"
+                      :class="libExtracting
+                        ? 'border-slate-200 text-slate-400 cursor-wait'
+                        : 'border-teal-300 text-teal-600 hover:border-teal-500 hover:bg-teal-50'"
+                      :disabled="libExtracting"
+                      @click="triggerLibFileInput"
+                    >
+                      <span v-if="libExtracting">⏳ Uploading…</span>
+                      <span v-else>+ Upload to library</span>
+                    </button>
+                    <span class="text-[10px] text-slate-400">PDF · Word · Markdown · text</span>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Contract text *</label>
                 <p class="text-[11px] text-slate-500 mb-2">
