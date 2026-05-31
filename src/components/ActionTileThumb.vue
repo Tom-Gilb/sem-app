@@ -279,14 +279,26 @@ const _meta = useSemMetadata()
     <path d="M38 6 L38 16 L48 16" fill="none" stroke="#ea580c" stroke-width="2"/>
   </svg>
 
-  <!-- sharpen — sharpening pencil/blade -->
+  <!-- sharpen — before/after Planguage entry improvement (Thumbnail Reality Rule: REAL DATA) -->
+  <!-- UPDATE THIS THUMBNAIL if the Sharpen panel layout changes substantially. -->
   <svg v-else-if="thumb === 'sharpen'" viewBox="0 0 56 56" class="w-full h-full">
     <rect width="56" height="56" fill="#fefce8"/>
-    <rect x="22" y="8" width="12" height="32" rx="3" fill="#ca8a04" transform="rotate(-15,28,28)"/>
-    <polygon points="20,40 28,52 36,40" fill="#eab308" transform="rotate(-15,28,28) translate(0,-2)"/>
-    <line x1="12" y1="20" x2="6"  y2="14" stroke="#a16207" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="16" y1="30" x2="8"  y2="26" stroke="#a16207" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="14" y1="40" x2="6"  y2="38" stroke="#a16207" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- BEFORE column: faded vague entry lines -->
+    <rect x="4"  y="8"  width="7" height="6" rx="1" fill="#d97706" opacity="0.3"/>
+    <rect x="13" y="9"  width="22" height="2" rx="1" fill="#92400e" opacity="0.3"/>
+    <rect x="13" y="13" width="16" height="2" rx="1" fill="#92400e" opacity="0.2"/>
+    <rect x="4"  y="18" width="7" height="6" rx="1" fill="#d97706" opacity="0.25"/>
+    <rect x="13" y="19" width="20" height="2" rx="1" fill="#92400e" opacity="0.25"/>
+    <rect x="13" y="23" width="14" height="2" rx="1" fill="#92400e" opacity="0.15"/>
+    <!-- IMPROVE arrow -->
+    <path d="M5 34 L51 34" stroke="#ca8a04" stroke-width="0.75" stroke-dasharray="2,2"/>
+    <path d="M28 29 L28 32 M24 31 L28 35 L32 31" fill="none" stroke="#ca8a04" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- AFTER column: crisp precise V./F. entries -->
+    <rect x="4"  y="38" width="7" height="6" rx="1" fill="#d97706"/>
+    <text x="7.5" y="43" font-size="4.5" font-weight="bold" text-anchor="middle" fill="white">V.</text>
+    <rect x="13" y="39" width="36" height="2" rx="1" fill="#92400e"/>
+    <rect x="13" y="43" width="28" height="2" rx="1" fill="#b45309"/>
+    <rect x="13" y="47" width="20" height="2" rx="1" fill="#ca8a04" opacity="0.6"/>
   </svg>
 
   <!-- improve — sparkle/stars -->
@@ -341,12 +353,20 @@ const _meta = useSemMetadata()
     <rect x="12" y="31" width="10" height="2" rx="1" fill="#cbd5e1"/>
   </svg>
 
-  <!-- renamePlan — price tag with pencil -->
+  <!-- renamePlan — live plan title edit display (Thumbnail Reality Rule: REAL DATA) -->
+  <!-- UPDATE THIS THUMBNAIL if the Rename Plan UI changes substantially. -->
   <svg v-else-if="thumb === 'renamePlan'" viewBox="0 0 56 56" class="w-full h-full">
     <rect width="56" height="56" fill="#fefce8"/>
-    <path d="M8 8 L32 8 L48 24 L32 44 L8 44 Z" fill="#fef08a" stroke="#ca8a04" stroke-width="2"/>
-    <circle cx="18" cy="18" r="4" fill="#ca8a04"/>
-    <rect x="28" y="24" width="18" height="4" rx="2" fill="#a16207" transform="rotate(45,37,26)"/>
+    <!-- Label -->
+    <text x="6" y="16" font-size="5" fill="#92400e" font-weight="600">Plan Title</text>
+    <!-- Text input field with current plan name -->
+    <rect x="4" y="20" width="48" height="14" rx="3" fill="white" stroke="#ca8a04" stroke-width="1.5"/>
+    <rect x="7" y="25" width="24" height="3" rx="1" fill="#92400e"/>
+    <!-- cursor blink -->
+    <rect x="33" y="23" width="1.2" height="7" rx="0.5" fill="#d97706"/>
+    <!-- Current text label -->
+    <text x="6" y="46" font-size="4" fill="#b45309">Current name shown for editing</text>
+    <rect x="4" y="48" width="28" height="1" rx="0.5" fill="#d97706" opacity="0.5"/>
   </svg>
 
   <!-- restart — circular red refresh -->
@@ -365,20 +385,41 @@ const _meta = useSemMetadata()
 
   <!-- ── PEOPLE ─────────────────────────────────────────────────────────────────── -->
 
-  <!-- planOwners / planners / scribes — person circles -->
+  <!-- planOwners / planners / scribes — real initials avatar circles (Thumbnail Reality Rule: REAL DATA) -->
+  <!-- UPDATE THIS THUMBNAIL if the plan owners UI layout changes substantially. -->
   <svg v-else-if="thumb === 'planOwners' || thumb === 'planners' || thumb === 'scribes'" viewBox="0 0 56 56" class="w-full h-full">
     <rect width="56" height="56" fill="#eff6ff"/>
-    <circle cx="21" cy="20" r="9"  fill="#3b82f6"/>
-    <circle cx="37" cy="20" r="9"  fill="#6366f1"/>
-    <path d="M6 46 C6 34 16 28 21 28 C26 28 36 34 36 46 Z" fill="#3b82f6" opacity="0.7"/>
-    <path d="M20 46 C20 34 30 28 37 28 C44 28 50 34 50 46 Z" fill="#6366f1" opacity="0.7"/>
+    <!-- Avatar circles with initials — representative of real owner data -->
+    <circle cx="16" cy="24" r="11" fill="#3b82f6"/>
+    <text x="16" y="28" font-size="8" font-weight="bold" text-anchor="middle" fill="white">TG</text>
+    <circle cx="32" cy="24" r="11" fill="#6366f1" stroke="white" stroke-width="1.5"/>
+    <text x="32" y="28" font-size="8" font-weight="bold" text-anchor="middle" fill="white">JD</text>
+    <circle cx="45" cy="24" r="9" fill="#0ea5e9" stroke="white" stroke-width="1.5"/>
+    <text x="45" y="28" font-size="7" font-weight="bold" text-anchor="middle" fill="white">+1</text>
+    <!-- Role label -->
+    <text x="28" y="44" font-size="5.5" font-weight="600" text-anchor="middle" fill="#3b82f6">Plan Owners</text>
   </svg>
 
-  <!-- specOwners — diamond badge -->
+  <!-- specOwners — S. stakeholder entry ownership badge (Thumbnail Reality Rule: GLYPH) -->
+  <!-- UPDATE THIS THUMBNAIL if the spec owners UI layout changes substantially. -->
   <svg v-else-if="thumb === 'specOwners'" viewBox="0 0 56 56" class="w-full h-full">
     <rect width="56" height="56" fill="#eff6ff"/>
-    <polygon points="28,8 48,28 28,48 8,28" fill="#3b82f6" opacity="0.2" stroke="#3b82f6" stroke-width="2.5"/>
-    <text x="28" y="33" font-size="14" font-weight="bold" text-anchor="middle" fill="#1d4ed8">§</text>
+    <!-- S. entry type badge — canonical Planguage stakeholder glyph -->
+    <rect x="8" y="8" width="16" height="16" rx="2.5" fill="#6366f1"/>
+    <text x="16" y="20" font-size="10" font-weight="bold" text-anchor="middle" fill="white">S.</text>
+    <!-- Ownership rows (spec section → owner initials) -->
+    <rect x="28" y="10" width="20" height="5" rx="1" fill="#6366f1" opacity="0.25"/>
+    <text x="38" y="14.5" font-size="4" font-weight="bold" text-anchor="middle" fill="#4338ca">TG</text>
+    <rect x="28" y="17" width="20" height="5" rx="1" fill="#6366f1" opacity="0.18"/>
+    <text x="38" y="21.5" font-size="4" font-weight="bold" text-anchor="middle" fill="#4338ca">JD</text>
+    <rect x="28" y="24" width="20" height="5" rx="1" fill="#6366f1" opacity="0.12"/>
+    <text x="38" y="28.5" font-size="4" font-weight="bold" text-anchor="middle" fill="#4338ca">KG</text>
+    <!-- Owns label -->
+    <text x="16" y="34" font-size="4.5" text-anchor="middle" fill="#4338ca">Owns</text>
+    <line x1="8" y1="26" x2="8"  y2="36" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="8" y1="36" x2="28" y2="36" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- Label bottom -->
+    <text x="28" y="48" font-size="5" font-weight="600" text-anchor="middle" fill="#4338ca">Spec Owners</text>
   </svg>
 
   <!-- ── ANALYZE ───────────────────────────────────────────────────────────────── -->

@@ -90,12 +90,13 @@ onUnmounted(() => { if (expanded.value) exit() })
 
 <template>
   <!-- ── FAB — shown only when panel is collapsed ──────────────────────────── -->
-  <!-- Positioned bottom-right (right-6) above the ⚡ Actions button (bottom-6).
-       bottom-20 (80 px) clears the Actions button top (~68 px from bottom).
-       If a right-side drawer is open the FAB sits above it at z-[520]. -->
+  <!-- Control-pins rule 2026-05-26: ALL control pins live at TOP, never floating
+       bottom-left or bottom-right. FAB now positioned top-right below the identity
+       bar (top-[68px]) so it sits adjacent to the SOS/Actions cluster.
+       z-[520] stays within the Major surfaces tier (380–600). -->
   <div
     v-if="visible && !expanded"
-    class="fixed bottom-20 right-6 z-[520]"
+    class="fixed top-[68px] right-6 z-[520]"
   >
     <button
       type="button"
@@ -135,7 +136,7 @@ onUnmounted(() => { if (expanded.value) exit() })
             'transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
           ]
         : [
-            'fixed bottom-20 right-6',
+            'fixed top-[68px] right-6',
             'w-80 z-[521]',
             'rounded-2xl shadow-2xl bg-white border border-gray-200',
             'flex flex-col',

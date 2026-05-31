@@ -90,6 +90,7 @@ import AmuseMeButton from './AmuseMeButton.vue'
 import ConceptHint from './ConceptHint.vue'
 import { CONCEPT_HINTS } from '../data/conceptHints'
 import EditGlyph from './icons/EditGlyph.vue'
+import PinMenuPreview from './PinMenuPreview.vue'
 import { VIZ_STRIP_ITEMS } from '../constants/vizThumbs'
 import type { VisualisTab } from '../constants/vizThumbs'
 import { useVizThumbs } from '../composables/useVizThumbs'
@@ -678,6 +679,13 @@ const activeEvoMenu  = ref<string | null>(null)
 const hoveredEvoMenu = ref<string | null>(null)
 /** "step-{index}:{groupId}" — which per-step dropdown is currently open */
 const activeStepMenu = ref<string | null>(null)
+
+/**
+ * "step-{index}:{groupId}" — which per-step group button is hovered.
+ * Drives PinMenuPreview Phase 2 hover peek (Rule 7 Part C, 2026-05-31).
+ * Preview is hidden when the dropdown for that group is already open.
+ */
+const hoveredStepGroup = ref<string | null>(null)
 
 function isStepMenuOpen(index: number, groupId: string): boolean {
   return activeStepMenu.value === `step-${index}:${groupId}`
@@ -3505,18 +3513,21 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
                   />
                   <!-- Analyze · Presentation · Visualize · Simplify · Criticize -->
                   <div v-for="group in stepActionGroups(step, index)" :key="group.id" class="relative">
-                    <!-- Group trigger button -->
+                    <!-- Group trigger button — mouseenter shows PinMenuPreview Phase 2 peek -->
                     <button
                       type="button"
                       :aria-label="group.label"
                       :aria-haspopup="true"
                       :aria-expanded="isStepMenuOpen(index, group.id)"
+                      :title="`${group.label} · ${group.items.length} actions — hover to preview · click to open`"
                       class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors duration-100"
                       :class="isStepMenuOpen(index, group.id)
                         ? 'bg-slate-100 text-slate-700'
                         : group.items.some(i => i.isActive())
                           ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100'
                           : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'"
+                      @mouseenter="hoveredStepGroup = `step-${index}:${group.id}`"
+                      @mouseleave="hoveredStepGroup = null"
                       @click.stop="toggleStepMenu(index, group.id)"
                     >
                       <span aria-hidden="true">{{ group.emoji }}</span>
@@ -3525,6 +3536,14 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
                         style="height:0.6rem;width:0.6rem;flex-shrink:0;opacity:0.4;margin-left:0.1rem"
                       ><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z" /></svg>
                     </button>
+                    <!-- PinMenuPreview Phase 2 — 40×30 sub-item thumbnails on hover (Rule 7 Part C) -->
+                    <PinMenuPreview
+                      v-if="hoveredStepGroup === `step-${index}:${group.id}` && !isStepMenuOpen(index, group.id)"
+                      :group="group"
+                      direction="down"
+                      class="absolute left-0 top-full z-40"
+                    />
+
                     <!-- Dropdown panel -->
                     <div
                       v-show="isStepMenuOpen(index, group.id)"

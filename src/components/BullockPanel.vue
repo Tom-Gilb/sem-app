@@ -16,6 +16,7 @@ import { ref, computed } from 'vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import { buildBullockRows, fieldLabel, type BullockRow } from '../composables/useBullock'
+import { resolveIcon } from '../composables/iconRegistry'
 import type { SpecBlock } from '../types/spec'
 import type { SpecVersion } from '../composables/useSpecHistory'
 import type { SharpenRound } from '../composables/useSharpen'
@@ -318,7 +319,8 @@ function truncate(text: string, len = 80): string {
                   <span
                     :class="['inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide text-[10px] leading-none', badgeClass(row.changeType)]"
                   >
-                    <span aria-hidden="true">{{ row.sourceEmoji }}</span>
+                    <component v-if="resolveIcon(row.sourceEmoji)" :is="resolveIcon(row.sourceEmoji)" size="compact" aria-hidden="true" />
+                    <span v-else aria-hidden="true">{{ row.sourceEmoji }}</span>
                     {{ row.changeType }}
                   </span>
                 </td>

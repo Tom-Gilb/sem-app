@@ -25,6 +25,7 @@
 import { ref, computed, nextTick, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import EditGlyph from './icons/EditGlyph.vue'
 import {
   useModelLibrary,
   formatModelAsPlanguage,
@@ -1159,7 +1160,7 @@ function faceStyle(transform: string): Record<string, string> {
               :title="`Rename '${cat.label}' — click to edit the category name`"
               @click.stop="startRename(cat)"
             >
-              ✏️
+              <EditGlyph size="compact" aria-label="Rename category" />
             </button>
 
             <!-- Delete button (only user-created — not 'my-models'/'our-models') -->

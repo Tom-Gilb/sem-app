@@ -20,6 +20,7 @@
 import { ref, computed, watch } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import EditGlyph from './icons/EditGlyph.vue'
 import { useContractStore } from '../composables/useContractStore'
 import { useContractParser } from '../composables/useContractParser'
 import { useDocumentImport } from '../composables/useDocumentImport'
@@ -1010,7 +1011,7 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
                         title="Rename this library entry"
                         class="shrink-0 text-[10px] text-slate-400 hover:text-slate-600 px-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         @click="startRename(entry)"
-                      >✏️</button>
+                      ><EditGlyph size="compact" aria-label="Rename this library entry" /></button>
 
                       <!-- Load button -->
                       <button

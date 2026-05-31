@@ -24,6 +24,7 @@
 import { ref, computed, watch } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import { resolveIcon } from '../composables/iconRegistry'
 import { useBoardMembers }      from '../composables/useBoardMembers'
 import { useBoardActivityLog }  from '../composables/useBoardActivityLog'
 import { lastMariaResult }      from '../lib/maria/mariaResultStore'
@@ -415,7 +416,8 @@ function copyBoardReport(): void {
                   :title="`${TYPE_META[entry.type].label}: ${entry.title} — single-click to view in Activity tab`"
                   @click="activeTab = 'activity'; expandedEntryId = entry.id"
                 >
-                  <span class="text-base shrink-0" aria-hidden="true">{{ TYPE_META[entry.type].emoji }}</span>
+                  <component v-if="resolveIcon(TYPE_META[entry.type].emoji)" :is="resolveIcon(TYPE_META[entry.type].emoji)" size="compact" aria-hidden="true" />
+                  <span v-else class="text-base shrink-0" aria-hidden="true">{{ TYPE_META[entry.type].emoji }}</span>
                   <p class="text-xs text-slate-700 flex-1 truncate font-medium">{{ entry.title || 'Untitled item' }}</p>
                   <span
                     v-if="entry.assignedMemberIds.length"
@@ -742,7 +744,8 @@ function copyBoardReport(): void {
                     :title="`Status: ${STATUS_META[entry.status].label}`"
                   />
                   <!-- Type emoji -->
-                  <span class="text-base shrink-0" aria-hidden="true">{{ TYPE_META[entry.type].emoji }}</span>
+                  <component v-if="resolveIcon(TYPE_META[entry.type].emoji)" :is="resolveIcon(TYPE_META[entry.type].emoji)" size="compact" aria-hidden="true" />
+                  <span v-else class="text-base shrink-0" aria-hidden="true">{{ TYPE_META[entry.type].emoji }}</span>
                   <!-- Title -->
                   <p class="text-xs font-semibold text-slate-800 flex-1 truncate">{{ entry.title || 'Untitled item' }}</p>
                   <!-- Type badge -->

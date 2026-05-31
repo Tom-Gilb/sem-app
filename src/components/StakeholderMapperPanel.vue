@@ -21,6 +21,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import EditGlyph from './icons/EditGlyph.vue'
 import {
   useStakeholderMapper,
   ATTRIBUTE_DEFS,
@@ -823,7 +824,7 @@ function avgScore(sh: MappedStakeholder): number | null {
                       :title="`Edit ${def.name} attribute level, source URL, and fact manually`"
                       @click="startEdit(def.id, selected.attributes[def.id])"
                     >
-                      ✏️ Edit
+                      <EditGlyph size="compact" aria-label="Edit attribute" /> Edit
                     </button>
                   </div>
 
