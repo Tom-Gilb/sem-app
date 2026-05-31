@@ -4618,6 +4618,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
       <div class="self-start -ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]">
         <ValueCounter
           :current-stage="planningStage"
+          :extra-right-pad="!planModel ? 440 : 0"
           @go-to-stage="handleStageBarNav"
           @open-glyph="openGlyphPanel"
           @stage-action="handleStageAction"

@@ -54,8 +54,17 @@ import { useArrowInfoPanel } from '../composables/useArrowInfoPanel'
 const props = withDefaults(defineProps<{
   /** Active planning stage (1–11). Parent owns this value. */
   currentStage?: number
+  /**
+   * Extra right padding (px) to prevent stage tiles being obscured by
+   * fixed control-pin buttons at top-right. Pass ~440 when the full
+   * SOS+Mic+Speaker+Actions cluster is visible; 0 when those buttons
+   * live in the Plan Crest bar instead.
+   * Twin-portable: pure CSS — no framework dependency.
+   */
+  extraRightPad?: number
 }>(), {
-  currentStage: 1,
+  currentStage:  1,
+  extraRightPad: 0,
 })
 
 const emit = defineEmits<{
@@ -384,9 +393,14 @@ onUnmounted(() => {
       style="scroll-behavior: auto;"
     >
       <!-- pl-3: minimal left indent so stage 1 is fully visible at scroll=0.
-           pr-20: right breathing room for the ▶ Next overlay button.
-           Tom 2026-05-29: "old bug: stage 1 is still hidden off to left." -->
-      <div class="flex items-end gap-3 pl-3 pr-20 pb-1 min-w-max">
+           paddingRight: 5rem base (▶ Next button) + extraRightPad px to clear
+           the fixed SOS/Mic/Speaker/Actions cluster when it is visible.
+           Tom 2026-05-29: "old bug: stage 1 is still hidden off to left."
+           Tom 2026-05-31: "buttons overlap stage steps" — fixed via extraRightPad. -->
+      <div
+        class="flex items-end gap-3 pl-3 pb-1 min-w-max"
+        :style="{ paddingRight: `calc(5rem + ${props.extraRightPad}px)` }"
+      >
       <template v-for="(step, idx) in STAGES" :key="step.stage">
 
         <!-- ── Stage pill ───────────────────────────────────────────── -->
