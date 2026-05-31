@@ -135,7 +135,7 @@ function selectAgent(agent: AgentDef): void {
       aria-label="Agent Menu — choose a planning agent"
     >
       <div
-        class="pointer-events-auto w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden bg-white ring-1 ring-black/10"
+        class="pointer-events-auto w-full max-w-5xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden bg-white ring-1 ring-black/10"
       >
 
         <!-- Header -->
@@ -158,7 +158,7 @@ function selectAgent(agent: AgentDef): void {
           outer-class="flex-1 min-h-0 relative"
           inner-class="p-5"
         >
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
             <div
               v-for="agent in AGENTS"
               :key="agent.id"
@@ -248,7 +248,7 @@ function selectAgent(agent: AgentDef): void {
                   </svg>
                 </div>
 
-                <!-- Models: plan model library mini-list thumbnail -->
+                <!-- Models: plan model library mini-list thumbnail — multi-category design (Examples/My Models/Our Models + user cats) -->
                 <div v-else-if="agent.id === 'models'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
                   <svg width="72" height="53" viewBox="0 0 72 53" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <!-- Blue header -->
@@ -443,7 +443,7 @@ function selectAgent(agent: AgentDef): void {
 
               <!-- Tile body — blurb + launch button -->
               <div class="flex-1 flex flex-col gap-3 p-4">
-                <p class="text-xs text-slate-600 leading-relaxed">{{ agent.blurb }}</p>
+                <p class="text-xs text-slate-600 leading-relaxed line-clamp-3">{{ agent.blurb }}</p>
 
                 <div class="mt-auto">
                   <button

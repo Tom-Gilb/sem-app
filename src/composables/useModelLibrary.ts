@@ -5,27 +5,57 @@
  *   Built-in — shipped with the app; 3 per category × 6 categories = 18 total.
  *              Cannot be deleted. Cover common archetypes across organizational,
  *              project, product, national, international, and software domains.
- *   User      — uploaded/titled by the user; stored in localStorage; deletable.
+ *   User      — brought in by the user via "Bring in Models" flow; stored in
+ *              localStorage; deletable; can be AI-analysed into structured entries.
  *
- * Usage in ModelLibraryPanel: user browses by category, views Planguage entries,
- * copies the Planguage text, or uploads their own model text.
+ * Category system:
+ *   Top-level categories (ModelCategoryDef):
+ *     'examples'   — built-in examples, not renameable, sub-categorised by ExampleSubCategory
+ *     'my-models'  — user's own models, renameable
+ *     'our-models' — team models, renameable
+ *     <UUID>       — user-created categories, renameable and deletable
+ *   Sub-categories of 'examples' (ExampleSubCategory):
+ *     organizational, project, product, national, international, software
  *
  * Twin-portable: ModelLibraryEntry is a plain data record with no Vue /
  * browser API inside the type itself.  The composable is a module-level
  * singleton so library contents persist across panel mount/unmount cycles.
  */
 
+import Anthropic from '@anthropic-ai/sdk'
 import { ref, computed } from 'vue'
+import { MODEL_ID } from '../config/llm'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
-export type ModelCategory =
+/** Sub-categories within the built-in 'examples' top-level category. */
+export type ExampleSubCategory =
   | 'organizational'
   | 'project'
   | 'product'
   | 'national'
   | 'international'
   | 'software'
+
+/**
+ * Backwards-compat alias — code that imported ModelCategory can keep using it.
+ * It now refers to ExampleSubCategory (same union, same values).
+ */
+export type ModelCategory = ExampleSubCategory
+
+/** Top-level category definition (user-editable except 'examples'). */
+export interface ModelCategoryDef {
+  /** 'examples' | 'my-models' | 'our-models' | UUID */
+  id: string
+  /** User-visible label (e.g. "My Models"). */
+  label: string
+  emoji: string
+  /** true only for the built-in 'examples' category. */
+  isBuiltin: boolean
+  /** false for 'examples'; true for all others. */
+  isRenameable: boolean
+  createdAt: number
+}
 
 export interface ModelEntry {
   type: 'F' | 'V' | 'C' | 'R' | 'S'
@@ -37,18 +67,29 @@ export interface ModelEntry {
 export interface ModelLibraryEntry {
   id: string
   title: string
-  category: ModelCategory
+  /**
+   * Backwards-compat: sub-category string for built-in examples OR 'user' for
+   * user entries. New code should use categoryId + exampleSubCategory instead.
+   */
+  category: ModelCategory | 'user'
+  /** Primary top-level category id ('examples' | 'my-models' | 'our-models' | UUID). */
+  categoryId: string
+  /** Only present for built-in examples (categoryId === 'examples'). */
+  exampleSubCategory?: ExampleSubCategory
   /** 1-2 sentence summary shown on the card. */
   description: string
   stakeholders: string[]
   entries: ModelEntry[]
   source: 'built-in' | 'user'
-  /** For user-uploaded models: raw text (no structured entries). */
+  /** For user-added models: raw input text (before AI analysis). */
   userText?: string
+  /** AI analysis state. 'idle' = not yet run, 'analysing' = in progress, 'done' = success, 'error' = failed. */
+  analysisStatus?: 'idle' | 'analysing' | 'done' | 'error'
+  analysisError?: string
   createdAt: number
 }
 
-// ── Category metadata (also exported for use in the panel) ────────────────────
+// ── Category metadata (also exported for panel sub-category sidebar) ───────────
 
 export interface CategoryMeta {
   id: ModelCategory
@@ -58,6 +99,7 @@ export interface CategoryMeta {
   color: string
 }
 
+/** Sub-category metadata for the 'examples' built-in category. Exported for panel. */
 export const CATEGORIES_META: CategoryMeta[] = [
   { id: 'organizational', label: 'Organizational', emoji: '🏢', color: 'slate'  },
   { id: 'project',        label: 'Project',        emoji: '📁', color: 'amber'  },
@@ -65,6 +107,14 @@ export const CATEGORIES_META: CategoryMeta[] = [
   { id: 'national',       label: 'National',       emoji: '🌍', color: 'blue'   },
   { id: 'international',  label: 'International',  emoji: '🌐', color: 'indigo' },
   { id: 'software',       label: 'Software',       emoji: '💻', color: 'violet' },
+]
+
+// ── Default top-level categories ──────────────────────────────────────────────
+
+const DEFAULT_CATEGORY_DEFS: ModelCategoryDef[] = [
+  { id: 'examples',   label: 'Examples of Models', emoji: '📚', isBuiltin: true,  isRenameable: false, createdAt: 0 },
+  { id: 'my-models',  label: 'My Models',           emoji: '👤', isBuiltin: false, isRenameable: true,  createdAt: 0 },
+  { id: 'our-models', label: 'Our Models',           emoji: '🏢', isBuiltin: false, isRenameable: true,  createdAt: 0 },
 ]
 
 // ── Built-in model definitions ────────────────────────────────────────────────
@@ -77,6 +127,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'org-university-governance',
     title: 'University Governance',
     category: 'organizational',
+    categoryId: 'examples',
+    exampleSubCategory: 'organizational',
     description: 'A model of university governance covering teaching, research, and community engagement with measurable performance targets.',
     stakeholders: ['Students', 'Faculty', 'Administration', 'Board of Trustees', 'Government', 'Industry Partners'],
     entries: [
@@ -97,6 +149,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'org-healthcare-provider',
     title: 'Healthcare Provider',
     category: 'organizational',
+    categoryId: 'examples',
+    exampleSubCategory: 'organizational',
     description: 'Organisational model for a healthcare provider spanning patient care, diagnostics, and administration with outcome and efficiency metrics.',
     stakeholders: ['Patients', 'Clinicians', 'Administrators', 'Regulators', 'Insurers'],
     entries: [
@@ -117,6 +171,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'org-corporate-governance',
     title: 'Corporate Governance',
     category: 'organizational',
+    categoryId: 'examples',
+    exampleSubCategory: 'organizational',
     description: 'Corporate governance model covering strategic direction, risk management, and financial reporting with shareholder and employee value targets.',
     stakeholders: ['Shareholders', 'Board', 'Management', 'Employees', 'Customers', 'Regulators'],
     entries: [
@@ -139,6 +195,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'proj-software-development',
     title: 'Software Development Project',
     category: 'project',
+    categoryId: 'examples',
+    exampleSubCategory: 'project',
     description: 'Planguage model for a software development project covering the full lifecycle from requirements definition through deployment.',
     stakeholders: ['Product Owner', 'Dev Team', 'QA', 'End Users', 'Sponsor'],
     entries: [
@@ -160,6 +218,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'proj-digital-transformation',
     title: 'Digital Transformation Programme',
     category: 'project',
+    categoryId: 'examples',
+    exampleSubCategory: 'project',
     description: 'Programme model for enterprise-wide digital transformation covering process redesign, technology deployment, and change management.',
     stakeholders: ['C-Suite', 'IT Department', 'Business Units', 'Employees', 'Vendors'],
     entries: [
@@ -181,6 +241,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'proj-infrastructure-delivery',
     title: 'Infrastructure Delivery Project',
     category: 'project',
+    categoryId: 'examples',
+    exampleSubCategory: 'project',
     description: 'Capital infrastructure delivery model spanning design, construction, commissioning, and handover with safety and schedule targets.',
     stakeholders: ['Client', 'Contractor', 'Subcontractors', 'Regulators', 'Community'],
     entries: [
@@ -204,6 +266,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'prod-mobile-application',
     title: 'Mobile Application',
     category: 'product',
+    categoryId: 'examples',
+    exampleSubCategory: 'product',
     description: 'Product model for a consumer mobile application covering core features, onboarding, notifications, and analytics with growth and rating targets.',
     stakeholders: ['End Users', 'Product Team', 'Marketing', 'App Stores', 'Advertisers'],
     entries: [
@@ -225,6 +289,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'prod-b2b-saas-platform',
     title: 'B2B SaaS Platform',
     category: 'product',
+    categoryId: 'examples',
+    exampleSubCategory: 'product',
     description: 'Platform model for an enterprise B2B SaaS product with uptime, retention, NPS, and onboarding speed as primary value targets.',
     stakeholders: ['Enterprise Customers', 'Sales', 'Support', 'Engineering', 'Regulators'],
     entries: [
@@ -247,6 +313,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'prod-physical-consumer-product',
     title: 'Physical Consumer Product',
     category: 'product',
+    categoryId: 'examples',
+    exampleSubCategory: 'product',
     description: 'Product model for a physical consumer good covering manufacturing, distribution, after-sales support, and consumer satisfaction.',
     stakeholders: ['Consumers', 'Retailers', 'Manufacturing', 'Supply Chain', 'Regulators'],
     entries: [
@@ -270,6 +338,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'nat-education-system',
     title: 'National Education System',
     category: 'national',
+    categoryId: 'examples',
+    exampleSubCategory: 'national',
     description: 'National-scale education model spanning primary, secondary, tertiary, and vocational pathways with literacy, attainment, and employment outcomes.',
     stakeholders: ['Students', 'Teachers', 'Schools', 'Government', 'Parents', 'Employers'],
     entries: [
@@ -292,6 +362,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'nat-healthcare-system',
     title: 'National Healthcare System',
     category: 'national',
+    categoryId: 'examples',
+    exampleSubCategory: 'national',
     description: 'National healthcare model covering primary, emergency, specialist, and public health services with life expectancy and cost-efficiency targets.',
     stakeholders: ['Citizens', 'Healthcare Professionals', 'Hospitals', 'Government', 'Insurers', 'Pharmaceutical Companies'],
     entries: [
@@ -314,6 +386,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'nat-digital-economy-strategy',
     title: 'National Digital Economy Strategy',
     category: 'national',
+    categoryId: 'examples',
+    exampleSubCategory: 'national',
     description: 'National strategy model for digital economy development covering infrastructure, skills, e-government, and innovation ecosystem targets.',
     stakeholders: ['Government', 'Businesses', 'Citizens', 'Educational Institutions', 'International Partners'],
     entries: [
@@ -338,6 +412,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'intl-bilateral-trade',
     title: 'Bilateral Trade Partnership',
     category: 'international',
+    categoryId: 'examples',
+    exampleSubCategory: 'international',
     description: 'International trade partnership model covering tariff reduction, standards harmonisation, dispute resolution, and trade facilitation goals.',
     stakeholders: ['Exporting Nation', 'Importing Nation', 'Businesses', 'Customs Authorities', 'Dispute Resolution Bodies'],
     entries: [
@@ -359,6 +435,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'intl-climate-framework',
     title: 'International Climate Framework',
     category: 'international',
+    categoryId: 'examples',
+    exampleSubCategory: 'international',
     description: 'International climate cooperation model covering emissions commitments, climate finance, technology transfer, and adaptation support.',
     stakeholders: ['Signatory Nations', 'UNFCCC', 'Businesses', 'Civil Society', 'Vulnerable Communities'],
     entries: [
@@ -380,6 +458,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'intl-development-cooperation',
     title: 'International Development Cooperation',
     category: 'international',
+    categoryId: 'examples',
+    exampleSubCategory: 'international',
     description: 'Development cooperation model covering aid disbursement, capacity building, monitoring, and knowledge transfer with effectiveness and sovereignty constraints.',
     stakeholders: ['Donor Nations', 'Recipient Nations', 'NGOs', 'Beneficiary Communities', 'UN Agencies'],
     entries: [
@@ -403,6 +483,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'sw-sem-app',
     title: 'SEM App — Stakes Ends Means',
     category: 'software',
+    categoryId: 'examples',
+    exampleSubCategory: 'software',
     description: 'Self-referential Planguage model of the SEM App itself — a design sandbox for Planguage spec generation, Evo planning, and AI-assisted analysis.',
     stakeholders: ['Planners', 'Tom Gilb', 'Kai Gilb (Twin)', 'AI (Claude)', 'Organisation Leadership'],
     entries: [
@@ -427,6 +509,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'sw-enterprise-web-platform',
     title: 'Enterprise Web Platform',
     category: 'software',
+    categoryId: 'examples',
+    exampleSubCategory: 'software',
     description: 'Software model for an enterprise web platform covering authentication, core business logic, reporting, integrations, and admin tooling.',
     stakeholders: ['End Users', 'Admins', 'IT Operations', 'Security Team', 'Business Owners'],
     entries: [
@@ -450,6 +534,8 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
     id: 'sw-ai-ml-system',
     title: 'AI/ML System',
     category: 'software',
+    categoryId: 'examples',
+    exampleSubCategory: 'software',
     description: 'Software model for an AI/ML system covering data ingestion, training, inference, monitoring, and explainability with accuracy, fairness, and latency targets.',
     stakeholders: ['End Users', 'Data Scientists', 'Model Owners', 'Regulators', 'Affected Parties'],
     entries: [
@@ -470,15 +556,17 @@ const BUILT_IN_ENTRIES: ModelLibraryEntry[] = [
   },
 ]
 
-// ── Storage ───────────────────────────────────────────────────────────────────
+// ── Storage keys ──────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'sem-model-library-v1'
+const STORAGE_KEY      = 'sem-model-library-v1'       // user entries (backwards compat)
+const CATEGORIES_KEY   = 'sem-model-categories-v1'    // category defs
 
 // ── Module-level singleton state ──────────────────────────────────────────────
 
-const _userEntries = ref<ModelLibraryEntry[]>([])
+const _userEntries  = ref<ModelLibraryEntry[]>([])
+const categoryDefs  = ref<ModelCategoryDef[]>([...DEFAULT_CATEGORY_DEFS])
 
-function _load(): void {
+function _loadEntries(): void {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) _userEntries.value = JSON.parse(raw) as ModelLibraryEntry[]
@@ -487,24 +575,76 @@ function _load(): void {
   }
 }
 
-function _save(): void {
+function _saveEntries(): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(_userEntries.value))
 }
 
-_load()
+function _loadCategories(): void {
+  try {
+    const raw = localStorage.getItem(CATEGORIES_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as ModelCategoryDef[]
+      // Always ensure the three built-in defs are present (merge strategy: user
+      // overrides labels for 'my-models'/'our-models', built-in always stays locked).
+      const builtinIds = new Set(['examples', 'my-models', 'our-models'])
+      const userCats   = parsed.filter(c => !builtinIds.has(c.id))
+      const overrides  = new Map(parsed.filter(c => builtinIds.has(c.id)).map(c => [c.id, c]))
+      categoryDefs.value = DEFAULT_CATEGORY_DEFS.map(def => ({
+        ...def,
+        ...overrides.get(def.id),
+        // Hard-lock immutable fields for safety
+        isBuiltin:    def.isBuiltin,
+        isRenameable: def.isRenameable,
+      })).concat(userCats)
+    }
+  } catch {
+    categoryDefs.value = [...DEFAULT_CATEGORY_DEFS]
+  }
+}
+
+function _saveCategories(): void {
+  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categoryDefs.value))
+}
+
+_loadEntries()
+_loadCategories()
+
+// ── LLM client (same pattern as useEvoCritiquer) ──────────────────────────────
+
+function _getClient(): Anthropic {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
+  return new Anthropic({ apiKey: apiKey ?? '', dangerouslyAllowBrowser: true, timeout: 120_000 })
+}
+
+// ── JSON extraction helper (same pattern as useEvoCritiquer) ──────────────────
+
+function _extractJson<T>(text: string): T {
+  const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  try { return JSON.parse(stripped) as T } catch { /* */ }
+  try { return JSON.parse(text.trim()) as T } catch { /* */ }
+  const objMatch = stripped.match(/\{[\s\S]*\}/)
+  if (objMatch) { try { return JSON.parse(objMatch[0]) as T } catch { /* */ } }
+  throw new Error('Could not extract valid JSON from AI response')
+}
+
+// ── UUID helper ───────────────────────────────────────────────────────────────
+
+function _uuid(): string {
+  return `cat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
 
 // ── Formatter ─────────────────────────────────────────────────────────────────
 
 /**
  * Format a ModelLibraryEntry as clean Planguage text for clipboard / display.
  * Built-in entries emit structured F./V./C./R./S. entries.
- * User-uploaded entries emit the raw userText preserved as-is.
+ * User-added entries emit the raw userText preserved as-is (if no analysed entries).
  */
 export function formatModelAsPlanguage(entry: ModelLibraryEntry): string {
   const lines: string[] = []
 
   lines.push(`Title: ${entry.title}`)
-  lines.push(`Category: ${entry.category}`)
+  lines.push(`Category: ${entry.exampleSubCategory ?? entry.categoryId}`)
   lines.push(`Description: ${entry.description}`)
   lines.push('')
 
@@ -515,12 +655,13 @@ export function formatModelAsPlanguage(entry: ModelLibraryEntry): string {
     lines.push('')
   }
 
-  if (entry.source === 'user' && entry.userText) {
+  // User model with no structured entries: emit raw text
+  if (entry.source === 'user' && entry.entries.length === 0 && entry.userText) {
     lines.push(entry.userText)
     return lines.join('\n')
   }
 
-  // Group built-in entries by type in canonical order
+  // Group entries by type in canonical order
   const typeOrder: ModelEntry['type'][] = ['F', 'V', 'C', 'R', 'S']
   for (const t of typeOrder) {
     const group = entry.entries.filter(e => e.type === t)
@@ -550,35 +691,74 @@ export function useModelLibrary() {
     ..._userEntries.value,
   ])
 
-  /** Reactive filtered list for a specific category. */
+  /** Reactive filtered list for a specific ExampleSubCategory (legacy helper). */
   function entriesByCategory(cat: ModelCategory) {
     return computed<ModelLibraryEntry[]>(() =>
-      allEntries.value.filter(e => e.category === cat),
+      allEntries.value.filter(e => e.exampleSubCategory === cat),
     )
   }
 
+  // ── Category management ───────────────────────────────────────────────────
+
+  /** Add a new user-created category. Returns the created def. */
+  function addCategory(label: string, emoji?: string): ModelCategoryDef {
+    const def: ModelCategoryDef = {
+      id:           _uuid(),
+      label:        label.trim() || 'New Category',
+      emoji:        emoji ?? '📂',
+      isBuiltin:    false,
+      isRenameable: true,
+      createdAt:    Date.now(),
+    }
+    categoryDefs.value = [...categoryDefs.value, def]
+    _saveCategories()
+    return def
+  }
+
+  /** Remove a user-created category. Only non-builtin, non-'examples' categories. */
+  function removeCategory(id: string): void {
+    if (id === 'examples' || id === 'my-models' || id === 'our-models') return
+    categoryDefs.value = categoryDefs.value.filter(c => c.id !== id)
+    _saveCategories()
+  }
+
+  /** Rename a category (only renameable ones). */
+  function renameCategory(id: string, newLabel: string): void {
+    const def = categoryDefs.value.find(c => c.id === id)
+    if (!def || !def.isRenameable) return
+    categoryDefs.value = categoryDefs.value.map(c =>
+      c.id === id ? { ...c, label: newLabel.trim() || c.label } : c,
+    )
+    _saveCategories()
+  }
+
+  // ── Entry management ──────────────────────────────────────────────────────
+
   /**
-   * Save a user-uploaded model text to the library.
-   * Returns the created entry.
+   * Add a user-supplied model text to the library.
+   * categoryId: the top-level category to place this model in.
+   * Returns the created entry (with analysisStatus='idle').
    */
   function addUserEntry(
     title: string,
-    category: ModelCategory,
+    categoryId: string,
     userText: string,
   ): ModelLibraryEntry {
     const entry: ModelLibraryEntry = {
-      id:          `user-${Date.now()}`,
-      title:       title.trim() || 'My Model',
-      category,
-      description: 'User-uploaded model.',
-      stakeholders: [],
-      entries:     [],
-      source:      'user',
+      id:             `user-${Date.now()}`,
+      title:          title.trim() || 'My Model',
+      category:       'user' as ModelCategory,
+      categoryId,
+      description:    'User-added model.',
+      stakeholders:   [],
+      entries:        [],
+      source:         'user',
       userText,
-      createdAt:   Date.now(),
+      analysisStatus: 'idle',
+      createdAt:      Date.now(),
     }
     _userEntries.value = [entry, ..._userEntries.value]
-    _save()
+    _saveEntries()
     return entry
   }
 
@@ -586,7 +766,7 @@ export function useModelLibrary() {
   function removeUserEntry(id: string): void {
     if (!id.startsWith('user-')) return
     _userEntries.value = _userEntries.value.filter(e => e.id !== id)
-    _save()
+    _saveEntries()
   }
 
   /** Rename a user entry title in place. */
@@ -594,8 +774,172 @@ export function useModelLibrary() {
     const entry = _userEntries.value.find(e => e.id === id)
     if (!entry) return
     entry.title = newTitle.trim() || entry.title
-    _save()
+    _saveEntries()
   }
 
-  return { allEntries, entriesByCategory, addUserEntry, removeUserEntry, renameUserEntry }
+  // ── AI: Analyse model text → Planguage entries ────────────────────────────
+
+  /**
+   * Analyse the userText of the given model entry using Claude.
+   * Sets analysisStatus='analysing' while running, then 'done' or 'error'.
+   * On success: populates entries, optionally updates title/description.
+   */
+  async function analyseModelText(modelId: string, signal?: AbortSignal): Promise<void> {
+    const entry = _userEntries.value.find(e => e.id === modelId)
+    if (!entry || !entry.userText) return
+
+    entry.analysisStatus = 'analysing'
+    entry.analysisError  = undefined
+    _saveEntries()
+
+    const systemPrompt =
+      'You are a Planguage expert. Convert the input text into structured Planguage ' +
+      'F./V./C./R./S. entries. ' +
+      'F.=binary function (present/absent — what the system DOES, no quantities inside F.), ' +
+      'V.=measurable value (needs Scale/Meter/Goal/Tolerable), ' +
+      'C.=hard constraint (Must…), ' +
+      'R.=resource/budget, ' +
+      'S.=stakeholder-specific solution or means. ' +
+      'Return ONLY valid JSON: ' +
+      '{ "title": "string or null", "description": "string or null", ' +
+      '"stakeholders": ["string"], ' +
+      '"entries": [{"type":"F"|"V"|"C"|"R"|"S", "description":"string", "details":"string or null"}] }'
+
+    type AnalysisResult = {
+      title?: string | null
+      description?: string | null
+      stakeholders?: string[]
+      entries?: Array<{ type: 'F' | 'V' | 'C' | 'R' | 'S'; description: string; details?: string | null }>
+    }
+
+    try {
+      const client   = _getClient()
+      const response = await client.messages.create(
+        {
+          model:      MODEL_ID,
+          max_tokens: 4096,
+          system:     systemPrompt,
+          messages:   [{ role: 'user', content: entry.userText }],
+        },
+        { signal },
+      )
+
+      const text = response.content
+        .filter(b => b.type === 'text')
+        .map(b => (b as { type: 'text'; text: string }).text)
+        .join('')
+
+      const parsed = _extractJson<AnalysisResult>(text)
+
+      // Update entry in place — find the mutable ref
+      const idx = _userEntries.value.findIndex(e => e.id === modelId)
+      if (idx === -1) return
+
+      const target = _userEntries.value[idx]
+      if (parsed.title)       target.title       = parsed.title
+      if (parsed.description) target.description = parsed.description
+      if (Array.isArray(parsed.stakeholders)) target.stakeholders = parsed.stakeholders
+      if (Array.isArray(parsed.entries)) {
+        target.entries = parsed.entries.map(e => ({
+          type:        e.type,
+          description: e.description,
+          details:     e.details ?? undefined,
+        }))
+      }
+      target.analysisStatus = 'done'
+      _saveEntries()
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name === 'AbortError') {
+        const idx = _userEntries.value.findIndex(e => e.id === modelId)
+        if (idx !== -1) {
+          _userEntries.value[idx].analysisStatus = 'idle'
+          _saveEntries()
+        }
+        return
+      }
+      const idx = _userEntries.value.findIndex(e => e.id === modelId)
+      if (idx !== -1) {
+        _userEntries.value[idx].analysisStatus = 'error'
+        _userEntries.value[idx].analysisError  = err instanceof Error ? err.message : 'AI analysis failed'
+        _saveEntries()
+      }
+    }
+  }
+
+  // ── AI: Sharpen model entries ─────────────────────────────────────────────
+
+  /**
+   * Apply an improvement command to the model's existing entries using Claude.
+   * Updates entries in place on success.
+   */
+  async function sharpenModel(modelId: string, command: string, signal?: AbortSignal): Promise<void> {
+    const entry = _userEntries.value.find(e => e.id === modelId)
+    if (!entry) return
+
+    const currentEntries = entry.entries.map(e =>
+      `${e.type}. ${e.description}${e.details ? ' — ' + e.details : ''}`,
+    ).join('\n')
+
+    const systemPrompt =
+      'You are a Planguage improver. Apply the improvement command to the model entries. ' +
+      'Keep F. entries binary (present/absent), V. entries measurable, C. entries as hard Must constraints. ' +
+      'Return ONLY valid JSON: ' +
+      '{ "entries": [{"type":"F"|"V"|"C"|"R"|"S", "description":"string", "details":"string or null"}] }'
+
+    const userPrompt =
+      `Improvement command: ${command}\n\nCurrent entries:\n${currentEntries}`
+
+    type SharpenResult = {
+      entries?: Array<{ type: 'F' | 'V' | 'C' | 'R' | 'S'; description: string; details?: string | null }>
+    }
+
+    try {
+      const client   = _getClient()
+      const response = await client.messages.create(
+        {
+          model:      MODEL_ID,
+          max_tokens: 4096,
+          system:     systemPrompt,
+          messages:   [{ role: 'user', content: userPrompt }],
+        },
+        { signal },
+      )
+
+      const text = response.content
+        .filter(b => b.type === 'text')
+        .map(b => (b as { type: 'text'; text: string }).text)
+        .join('')
+
+      const parsed = _extractJson<SharpenResult>(text)
+
+      const idx = _userEntries.value.findIndex(e => e.id === modelId)
+      if (idx === -1) return
+
+      if (Array.isArray(parsed.entries)) {
+        _userEntries.value[idx].entries = parsed.entries.map(e => ({
+          type:        e.type,
+          description: e.description,
+          details:     e.details ?? undefined,
+        }))
+        _saveEntries()
+      }
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name === 'AbortError') return
+      throw err
+    }
+  }
+
+  return {
+    allEntries,
+    categoryDefs,
+    entriesByCategory,
+    addUserEntry,
+    removeUserEntry,
+    renameUserEntry,
+    addCategory,
+    removeCategory,
+    renameCategory,
+    analyseModelText,
+    sharpenModel,
+  }
 }
