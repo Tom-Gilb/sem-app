@@ -29,12 +29,14 @@ import {
   useModelLibrary,
   formatModelAsPlanguage,
   CATEGORIES_META,
+  BOUNDARY_TYPES,
 } from '../composables/useModelLibrary'
 import type {
   ModelCategory,
   ModelLibraryEntry,
   ModelCategoryDef,
   ModelEntry,
+  BoundaryType,
 } from '../composables/useModelLibrary'
 import { useDocumentImport } from '../composables/useDocumentImport'
 
@@ -54,7 +56,7 @@ const { importFromFile, importLoading: fileExtracting } = useDocumentImport()
 
 type EntryType = 'F' | 'V' | 'C' | 'R' | 'S'
 type PanelMode = 'grid' | 'bring-in' | 'detail'
-type ToolMode = 'none' | 'edit-batch' | 'edit-replace' | 'edit-manual' | 'viz-flow' | 'viz-related' | 'viz-3d' | 'sharpen'
+type ToolMode = 'none' | 'edit-batch' | 'edit-replace' | 'edit-manual' | 'viz-flow' | 'viz-related' | 'viz-3d' | 'sharpen' | 'defect-analysis' | 'improve-attributes'
 
 // ── Panel mode ────────────────────────────────────────────────────────────────
 
@@ -95,6 +97,19 @@ const sharpenError           = ref<string | null>(null)
 const specificToolsOpen      = ref(false)
 
 const toolMode = ref<ToolMode>('none')
+
+// Defect analysis tool state
+const defectBoundaryType  = ref<BoundaryType>('our-org')
+const defectRunning       = ref(false)
+const defectError         = ref<string | null>(null)
+
+// Improve attributes tool state
+const improveDimension    = ref<'stakeholder' | 'value' | 'constraint'>('stakeholder')
+const improveSpec         = ref('')
+const improveCount        = ref<1 | 3 | 10>(3)
+const improveRunning      = ref(false)
+const improveError        = ref<string | null>(null)
+const improveAppliedId    = ref<string | null>(null)
 
 // Batch change tool
 const batchTypes   = ref(new Set<EntryType>(['F', 'V', 'C', 'R', 'S']))
@@ -362,14 +377,16 @@ function countByType(entry: ModelLibraryEntry, type: EntryType): number {
 // ── Specific Model Analysis Tools ─────────────────────────────────────────────
 
 const TOOL_MODE_LABELS: Record<ToolMode, string> = {
-  'none':         '',
-  'edit-batch':   '🔧 Batch Change Entries',
-  'edit-replace': '🔍 Find & Replace',
-  'edit-manual':  '✏️ Manual Edit List',
-  'viz-flow':     '📊 Value Flow',
-  'viz-related':  '🔗 Strongly Related',
-  'viz-3d':       '🧊 3D Model View',
-  'sharpen':      '✂️ Sharpen Model',
+  'none':              '',
+  'edit-batch':        '🔧 Batch Change Entries',
+  'edit-replace':      '🔍 Find & Replace',
+  'edit-manual':       '✏️ Manual Edit List',
+  'viz-flow':          '📊 Value Flow',
+  'viz-related':       '🔗 Strongly Related',
+  'viz-3d':            '🧊 3D Model View',
+  'sharpen':           '✂️ Sharpen Model',
+  'defect-analysis':   '🔬 Model Defect Analysis',
+  'improve-attributes': '✨ Improve Model Attributes',
 }
 
 const batchMatchedEntries = computed<Array<{idx: number; entry: ModelEntry}>>(() => {
@@ -438,6 +455,108 @@ function openTool(mode: ToolMode): void {
 
 function closeTool(): void {
   toolMode.value = 'none'
+}
+
+// ── Computed results for new analysis tools ───────────────────────────────
+
+const currentDefectResult = computed(() =>
+  selectedModelId.value ? library.defectResults.value.get(selectedModelId.value) ?? null : null
+)
+const currentImprovementResult = computed(() =>
+  selectedModelId.value ? library.improvementResults.value.get(selectedModelId.value) ?? null : null
+)
+
+// ── Defect analysis actions ───────────────────────────────────────────────
+
+async function runDefectAnalysis(): Promise<void> {
+  if (!selectedModel.value) return
+  defectRunning.value = true
+  defectError.value = null
+  _abortController = new AbortController()
+  try {
+    await library.runDefectAnalysis(selectedModel.value.id, defectBoundaryType.value, _abortController.signal)
+  } catch (err: unknown) {
+    if ((err as { name?: string }).name !== 'AbortError') {
+      defectError.value = err instanceof Error ? err.message : 'Analysis failed'
+    }
+  } finally {
+    defectRunning.value = false
+  }
+}
+
+// ── Improve attributes actions ────────────────────────────────────────────
+
+async function runImproveAnalysis(): Promise<void> {
+  if (!selectedModel.value || !improveSpec.value.trim()) return
+  improveRunning.value = true
+  improveError.value = null
+  improveAppliedId.value = null
+  _abortController = new AbortController()
+  try {
+    await library.runImprovementAnalysis(
+      selectedModel.value.id,
+      improveDimension.value,
+      improveSpec.value,
+      improveCount.value,
+      _abortController.signal,
+    )
+  } catch (err: unknown) {
+    if ((err as { name?: string }).name !== 'AbortError') {
+      improveError.value = err instanceof Error ? err.message : 'Analysis failed'
+    }
+  } finally {
+    improveRunning.value = false
+  }
+}
+
+function applyImprovement(suggestionId: string): void {
+  if (!selectedModel.value || !currentImprovementResult.value) return
+  const suggestion = currentImprovementResult.value.suggestions.find(s => s.id === suggestionId)
+  if (!suggestion) return
+  library.applyImprovementSuggestion(selectedModel.value.id, suggestion)
+  improveAppliedId.value = suggestionId
+}
+
+function restoreVersion(versionId: string): void {
+  if (!selectedModel.value) return
+  if (!confirm('Restore this version? A snapshot of the current state will be saved first.')) return
+  library.restoreModelVersion(selectedModel.value.id, versionId)
+}
+
+// ── Static class maps for boundaries ─────────────────────────────────────
+
+const BOUNDARY_HEADER_CLASS: Record<BoundaryType, string> = {
+  'our-org':       'bg-emerald-100 text-emerald-800 border-emerald-300',
+  'product-line':  'bg-amber-100 text-amber-800 border-amber-300',
+  'national':      'bg-blue-100 text-blue-800 border-blue-300',
+  'international': 'bg-indigo-100 text-indigo-800 border-indigo-300',
+  'universe':      'bg-violet-100 text-violet-800 border-violet-300',
+}
+const BOUNDARY_RING_FILL: Record<BoundaryType, string> = {
+  'our-org':       '#d1fae5',
+  'product-line':  '#fef3c7',
+  'national':      '#dbeafe',
+  'international': '#e0e7ff',
+  'universe':      '#f1f5f9',
+}
+const BOUNDARY_RING_STROKE: Record<BoundaryType, string> = {
+  'our-org':       '#059669',
+  'product-line':  '#d97706',
+  'national':      '#2563eb',
+  'international': '#4338ca',
+  'universe':      '#7c3aed',
+}
+const SEVERITY_CLASS: Record<string, string> = {
+  critical: 'bg-red-100 text-red-700 border-red-300',
+  major:    'bg-orange-100 text-orange-700 border-orange-300',
+  minor:    'bg-amber-100 text-amber-700 border-amber-300',
+  info:     'bg-blue-100 text-blue-700 border-blue-300',
+}
+const SEVERITY_DOT: Record<string, string> = {
+  critical: 'bg-red-500',
+  major:    'bg-orange-500',
+  minor:    'bg-amber-400',
+  info:     'bg-blue-400',
 }
 
 function toggleBatchType(t: EntryType): void {
@@ -1582,6 +1701,400 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
             <p v-if="selectedModel.source !== 'user'" class="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">Sharpen is only available for user-added models. Built-in examples cannot be modified.</p>
           </ScrollContainer>
 
+          <!-- ── DEFECT ANALYSIS TOOL ──────────────────────────────────────────── -->
+          <ScrollContainer
+            v-if="toolMode === 'defect-analysis' && selectedModel"
+            outer-class="flex-1 min-h-0 relative"
+            inner-class="p-5 flex flex-col gap-5"
+          >
+            <!-- Boundary type selector -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-slate-600">Declared System Boundary</label>
+              <p class="text-[11px] text-slate-400 -mt-1">Select the scope of this model. Entries that belong outside this boundary will be flagged as violations.</p>
+              <div class="grid grid-cols-5 gap-2">
+                <button
+                  v-for="bt in BOUNDARY_TYPES"
+                  :key="bt.id"
+                  type="button"
+                  :class="[
+                    'flex flex-col items-center gap-1 rounded-xl px-2 py-3 text-[10px] font-semibold border-2 transition-all duration-150',
+                    defectBoundaryType === bt.id
+                      ? BOUNDARY_HEADER_CLASS[bt.id] + ' ring-2 ring-offset-1'
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400',
+                  ]"
+                  :title="`${bt.label} — ${bt.description}`"
+                  @click="defectBoundaryType = bt.id"
+                >
+                  <span class="text-xl" aria-hidden="true">{{ bt.emoji }}</span>
+                  <span class="text-center leading-tight">{{ bt.label }}</span>
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-500 italic">{{ BOUNDARY_TYPES.find(b => b.id === defectBoundaryType)?.description }}</p>
+            </div>
+
+            <!-- Run button -->
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                :disabled="defectRunning"
+                :class="[
+                  'flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-150',
+                  defectRunning ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white',
+                ]"
+                title="Run Defect Analysis — AI analyses this model for inconsistencies, missing elements, and boundary violations"
+                @click="runDefectAnalysis"
+              >
+                <span aria-hidden="true">{{ defectRunning ? '⏳' : '🔬' }}</span>
+                <span>{{ defectRunning ? 'Analysing…' : 'Run Defect Analysis' }}</span>
+              </button>
+              <p v-if="defectError" class="text-xs text-red-600">{{ defectError }}</p>
+            </div>
+
+            <!-- ── Elegant Boundary Diagram ────────────────────────────────────── -->
+            <div v-if="currentDefectResult" class="flex flex-col gap-3">
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">System Boundary Diagram</h3>
+              <div class="rounded-2xl bg-slate-900 p-4 flex flex-col items-center">
+                <svg viewBox="0 0 560 420" class="w-full max-w-xl" xmlns="http://www.w3.org/2000/svg" role="img" :aria-label="`Boundary diagram for ${selectedModel.title} — ${defectBoundaryType} scope`">
+                  <!-- Background -->
+                  <rect width="560" height="420" fill="#0f172a" rx="12" />
+
+                  <!-- Universe ring (outermost) -->
+                  <circle cx="280" cy="220" r="190"
+                    :fill="currentDefectResult.boundaryType === 'universe' ? '#1e1b4b' : '#0f172a'"
+                    :stroke="currentDefectResult.boundaryType === 'universe' ? '#7c3aed' : '#312e81'"
+                    :stroke-width="currentDefectResult.boundaryType === 'universe' ? 3 : 1"
+                    stroke-dasharray="6 3"
+                  />
+                  <text x="280" y="38" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600" opacity="0.9">🌌 UNIVERSE</text>
+
+                  <!-- International ring -->
+                  <circle cx="280" cy="220" r="155"
+                    :fill="currentDefectResult.boundaryType === 'international' ? '#1e1b4b' : 'transparent'"
+                    :stroke="currentDefectResult.boundaryType === 'international' ? '#4338ca' : '#3730a3'"
+                    :stroke-width="currentDefectResult.boundaryType === 'international' ? 2.5 : 1"
+                    stroke-dasharray="5 3"
+                  />
+                  <text x="280" y="72" text-anchor="middle" font-size="9" fill="#6366f1" font-weight="600" opacity="0.9">🌐 INTERNATIONAL</text>
+
+                  <!-- National ring -->
+                  <circle cx="280" cy="220" r="118"
+                    :fill="currentDefectResult.boundaryType === 'national' ? '#172554' : 'transparent'"
+                    :stroke="currentDefectResult.boundaryType === 'national' ? '#2563eb' : '#1e40af'"
+                    :stroke-width="currentDefectResult.boundaryType === 'national' ? 2.5 : 1"
+                    stroke-dasharray="4 3"
+                  />
+                  <text x="280" y="107" text-anchor="middle" font-size="9" fill="#60a5fa" font-weight="600" opacity="0.9">🌍 NATIONAL</text>
+
+                  <!-- Product Line ring -->
+                  <circle cx="280" cy="220" r="82"
+                    :fill="currentDefectResult.boundaryType === 'product-line' ? '#1c1003' : 'transparent'"
+                    :stroke="currentDefectResult.boundaryType === 'product-line' ? '#d97706' : '#92400e'"
+                    :stroke-width="currentDefectResult.boundaryType === 'product-line' ? 2.5 : 1"
+                    stroke-dasharray="3 3"
+                  />
+                  <text x="280" y="143" text-anchor="middle" font-size="9" fill="#fbbf24" font-weight="600" opacity="0.9">📦 PRODUCT LINE</text>
+
+                  <!-- Our Org ring -->
+                  <circle cx="280" cy="220" r="50"
+                    :fill="currentDefectResult.boundaryType === 'our-org' ? '#022c22' : 'transparent'"
+                    :stroke="currentDefectResult.boundaryType === 'our-org' ? '#059669' : '#065f46'"
+                    :stroke-width="currentDefectResult.boundaryType === 'our-org' ? 2.5 : 1"
+                  />
+                  <text x="280" y="173" text-anchor="middle" font-size="9" fill="#34d399" font-weight="600" opacity="0.9">🏢 OUR ORG</text>
+
+                  <!-- System Core (center) -->
+                  <circle cx="280" cy="220" r="26" fill="#1e293b" stroke="#94a3b8" stroke-width="1.5" />
+                  <text x="280" y="216" text-anchor="middle" font-size="7" fill="#e2e8f0" font-weight="700">
+                    {{ selectedModel.title.slice(0, 12) }}{{ selectedModel.title.length > 12 ? '…' : '' }}
+                  </text>
+                  <text x="280" y="225" text-anchor="middle" font-size="6" fill="#94a3b8">SYSTEM</text>
+
+                  <!-- In-boundary entry dots (green, inside the selected ring) -->
+                  <template v-for="(idx, i) in currentDefectResult.inBoundaryIndices.slice(0, 12)" :key="`in-${idx}`">
+                    <circle
+                      :cx="280 + (30 + (i % 4) * 10) * Math.cos((i * 67 * Math.PI) / 180)"
+                      :cy="220 + (30 + (i % 4) * 10) * Math.sin((i * 67 * Math.PI) / 180)"
+                      r="5"
+                      fill="#34d399"
+                      opacity="0.9"
+                      :title="`In-boundary: ${selectedModel.entries[idx]?.type ?? '?'}. ${selectedModel.entries[idx]?.description ?? ''}`"
+                    />
+                    <text
+                      :x="280 + (30 + (i % 4) * 10) * Math.cos((i * 67 * Math.PI) / 180)"
+                      :y="220 + (30 + (i % 4) * 10) * Math.sin((i * 67 * Math.PI) / 180) + 3.5"
+                      text-anchor="middle" font-size="5" fill="#0f172a" font-weight="700"
+                    >{{ selectedModel.entries[idx]?.type ?? '' }}</text>
+                  </template>
+
+                  <!-- Out-of-boundary dots (red, OUTSIDE the selected ring) -->
+                  <template v-for="(idx, i) in currentDefectResult.outOfBoundaryIndices.slice(0, 8)" :key="`out-${idx}`">
+                    <circle
+                      :cx="280 + (currentDefectResult.boundaryType === 'our-org' ? 68 : currentDefectResult.boundaryType === 'product-line' ? 100 : currentDefectResult.boundaryType === 'national' ? 136 : currentDefectResult.boundaryType === 'international' ? 172 : 200) * Math.cos((i * 45 * Math.PI) / 180)"
+                      :cy="220 + (currentDefectResult.boundaryType === 'our-org' ? 68 : currentDefectResult.boundaryType === 'product-line' ? 100 : currentDefectResult.boundaryType === 'national' ? 136 : currentDefectResult.boundaryType === 'international' ? 172 : 200) * Math.sin((i * 45 * Math.PI) / 180)"
+                      r="6"
+                      fill="#ef4444"
+                      opacity="0.9"
+                    />
+                    <text
+                      :x="280 + (currentDefectResult.boundaryType === 'our-org' ? 68 : currentDefectResult.boundaryType === 'product-line' ? 100 : currentDefectResult.boundaryType === 'national' ? 136 : currentDefectResult.boundaryType === 'international' ? 172 : 200) * Math.cos((i * 45 * Math.PI) / 180)"
+                      :y="220 + (currentDefectResult.boundaryType === 'our-org' ? 68 : currentDefectResult.boundaryType === 'product-line' ? 100 : currentDefectResult.boundaryType === 'national' ? 136 : currentDefectResult.boundaryType === 'international' ? 172 : 200) * Math.sin((i * 45 * Math.PI) / 180) + 3.5"
+                      text-anchor="middle" font-size="5" fill="white" font-weight="700"
+                    >{{ selectedModel.entries[idx]?.type ?? '?' }}</text>
+                  </template>
+
+                  <!-- ⚠ violation warning triangle (if any out-of-boundary) -->
+                  <text v-if="currentDefectResult.outOfBoundaryIndices.length > 0" x="500" y="50" font-size="18" fill="#ef4444">⚠</text>
+                  <text v-if="currentDefectResult.outOfBoundaryIndices.length > 0" x="500" y="65" text-anchor="middle" font-size="8" fill="#ef4444">{{ currentDefectResult.outOfBoundaryIndices.length }} violation{{ currentDefectResult.outOfBoundaryIndices.length === 1 ? '' : 's' }}</text>
+
+                  <!-- Legend -->
+                  <circle cx="30" cy="390" r="4" fill="#34d399" />
+                  <text x="38" y="394" font-size="8" fill="#94a3b8">In boundary</text>
+                  <circle cx="110" cy="390" r="4" fill="#ef4444" />
+                  <text x="118" y="394" font-size="8" fill="#94a3b8">Out of boundary</text>
+                  <text x="280" y="394" text-anchor="middle" font-size="8" fill="#475569">Boundary: {{ BOUNDARY_TYPES.find(b => b.id === currentDefectResult.boundaryType)?.label }}</text>
+                  <text x="530" y="394" text-anchor="middle" font-size="8" :fill="currentDefectResult.overallScore >= 80 ? '#34d399' : currentDefectResult.overallScore >= 60 ? '#fbbf24' : '#ef4444'">Score: {{ currentDefectResult.overallScore }}/100</text>
+                </svg>
+              </div>
+
+              <!-- Summary -->
+              <div :class="['rounded-xl px-4 py-3 text-sm border', currentDefectResult.overallScore >= 80 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : currentDefectResult.overallScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-800']">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-bold text-lg">{{ currentDefectResult.overallScore }}/100</span>
+                  <span class="text-xs font-semibold">Model Health Score</span>
+                </div>
+                <p class="text-xs">{{ currentDefectResult.summary }}</p>
+              </div>
+
+              <!-- Defects list -->
+              <div v-if="currentDefectResult.defects.length > 0" class="flex flex-col gap-2">
+                <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wide">{{ currentDefectResult.defects.length }} Defect{{ currentDefectResult.defects.length === 1 ? '' : 's' }} Found</h3>
+                <div class="flex flex-col gap-2">
+                  <div
+                    v-for="defect in currentDefectResult.defects"
+                    :key="defect.id"
+                    :class="['rounded-xl bg-white ring-1 px-4 py-3 flex flex-col gap-1.5', defect.severity === 'critical' ? 'ring-red-200' : defect.severity === 'major' ? 'ring-orange-200' : defect.severity === 'minor' ? 'ring-amber-200' : 'ring-blue-200']"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span :class="['shrink-0 w-2 h-2 rounded-full', SEVERITY_DOT[defect.severity]]" />
+                      <span :class="['shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border', SEVERITY_CLASS[defect.severity]]">{{ defect.severity }}</span>
+                      <span v-if="defect.entryRef" class="shrink-0 text-[9px] font-bold text-slate-500">Entry {{ defect.entryRef.index + 1 }} ({{ defect.entryRef.type }}.)</span>
+                      <span class="text-xs font-semibold text-slate-800 truncate">{{ defect.title }}</span>
+                    </div>
+                    <p class="text-xs text-slate-600 leading-relaxed">{{ defect.description }}</p>
+                    <div class="flex items-start gap-1.5 bg-slate-50 rounded-lg px-3 py-2">
+                      <span class="shrink-0 text-slate-400 text-xs">💡</span>
+                      <p class="text-xs text-slate-700 leading-relaxed">{{ defect.suggestion }}</p>
+                    </div>
+                    <p v-if="defect.suggestedBoundary" class="text-[10px] text-indigo-600">
+                      Suggested boundary for this entry: {{ BOUNDARY_TYPES.find(b => b.id === defect.suggestedBoundary)?.label }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-xl ring-1 ring-emerald-200 text-xs text-emerald-800 font-semibold">
+                <span>✓</span><span>No defects found — model is clean within the {{ BOUNDARY_TYPES.find(b => b.id === currentDefectResult.boundaryType)?.label }} boundary</span>
+              </div>
+            </div>
+          </ScrollContainer>
+
+          <!-- ── IMPROVE MODEL ATTRIBUTES TOOL ─────────────────────────────────── -->
+          <ScrollContainer
+            v-if="toolMode === 'improve-attributes' && selectedModel"
+            outer-class="flex-1 min-h-0 relative"
+            inner-class="p-5 flex flex-col gap-5"
+          >
+            <!-- Dimension selector -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-slate-600">Improvement Dimension</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="d in [{id:'stakeholder',label:'Stakeholder',emoji:'👥',desc:'Add new stakeholders and entries that serve them'},{id:'value',label:'Value',emoji:'📈',desc:'Improve measurable value attributes (V. entries)'},{id:'constraint',label:'Constraint',emoji:'🔒',desc:'Add or refine constraints (C. entries) for the model'}]"
+                  :key="d.id"
+                  type="button"
+                  :class="[
+                    'flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-xs font-semibold border-2 transition-all duration-150',
+                    improveDimension === d.id
+                      ? 'bg-purple-600 text-white border-purple-600'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-purple-400',
+                  ]"
+                  :title="`${d.label} dimension — ${d.desc}`"
+                  @click="improveDimension = d.id as 'stakeholder' | 'value' | 'constraint'"
+                >
+                  <span class="text-xl" aria-hidden="true">{{ d.emoji }}</span>
+                  <span>{{ d.label }}</span>
+                  <span class="text-[9px] font-normal text-center leading-tight opacity-70">{{ d.desc }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Specification input -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-slate-600">
+                {{ improveDimension === 'stakeholder' ? 'For which stakeholder/group?' : improveDimension === 'value' ? 'What value improvement goal?' : 'What constraint or resource limit?' }}
+              </label>
+              <p class="text-[11px] text-slate-400 -mt-1">
+                {{ improveDimension === 'stakeholder' ? 'e.g. "Surgical Nurses" — AI will add functions, values, and stakeholders that serve them' : improveDimension === 'value' ? 'e.g. "Better Security" or "Faster response time" — AI adds measurable V. entries and corresponding F. entries' : 'e.g. "For less capital expenditure" or "Within GDPR constraints" — AI adds C. entries and budget-aware alternatives' }}
+              </p>
+              <input
+                v-model="improveSpec"
+                type="text"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                :placeholder="improveDimension === 'stakeholder' ? 'e.g. Surgical Nurses, Hospital Administrators, Patient Family Members…' : improveDimension === 'value' ? 'e.g. Better Security, Faster Load Time, Higher Patient Satisfaction…' : 'e.g. For less capital expenditure, Within GDPR, Under 3-month delivery timeline…'"
+                title="Specification — describe what you want to improve (stakeholder group, value goal, or constraint)"
+                @keydown.enter="runImproveAnalysis"
+              />
+            </div>
+
+            <!-- Count selector -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-slate-600">Number of suggestions</label>
+              <div class="flex gap-2">
+                <button v-for="n in [1, 3, 10]" :key="n" type="button"
+                  :class="['rounded-lg px-4 py-2 text-xs font-semibold border-2 transition-all duration-150', improveCount === n ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-600 border-slate-200 hover:border-purple-400']"
+                  :title="`Generate ${n} improvement suggestion${n > 1 ? 's' : ''} — each becomes an optional new model version`"
+                  @click="improveCount = n as 1 | 3 | 10"
+                >{{ n === 1 ? '1 — Single Version' : n === 3 ? '3 — Top 3' : '10 — Top 10' }}</button>
+              </div>
+            </div>
+
+            <!-- Run button -->
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                :disabled="improveRunning || !improveSpec.trim()"
+                :class="[
+                  'flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-150',
+                  improveRunning || !improveSpec.trim() ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white',
+                ]"
+                title="Generate Improvement Suggestions — AI creates new model versions with improvements in the selected dimension"
+                @click="runImproveAnalysis"
+              >
+                <span aria-hidden="true">{{ improveRunning ? '⏳' : '✨' }}</span>
+                <span>{{ improveRunning ? `Generating ${improveCount} suggestion${improveCount > 1 ? 's' : ''}…` : `Generate ${improveCount} Suggestion${improveCount > 1 ? 's' : ''}` }}</span>
+              </button>
+              <p v-if="improveError" class="text-xs text-red-600">{{ improveError }}</p>
+            </div>
+
+            <!-- Suggestion cards -->
+            <div v-if="currentImprovementResult" class="flex flex-col gap-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  {{ currentImprovementResult.suggestions.length }} Suggestion{{ currentImprovementResult.suggestions.length === 1 ? '' : 's' }}
+                  — {{ currentImprovementResult.dimension }} dimension — "{{ currentImprovementResult.specification }}"
+                </h3>
+              </div>
+              <div class="flex flex-col gap-4">
+                <div
+                  v-for="suggestion in currentImprovementResult.suggestions"
+                  :key="suggestion.id"
+                  :class="['rounded-2xl bg-white ring-2 p-5 flex flex-col gap-3', suggestion.rank === 1 ? 'ring-purple-400' : 'ring-slate-200']"
+                >
+                  <!-- Suggestion header -->
+                  <div class="flex items-start gap-3">
+                    <div :class="['shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white', suggestion.rank === 1 ? 'bg-purple-600' : 'bg-slate-400']">
+                      {{ suggestion.rank }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <p class="text-sm font-bold text-slate-800">{{ suggestion.title }}</p>
+                        <span v-if="suggestion.rank === 1" class="shrink-0 text-[9px] font-bold bg-purple-100 text-purple-700 rounded-full px-2 py-0.5">⭐ Best</span>
+                      </div>
+                      <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">{{ suggestion.rationale }}</p>
+                    </div>
+                  </div>
+
+                  <!-- New stakeholders -->
+                  <div v-if="suggestion.newStakeholders.length > 0" class="flex flex-col gap-1.5">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">New Stakeholders to add</p>
+                    <div class="flex flex-wrap gap-1.5">
+                      <span
+                        v-for="s in suggestion.newStakeholders"
+                        :key="s"
+                        class="text-[10px] font-medium bg-teal-50 text-teal-700 rounded-full px-2.5 py-1 ring-1 ring-teal-200"
+                      >+ {{ s }}</span>
+                    </div>
+                  </div>
+
+                  <!-- New entries -->
+                  <div v-if="suggestion.newEntries.length > 0" class="flex flex-col gap-1">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">New Planguage Entries to add</p>
+                    <div class="flex flex-col gap-1">
+                      <div
+                        v-for="(entry, i) in suggestion.newEntries"
+                        :key="i"
+                        class="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2"
+                      >
+                        <span :class="['shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5', TYPE_BADGE_CLASS[entry.type]]">{{ entry.type }}.</span>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs font-medium text-slate-800">{{ entry.description }}</p>
+                          <p v-if="entry.details" class="text-[10px] text-slate-500 mt-0.5">{{ entry.details }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Impact + Trade-offs -->
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-emerald-50 rounded-xl px-3 py-2.5">
+                      <p class="text-[9px] font-bold text-emerald-600 uppercase tracking-wide mb-1">Impact</p>
+                      <p class="text-xs text-emerald-800">{{ suggestion.impactSummary }}</p>
+                    </div>
+                    <div class="bg-amber-50 rounded-xl px-3 py-2.5">
+                      <p class="text-[9px] font-bold text-amber-600 uppercase tracking-wide mb-1">Trade-offs</p>
+                      <p class="text-xs text-amber-800">{{ suggestion.tradeOffs }}</p>
+                    </div>
+                  </div>
+
+                  <!-- Apply button -->
+                  <div class="flex items-center gap-3 pt-1 border-t border-slate-100">
+                    <button
+                      v-if="selectedModel.source === 'user'"
+                      type="button"
+                      :disabled="improveAppliedId === suggestion.id"
+                      :class="[
+                        'flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all duration-150',
+                        improveAppliedId === suggestion.id
+                          ? 'bg-emerald-100 text-emerald-700 cursor-default'
+                          : 'bg-purple-600 hover:bg-purple-700 text-white',
+                      ]"
+                      :title="`Apply '${suggestion.title}' as a new model version — adds new entries and stakeholders, saves current state first`"
+                      @click="applyImprovement(suggestion.id)"
+                    >
+                      <span aria-hidden="true">{{ improveAppliedId === suggestion.id ? '✓' : '▶' }}</span>
+                      <span>{{ improveAppliedId === suggestion.id ? 'Applied as new version ✓' : 'Apply as New Version' }}</span>
+                    </button>
+                    <p v-if="selectedModel.source !== 'user'" class="text-[10px] text-amber-600 italic">Apply is only available for user models — built-in examples cannot be modified</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Version history (if model has versions) -->
+            <div v-if="selectedModel.source === 'user' && selectedModel.versions && selectedModel.versions.length > 0" class="flex flex-col gap-2 pt-2 border-t border-slate-200">
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Version History ({{ selectedModel.versions.length }})</h3>
+              <div class="flex flex-col gap-1.5">
+                <div
+                  v-for="version in [...selectedModel.versions].reverse()"
+                  :key="version.id"
+                  class="flex items-center gap-3 bg-white rounded-lg ring-1 ring-slate-200 px-4 py-2.5"
+                >
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold text-slate-700 truncate">{{ version.name }}</p>
+                    <p class="text-[10px] text-slate-400">{{ version.entries.length }} entries · {{ version.stakeholders.length }} stakeholders · <span class="capitalize">{{ version.source }}</span></p>
+                  </div>
+                  <button
+                    type="button"
+                    class="shrink-0 text-xs text-slate-500 hover:text-blue-700 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors duration-150 font-medium"
+                    :title="`Restore version '${version.name}' — current state will be saved as a snapshot first`"
+                    @click="restoreVersion(version.id)"
+                  >
+                    ↩ Restore
+                  </button>
+                </div>
+              </div>
+            </div>
+          </ScrollContainer>
+
           <!-- Normal detail view (toolMode === 'none') -->
           <ScrollContainer
             v-if="toolMode === 'none'"
@@ -1723,6 +2236,20 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
                     @click="openTool('sharpen')">
                     <span>✂️</span><span class="font-medium">AI Sharpen</span><span class="ml-auto text-slate-400 text-[10px]">improve entries</span>
                   </button>
+                  <!-- Analyse Model category -->
+                  <div class="px-3 py-2 bg-slate-50 border-t border-b border-slate-100">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">🔬 Analyse Model</p>
+                  </div>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-red-50 hover:text-red-800 transition-colors duration-150 text-left"
+                    title="Model Defect Analysis — find inconsistencies, missing elements, and boundary violations in this model with an elegant boundary diagram"
+                    @click="openTool('defect-analysis')">
+                    <span>🔬</span><span class="font-medium">Model Defect Analysis</span><span class="ml-auto text-slate-400 text-[10px]">find issues</span>
+                  </button>
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-purple-50 hover:text-purple-800 transition-colors duration-150 text-left"
+                    title="Improve Model Attributes — AI generates improvement suggestions in Stakeholder, Value, or Constraint dimensions with new model versions"
+                    @click="openTool('improve-attributes')">
+                    <span>✨</span><span class="font-medium">Improve Model Attributes</span><span class="ml-auto text-slate-400 text-[10px]">AI suggestions</span>
+                  </button>
                   <p class="text-[10px] text-slate-400 italic px-4 py-2 border-t border-slate-100">More Edit Model tools coming soon</p>
                 </div>
               </div>
@@ -1850,6 +2377,34 @@ const ENTRY_TYPES: EntryType[] = ['F', 'V', 'C', 'R', 'S']
               >
                 {{ sharpenError }}
               </p>
+            </div>
+
+            <!-- ── Version History (user models with versions) ──────────────────── -->
+            <div
+              v-if="selectedModel.source === 'user' && selectedModel.versions && selectedModel.versions.length > 0"
+              class="flex flex-col gap-2 border-t border-slate-200 pt-4 mt-2"
+            >
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Version History ({{ selectedModel.versions.length }})</h3>
+              <div class="flex flex-col gap-1.5">
+                <div
+                  v-for="version in [...selectedModel.versions].reverse()"
+                  :key="version.id"
+                  class="flex items-center gap-3 bg-white rounded-lg ring-1 ring-slate-200 px-4 py-2.5"
+                >
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold text-slate-700 truncate">{{ version.name }}</p>
+                    <p class="text-[10px] text-slate-400">{{ version.entries.length }} entries · {{ version.stakeholders.length }} stakeholders</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="shrink-0 text-xs text-slate-500 hover:text-blue-700 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors duration-150 font-medium"
+                    :title="`Restore version '${version.name}' — saves current state as snapshot first`"
+                    @click="restoreVersion(version.id)"
+                  >
+                    ↩ Restore
+                  </button>
+                </div>
+              </div>
             </div>
 
           </ScrollContainer>

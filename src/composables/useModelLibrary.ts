@@ -28,6 +28,78 @@ import { MODEL_ID } from '../config/llm'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
+/** Boundary scope levels for system boundary analysis. Inner-to-outer. */
+export type BoundaryType = 'our-org' | 'product-line' | 'national' | 'international' | 'universe'
+
+export interface BoundaryTypeMeta {
+  id: BoundaryType
+  label: string
+  emoji: string
+  color: string  // Tailwind color token
+  description: string
+}
+
+export const BOUNDARY_TYPES: BoundaryTypeMeta[] = [
+  { id: 'our-org',        label: 'Our Organisation', emoji: '🏢', color: 'emerald', description: 'Scope limited to our own organisation\'s systems, people, and processes' },
+  { id: 'product-line',   label: 'Product Line',     emoji: '📦', color: 'amber',   description: 'Scope covers our product line and its direct supply/distribution chain' },
+  { id: 'national',       label: 'National',          emoji: '🌍', color: 'blue',    description: 'Scope extends to national-level systems, regulations, and institutions' },
+  { id: 'international',  label: 'International',     emoji: '🌐', color: 'indigo',  description: 'Scope extends to international bodies, frameworks, and cross-border systems' },
+  { id: 'universe',       label: 'Universe',           emoji: '🌌', color: 'violet',  description: 'No explicit boundary — all possible stakeholders and systems in scope' },
+]
+
+export interface ModelDefect {
+  id: string
+  severity: 'critical' | 'major' | 'minor' | 'info'
+  category: 'inconsistency' | 'missing' | 'out-of-boundary' | 'duplicate' | 'vague' | 'unmeasurable'
+  entryRef?: { index: number; type: string }
+  title: string
+  description: string
+  suggestion: string
+  suggestedBoundary?: BoundaryType
+}
+
+export interface DefectAnalysisResult {
+  modelId: string
+  boundaryType: BoundaryType
+  runAt: number
+  overallScore: number          // 0–100 where 100 = no defects found
+  defects: ModelDefect[]
+  inBoundaryIndices: number[]   // entry indices that are in-boundary
+  outOfBoundaryIndices: number[] // entry indices that violate the boundary
+  summary: string
+}
+
+export interface ImprovementSuggestion {
+  id: string
+  rank: number
+  title: string
+  rationale: string
+  newEntries: ModelEntry[]
+  newStakeholders: string[]
+  impactSummary: string
+  tradeOffs: string
+}
+
+export interface ImprovementResult {
+  modelId: string
+  dimension: 'stakeholder' | 'value' | 'constraint'
+  specification: string
+  suggestions: ImprovementSuggestion[]
+  runAt: number
+}
+
+export interface ModelVersion {
+  id: string
+  versionNumber: number
+  name: string
+  entries: ModelEntry[]
+  stakeholders: string[]
+  description: string
+  createdAt: number
+  source: 'original' | 'user-edit' | 'ai-improve' | 'batch-change' | 'find-replace' | 'sharpen'
+  improvementContext?: string
+}
+
 /** Sub-categories within the built-in 'examples' top-level category. */
 export type ExampleSubCategory =
   | 'organizational'
@@ -87,6 +159,8 @@ export interface ModelLibraryEntry {
   analysisStatus?: 'idle' | 'analysing' | 'done' | 'error'
   analysisError?: string
   createdAt: number
+  /** Version history — created by edit tools and AI improvement. */
+  versions?: ModelVersion[]
 }
 
 // ── Category metadata (also exported for panel sub-category sidebar) ───────────
@@ -573,6 +647,11 @@ const categoryDefs  = ref<ModelCategoryDef[]>([...DEFAULT_CATEGORY_DEFS])
  */
 const activeModelId = ref<string | null>(null)
 
+/** Last defect analysis result per model id. Module-level = persists across panel mounts. */
+const _defectResults = ref(new Map<string, DefectAnalysisResult>())
+/** Last improvement result per model id. Module-level = persists across panel mounts. */
+const _improvementResults = ref(new Map<string, ImprovementResult>())
+
 /** Set the active model.  Pass null to clear.  Twin-portable: pure state mutation. */
 function setActiveModel(id: string | null): void {
   activeModelId.value = id
@@ -949,6 +1028,243 @@ export function useModelLibrary() {
     }
   }
 
+  // ── AI: Defect Analysis ────────────────────────────────────────────────────
+
+  async function runDefectAnalysis(
+    modelId: string,
+    boundaryType: BoundaryType,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const entry = allEntries.value.find(e => e.id === modelId)
+    if (!entry) return
+
+    const entryList = entry.entries.map((e, i) =>
+      `[${i}] ${e.type}. ${e.description}${e.details ? ' — ' + e.details : ''}`,
+    ).join('\n')
+
+    const systemPrompt =
+      'You are a Planguage model auditor. Analyse the model for defects. ' +
+      'The model\'s declared boundary is: ' + boundaryType + '. ' +
+      'Boundary meaning: our-org = only our own systems/people/processes; ' +
+      'product-line = our product line and its direct chain; ' +
+      'national = national-level systems and regulations; ' +
+      'international = international bodies and cross-border systems; ' +
+      'universe = no limit. ' +
+      'Find: (1) inconsistencies (V. with no F. to deliver it, C. that contradicts V., etc.), ' +
+      '(2) missing elements (no stakeholders listed, V. without Scale/Goal, F. with no linked V., R. without budget figure), ' +
+      '(3) out-of-boundary entries (entries whose scope exceeds the declared boundary level), ' +
+      '(4) vague descriptions (non-specific, unmeasurable V. entries), ' +
+      '(5) duplicates. ' +
+      'For each defect assign severity: critical (model is incomplete/wrong), major (significant gap), minor (quality issue), info (suggestion). ' +
+      'Return ONLY valid JSON: ' +
+      '{ "overallScore": number_0_to_100, "summary": "string", ' +
+      '"defects": [{"id":"d1","severity":"critical"|"major"|"minor"|"info","category":"inconsistency"|"missing"|"out-of-boundary"|"duplicate"|"vague"|"unmeasurable","entryRef":{"index":number,"type":"F"|"V"|"C"|"R"|"S"}|null,"title":"string","description":"string","suggestion":"string","suggestedBoundary":"our-org"|"product-line"|"national"|"international"|"universe"|null}], ' +
+      '"inBoundaryIndices": [numbers], "outOfBoundaryIndices": [numbers] }'
+
+    const userPrompt =
+      `Model: ${entry.title}\nDeclared boundary: ${boundaryType}\n` +
+      `Stakeholders: ${entry.stakeholders.join(', ') || 'none'}\n\nEntries:\n${entryList}`
+
+    type AnalysisJson = {
+      overallScore?: number
+      summary?: string
+      defects?: Array<{
+        id?: string; severity?: string; category?: string
+        entryRef?: { index: number; type: string } | null
+        title?: string; description?: string; suggestion?: string
+        suggestedBoundary?: string | null
+      }>
+      inBoundaryIndices?: number[]
+      outOfBoundaryIndices?: number[]
+    }
+
+    try {
+      const client = _getClient()
+      const response = await client.messages.create(
+        { model: MODEL_ID, max_tokens: 4096, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] },
+        { signal },
+      )
+      const text = response.content.filter(b => b.type === 'text').map(b => (b as { type: 'text'; text: string }).text).join('')
+      const parsed = _extractJson<AnalysisJson>(text)
+
+      const result: DefectAnalysisResult = {
+        modelId,
+        boundaryType,
+        runAt: Date.now(),
+        overallScore: typeof parsed.overallScore === 'number' ? parsed.overallScore : 70,
+        summary: parsed.summary ?? 'Analysis complete.',
+        defects: (parsed.defects ?? []).map((d, i) => ({
+          id: d.id ?? `d${i}`,
+          severity: (['critical','major','minor','info'].includes(d.severity ?? '') ? d.severity : 'minor') as ModelDefect['severity'],
+          category: (['inconsistency','missing','out-of-boundary','duplicate','vague','unmeasurable'].includes(d.category ?? '') ? d.category : 'missing') as ModelDefect['category'],
+          entryRef: d.entryRef ?? undefined,
+          title: d.title ?? 'Defect',
+          description: d.description ?? '',
+          suggestion: d.suggestion ?? '',
+          suggestedBoundary: (d.suggestedBoundary ?? undefined) as BoundaryType | undefined,
+        })),
+        inBoundaryIndices: Array.isArray(parsed.inBoundaryIndices) ? parsed.inBoundaryIndices : [],
+        outOfBoundaryIndices: Array.isArray(parsed.outOfBoundaryIndices) ? parsed.outOfBoundaryIndices : [],
+      }
+
+      _defectResults.value = new Map(_defectResults.value).set(modelId, result)
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name === 'AbortError') return
+      throw err
+    }
+  }
+
+  // ── AI: Improvement Analysis ───────────────────────────────────────────────
+
+  async function runImprovementAnalysis(
+    modelId: string,
+    dimension: 'stakeholder' | 'value' | 'constraint',
+    specification: string,
+    count: 1 | 3 | 10,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const entry = allEntries.value.find(e => e.id === modelId)
+    if (!entry) return
+
+    const entryList = entry.entries.map(e =>
+      `${e.type}. ${e.description}${e.details ? ' — ' + e.details : ''}`,
+    ).join('\n')
+
+    const dimensionDesc = {
+      stakeholder: `stakeholder dimension — for the stakeholder/group: "${specification}"`,
+      value:       `value dimension — for the improvement goal: "${specification}"`,
+      constraint:  `constraint dimension — for the constraint: "${specification}"`,
+    }[dimension]
+
+    const systemPrompt =
+      'You are a Planguage model improvement expert. ' +
+      `Generate exactly ${count} distinct improvement suggestion${count > 1 ? 's' : ''} for the ${dimensionDesc}. ` +
+      'Each suggestion adds new Planguage entries (do NOT remove existing ones). ' +
+      'F. entries must be binary (present/absent). V. entries must have Scale: and Goal:. C. entries must start with Must. ' +
+      'Return ONLY valid JSON: ' +
+      '{ "suggestions": [{ "id":"s1","rank":1,"title":"string","rationale":"string",' +
+      '"newEntries":[{"type":"F"|"V"|"C"|"R"|"S","description":"string","details":"string|null"}],' +
+      '"newStakeholders":["string"],"impactSummary":"string","tradeOffs":"string" }] }'
+
+    const userPrompt =
+      `Model: ${entry.title}\nStakeholders: ${entry.stakeholders.join(', ') || 'none'}\n\nCurrent entries:\n${entryList}`
+
+    type ImproveJson = {
+      suggestions?: Array<{
+        id?: string; rank?: number; title?: string; rationale?: string
+        newEntries?: Array<{ type?: string; description?: string; details?: string | null }>
+        newStakeholders?: string[]
+        impactSummary?: string; tradeOffs?: string
+      }>
+    }
+
+    try {
+      const client = _getClient()
+      const response = await client.messages.create(
+        { model: MODEL_ID, max_tokens: 6000, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] },
+        { signal },
+      )
+      const text = response.content.filter(b => b.type === 'text').map(b => (b as { type: 'text'; text: string }).text).join('')
+      const parsed = _extractJson<ImproveJson>(text)
+
+      const result: ImprovementResult = {
+        modelId,
+        dimension,
+        specification,
+        runAt: Date.now(),
+        suggestions: (parsed.suggestions ?? []).map((s, i) => ({
+          id: s.id ?? `s${i}`,
+          rank: s.rank ?? i + 1,
+          title: s.title ?? `Suggestion ${i + 1}`,
+          rationale: s.rationale ?? '',
+          newEntries: (s.newEntries ?? []).map(e => ({
+            type: (['F','V','C','R','S'].includes(e.type ?? '') ? e.type : 'F') as ModelEntry['type'],
+            description: e.description ?? '',
+            details: e.details ?? undefined,
+          })),
+          newStakeholders: s.newStakeholders ?? [],
+          impactSummary: s.impactSummary ?? '',
+          tradeOffs: s.tradeOffs ?? '',
+        })),
+      }
+      _improvementResults.value = new Map(_improvementResults.value).set(modelId, result)
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name === 'AbortError') return
+      throw err
+    }
+  }
+
+  // ── Model versioning ───────────────────────────────────────────────────────
+
+  /** Create a snapshot of the current model state as a named version. */
+  function createModelVersion(
+    modelId: string,
+    name: string,
+    source: ModelVersion['source'],
+    improvementContext?: string,
+  ): void {
+    const idx = _userEntries.value.findIndex(e => e.id === modelId)
+    if (idx === -1) return
+    const entry = _userEntries.value[idx]
+    const versions: ModelVersion[] = entry.versions ?? []
+    const nextNum = versions.length + 1
+    const now = new Date()
+    const dateStr = now.toISOString().slice(0, 16).replace('T', ' ')
+    const newVersion: ModelVersion = {
+      id: `ver-${Date.now()}`,
+      versionNumber: nextNum,
+      name: name || `v${nextNum}`,
+      entries: [...entry.entries],
+      stakeholders: [...entry.stakeholders],
+      description: entry.description,
+      createdAt: Date.now(),
+      source,
+      improvementContext,
+    }
+    // Label format: "v1 — 2026-05-31 14:23"
+    newVersion.name = newVersion.name + ` — ${dateStr}`
+    entry.versions = [...versions, newVersion]
+    _saveEntries()
+  }
+
+  /** Apply an improvement suggestion to a user model, adding new entries and stakeholders. */
+  function applyImprovementSuggestion(
+    modelId: string,
+    suggestion: ImprovementSuggestion,
+  ): void {
+    const idx = _userEntries.value.findIndex(e => e.id === modelId)
+    if (idx === -1) return
+    const entry = _userEntries.value[idx]
+    // Snapshot current state as a version first
+    createModelVersion(
+      modelId,
+      `Pre-improvement v${(entry.versions?.length ?? 0) + 1}`,
+      'user-edit',
+    )
+    // Apply the suggestion
+    const updatedEntry = _userEntries.value[idx]  // re-fetch after createModelVersion mutated it
+    updatedEntry.entries = [...updatedEntry.entries, ...suggestion.newEntries]
+    updatedEntry.stakeholders = Array.from(new Set([...updatedEntry.stakeholders, ...suggestion.newStakeholders]))
+    _saveEntries()
+  }
+
+  /** Restore a model to a specific version. */
+  function restoreModelVersion(modelId: string, versionId: string): void {
+    const idx = _userEntries.value.findIndex(e => e.id === modelId)
+    if (idx === -1) return
+    const entry = _userEntries.value[idx]
+    const version = entry.versions?.find(v => v.id === versionId)
+    if (!version) return
+    // Snapshot current as a version before restoring
+    createModelVersion(modelId, `Pre-restore snapshot`, 'user-edit')
+    // Restore
+    const updatedEntry = _userEntries.value[idx]
+    updatedEntry.entries = [...version.entries]
+    updatedEntry.stakeholders = [...version.stakeholders]
+    updatedEntry.description = version.description
+    _saveEntries()
+  }
+
   return {
     allEntries,
     categoryDefs,
@@ -964,5 +1280,12 @@ export function useModelLibrary() {
     analyseModelText,
     sharpenModel,
     replaceModelEntries,
+    runDefectAnalysis,
+    runImprovementAnalysis,
+    applyImprovementSuggestion,
+    createModelVersion,
+    restoreModelVersion,
+    defectResults: _defectResults,
+    improvementResults: _improvementResults,
   }
 }
