@@ -51,8 +51,17 @@ const AGENTS: AgentDef[] = [
     emoji: '🏛',
     label: 'Maria',
     subtitle: 'Board Work Parse',
-    blurb: 'Analyses board documents — minutes, resolutions, strategy papers — and produces a decision inventory, authority clarity report, governance gap list, and pattern analysis. Delivers by email to the board by Friday EOD.',
+    blurb: 'Analyses board documents — minutes, resolutions, strategy papers — and produces a decision inventory, authority clarity report, governance gap list, and pattern analysis. Delivers by email to the board.',
     color: 'emerald',
+    status: 'live',
+  },
+  {
+    id: 'contracts',
+    emoji: '📋',
+    label: 'Contracts',
+    subtitle: 'Planguage Contract Analysis',
+    blurb: 'Import any contract — SLA, NDA, service agreement, employment — and convert it to clear, measurable Planguage. Splits into clauses, extracts F./V./C./R./S./Task entries, flags vague language, and builds a party obligation matrix.',
+    color: 'teal',
     status: 'live',
   },
   {
@@ -140,42 +149,72 @@ function selectAgent(agent: AgentDef): void {
               <div
                 :class="[
                   'px-4 py-3 flex items-center gap-3',
-                  agent.id === 'maria'            ? 'bg-gradient-to-r from-emerald-700 to-emerald-600' :
-                  agent.id === 'stakeholder-mapper' ? 'bg-gradient-to-r from-indigo-700 to-indigo-600' :
+                  agent.id === 'maria'              ? 'bg-gradient-to-r from-emerald-700 to-emerald-600' :
+                  agent.id === 'contracts'           ? 'bg-gradient-to-r from-teal-700 to-teal-600' :
+                  agent.id === 'stakeholder-mapper'  ? 'bg-gradient-to-r from-indigo-700 to-indigo-600' :
                   'bg-gradient-to-r from-violet-700 to-violet-600',
                 ]"
               >
                 <!-- Maria: governance-layer mini-table thumbnail -->
                 <div v-if="agent.id === 'maria'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
                   <svg width="72" height="53" viewBox="0 0 72 53" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <!-- Header bar -->
                     <rect width="72" height="12" fill="#059669"/>
                     <text x="4" y="9" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">Board Document Analysis</text>
-                    <!-- Board row -->
                     <rect x="0" y="13" width="72" height="12" fill="#f0fdf4"/>
                     <rect x="2" y="15.5" width="14" height="7" rx="1.5" fill="#10b981"/>
                     <text x="4" y="21" font-size="4.5" fill="white" font-family="system-ui,sans-serif" font-weight="700">BOARD</text>
                     <rect x="18" y="16" width="28" height="2" rx="1" fill="#6b7280"/>
                     <rect x="18" y="20" width="18" height="2" rx="1" fill="#6b7280"/>
-                    <!-- Management row -->
                     <rect x="0" y="25" width="72" height="12" fill="#fafafa"/>
                     <rect x="2" y="27.5" width="20" height="7" rx="1.5" fill="#6366f1"/>
                     <text x="4" y="33" font-size="4.5" fill="white" font-family="system-ui,sans-serif" font-weight="700">MGMT</text>
                     <rect x="24" y="28" width="22" height="2" rx="1" fill="#6b7280"/>
                     <rect x="24" y="32" width="16" height="2" rx="1" fill="#6b7280"/>
-                    <!-- Operations row -->
                     <rect x="0" y="37" width="72" height="12" fill="#f0fdf4"/>
                     <rect x="2" y="39.5" width="20" height="7" rx="1.5" fill="#0ea5e9"/>
                     <text x="4" y="45" font-size="4.5" fill="white" font-family="system-ui,sans-serif" font-weight="700">OPS</text>
                     <rect x="24" y="40" width="24" height="2" rx="1" fill="#6b7280"/>
                     <rect x="24" y="44" width="14" height="2" rx="1" fill="#6b7280"/>
-                    <!-- Divider lines -->
                     <line x1="0" y1="25" x2="72" y2="25" stroke="#e5e7eb" stroke-width="0.5"/>
                     <line x1="0" y1="37" x2="72" y2="37" stroke="#e5e7eb" stroke-width="0.5"/>
                     <line x1="0" y1="49" x2="72" y2="49" stroke="#e5e7eb" stroke-width="0.5"/>
-                    <!-- Footer bar -->
                     <rect x="0" y="49" width="72" height="4" fill="#f8fafc"/>
                     <text x="4" y="52.5" font-size="3" fill="#9ca3af" font-family="system-ui,sans-serif">Decision Inventory · Authority Report · Gaps · Patterns</text>
+                  </svg>
+                </div>
+
+                <!-- Contracts: clause-entry mini-table thumbnail (F./V./C./R. type badges) -->
+                <div v-else-if="agent.id === 'contracts'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
+                  <svg width="72" height="53" viewBox="0 0 72 53" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <!-- Teal header -->
+                    <rect width="72" height="11" fill="#0f766e"/>
+                    <text x="4" y="8" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">Contract Analysis</text>
+                    <!-- F. row -->
+                    <rect x="0" y="11" width="72" height="10" fill="#fff7ed"/>
+                    <rect x="2" y="13" width="9" height="6" rx="1.5" fill="#ea580c"/>
+                    <text x="3.5" y="17.5" font-size="5" fill="white" font-family="system-ui,sans-serif" font-weight="700">F.1</text>
+                    <rect x="13" y="14" width="30" height="2" rx="1" fill="#9ca3af"/>
+                    <rect x="13" y="18" width="20" height="2" rx="1" fill="#9ca3af"/>
+                    <!-- V. row -->
+                    <rect x="0" y="21" width="72" height="10" fill="#eff6ff"/>
+                    <rect x="2" y="23" width="9" height="6" rx="1.5" fill="#2563eb"/>
+                    <text x="3.5" y="27.5" font-size="5" fill="white" font-family="system-ui,sans-serif" font-weight="700">V.2</text>
+                    <rect x="13" y="24" width="26" height="2" rx="1" fill="#9ca3af"/>
+                    <rect x="13" y="28" width="18" height="2" rx="1" fill="#9ca3af"/>
+                    <!-- C. row -->
+                    <rect x="0" y="31" width="72" height="10" fill="#fef2f2"/>
+                    <rect x="2" y="33" width="9" height="6" rx="1.5" fill="#dc2626"/>
+                    <text x="3.5" y="37.5" font-size="5" fill="white" font-family="system-ui,sans-serif" font-weight="700">C.3</text>
+                    <rect x="13" y="34" width="28" height="2" rx="1" fill="#9ca3af"/>
+                    <rect x="13" y="38" width="16" height="2" rx="1" fill="#9ca3af"/>
+                    <!-- R. row -->
+                    <rect x="0" y="41" width="72" height="8" fill="#ecfdf5"/>
+                    <rect x="2" y="42.5" width="9" height="5" rx="1.5" fill="#059669"/>
+                    <text x="3.5" y="46.5" font-size="5" fill="white" font-family="system-ui,sans-serif" font-weight="700">R.4</text>
+                    <rect x="13" y="43.5" width="22" height="2" rx="1" fill="#9ca3af"/>
+                    <!-- Footer -->
+                    <rect x="0" y="49" width="72" height="4" fill="#f0fdfa"/>
+                    <text x="4" y="52.5" font-size="3" fill="#9ca3af" font-family="system-ui,sans-serif">Clauses · Entries · Matrix · Export</text>
                   </svg>
                 </div>
 
@@ -215,7 +254,9 @@ function selectAgent(agent: AgentDef): void {
                       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
                       agent.id === 'maria'
                         ? 'bg-emerald-600 hover:bg-emerald-700 focus-visible:outline-emerald-600'
-                        : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
+                        : agent.id === 'contracts'
+                          ? 'bg-teal-600 hover:bg-teal-700 focus-visible:outline-teal-600'
+                          : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
                     ]"
                     :title="`Launch ${agent.label} — ${agent.blurb}`"
                     @click.stop="selectAgent(agent)"

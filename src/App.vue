@@ -3804,8 +3804,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
           :aria-expanded="agentMenuOpen"
           aria-haspopup="true"
           aria-label="Open Agent Menu"
-          title="Agent Menu — Maria analyses board documents: governance intelligence report"
-          data-crest-tip="🤖 Agents — call a planning agent (Maria: Board Work Parse)"
+          title="Agent Menu — Maria (Board Work Parse) · Contracts (Planguage Contract Analysis) — single-click to open"
+          data-crest-tip="🤖 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
           class="w-8 h-8 flex items-center justify-center rounded-lg text-lg
                  select-none transition-all shrink-0
                  focus:outline-none focus:ring-2 focus:ring-emerald-300"
@@ -4156,22 +4156,6 @@ function handleApertureLoadPlan(model: PlanModel): void {
           >{{ specHistory.length }}</span>
         </div>
 
-        <!-- 📋 Contracts mode — third major SEM surface (Plans · Models · Contracts) -->
-        <button
-          type="button"
-          title="Contracts — convert real contracts to clear Planguage · single-click to open"
-          aria-label="Open Contracts mode"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
-                 focus:outline-none focus:ring-2 focus:ring-teal-300 transition-all"
-          :class="contractsOpen
-            ? 'bg-teal-600 text-white ring-1 ring-teal-400'
-            : 'text-white bg-white/10 hover:bg-teal-600/80 hover:text-white'"
-          @click="contractsOpen = !contractsOpen"
-        >
-          <span aria-hidden="true">📋</span>
-          <!-- Text label hidden (2026-05-29) — icon-only to save crest bar width. -->
-        </button>
-
         <!-- (SOS moved to Row 1 absolute-right cluster — never clips there) -->
 
         <!-- ── Control pins — 🎤 Mic · 🔊 Speaker ──────────────────────────────
@@ -4298,7 +4282,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
