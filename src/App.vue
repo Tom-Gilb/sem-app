@@ -3768,7 +3768,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
     </div>
 
-    <!-- ── Right pin cluster: 🆘 SOS · ⚡ Actions · 🔭 Agents ─────────────────
+    <!-- ── Right pin cluster: 🆘 SOS · ⚡ Actions · 🦾 Agents ─────────────────
          Absolute on the OUTER crest bar (relative), pinned top-right.
          Sits at the very top of the screen — maximum distance from stage bar.
          Control-pins-at-top rule. Moved to outer crest bar 2026-05-31:
@@ -3800,14 +3800,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
           : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
         @click="toggleMenu"
       ><span aria-hidden="true" style="filter: brightness(0.1);">⚡</span></button>
-      <!-- 🔭 Agents -->
+      <!-- 🦾 Agents -->
       <button
         type="button"
         :aria-expanded="agentMenuOpen"
         aria-haspopup="true"
         aria-label="Open Agent Menu"
         title="Agent Menu — Maria (Board Work Parse) · Contracts (Planguage Contract Analysis) — single-click to open"
-        data-crest-tip="🔭 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
+        data-crest-tip="🦾 Agents — Maria: Board governance analysis · Contracts: Planguage contract conversion"
         class="flex items-center gap-1.5 px-3 h-10 rounded-xl
                select-none transition-all shrink-0
                focus:outline-none focus:ring-2 focus:ring-emerald-300"
@@ -3816,7 +3816,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
         @click="agentMenuOpen = true"
       >
-        <span class="text-2xl leading-none" aria-hidden="true">🔭</span>
+        <span class="text-2xl leading-none" aria-hidden="true">🦾</span>
         <span class="text-sm font-bold leading-none">Agents</span>
       </button>
     </div>
@@ -4873,8 +4873,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
         <button
           type="button"
           aria-label="See a Demo"
-          class="bg-indigo-600 text-white rounded-lg px-5 py-3 text-sm font-semibold
-                 min-h-[44px] flex items-center gap-2
+          class="bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-xs font-medium
+                 flex items-center gap-1.5
                  hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
                  transition-colors duration-150"
           @click="launchDemo"
