@@ -65,6 +65,14 @@ function _saveHistory(records: MariaHistoryRecord[]): void {
 // ── Singleton state ───────────────────────────────────────────────────────────
 
 /**
+ * One-shot document seed — set by MariaBoardHub when the user clicks
+ * "Analyse with Maria" on an activity item that has a Detail text.
+ * MariaAgentBoard consumes this in onMounted, pre-fills its textarea,
+ * auto-starts analysis, and clears the ref immediately so it doesn't persist.
+ */
+export const mariaPendingDocument: Ref<string> = ref('')
+
+/**
  * The most recent successful MariaResult.
  * null until the first successful analysis in this browser session OR until
  * the history is loaded and the most recent record is restored.

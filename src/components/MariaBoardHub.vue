@@ -27,7 +27,7 @@ import ScrollContainer from './ScrollContainer.vue'
 import { resolveIcon } from '../composables/iconRegistry'
 import { useBoardMembers }      from '../composables/useBoardMembers'
 import { useBoardActivityLog }  from '../composables/useBoardActivityLog'
-import { lastMariaResult }      from '../lib/maria/mariaResultStore'
+import { lastMariaResult, mariaPendingDocument } from '../lib/maria/mariaResultStore'
 import { buildEml }             from '../composables/useEmlExport'
 import type { ActivityStatus, ActivityType } from '../types/board'
 
@@ -874,8 +874,17 @@ function copyBoardReport(): void {
                     · item {{ entry.source.itemId }}
                   </p>
 
-                  <!-- Remove button -->
-                  <div class="flex justify-end pt-1">
+                  <!-- Analyse + Remove row -->
+                  <div class="flex items-center justify-between pt-2">
+                    <!-- Analyse with Maria — only visible when the item has document content -->
+                    <button
+                      v-if="entry.detail && entry.detail.trim().length > 20"
+                      type="button"
+                      :title="`Analyse '${entry.title || 'this document'}' with Maria — single-click to open the Maria analysis panel with this document pre-loaded and analysis started automatically`"
+                      class="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      @click="mariaPendingDocument = entry.detail; emit('open-analysis')"
+                    >🏛 Analyse with Maria</button>
+                    <span v-else />
                     <button
                       type="button"
                       :title="`Remove this action item — single-click to permanently delete '${entry.title || 'this item'}' from the activity log`"

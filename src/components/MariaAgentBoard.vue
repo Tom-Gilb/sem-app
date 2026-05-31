@@ -34,7 +34,7 @@ import { buildEml }            from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import type { MariaResult }    from '../types/maria'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
-import { lastMariaResult, pushMariaResult } from '../lib/maria/mariaResultStore'
+import { lastMariaResult, pushMariaResult, mariaPendingDocument } from '../lib/maria/mariaResultStore'
 import { useBoardMembers }     from '../composables/useBoardMembers'
 import type { MemberMatch }    from '../lib/maria/boardMatcher'
 
@@ -607,6 +607,18 @@ onUnmounted(() => {
 onMounted(() => {
   // Carousel rotates from the moment the panel opens — not just during analysis.
   _startCarouselTimer()
+
+  // ── Document seed from MariaBoardHub "Analyse with Maria" button ─────────
+  // If the hub pre-seeded a document (activity item Detail text), consume it:
+  // pre-fill the textarea and auto-start analysis exactly like an auto-paste.
+  if (mariaPendingDocument.value.trim()) {
+    documentText.value = mariaPendingDocument.value
+    mariaPendingDocument.value = ''   // consume — one-shot, clear immediately
+    // 150 ms delay matches the onDocumentPaste auto-start delay
+    setTimeout(() => { if (hasDocument.value && !loading.value) runAnalysis() }, 150)
+    return   // skip last-result restore — user wants a fresh analysis
+  }
+
   if (!result.value && lastMariaResult.value) {
     result.value = lastMariaResult.value
   }
