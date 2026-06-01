@@ -57,9 +57,13 @@ const termSearchInputRef = ref<HTMLInputElement | null>(null)
 
 /** Last 5 defined terms — persisted to localStorage for quick re-lookup */
 const RECENT_TERMS_KEY = 'sem-define-recent'
-const recentTerms = ref<string[]>(() => {
-  try { return JSON.parse(localStorage.getItem(RECENT_TERMS_KEY) ?? '[]') as string[] } catch { return [] }
-})
+const recentTerms = ref<string[]>(
+  // IIFE required — ref() does NOT accept a factory function (that is a React pattern).
+  // Passing a function directly stores the function as the value, not the return value.
+  (() => {
+    try { return JSON.parse(localStorage.getItem(RECENT_TERMS_KEY) ?? '[]') as string[] } catch { return [] }
+  })()
+)
 
 function _recordRecentTerm(t: string): void {
   const next = [t, ...recentTerms.value.filter(r => r.toLowerCase() !== t.toLowerCase())].slice(0, 6)
@@ -388,25 +392,27 @@ watch(result, (r) => {
   diagramRendering.value   = false
   relatedDiagrams.value    = []
   relatedDiagramLabel.value = ''
-  if (r?.term) _recordRecentTerm(r.term)
   clearEntry()
   // Silent background probe — 404s are swallowed; pin shows only on a vault match.
   // detailOpen is now driven reactively by watch(gEntry) above, not by this async chain.
   if (r?.term) {
     fetchEntry(r.term).then(async () => {
       console.debug('[illuminate] fetchEntry().then() — gEntry.value:', gEntry.value?.term ?? 'null', 'nearMatches:', gNearMatchOptions.value)
-      // Auto-load best near-match (2026-06-01): if no exact entry but near-matches
-      // exist, silently fetch the first near-match so the full glossary tabs appear
-      // without requiring the user to click a pill. The pill buttons remain visible
-      // as alternatives. This solves "big window not appearing" for inflected/short
-      // terms like "scale" (→ Scale of Measure) or "priorities" (→ Priority).
+      // Auto-load best near-match: if no exact entry but near-matches exist, silently
+      // fetch the first so the full glossary tabs appear without a user click.
       if (!gEntry.value && gNearMatchOptions.value.length > 0) {
         await fetchEntry(gNearMatchOptions.value[0])
       }
-      // Belt-and-suspenders: also set detailOpen directly here in case
-      // the watch(gEntry) fires before Vue has flushed reactivity after
-      // an awaited fetch inside an async watcher context.
-      if (gEntry.value) detailOpen.value = true
+      if (gEntry.value) {
+        // Record in Recent only after a confirmed successful illumination.
+        // _recordRecentTerm is intentionally here (not before clearEntry) so that
+        // a crash in it cannot abort the fetchEntry call — and so only vault-matched
+        // terms end up in the Recent list.
+        _recordRecentTerm(gEntry.value.term)
+        // Belt-and-suspenders: set detailOpen here in case watch(gEntry) fires
+        // before Vue flushes reactivity after an awaited fetch in an async context.
+        detailOpen.value = true
+      }
     })
   } else {
     detailOpen.value = false
