@@ -306,6 +306,8 @@ const filteredEntries = computed<PlanguageContractEntry[]>(() => {
 const FROM_ADDR     = 'Tom Gilb <kaigilb@me.com>'
 const copiedExport  = ref(false)
 const emailedExport = ref(false)
+/** Recipient address for the email export — typed by the user before clicking Email. */
+const emailTo       = ref('')
 
 function buildExportHtml(): string {
   const c = selectedContract.value
@@ -401,8 +403,10 @@ function emailExport(): void {
   const c = selectedContract.value
   if (!c) return
   const subject = `${c.title} — Planguage Contract Analysis`
+  const toList = emailTo.value.trim() ? [emailTo.value.trim()] : []
   openEml(buildExportHtml(), subject, {
     from: FROM_ADDR,
+    to:   toList,
     plainBody: buildObligationText(),
   })
   emailedExport.value = true
@@ -1346,6 +1350,19 @@ onUnmounted(() => { _stopContractAnimation() })
             <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
               <h2 class="text-base font-bold text-slate-800">Export as Colorful HTML Table</h2>
               <p class="text-sm text-slate-500">Color-coded Planguage obligations table. Copy to paste into Keynote / Numbers, or Email to open a pre-filled draft in Mail.app.</p>
+              <!-- Recipient address — required before emailing (DD-009: zero-training UI) -->
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide">To: (recipient)</label>
+                <input
+                  v-model="emailTo"
+                  type="email"
+                  placeholder="recipient@example.com"
+                  title="Type the recipient email address before clicking Email"
+                  class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2
+                         text-sm text-slate-800 placeholder-slate-400
+                         focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                />
+              </div>
               <!-- Copy + Email always together (Tom 2026-06-01) -->
               <div class="flex items-center gap-3 flex-wrap">
                 <!-- Copy: large CopyGlyph [*]=[*] — Planguage native, teal family -->
