@@ -18,6 +18,7 @@
 <script setup lang="ts">
 // UNIT_TYPE=Panel
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EditGlyph from './icons/EditGlyph.vue'
@@ -28,6 +29,7 @@ import { useContractLibrary } from '../composables/useContractLibrary'
 import type { ContractLibraryEntry } from '../composables/useContractLibrary'
 import { openEml } from '../composables/useEmlExport'
 import PlTypeBadge from './icons/PlTypeBadge.vue'
+import PlTypeIcon from './icons/PlTypeIcon.vue'
 import CopyGlyph from './icons/CopyGlyph.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 import type {
@@ -467,6 +469,21 @@ const TAB_COLORS: Record<string, string> = {
 }
 
 /**
+ * CONTRACT_FILTER_GLYPHS — maps each ContractEntryType to its PlGlyphType for the
+ * Color Glyph filter strip. Single-click filters entries; double-click opens GlyphDataPanel
+ * (DD-013 — handled internally by PlTypeIcon via useGlyphPanel). Note: S. = Stakeholder
+ * Duty in the contract domain (not Solution — different domain mapping).
+ */
+const CONTRACT_FILTER_GLYPHS = [
+  { contractType: 'F'    as const, glyphType: 'function'    as const, label: 'Function',         hex: '#16a34a' },
+  { contractType: 'V'    as const, glyphType: 'value'       as const, label: 'Value',            hex: '#7c3aed' },
+  { contractType: 'C'    as const, glyphType: 'constraint'  as const, label: 'Constraint',       hex: '#dc2626' },
+  { contractType: 'R'    as const, glyphType: 'resource'    as const, label: 'Resource',         hex: '#166534' },
+  { contractType: 'S'    as const, glyphType: 'stakeholder' as const, label: 'Stakeholder Duty', hex: '#2563eb' },
+  { contractType: 'Task' as const, glyphType: 'task'        as const, label: 'Task',             hex: '#374151' },
+]
+
+/**
  * CONTRACT_ENTRY_FULL — spelled-out names for each ContractEntryType.
  * Universal label rule (Tom Gilb, 2026-06-01): type codes must never appear
  * alone. Always show the full name next to the code or glyph.
@@ -625,6 +642,15 @@ const isContractAnalysing = computed(() =>
   (selectedContract.value.parseStatus === 'splitting' ||
    selectedContract.value.parseStatus === 'parsing')
 )
+
+// Post-loading amuse lifecycle — keeps the wisdom carousel visible for 10 s after
+// analysis ends, showing a blinking "Click to Continue Amuse Me" button.
+const {
+  amuseActive:    contractAmuseActive,
+  amuseFinishing: contractAmuseFinishing,
+  amuseCountdown: contractAmuseCountdown,
+  extendAmuse:    contractExtendAmuse,
+} = useAmuseLifecycle(isContractAnalysing)
 
 let _contractElapsedTimer: ReturnType<typeof setInterval> | null = null
 let _contractAmuseTimer:   ReturnType<typeof setInterval> | null = null
@@ -839,6 +865,56 @@ onUnmounted(() => { _stopContractAnimation() })
         </div>
       </div>
 
+      <!-- ── Color Glyph type filter strip ─────────────────────────────────── -->
+      <!-- 6 Color Glyphs (the contract-relevant types). Single-click filters entries.
+           Double-click on any glyph opens GlyphDataPanel — handled by PlTypeIcon DD-013.
+           PlTypeIcon appends "· Double-click for Glyph Detail" to each tooltip automatically. -->
+      <div v-if="selectedContract" class="shrink-0 flex items-center gap-2 px-4 py-1.5 bg-slate-50/80 border-b border-slate-100">
+        <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 shrink-0 select-none">Filter:</span>
+
+        <!-- All reset -->
+        <button
+          type="button"
+          title="Show all entry types — remove type filter"
+          class="px-2 py-0.5 rounded-full text-[9px] font-bold transition-all shrink-0"
+          :class="entryFilter === 'all'
+            ? 'bg-slate-700 text-white shadow-sm'
+            : 'bg-white text-slate-400 ring-1 ring-slate-200 hover:bg-slate-100'"
+          @click="entryFilter = 'all'"
+        >All</button>
+
+        <!-- 6 Color Glyph filter pins — one per ContractEntryType -->
+        <button
+          v-for="ct in CONTRACT_FILTER_GLYPHS"
+          :key="ct.contractType"
+          type="button"
+          class="p-1 rounded-lg transition-all ring-1 shrink-0"
+          :class="entryFilter === ct.contractType
+            ? 'shadow-md ring-transparent'
+            : 'ring-transparent hover:bg-white hover:ring-slate-200 hover:shadow-sm'"
+          :style="entryFilter === ct.contractType
+            ? { backgroundColor: ct.hex + '18', boxShadow: `0 0 0 2px ${ct.hex}60` }
+            : {}"
+          :aria-pressed="String(entryFilter === ct.contractType)"
+          @click="entryFilter = (entryFilter === ct.contractType ? 'all' : ct.contractType)"
+        >
+          <!-- DD-013: PlTypeIcon handles dblclick → GlyphDataPanel. Single-click bubbles to button above for filter action. -->
+          <PlTypeIcon
+            :pl-type="ct.glyphType"
+            size="sm"
+            :title="`${ct.label} (${ct.contractType}.) — ${store.entryCounts.value[ct.contractType] ?? 0} entries · Click to filter`"
+          />
+        </button>
+
+        <!-- Active filter label + count -->
+        <span
+          v-if="entryFilter !== 'all'"
+          class="text-[9px] font-semibold text-slate-500 ml-0.5 italic"
+        >
+          {{ CONTRACT_ENTRY_FULL[entryFilter as ContractEntryType] }} · {{ store.entryCounts.value[entryFilter as ContractEntryType] ?? 0 }} shown
+        </span>
+      </div>
+
       <!-- ── Body ───────────────────────────────────────────────────────────── -->
 
       <!-- ════════════════════ LANDING: all contracts ════════════════════════ -->
@@ -967,50 +1043,51 @@ onUnmounted(() => { _stopContractAnimation() })
       <template v-else-if="selectedContract">
 
         <!-- ── ANALYSIS LOADING STATE — Rule 8 (spinner + elapsed + % + amuse) ── -->
-        <!-- Shown while the LLM pipeline runs (splitting + parsing phases).        -->
-        <!-- Replaces tab content area; tab bar above is still visible.             -->
+        <!-- Amuse block (item 4) extends 10 s past loading via useAmuseLifecycle.  -->
+        <!-- Spinner/progress shown only while actively analysing (isContractAnalysing). -->
+        <!-- The amuse card stays visible while contractAmuseActive (loading | finishing | extended). -->
         <div
-          v-if="isContractAnalysing"
+          v-if="isContractAnalysing || contractAmuseActive"
           class="flex-1 min-h-0 flex flex-col items-center justify-center px-8 py-8 gap-6 bg-white"
         >
-          <!-- (1) Spinner + phase label -->
-          <div class="flex flex-col items-center gap-3">
-            <svg class="animate-spin h-10 w-10 text-teal-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            <div class="text-center">
-              <p class="text-sm font-semibold text-teal-700">
-                {{ selectedContract.parseStatus === 'splitting'
-                    ? 'Splitting contract into clauses…'
-                    : 'Extracting Planguage obligations from each clause…' }}
-              </p>
-              <!-- (2) Elapsed seconds -->
-              <p class="text-xs text-slate-400 mt-0.5">
-                {{ contractElapsed }}s elapsed · may take 30–120 seconds
-              </p>
+          <!-- (1–3) Spinner + elapsed + progress: only during active analysis -->
+          <template v-if="isContractAnalysing">
+            <div class="flex flex-col items-center gap-3">
+              <svg class="animate-spin h-10 w-10 text-teal-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <div class="text-center">
+                <p class="text-sm font-semibold text-teal-700">
+                  {{ selectedContract.parseStatus === 'splitting'
+                      ? 'Splitting contract into clauses…'
+                      : 'Extracting Planguage obligations from each clause…' }}
+                </p>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  {{ contractElapsed }}s elapsed · may take 30–120 seconds
+                </p>
+              </div>
             </div>
-          </div>
 
-          <!-- (3) Simulated % progress bar -->
-          <div class="w-full max-w-xs">
-            <div class="flex justify-between text-[10px] font-medium text-slate-400 mb-1.5">
-              <span>Progress</span>
-              <span>{{ contractSimulatedProgress }}%</span>
+            <div class="w-full max-w-xs">
+              <div class="flex justify-between text-[10px] font-medium text-slate-400 mb-1.5">
+                <span>Progress</span>
+                <span>{{ contractSimulatedProgress }}%</span>
+              </div>
+              <div class="h-2 bg-teal-100 rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-teal-500 rounded-full transition-all duration-500"
+                  :style="{ width: contractSimulatedProgress + '%' }"
+                  role="progressbar"
+                  :aria-valuenow="contractSimulatedProgress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                />
+              </div>
             </div>
-            <div class="h-2 bg-teal-100 rounded-full overflow-hidden">
-              <div
-                class="h-full bg-teal-500 rounded-full transition-all duration-500"
-                :style="{ width: contractSimulatedProgress + '%' }"
-                role="progressbar"
-                :aria-valuenow="contractSimulatedProgress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-              />
-            </div>
-          </div>
+          </template>
 
-          <!-- (4) Amuse cards — contract & Planguage knowledge, 8 s auto-advance -->
+          <!-- (4) Amuse cards — persists through loading + 10 s finishing + extended -->
           <div class="w-full max-w-sm bg-teal-50 border border-teal-100 rounded-2xl p-4 shadow-sm">
             <div class="flex items-start gap-3">
               <span class="text-3xl leading-none shrink-0 drop-shadow-sm" aria-hidden="true">
@@ -1042,6 +1119,36 @@ onUnmounted(() => { _stopContractAnimation() })
                 @click="contractAmuseIdx = i"
               />
             </div>
+
+            <!-- (4b) Post-loading Continue offer — blinking button + 10 s countdown -->
+            <!-- Tom 2026-06-02: "a BLINKING button 'Click to Continue Amuse Me',  -->
+            <!-- and also a signal that amuse me will disappear in 10 seconds."    -->
+            <Transition
+              enter-active-class="transition-all duration-300 ease-out"
+              enter-from-class="opacity-0 translate-y-1"
+              enter-to-class="opacity-100 translate-y-0"
+              leave-active-class="transition-all duration-150 ease-in"
+              leave-to-class="opacity-0"
+            >
+              <div
+                v-if="contractAmuseFinishing"
+                class="mt-3 pt-3 border-t border-teal-200/60 flex flex-col items-center gap-1.5"
+              >
+                <button
+                  type="button"
+                  class="animate-pulse rounded-full bg-teal-600/90 hover:bg-teal-700 px-5 py-1.5
+                         text-xs font-bold text-white shadow-md
+                         focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-1"
+                  title="Continue reading — click to keep the Amuse Me card visible; it will disappear on its own if you don't click"
+                  @click="contractExtendAmuse"
+                >
+                  ✨ Click to Continue Amuse Me
+                </button>
+                <p class="text-[10px] text-slate-400 tabular-nums">
+                  Disappearing in {{ contractAmuseCountdown }}s if you don't click
+                </p>
+              </div>
+            </Transition>
           </div>
         </div>
 

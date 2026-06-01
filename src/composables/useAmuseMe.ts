@@ -289,36 +289,80 @@ export function stagesUntilSharing(currentStage: number): Array<{ stage: number;
 // AmuseMeButton instances are never simultaneously on screen (App.vue stage-1
 // vs EvoPlanView stage-2), so shared state causes no visual conflicts.
 
-const LINGER_MS = 4000
+// Linger = 10 seconds (was 4s). Tom 2026-06-02: "a BLINKING button 'Click to
+// Continue Amuse Me', and also a signal that if they do not click, amuse me
+// will disappear in 10 seconds."
+const LINGER_MS      = 10_000
+const LINGER_SECS    = LINGER_MS / 1_000
 
-/** Shared visibility ref — true while loading OR within LINGER_MS after loading ends. */
+/** Shared visibility ref — true while loading OR within LINGER_SECS after loading ends. */
 export const _lingerVisible = ref(false)
 
-/** Module-level timer handle — cleared on any new activation so timers never pile up. */
-let _lingerTimer: ReturnType<typeof setTimeout> | null = null
+/**
+ * Countdown (LINGER_SECS → 0) during the post-loading window.
+ * Displayed in AmuseMeButton as "Disappearing in Ns if you don't click".
+ * Reset to LINGER_SECS when activateLinger() is called.
+ */
+export const lingerCountdown = ref(LINGER_SECS)
+
+/**
+ * True while the post-loading countdown is running (i.e. loading just finished
+ * and the user has not yet clicked Continue). Used to show the blinking button.
+ */
+export const lingerFinishing = ref(false)
+
+/** Module-level timer handles — cleared on any new activation. */
+let _lingerTimer:     ReturnType<typeof setTimeout>  | null = null
+let _countdownTimer:  ReturnType<typeof setInterval> | null = null
+
+function _clearTimers(): void {
+  if (_lingerTimer)    { clearTimeout(_lingerTimer);   _lingerTimer    = null }
+  if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null }
+}
 
 /**
  * Activates the linger: show the panel immediately, cancel any pending fade-out.
  * Call when isLoading goes true.
  */
 export function activateLinger(): void {
-  if (_lingerTimer) { clearTimeout(_lingerTimer); _lingerTimer = null }
-  _lingerVisible.value = true
+  _clearTimers()
+  lingerFinishing.value  = false
+  lingerCountdown.value  = LINGER_SECS
+  _lingerVisible.value   = true
 }
 
 /**
- * Starts the fade-out countdown: panel stays visible for LINGER_MS after loading ends.
- * Call when isLoading goes false. Safe to call multiple times — only one timer runs.
+ * Starts the 10-second post-loading countdown.
+ * Call when isLoading goes false.
+ * The blinking "Continue" button appears; if ignored, amuse fades after 10s.
  */
 export function startLingerFadeOut(): void {
-  // If a timer is already running, let it fire naturally — don't reset it.
-  // This prevents N simultaneous AmuseMeButton instances from each restarting
-  // the 4-second clock and accidentally extending the linger.
-  if (_lingerTimer) return
+  // Only one countdown at a time — existing timer takes precedence.
+  if (_lingerTimer || _countdownTimer) return
+  lingerFinishing.value = true
+  lingerCountdown.value = LINGER_SECS
+
+  // 1-second tick for the visible countdown
+  _countdownTimer = setInterval(() => {
+    lingerCountdown.value = Math.max(0, lingerCountdown.value - 1)
+  }, 1_000)
+
+  // Main fade-out after full linger duration
   _lingerTimer = setTimeout(() => {
-    _lingerVisible.value = false
-    _lingerTimer = null
+    _clearTimers()
+    lingerFinishing.value = false
+    _lingerVisible.value  = false
   }, LINGER_MS)
+}
+
+/**
+ * User clicked "Click to Continue Amuse Me" — cancel the countdown and keep
+ * the panel visible indefinitely (until loading starts again or page navigates).
+ */
+export function extendLinger(): void {
+  _clearTimers()
+  lingerFinishing.value = false
+  // _lingerVisible remains true indefinitely
 }
 
 // ─── Composable ───────────────────────────────────────────────────────────────

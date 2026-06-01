@@ -48,6 +48,11 @@
           </div>
         </div>
       </template>
+      <!-- Rule 8 (4): Amuse Me — generation takes 20–90 s; AmuseMeButton covers
+           the full 4-element requirement (spinner✓ elapsed✓ progress✓ amuse below).
+           lingerVisible ensures the button stays for 10 s after generation finishes
+           with the blinking "Click to Continue Amuse Me" countdown (Tom 2026-06-02). -->
+      <AmuseMeButton :is-loading="loading" class="w-full mt-3" />
     </div>
 
     <!-- Error state -->
@@ -7831,6 +7836,7 @@
  * rawInput should be passed alongside spec once generation succeeds.
  */
 import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick, reactive } from 'vue'
+import AmuseMeButton from './AmuseMeButton.vue'
 import { openEml } from '../composables/useEmlExport'
 import CopyGlyph    from './icons/CopyGlyph.vue'
 import PlTypeBadge  from './icons/PlTypeBadge.vue'

@@ -21,6 +21,7 @@
 <script setup lang="ts">
 // UNIT_TYPE=Panel
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import {
@@ -179,6 +180,14 @@ const EVO_WISDOM = [
 const elapsed           = ref(0)
 const simulatedProgress = ref(0)
 const activeWisdomIdx   = ref(0)
+
+// Post-loading amuse lifecycle for Tab 1 wisdom carousel
+const {
+  amuseActive:    evoAmuseActive,
+  amuseFinishing: evoAmuseFinishing,
+  amuseCountdown: evoAmuseCountdown,
+  extendAmuse:    evoExtendAmuse,
+} = useAmuseLifecycle(critiqueLoading)
 
 let _elapsedTimer: ReturnType<typeof setInterval> | null = null
 let _wisdomTimer:  ReturnType<typeof setInterval> | null = null
@@ -539,38 +548,40 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
             </div>
           </div>
 
-          <!-- Loading — bar + % + secs + rotating Evo wisdom cards (amuse) -->
+          <!-- Loading — bar + % + secs + rotating Evo wisdom cards (amuse)       -->
+          <!-- Amuse block persists 10 s after loading via evoAmuseActive.         -->
           <div
-            v-else-if="critiqueLoading"
+            v-else-if="critiqueLoading || evoAmuseActive"
             class="h-full flex flex-col items-center justify-center px-8 py-6 gap-6"
           >
-            <!-- Spinner + status -->
-            <div class="flex flex-col items-center gap-3">
-              <svg class="animate-spin h-10 w-10 text-violet-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <div class="text-center">
-                <p class="text-sm font-semibold text-violet-700">Analyzing plan against the 9-step Evo cycle…</p>
-                <p class="text-xs text-slate-400 mt-0.5">{{ elapsed }}s elapsed · this may take 30–60 seconds</p>
+            <!-- Spinner + status: only during active loading -->
+            <template v-if="critiqueLoading">
+              <div class="flex flex-col items-center gap-3">
+                <svg class="animate-spin h-10 w-10 text-violet-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <div class="text-center">
+                  <p class="text-sm font-semibold text-violet-700">Analyzing plan against the 9-step Evo cycle…</p>
+                  <p class="text-xs text-slate-400 mt-0.5">{{ elapsed }}s elapsed · this may take 30–60 seconds</p>
+                </div>
               </div>
-            </div>
 
-            <!-- Progress bar + % -->
-            <div class="w-full max-w-xs">
-              <div class="flex justify-between text-[10px] font-medium text-slate-400 mb-1.5">
-                <span>Progress</span>
-                <span>{{ simulatedProgress }}%</span>
+              <div class="w-full max-w-xs">
+                <div class="flex justify-between text-[10px] font-medium text-slate-400 mb-1.5">
+                  <span>Progress</span>
+                  <span>{{ simulatedProgress }}%</span>
+                </div>
+                <div class="h-2 bg-violet-100 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-violet-500 rounded-full transition-all duration-500"
+                    :style="{ width: simulatedProgress + '%' }"
+                  />
+                </div>
               </div>
-              <div class="h-2 bg-violet-100 rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-violet-500 rounded-full transition-all duration-500"
-                  :style="{ width: simulatedProgress + '%' }"
-                />
-              </div>
-            </div>
+            </template>
 
-            <!-- Wisdom carousel — rotating Evo methodology insight cards -->
+            <!-- Wisdom carousel — persists through loading + 10 s finishing + extended -->
             <div class="w-full max-w-xs bg-violet-50 border border-violet-100 rounded-2xl p-4 shadow-sm">
               <div class="flex items-start gap-3">
                 <span class="text-3xl leading-none shrink-0 drop-shadow-sm" aria-hidden="true">{{ EVO_WISDOM[activeWisdomIdx].emoji }}</span>
@@ -594,6 +605,34 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
                   @click="activeWisdomIdx = i"
                 />
               </div>
+
+              <!-- Post-loading Continue offer -->
+              <Transition
+                enter-active-class="transition-all duration-300 ease-out"
+                enter-from-class="opacity-0 translate-y-1"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition-all duration-150 ease-in"
+                leave-to-class="opacity-0"
+              >
+                <div
+                  v-if="evoAmuseFinishing"
+                  class="mt-3 pt-3 border-t border-violet-200/60 flex flex-col items-center gap-1.5"
+                >
+                  <button
+                    type="button"
+                    class="animate-pulse rounded-full bg-violet-600/90 hover:bg-violet-700 px-5 py-1.5
+                           text-xs font-bold text-white shadow-md
+                           focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-1"
+                    title="Continue reading — click to keep the wisdom card visible; it will disappear on its own if you don't click"
+                    @click="evoExtendAmuse"
+                  >
+                    ✨ Click to Continue Amuse Me
+                  </button>
+                  <p class="text-[10px] text-slate-400 tabular-nums">
+                    Disappearing in {{ evoAmuseCountdown }}s if you don't click
+                  </p>
+                </div>
+              </Transition>
             </div>
           </div>
 

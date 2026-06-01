@@ -21,6 +21,9 @@ import {
   useAmuseMe,
   activateLinger,
   startLingerFadeOut,
+  extendLinger,
+  lingerCountdown,
+  lingerFinishing,
   randomJoke,
   randomNiceThing,
   planProgressText,
@@ -137,9 +140,43 @@ function handleItemClick(id: string): void {
 
 <template>
   <Transition name="amuse-fade">
-    <!-- lingerVisible stays true for 4 s after isLoading goes false — prevents the
-         panel from vanishing mid-interaction when the AI finishes quickly. -->
+    <!-- lingerVisible stays true for 10 s after isLoading goes false (was 4 s).
+         During the first 10 s, lingerFinishing=true → blinking Continue button shown.
+         If user clicks Continue, extendLinger() cancels the timer → stays indefinitely.
+         If ignored, fades out when countdown reaches 0. -->
     <div v-if="lingerVisible" class="mt-4 w-full">
+
+      <!-- ── Post-loading Continue offer ───────────────────────────────────── -->
+      <!-- Shown for 10 s after loading ends; blinking button + countdown.      -->
+      <!-- Tom 2026-06-02: "a BLINKING button 'Click to Continue Amuse Me',    -->
+      <!-- and also a signal that if they do not click, amuse me will           -->
+      <!-- disappear in 10 seconds."                                            -->
+      <Transition
+        enter-active-class="transition-all duration-300 ease-out"
+        enter-from-class="opacity-0 -translate-y-1"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-200 ease-in"
+        leave-to-class="opacity-0 -translate-y-1"
+      >
+        <div
+          v-if="lingerFinishing && !isLoading"
+          class="mb-2 flex flex-col items-center gap-1"
+        >
+          <button
+            type="button"
+            class="animate-pulse rounded-full bg-indigo-600/90 hover:bg-indigo-700 px-5 py-2
+                   text-sm font-bold text-white shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1"
+            title="Continue Amuse Me — click to keep Fun While Waiting open; otherwise it disappears when the countdown reaches zero"
+            @click="extendLinger"
+          >
+            ✨ Click to Continue Amuse Me
+          </button>
+          <p class="text-[10px] text-slate-400 tabular-nums">
+            Disappearing in {{ lingerCountdown }}s if you don't click
+          </p>
+        </div>
+      </Transition>
 
       <!-- ── Main trigger button ─────────────────────────────────────────── -->
       <div
