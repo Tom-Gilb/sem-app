@@ -198,14 +198,14 @@ function _updatePill(): void {
     // is where users expect it (Tom 2026-06-01: "right above the selected word").
     // The pill uses z-[10102] so it renders above the result panel (z-[10100]).
     const PILL_HEIGHT = 36
-    const rawTop = rect.top - PILL_HEIGHT - 8
+    const rawTop = rect.top - PILL_HEIGHT - 4   // 4px gap: closer to the selected word (Tom 2026-06-01)
     const flipBelow = rawTop < 200    // 200px ≈ Plan Crest (60px) + stage bar (124px) + 16px buffer
 
     pillX.value       = Math.min(
       Math.max(rect.left + rect.width / 2, 60),
       window.innerWidth - 60,
     )
-    pillY.value       = flipBelow ? rect.bottom + 8 : rawTop
+    pillY.value       = flipBelow ? rect.bottom + 4 : rawTop
     pillTerm.value    = text
     pillVisible.value = true
   } catch {
@@ -629,6 +629,26 @@ async function renderDiagram(index = 0, sourceDiagrams?: string[]): Promise<void
       svgEl.removeAttribute('width')
       svgEl.removeAttribute('height')
       svgEl.style.cssText = 'display:block;width:100%;height:auto;max-width:100%;max-height:none;'
+      // Expand viewBox to include all content: Mermaid calculates the viewBox
+      // in whatever container it used for offscreen rendering, which is often
+      // narrower than the card — right-edge and left-edge nodes get clipped.
+      // getBBox() forces a synchronous layout reflow and returns the actual
+      // bounding box of ALL rendered elements in SVG user-space, regardless
+      // of the current viewBox. We then set a new viewBox that covers every
+      // node with 16px padding. (Tom 2026-06-01: "text cut off at right")
+      try {
+        const bbox = (svgEl as SVGGraphicsElement).getBBox()
+        if (bbox.width > 0 && bbox.height > 0) {
+          const pad = 16
+          svgEl.setAttribute(
+            'viewBox',
+            `${bbox.x - pad} ${bbox.y - pad} ${bbox.width + pad * 2} ${bbox.height + pad * 2}`,
+          )
+        }
+      } catch {
+        // getBBox() may throw if the SVG has no renderable elements — leave
+        // Mermaid's original viewBox in place.
+      }
     }
     diagramRendered.value = true
   } catch (err) {
