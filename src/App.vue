@@ -3751,6 +3751,97 @@ function handleApertureLoadPlan(model: PlanModel): void {
          on the title group leaves breathing room either side; `truncate` on
          the title span gracefully clips ultra-long plan names. -->
     <div class="flex items-center justify-center h-12 relative">
+      <!-- ── Left tool cluster: Edit Plan · Find · Illuminate · History · Next Step · Dictate · Speaker
+           Moved from Row 2 (removed 2026-06-01 — dark bar). Sit left-absolute on the title
+           row, mirroring the right cluster, so the plan title remains cleanly centred. -->
+      <div class="absolute top-1.5 left-1 flex items-center gap-1 pl-0.5">
+        <!-- Edit Plan -->
+        <button
+          v-if="planModel"
+          type="button"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
+                 bg-white text-violet-700 hover:bg-violet-50 shadow-sm
+                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
+          aria-label="Edit Plan"
+          title="Open Spec Editor"
+          @click="currentSpec = currentSpec ?? planModel.spec; specEditorOpen = true"
+        >Edit Plan</button>
+        <!-- Find ⌘F -->
+        <button
+          type="button"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
+                 text-white bg-white/10 hover:bg-white/20
+                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
+          aria-label="Find features (Cmd+F)"
+          title="Find features (⌘F)"
+          @click="_toggleSearch()"
+        >
+          <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+          </svg>
+          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘F</kbd>
+        </button>
+        <!-- Illuminate ⌥I -->
+        <button
+          type="button"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
+                 text-white bg-white/10 hover:bg-white/20
+                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
+          aria-label="Illuminate a Planguage term (Opt+I)"
+          title="Illuminate any term — select text first, or click to type one  (⌥I)"
+          @click="openDefineSearch()"
+        >
+          <span class="text-sm leading-none" aria-hidden="true">💡</span>
+          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌥I</kbd>
+        </button>
+        <!-- History 🕐 — with notification badge -->
+        <div class="relative">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
+                   text-white bg-white/10 hover:bg-white/20
+                   focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
+            aria-label="Version History"
+            title="Version History"
+            @click="historyOpen = true"
+          ><span aria-hidden="true">🕐</span></button>
+          <span
+            v-if="specHistory.length > 0"
+            class="absolute -top-1 -right-1 h-4 min-w-[1rem] rounded-full bg-rose-500 text-white
+                   text-[10px] font-bold flex items-center justify-center px-0.5 pointer-events-none ring-2 ring-indigo-700"
+            aria-hidden="true"
+          >{{ specHistory.length }}</span>
+        </div>
+        <!-- Next Step — conditional, shows primary workflow-advance action -->
+        <button
+          v-if="nextActionLabel"
+          type="button"
+          :title="`Advance to the next workflow step: ${nextActionLabel}`"
+          :aria-label="`Next Step: ${nextActionLabel}`"
+          class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold
+                 bg-indigo-500 text-white hover:bg-indigo-400 shadow-sm shrink-0
+                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
+          @click="goNext"
+        >{{ nextActionLabel }} <span aria-hidden="true">→</span></button>
+        <span class="h-5 w-px bg-white/20 mx-0.5 shrink-0" aria-hidden="true" />
+        <!-- 🎤 Dictate -->
+        <span class="inline-flex" data-crest-tip="🎤 Dictate — speak to fill the form (⌘M)">
+          <DictateButton
+            :active="dictationActive"
+            :supported="dictationSupported"
+            :compact="true"
+            @toggle="toggleDictation()"
+          />
+        </span>
+        <!-- 🔊 Speaker -->
+        <span class="inline-flex" data-crest-tip="🔊 Read Aloud — hear the current plan content">
+          <SpeakerButton
+            :text="speakerText"
+            :compact="true"
+            @speak="handleSpeak"
+          />
+        </span>
+      </div>
       <!-- VIEW MODE — big gold-shimmer title centered in the row, click to
            edit in place. The crest stripe + "Plan" eyebrow ride along on the
            left of the title so the whole identity unit stays together when
@@ -3884,380 +3975,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
       </button>
     </div>
 
-    <!-- ── Row 2: META + CONTROLS ──────────────────────────────────────────
-         Plan Health, version, sharpen badge, saved-time, Plan Story toggle,
-         People cluster, Save (if dirty), Find / History / New. Compact
-         h-10 row — everything that isn't the hero title lives here.
-         Tom 2026-05-12 (fourth pass): "the second row the elements spread
-         out evenly" → switched from left-cluster + right-cluster (with a
-         single `flex-1` spacer pushing actions to the right) to
-         `justify-between` so each visual group gets even breathing room
-         across the full bar width. -->
-    <!-- Row 2: justify-between removed (2026-05-29) — it distributes negative
-         free space when the bar overflows, causing elements to OVERLAP and
-         intercept each other's clicks (health badge, owner buttons dead).
-         Replaced with natural flex flow + a flex-1 spacer that pushes the
-         right-side groups to the right without internal overlap. overflow-x-clip
-         prevents visual spill beyond the bar's right edge. -->
-    <div class="flex items-center gap-2 h-10 overflow-x-clip">
 
-      <!-- Plan Health Index — Vibrates when index < threshold (default 50).
-           Rose "!" dot + tooltip when there are pending notifications. Tom
-           2026-05-12: "the meaning of the pulsating '1' on the plan quality
-           % is not clear" → the dot now shows "!" (universal alert glyph)
-           and the descriptive `alert-hint` explains the count in the tooltip
-           + aria-label. -->
-      <PlanHealthBadge
-        v-if="currentSpec"
-        :index="planHealthIndexValue"
-        :threshold="planHealthThresholdValue"
-        :size="36"
-        :has-alert="planHealthAlertCount > 0"
-        :alert-count="planHealthAlertCount"
-        :alert-hint="planHealthAlertCount === 1
-          ? '1 Plan Health alert pending — click to review'
-          : `${planHealthAlertCount} Plan Health alerts pending — click to review`"
-        @click="planHealthStatusOpen = true"
-      />
-      <span v-else class="text-2xl shrink-0 leading-none" aria-hidden="true">📋</span>
-
-      <!-- Compact meta cluster: version · sharpen · saved -->
-      <div class="flex items-center gap-1.5 text-[10px] text-white/70 leading-none shrink-0 min-w-0">
-        <span
-          class="px-1.5 py-0.5 rounded bg-white/15 ring-1 ring-white/25
-                 font-mono font-bold text-white/90 tracking-tight shrink-0"
-          :title="`Version ${planModel.version}`"
-        >v{{ planModel.version }}</span>
-        <!-- Tom 2026-05-12 (Option B — dramatic): "the knife and the stars
-             bigger" → "B drama". The sharpen badge previously sat at the
-             parent meta-line's text-[10px] (10 px) — barely a footnote. The
-             🔪 glyph IS authorship signal (you sharpened this plan N times),
-             so it deserves text-base (16 px) reading weight. Pill padding
-             bumped px-2 py-1 to give the bigger glyph room to breathe;
-             count keeps text-base alongside so the pair reads as a single
-             affordance. `inline-flex items-center gap-1` keeps the knife
-             visually coupled to the count without crowding. -->
-        <span
-          v-if="planModel.sharpenRounds > 0"
-          class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-400/90 text-amber-950 font-bold shrink-0"
-          :title="`${planModel.sharpenRounds} sharpening round${planModel.sharpenRounds !== 1 ? 's' : ''} applied`"
-        ><span class="text-base leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" aria-hidden="true">🔪</span><span class="text-base leading-none">{{ planModel.sharpenRounds }}</span></span>
-        <!-- "Saved N min ago" IS the Save Now button (Tom 2026-05-13).
-             Always clickable. The label dual-codes status + action:
-               • Idle / fresh save           → muted white, reads as status
-               • ≥2 min stale (unsaved)      → amber chrome with 💾 prefix to urge action
-               • Just clicked (1.4 s flash)  → emerald "✓ Saved just now"
-               • Hover ANY state             → label flips to "💾 Save now"
-             Removes the previously-separate "💾 Save" button — one affordance,
-             one mental model. ARIA label spells out both halves. -->
-        <button
-          v-if="planBarSavedLabel || planModel"
-          type="button"
-          class="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                 text-[11px] font-semibold transition-all duration-150
-                 focus:outline-none focus:ring-2 focus:ring-white/80
-                 group"
-          :class="_saveFlash === 'flash'
-            ? 'bg-emerald-400/95 text-emerald-950 ring-1 ring-emerald-200/70'
-            : planBarUnsaved
-              ? 'bg-amber-400/95 text-amber-950 ring-1 ring-amber-200/70 hover:bg-amber-300 hover:scale-[1.04]'
-              : 'bg-white/10 text-white/90 hover:bg-white/25 hover:text-white'"
-          :title="_saveFlash === 'flash'
-            ? 'Saved!'
-            : planBarUnsaved
-              ? `${planBarSavedLabel} — click to save now (you have unsaved changes)`
-              : `${planBarSavedLabel || 'Not saved yet'} — click to save now`"
-          :aria-label="_saveFlash === 'flash'
-            ? 'Saved just now'
-            : planBarUnsaved
-              ? `${planBarSavedLabel}. Click to save now — you have unsaved changes.`
-              : `${planBarSavedLabel || 'Not saved yet'}. Click to save now.`"
-          @click="savedLabelClick"
-        >
-          <!-- Three visual modes, swapped via v-show so the layout doesn't jiggle -->
-          <template v-if="_saveFlash === 'flash'">
-            <span aria-hidden="true">✓</span>
-            <span>Saved just now</span>
-          </template>
-          <template v-else>
-            <!-- Idle label visible by default; flips to "[Save-glyph] Save now" on hover.
-                 Both spans share the same row so width stays roughly stable;
-                 we use opacity + display:none toggle via group-hover utilities.
-                 DD-001 (2026-05-13) — the SaveGlyph (`*→[*]`) replaces the
-                 floppy disc 💾 as the canonical Save icon across the app. -->
-            <span class="inline group-hover:hidden items-center gap-1" aria-hidden="true">
-              <SaveGlyph v-if="planBarUnsaved" size="compact" class="inline-block h-3 w-auto mr-1 -mt-0.5" />
-              {{ planBarSavedLabel || 'Save plan' }}
-            </span>
-            <span class="hidden group-hover:inline items-center gap-1" aria-hidden="true">
-              <SaveGlyph size="compact" class="inline-block h-3 w-auto mr-1 -mt-0.5" />
-              Save now
-            </span>
-          </template>
-        </button>
-      </div>
-
-      <!-- Flex spacer — pushes Plan Story + People + Control Shelf to the right
-           without justify-between (which causes overlaps when bar overflows). -->
-      <span class="flex-1 min-w-0" aria-hidden="true" />
-
-      <!-- ── PLAN STORY button — bright, big, eye-catching ──────────────────
-           Toggles the Plan Story strip below. Tom 2026-05-12 (fourth pass):
-           "Plan story icon is still bad, cant even see what it is" → swapped
-           the cryptic small-detailed 🧬 (DNA double-helix renders poorly at
-           14 px on most platforms) for the open-book 📖 glyph — universally
-           recognised as "story" — and bumped from text-sm (14 px) to
-           text-lg (18 px) with a soft amber drop-shadow so it pops against
-           the fuchsia pill. -->
-      <button
-        type="button"
-        :class="[
-          'shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg',
-          'text-xs font-bold tracking-wide transition-all duration-200',
-          'focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm',
-          planDNAOpen
-            ? 'bg-gradient-to-r from-fuchsia-300 to-pink-300 text-fuchsia-950 ring-2 ring-fuchsia-200/90 shadow-md'
-            : 'bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:from-fuchsia-400 hover:to-pink-400 hover:shadow-md hover:scale-[1.03] ring-1 ring-fuchsia-200/50',
-        ]"
-        :title="planDNAOpen
-          ? 'Hide Plan Story — origin, hand-tuning, sharpen rounds, stewards, age'
-          : 'Show Plan Story — origin, hand-tuning, sharpen rounds, stewards, age'"
-        :aria-pressed="planDNAOpen"
-        aria-label="Toggle Plan Story (origin, hand-tuning, sharpening, stewards, age)"
-        data-testid="plancrest-story-toggle"
-        @click="_togglePlanStory()"
-      >
-        <span class="text-lg leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" aria-hidden="true">📖</span>
-        <span class="hidden lg:inline">Plan Story</span>
-        <span
-          class="text-[10px] opacity-90 leading-none font-extrabold"
-          aria-hidden="true"
-        >{{ planDNAOpen ? '▾' : '▸' }}</span>
-      </button>
-
-      <!-- ── PEOPLE cluster: Owner / Planner / Scribe ──────────────────────
-           Pill-style chips, each clearly labelled with role + first person's
-           name. Empty state shows "+ Add" so it always reads as a button.
-           Click toggles the Plan Responsibilities panel on the matching tab. -->
-      <div class="hidden xl:flex items-center gap-1 shrink-0">
-        <!-- Owner -->
-        <button
-          type="button"
-          :class="[
-            'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
-            'focus:outline-none focus:ring-2 focus:ring-white/60',
-            planModel.owners?.length
-              ? 'bg-white/15 text-white hover:bg-white/25'
-              : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
-          ]"
-          :title="planModel.owners?.length
-            ? `Owners: ${planModel.owners.map(o => o.name).join(', ')} — click to edit`
-            : 'Add a Plan Owner'"
-          aria-label="Plan Owners"
-          @click="planPeopleTab = 'owners'; planOwnerPanelOpen = !planOwnerPanelOpen"
-        >
-          <span aria-hidden="true">🔑</span>
-          <span class="text-[9px] uppercase tracking-wider opacity-70">Owner</span>
-          <template v-if="planModel.owners?.length">
-            <span class="truncate max-w-[90px]">{{ planModel.owners[0].name }}</span>
-            <span v-if="planModel.owners.length > 1" class="text-white/70">+{{ planModel.owners.length - 1 }}</span>
-          </template>
-          <span v-else aria-hidden="true">+</span>
-        </button>
-
-        <!-- Planner -->
-        <button
-          type="button"
-          :class="[
-            'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
-            'focus:outline-none focus:ring-2 focus:ring-white/60',
-            planModel.planners?.length
-              ? 'bg-white/15 text-white hover:bg-white/25'
-              : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
-          ]"
-          :title="planModel.planners?.length
-            ? `Planners: ${planModel.planners.map(p => p.name).join(', ')} — click to edit`
-            : 'Add a Plan Planner'"
-          aria-label="Plan Planners"
-          @click="planPeopleTab = 'planners'; planOwnerPanelOpen = !planOwnerPanelOpen"
-        >
-          <span aria-hidden="true">💡</span>
-          <span class="text-[9px] uppercase tracking-wider opacity-70">Planner</span>
-          <template v-if="planModel.planners?.length">
-            <span class="truncate max-w-[90px]">{{ planModel.planners[0].name }}</span>
-            <span v-if="planModel.planners.length > 1" class="text-white/70">+{{ planModel.planners.length - 1 }}</span>
-          </template>
-          <span v-else aria-hidden="true">+</span>
-        </button>
-
-        <!-- Scribe -->
-        <button
-          type="button"
-          :class="[
-            'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
-            'focus:outline-none focus:ring-2 focus:ring-white/60',
-            planModel.scribes?.length && planModel.scribes[0]?.name
-              ? 'bg-white/15 text-white hover:bg-white/25'
-              : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
-          ]"
-          :title="!planModel.scribes?.length
-            ? 'Add a Plan Scribe'
-            : planModel.scribes[0]?.isDefault
-              ? `Scribe (default — ${planModel.scribes[0].name || 'tap to set your name'}) — click to edit`
-              : `Scribes: ${planModel.scribes.map(s => s.name).join(', ')} — click to edit`"
-          aria-label="Plan Scribes"
-          @click="planPeopleTab = 'scribes'; planOwnerPanelOpen = !planOwnerPanelOpen"
-        >
-          <span aria-hidden="true">⌨️</span>
-          <span class="text-[9px] uppercase tracking-wider opacity-70">Scribe</span>
-          <template v-if="planModel.scribes?.length">
-            <span
-              v-if="planModel.scribes[0].name"
-              class="truncate max-w-[90px]"
-            >{{ planModel.scribes[0].name }}</span>
-            <!-- "set name" text removed (2026-05-29) — it was long and not critical
-                 (Tom 2026-05-29). The tooltip already says "tap to set your name". -->
-            <span v-if="planModel.scribes.length > 1" class="text-white/70">+{{ planModel.scribes.length - 1 }}</span>
-          </template>
-          <span v-else aria-hidden="true">+</span>
-        </button>
-      </div>
-
-      <!-- (No spacer needed — Row 2 uses `justify-between` so each visual
-           group is distributed evenly across the bar width.) -->
-
-      <!-- ── RIGHT: CONTROL SHELF ─────────────────────────────────────────
-           Dark box removed 2026-06-01 (Tom: "there is a dark bar over the
-           buttons please remove it"). Buttons now sit directly on the Plan
-           Crest indigo gradient — no separate dark rectangle. -->
-      <div class="flex items-center gap-2 shrink-0 px-2 py-1">
-
-        <!-- (Save Now button removed 2026-05-13 — the "Saved N min ago" pill in
-             the identity cluster left of this shelf is now itself the Save Now
-             button. One affordance, dual-coded status + action. See the
-             `savedLabelClick` button above.) -->
-
-        <!-- Action cluster: Edit Plan · Find · History · New — uniform pill styling -->
-        <div class="flex items-center gap-2.5 shrink-0">
-
-        <!-- Edit Plan — opens Spec Editor -->
-        <button
-          v-if="planModel"
-          type="button"
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
-                 bg-white text-violet-700 hover:bg-violet-50 shadow-sm
-                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-          aria-label="Edit Plan"
-          title="Open Spec Editor"
-          @click="currentSpec = currentSpec ?? planModel.spec; specEditorOpen = true"
-        >Edit Plan</button>
-        <!-- Find ⌘F — overrides browser's native Find-in-page because the
-             SEM Find palette IS the canonical navigation surface. Tom
-             2026-05-12: "Can Search shortcut be cmd F, and named Find
-             (shorter, more result oriented)". ⌘K still works as a silent
-             alias for users with existing muscle memory. -->
-        <button
-          type="button"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
-                 text-white bg-white/10 hover:bg-white/20
-                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-          aria-label="Find features (Cmd+F)"
-          title="Find features (⌘F)"
-          @click="_toggleSearch()"
-        >
-          <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-          </svg>
-          <!-- Text label hidden (2026-05-29) — icon-only to save crest bar width.
-               Title attr provides full label. Kbd hint retained — very compact. -->
-          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘F</kbd>
-        </button>
-
-        <!-- Illuminate ⌥I — pairs with Find; teaches the keyboard shortcut.
-             Tom 2026-05-17: "persistent Define Button available in all edit situations
-             and panels. Define button top panel next to Search."
-             Renamed to Illuminate 2026-05-18 — the Planguage glossary goes very deep
-             from many angles (notes, examples, diagrams, jokes, related concepts);
-             Illuminate captures that better than Define.
-             Calls openDefineSearch() → SelectionDefiner handles selection-or-search fallback. -->
-        <button
-          type="button"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
-                 text-white bg-white/10 hover:bg-white/20
-                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-          aria-label="Illuminate a Planguage term (Opt+I)"
-          title="Illuminate any term — select text first, or click to type one  (⌥I)"
-          @click="openDefineSearch()"
-        >
-          <span class="text-sm leading-none" aria-hidden="true">💡</span>
-          <!-- Text label hidden (2026-05-29) — icon-only to save crest bar width. -->
-          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌥I</kbd>
-        </button>
-
-        <!-- History -->
-        <div class="relative">
-          <button
-            type="button"
-            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
-                   text-white bg-white/10 hover:bg-white/20
-                   focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-            aria-label="Version History"
-            title="Version History"
-            @click="historyOpen = true"
-          ><!-- Text label hidden (2026-05-29) — icon-only to save crest bar width. -->
-            <span aria-hidden="true">🕐</span></button>
-          <span
-            v-if="specHistory.length > 0"
-            class="absolute -top-1 -right-1 h-4 min-w-[1rem] rounded-full bg-rose-500 text-white
-                   text-[10px] font-bold flex items-center justify-center px-0.5 pointer-events-none ring-2 ring-indigo-700"
-            aria-hidden="true"
-          >{{ specHistory.length }}</span>
-        </div>
-
-        <!-- ── Next Step button — control-pins-at-top rule (2026-05-31). ─────────
-             Moved from fixed bottom-52 left-6 (violation) into this top bar.
-             Shows the primary workflow-advance action for the current stage.
-             Only visible when there is a clear next step. -->
-        <button
-          v-if="nextActionLabel"
-          type="button"
-          :title="`Advance to the next workflow step: ${nextActionLabel}`"
-          :aria-label="`Next Step: ${nextActionLabel}`"
-          class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold
-                 bg-indigo-500 text-white hover:bg-indigo-400 shadow-sm shrink-0
-                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-          @click="goNext"
-        >{{ nextActionLabel }} <span aria-hidden="true">→</span></button>
-
-        <!-- (SOS moved to Row 1 absolute-right cluster — never clips there) -->
-
-        <!-- ── Control pins — 🎤 Mic · 🔊 Speaker ──────────────────────────────
-             ⚡ Actions and 🤖 Agents moved to Row 1 absolute-right cluster so
-             they are immune to Row 2 overflow-x-clip at 1024–1180 px viewports.
-             Mic and Speaker remain here — they relate to active voice session. -->
-        <span class="h-5 w-px bg-white/20 mx-0.5 shrink-0" aria-hidden="true" />
-        <!-- P5 (2026-05-27): data-crest-tip wrappers on inline icon-only buttons.
-             span.inline-flex needed because DictateButton/SpeakerButton are components
-             (can't add data-* to a component root directly from parent). -->
-        <span class="inline-flex" data-crest-tip="🎤 Dictate — speak to fill the form (⌘M)">
-          <DictateButton
-            :active="dictationActive"
-            :supported="dictationSupported"
-            :compact="true"
-            @toggle="toggleDictation()"
-          />
-        </span>
-        <span class="inline-flex" data-crest-tip="🔊 Read Aloud — hear the current plan content">
-          <SpeakerButton
-            :text="speakerText"
-            :compact="true"
-            @speak="handleSpeak"
-          />
-        </span>
-        <!-- (⚡ Actions and 🤖 Agents moved to Row 1 absolute-right cluster) -->
-        </div>
-      </div>
-    </div>
 
     <!-- Row 2: Plan Story strip (toggled by the bright 🧬 Plan Story button) -->
     <PlanDNAStrip
