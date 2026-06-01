@@ -361,8 +361,16 @@ const activeDiagrams = computed<string[]>(() =>
 // inside it (drill-down within the glossary itself), keep it expanded so the
 // new entry replaces the old one in-place — instead of forcing the user to
 // re-click the "More Concept Detail" pin every single time.
+// Auto-expand the glossary detail panel the moment an entry is loaded.
+// This is a synchronous reactive watcher — no async .then() chain needed.
+// Fires whenever gEntry changes (null → entry = expand; entry → null = collapse).
+// User can still manually collapse by clicking the "More Concept Detail" pin;
+// the panel won't re-expand until a NEW entry loads (gEntry changes reference).
+watch(gEntry, (newEntry) => {
+  if (newEntry) detailOpen.value = true
+})
+
 watch(result, (r) => {
-  const wasOpen            = detailOpen.value
   activeDetailTab.value    = 'card'
   diagramRendered.value    = false
   diagramError.value       = ''
@@ -372,15 +380,9 @@ watch(result, (r) => {
   if (r?.term) _recordRecentTerm(r.term)
   clearEntry()
   // Silent background probe — 404s are swallowed; pin shows only on a vault match.
-  // Pass `wasOpen` so the response handler can immediately re-show detail panel.
+  // detailOpen is now driven reactively by watch(gEntry) above, not by this async chain.
   if (r?.term) {
     fetchEntry(r.term).then(async () => {
-      // Auto-expand detail panel whenever the vault has a glossary entry —
-      // Tom: "I cannot see the extensive data and diagram for Planguage glossary
-      // concepts." The wasOpen sticky behaviour was correct for drill-down but
-      // wrong for first-time viewing: users never saw the data because the panel
-      // defaulted to collapsed. Now: always open when an entry exists.
-      //
       // Auto-load best near-match (2026-06-01): if no exact entry but near-matches
       // exist, silently fetch the first near-match so the full glossary tabs appear
       // without requiring the user to click a pill. The pill buttons remain visible
@@ -389,9 +391,7 @@ watch(result, (r) => {
       if (!gEntry.value && gNearMatchOptions.value.length > 0) {
         await fetchEntry(gNearMatchOptions.value[0])
       }
-      detailOpen.value = !!gEntry.value
-    }).catch(() => {
-      detailOpen.value = false
+      // detailOpen is handled by watch(gEntry) — no explicit set needed here
     })
   } else {
     detailOpen.value = false
