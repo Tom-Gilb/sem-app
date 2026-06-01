@@ -12,7 +12,7 @@
        close    — user closed the panel -->
 
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, computed, ref, watch } from 'vue'
 import { openEml, textToEmailHtml } from '../composables/useEmlExport'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
@@ -83,10 +83,42 @@ onMounted(() => {
   analyse(props.spec)
 })
 
+// ── Rule 8: elapsed + progress for the loading state (AmuseMeButton handles amuse) ──
+
+const caElapsed           = ref(0)
+const caSimulatedProgress = ref(0)
+
+let _caElapsedTimer: ReturnType<typeof setInterval> | null = null
+let _caAnimStart = 0
+
+function _startConflictLoadingAnim(): void {
+  _caAnimStart = Date.now()
+  caElapsed.value = 0; caSimulatedProgress.value = 0
+  if (_caElapsedTimer) { clearInterval(_caElapsedTimer); _caElapsedTimer = null }
+  _caElapsedTimer = setInterval(() => {
+    const secs = Math.round((Date.now() - _caAnimStart) / 1000)
+    caElapsed.value = secs
+    caSimulatedProgress.value = Math.round(Math.min(95, (1 - Math.exp(-secs / 25)) * 100))
+  }, 250)
+}
+
+function _stopConflictLoadingAnim(): void {
+  if (_caElapsedTimer) { clearInterval(_caElapsedTimer); _caElapsedTimer = null }
+  caSimulatedProgress.value = 100
+}
+
+watch(loading, (nowLoading) => {
+  if (nowLoading) _startConflictLoadingAnim()
+  else            _stopConflictLoadingAnim()
+})
+
 // Note: window listener cleaned up by EvoSimulatorView pattern —
 // using inline cleanup here avoids a separate onUnmounted import.
 import { onUnmounted } from 'vue'
-onUnmounted(() => window.removeEventListener('keydown', _onKey))
+onUnmounted(() => {
+  window.removeEventListener('keydown', _onKey)
+  _stopConflictLoadingAnim()
+})
 
 // ── Wow event placeholder ────────────────────────────────────────────────────
 
@@ -172,12 +204,27 @@ function emailAll(): void {
         </div>
 
         <ScrollContainer outer-class="flex-1 min-h-0 relative" inner-class="h-full">
-        <!-- Loading state -->
-        <div v-if="loading" class="px-5 py-12 flex flex-col items-center gap-3" aria-live="polite" aria-busy="true">
+        <!-- Loading state (Rule 8: spinner + elapsed + progress bar + AmuseMeButton for amuse) -->
+        <div v-if="loading" class="px-5 py-10 flex flex-col items-center gap-3" aria-live="polite" aria-busy="true">
+          <!-- 1. Spinner -->
           <div class="w-8 h-8 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin" aria-hidden="true" />
+          <!-- Heading + elapsed -->
           <p class="text-sm font-medium text-slate-600">Analysing stakeholder tensions…</p>
-          <p class="text-xs text-slate-400">This takes a few seconds</p>
-          <!-- AmuseMeButton: conflict analysis can take 20–45s -->
+          <p class="text-xs text-slate-400">{{ caElapsed }}s elapsed — may take 20–45 seconds</p>
+          <!-- 2. Progress bar -->
+          <div
+            class="w-full max-w-xs bg-amber-100 rounded-full h-1.5"
+            role="progressbar"
+            :aria-valuenow="caSimulatedProgress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div
+              class="bg-amber-500 h-1.5 rounded-full transition-all duration-300"
+              :style="{ width: caSimulatedProgress + '%' }"
+            />
+          </div>
+          <!-- 3+4. AmuseMeButton handles amuse content (opt-in) -->
           <AmuseMeButton :is-loading="loading" class="w-full mt-2" />
         </div>
 
