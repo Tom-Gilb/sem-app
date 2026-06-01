@@ -21,6 +21,13 @@
   optional `interactive` prop that emits `glyph-click` — satisfies "All-Glyphs-Have-Hover"
   rule from SEMappHandbook p.25. Wrapper span carries title; inner dispatch is unchanged.
 
+  DD-013 (2026-06-01): Universal double-click rule — EVERY PlTypeIcon opens GlyphDataPanel
+  on double-click, regardless of interactive mode. No event-bubbling chain required:
+  dblclick calls useGlyphPanel().openGlyphPanel() directly (singleton composable).
+  Hover tooltip always appends "· Double-click for detailed icon info".
+  Exception: pass `no-detail-click` when the parent owns double-click (e.g. ValueCounter
+  stage tiles use timer-click for StageInfoPanel — two conflicting panels is wrong UX).
+
   Spec: F.ValueAccumulationCounter (#15) · Planguage Spec Type Glyphs v7 (2026-05-16).
 -->
 <script setup lang="ts">
@@ -34,6 +41,7 @@ import PlStakeholderIcon from './PlStakeholderIcon.vue'
 import PlEvoStepIcon from './PlEvoStepIcon.vue'
 import PlTaskIcon from './PlTaskIcon.vue'
 import PlResourceIcon from './PlResourceIcon.vue'
+import { useGlyphPanel } from '@/composables/useGlyphPanel'
 
 /** All 8 canonical Planguage entry types. */
 export type PlGlyphType =
@@ -77,9 +85,17 @@ const props = withDefaults(defineProps<{
    * Default false (passive rendering — parent handles all click logic).
    */
   interactive?: boolean
+  /**
+   * DD-013: When true, suppresses the universal double-click → GlyphDataPanel behaviour.
+   * Use ONLY when the parent component owns double-click itself (e.g. ValueCounter stage
+   * tiles use a timer-based click to open StageInfoPanel — two conflicting panels is
+   * wrong UX). Default false — every glyph opens GlyphDataPanel on dblclick.
+   */
+  noDetailClick?: boolean
 }>(), {
   size: 'lg',
   interactive: false,
+  noDetailClick: false,
 })
 
 const emit = defineEmits<{
@@ -87,11 +103,25 @@ const emit = defineEmits<{
   'glyph-click': [plType: PlGlyphType]
 }>()
 
-/** Resolved tooltip: caller override → canonical auto-label. */
-const resolvedTitle = computed(() => props.title ?? CANONICAL_LABELS[props.plType])
+const { openGlyphPanel } = useGlyphPanel()
+
+/**
+ * Resolved tooltip.
+ * DD-013: always appends "· Double-click for detailed icon info" unless
+ * noDetailClick suppresses it (parent owns dblclick for its own purpose).
+ */
+const resolvedTitle = computed(() => {
+  const base = props.title ?? CANONICAL_LABELS[props.plType]
+  return props.noDetailClick ? base : `${base} · Double-click for detailed icon info`
+})
 
 function handleActivate(): void {
   if (props.interactive) emit('glyph-click', props.plType)
+}
+
+/** DD-013: universal double-click → GlyphDataPanel (direct composable call, no bubbling chain). */
+function handleDblClick(): void {
+  if (!props.noDetailClick) openGlyphPanel(props.plType)
 }
 </script>
 
@@ -110,6 +140,7 @@ function handleActivate(): void {
     :tabindex="interactive ? 0 : undefined"
     :class="interactive ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-current rounded' : ''"
     @click="handleActivate"
+    @dblclick.stop="handleDblClick"
     @keydown.enter="handleActivate"
     @keydown.space.prevent="handleActivate"
   >

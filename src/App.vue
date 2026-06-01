@@ -118,6 +118,7 @@ import SystemModelDashboard from './components/SystemModelDashboard.vue'
 import ModelHistory from './components/ModelHistory.vue'
 import GlyphDataPanel from './components/GlyphDataPanel.vue'
 import type { PlGlyphType } from './components/icons/PlTypeIcon.vue'
+import { useGlyphPanel } from './composables/useGlyphPanel'
 import SaveGlyph from './components/icons/SaveGlyph.vue'
 import EditGlyph from './components/icons/EditGlyph.vue'
 import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
@@ -729,13 +730,10 @@ const modelDashboardOpen = ref(false)
 const modelHistoryOpen = ref(false)
 
 // P2 (2026-05-27): GlyphDataPanel — full reference card for any Planguage glyph.
-// z-[494/495] — above ModelHistory (492/493). Triggered by interactive PlTypeIcon click.
-const glyphPanelType  = ref<PlGlyphType | null>(null)
-const glyphPanelOpen  = ref(false)
-function openGlyphPanel(type: PlGlyphType): void {
-  glyphPanelType.value = type
-  glyphPanelOpen.value = true
-}
+// z-[494/495] — above ModelHistory (492/493).
+// DD-013 (2026-06-01): openGlyphPanel now sourced from useGlyphPanel composable so
+// PlTypeIcon can call it directly on dblclick without event-bubbling chains.
+const { glyphPanelOpen, glyphPanelType, openGlyphPanel, closeGlyphPanel, navigateGlyphPanel } = useGlyphPanel()
 
 /** True when the active plan model is in 'model' mode (not plan mode). */
 const isModelMode = computed(() => planModel.value?.workingMode === 'model')
@@ -4256,12 +4254,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <!-- GlyphDataPanel (P2, 2026-05-27) — full Planguage glyph reference card. z-[494/495].
-       Triggered by ArrowInfoPanel's "open-glyph" emit, or by interactive PlTypeIcon clicks. -->
+       DD-013 (2026-06-01): triggered by double-clicking ANY PlTypeIcon anywhere in the app,
+       plus ArrowInfoPanel's "open-glyph" emit. useGlyphPanel composable provides state. -->
   <GlyphDataPanel
     v-if="glyphPanelOpen && glyphPanelType"
     :pl-type="glyphPanelType"
-    @close="glyphPanelOpen = false"
-    @show-glyph="(t) => { glyphPanelType = t }"
+    @close="closeGlyphPanel()"
+    @show-glyph="navigateGlyphPanel"
   />
 
   <!-- Spec Direct Relations — right-side drawer (Tom 2026-05-16) -->

@@ -463,7 +463,9 @@ onUnmounted(() => {
               :style="glowStyle(step.stage)"
               aria-hidden="true"
             >
-              <PlTypeIcon :pl-type="step.plType" size="xl" />
+              <!-- no-detail-click: the tile button owns dblclick (StageInfoPanel via timer).
+                   Allowing GlyphDataPanel to also open on dblclick would give two panels. -->
+              <PlTypeIcon :pl-type="step.plType" size="xl" :no-detail-click="true" />
             </div>
           </div>
 
