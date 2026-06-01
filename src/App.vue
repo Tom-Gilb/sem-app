@@ -4866,7 +4866,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <img
               src="/icon-sem-app.svg"
               alt="SEM App"
-              title="SEM App icon — three levels of concern (Keeney, Value-Focused Thinking): TOP ROW = Given level (context imposed from above — environment, parent org, regulations); MIDDLE ROW = Strategic level (our own plan — the Ends/Values we own); BOTTOM ROW = Means level (what supports us — Functions and Solutions that deliver our Ends). Each person = Stakeholder · each circle = End (Value/Constraint) · each arrow = Means (Function/Solution)."
+              title="SEM App icon — three levels of concern (Keeney, Value-Focused Thinking, 1992): TOP ROW = Fundamental level — objectives given from above (environment, parent org, regulations — we operate within these); MIDDLE ROW = Strategic level — our own plan (the Ends/Values we own and are accountable for); BOTTOM ROW = Means level — what supports us (Functions and Solutions that deliver our Strategic Ends). Each person = Stakeholder · each circle = End (Value/Constraint) · each arrow = Means (Function/Solution)."
               class="h-20 w-20 flex-shrink-0 rounded-2xl shadow-lg cursor-help"
             />
             <div>
