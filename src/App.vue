@@ -4127,19 +4127,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
            group is distributed evenly across the bar width.) -->
 
       <!-- ── RIGHT: CONTROL SHELF ─────────────────────────────────────────
-           Tom 2026-05-12 (fourteenth pass): "maybe the set of controls
-           separated from the plan, in a colored rectangle, round corners".
-           Wraps Save + Find/History/New into one deliberate "control
-           shelf" rectangle so the affordances read as a unified panel
-           distinct from the plan-identity stuff to its left (PlanHealth,
-           version pill, sharpen badge, Plan Story toggle, people chips).
-           Colour: `bg-indigo-950/60` recedes one notch deeper than the
-           bar's indigo-800→violet-600 gradient (same family, no clash
-           with the gold-shimmer title) with an `amber-200/25` ring that
-           ties back to the Plan Crest accent palette. `shadow-inner`
-           gives the shelf a slight inset feel — "controls live HERE." -->
-      <div class="flex items-center gap-2 shrink-0 px-2 py-1 rounded-xl
-                  bg-indigo-950/60 ring-1 ring-amber-200/25 shadow-inner">
+           Dark box removed 2026-06-01 (Tom: "there is a dark bar over the
+           buttons please remove it"). Buttons now sit directly on the Plan
+           Crest indigo gradient — no separate dark rectangle. -->
+      <div class="flex items-center gap-2 shrink-0 px-2 py-1">
 
         <!-- (Save Now button removed 2026-05-13 — the "Saved N min ago" pill in
              the identity cluster left of this shelf is now itself the Save Now
