@@ -3665,8 +3665,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
          comes and goes in Ultra — can we make it stable?" -->
     <button
       type="button"
-      title="Illuminate any Planguage term  (⌘I)"
-      aria-label="Illuminate a term (Cmd+I)"
+      title="Illuminate any Planguage term  (⌥I)"
+      aria-label="Illuminate a term (Opt+I)"
       class="fixed top-4 right-20 z-[400] p-2 rounded-full text-base leading-none
              text-slate-500 hover:text-slate-900
              bg-white/0 hover:bg-slate-100
@@ -4182,7 +4182,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘F</kbd>
         </button>
 
-        <!-- Illuminate ⌘I — pairs with Find; teaches the keyboard shortcut.
+        <!-- Illuminate ⌥I — pairs with Find; teaches the keyboard shortcut.
              Tom 2026-05-17: "persistent Define Button available in all edit situations
              and panels. Define button top panel next to Search."
              Renamed to Illuminate 2026-05-18 — the Planguage glossary goes very deep
@@ -4194,13 +4194,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
                  text-white bg-white/10 hover:bg-white/20
                  focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-          aria-label="Illuminate a Planguage term (Cmd+I)"
-          title="Illuminate any term — select text first, or click to type one  (⌘I)"
+          aria-label="Illuminate a Planguage term (Opt+I)"
+          title="Illuminate any term — select text first, or click to type one  (⌥I)"
           @click="openDefineSearch()"
         >
           <span class="text-sm leading-none" aria-hidden="true">💡</span>
           <!-- Text label hidden (2026-05-29) — icon-only to save crest bar width. -->
-          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘I</kbd>
+          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌥I</kbd>
         </button>
 
         <!-- History -->
@@ -4975,7 +4975,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span class="hidden sm:inline">Find</span>
             <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-white text-gray-500 font-mono text-[9px] leading-none py-0.5 ring-1 ring-gray-300">⌘F</kbd>
           </button>
-          <!-- ⌘I Illuminate button — pinned next to Find; violet-tinted to signal it is
+          <!-- ⌥I Illuminate button — pinned next to Find; violet-tinted to signal it is
                the Illuminate feature's entry point. Tom 2026-05-17 discoverability pass.
                Renamed Define → Illuminate 2026-05-18. -->
           <button
@@ -4983,13 +4983,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
             class="h-9 px-2.5 rounded-lg bg-violet-100 text-violet-700 text-xs font-medium
                    hover:bg-violet-200 flex items-center gap-1
                    focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors duration-150 shrink-0"
-            aria-label="Illuminate a Planguage term (Cmd+I)"
-            title="Illuminate any term — select text first, or click to type one  (⌘I)"
+            aria-label="Illuminate a Planguage term (Opt+I)"
+            title="Illuminate any term — select text first, or click to type one  (⌥I)"
             @click="openDefineSearch()"
           >
             <span class="text-sm leading-none" aria-hidden="true">💡</span>
             <span class="hidden sm:inline">Illuminate</span>
-            <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌘I</kbd>
+            <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌥I</kbd>
           </button>
           <button
             type="button"
@@ -5093,20 +5093,20 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <span class="hidden sm:inline">Find</span>
           <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-white text-gray-500 font-mono text-[9px] leading-none py-0.5 ring-1 ring-gray-300">⌘F</kbd>
         </button>
-        <!-- ⌘I Illuminate button (mock mode) — violet-tinted, paired with Find.
+        <!-- ⌥I Illuminate button (mock mode) — violet-tinted, paired with Find.
              Tom 2026-05-17 discoverability pass. Renamed Define → Illuminate 2026-05-18. -->
         <button
           type="button"
           class="h-9 px-2.5 rounded-lg bg-violet-100 text-violet-700 text-xs font-medium
                  hover:bg-violet-200 flex items-center gap-1
                  focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors duration-150 shrink-0"
-          aria-label="Illuminate a Planguage term (Cmd+I)"
-          title="Illuminate any term — select text first, or click to type one  (⌘I)"
+          aria-label="Illuminate a Planguage term (Opt+I)"
+          title="Illuminate any term — select text first, or click to type one  (⌥I)"
           @click="openDefineSearch()"
         >
           <span class="text-sm leading-none" aria-hidden="true">💡</span>
           <span class="hidden sm:inline">Illuminate</span>
-          <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌘I</kbd>
+          <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌥I</kbd>
         </button>
         <!-- Feature #77: Onboarding tour button in mock mode -->
         <button
@@ -5882,7 +5882,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     </Teleport>
 
     <!-- 💡 SelectionDefiner — global floating "Illuminate" pill + result panel.
-         Listens to all text selections; also responds to Cmd+I and voice "Illuminate". -->
+         Listens to all text selections; also responds to Opt+I and voice "Illuminate". -->
     <SelectionDefiner :spec="currentSpec" />
 
     <!-- 🛟 InputSafetyNetToast — universal draft-loss recovery.

@@ -5,7 +5,7 @@
        1. Floating "📖 Define" pill — appears above any non-trivial text selection.
           Clicking it triggers an AI definition lookup.
        2. Result panel — slides up from the bottom showing the definition + source.
-       3. Keyboard: Cmd+I / Ctrl+I calls defineCurrentSelection().
+       3. Keyboard: Opt+I (Option+I) calls defineCurrentSelection().
           Voice "Define" is wired in App.vue dictation commands.
 
      For Planguage terms: a "More Concept Detail" section appears below the AI definition,
@@ -37,7 +37,7 @@ const props = defineProps<{
 }>()
 
 const { result, loading, error, open, term, defineSearchOpen } = useDefine()
-const { loading: gLoading, entry: gEntry, error: gError, synonymOf: gSynonymOf, nearMatchOptions: gNearMatchOptions, fetchEntry, clearEntry } = useGlossaryEntry()
+const { loading: gLoading, entry: gEntry, error: gError, synonymOf: gSynonymOf, nearMatchOptions: gNearMatchOptions, probeError: gProbeError, fetchEntry, clearEntry } = useGlossaryEntry()
 
 // ── Floating pill state ────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ function closeTermSearch(): void {
   termSearchValue.value = ''
 }
 
-// ── First-use ⌘I discovery tip ────────────────────────────────────────────
+// ── First-use ⌥I discovery tip ────────────────────────────────────────────
 // Shown once after the first successful define (any method), then permanently
 // dismissed via localStorage flag.  Teaches the keyboard shortcut + no-
 // selection path at the moment of highest engagement — right after the user
@@ -227,29 +227,32 @@ function _onMouseup(): void {
 }
 
 function _onKeydown(e: KeyboardEvent): void {
-  // Cmd+I / Ctrl+I — illuminate selection (or open term search if nothing selected).
+  // Opt+I (Option+I) — illuminate selection (or open term search if nothing selected).
+  // Uses e.code === 'KeyI' (physical key) not e.key because Option+I on Mac produces
+  // a dead key (circumflex), so e.key === 'Dead', not 'i'. e.code is layout-independent.
+  // NOTE: ⌥I is owned by Safari (Email Page Link) and cannot be overridden from JS.
   // Guard: skip only if result panel is already open (user can see it, no double-trigger).
   // NOTE: do NOT guard on loading.value — _loading is module-level state that Vite HMR
   // preserves across hot reloads, so a loading=true from an interrupted call permanently
-  // blocks ⌘I for the rest of the session.  open.value covers the same case because
+  // blocks ⌥I for the rest of the session.  open.value covers the same case because
   // _open is set true at the same moment _loading is set true inside defineTerm().
-  if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
-    // Guard: don't intercept when the user is typing — ⌘I means italic in text contexts.
+  if (e.altKey && e.code === 'KeyI') {
+    // Guard: don't intercept when the user is typing in a text field.
     if (
       document.activeElement instanceof HTMLInputElement ||
       document.activeElement instanceof HTMLTextAreaElement
     ) return
     e.preventDefault()
-    // Block ⌘I only when a completed result is being READ — not during loading or error.
+    // Block ⌥I only when a completed result is being READ — not during loading or error.
     // If the panel is stuck on a spinner (open=true, loading=true, result=null),
-    // allow ⌘I to start a fresh call so the user is never locked out.
+    // allow ⌥I to start a fresh call so the user is never locked out.
     if (open.value && result.value && !loading.value) return
     const sel = window.getSelection()?.toString().trim() ?? ''
     if (sel.length >= MIN_CHARS && sel.length <= MAX_CHARS) {
       defineCurrentSelection(props.spec)
     } else {
-      // ⌘I with no live selection → always open a BLANK term search aperture.
-      // Do NOT fall back to pillTerm (last hovered term) — Tom: "I want ⌘I to
+      // ⌥I with no live selection → always open a BLANK term search aperture.
+      // Do NOT fall back to pillTerm (last hovered term) — Tom: "I want ⌥I to
       // open a blank aperture to put in a new word." pillTerm is used only by
       // the floating pill click path, not by the keyboard shortcut.
       defineSearchOpen.value = true
@@ -692,8 +695,8 @@ function escapeHtml(s: string): string {
       >
         <span aria-hidden="true">💡</span>
         Illuminate
-        <!-- Tom 2026-05-17: teach ⌘I at the exact moment of first discovery -->
-        <kbd class="ml-0.5 text-[9px] font-mono bg-violet-500/60 rounded px-1 py-0.5 leading-none" aria-hidden="true">⌘I</kbd>
+        <!-- Tom 2026-05-17: teach ⌥I at the exact moment of first discovery -->
+        <kbd class="ml-0.5 text-[9px] font-mono bg-violet-500/60 rounded px-1 py-0.5 leading-none" aria-hidden="true">⌥I</kbd>
       </button>
     </Transition>
   </Teleport>
@@ -866,6 +869,29 @@ function escapeHtml(s: string): string {
                     {{ option }}
                   </button>
                 </div>
+              </div>
+
+              <!-- ── Vault unreachable hint — shown when probe failed with 503 or network error.
+                   Distinct from 404 (term absent): probeError means the dev server was
+                   not running, so glossary data MAY exist but could not be fetched.
+                   Clicking "retry" re-runs fetchEntry with userInitiated=true so the
+                   user sees a proper error message if the server is still down. -->
+              <div
+                v-if="!gEntry && !gLoading && gProbeError"
+                class="mt-3 border-t border-slate-100 pt-3 flex items-start gap-2"
+              >
+                <span class="text-base flex-shrink-0" aria-hidden="true">📚</span>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  Vault glossary unavailable — the full Planguage concept detail
+                  ({{ result?.term }}) may exist but the dev server is not reachable.
+                  <button
+                    type="button"
+                    class="ml-1 underline underline-offset-2 text-violet-500 hover:text-violet-700
+                           focus:outline-none focus:ring-1 focus:ring-violet-400 rounded transition-colors"
+                    title="Retry glossary lookup — will show an error message if dev server is still down"
+                    @click="result && fetchEntry(result.term, true)"
+                  >Retry</button>
+                </p>
               </div>
 
               <!-- ── More Concept Detail pin — shown when vault has a glossary entry ── -->
@@ -1107,10 +1133,10 @@ function escapeHtml(s: string): string {
             </template>
           </div>
 
-          <!-- ── ⌘I first-use tip — amber strip, flex-shrink-0 so it never scrolls away.
+          <!-- ── ⌥I first-use tip — amber strip, flex-shrink-0 so it never scrolls away.
                Shown once after first successful illumination (any trigger method).
                Dismissed to localStorage; never shown again. Tom 2026-05-17:
-               "whenever define is actually used a reminder that ⌘I will give
+               "whenever define is actually used a reminder that ⌥I will give
                illuminate without the term select." -->
           <div
             v-if="result && !tipDismissed"
@@ -1120,7 +1146,7 @@ function escapeHtml(s: string): string {
             <span class="text-sm flex-shrink-0" aria-hidden="true">✨</span>
             <span class="flex-1 text-[11px] text-amber-800 leading-snug">
               Tip: press
-              <kbd class="font-mono bg-amber-100 border border-amber-200 rounded px-1 text-[10px] text-amber-700">⌘I</kbd>
+              <kbd class="font-mono bg-amber-100 border border-amber-200 rounded px-1 text-[10px] text-amber-700">⌥I</kbd>
               anytime — no selection needed.
             </span>
             <!-- CloseDot rule: inline tip panel dismiss -->
@@ -1135,7 +1161,7 @@ function escapeHtml(s: string): string {
           <!-- Footer hint -->
           <div class="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
             <p class="text-[10px] text-slate-400">
-              Select any text and click <strong>💡 Illuminate</strong>, or say <strong>"Illuminate"</strong>, or press <kbd class="font-mono border border-slate-200 rounded px-1 bg-white text-slate-400">⌘I</kbd>
+              Select any text and click <strong>💡 Illuminate</strong>, or say <strong>"Illuminate"</strong>, or press <kbd class="font-mono border border-slate-200 rounded px-1 bg-white text-slate-400">⌥I</kbd>
             </p>
             <button
               type="button"
@@ -1152,11 +1178,11 @@ function escapeHtml(s: string): string {
   </Teleport>
 
   <!-- ────────────────────────────────────────────────────────────────────────
-       3. TERM SEARCH PANEL — opens via nav-bar Illuminate button or ⌘I with no selection.
+       3. TERM SEARCH PANEL — opens via nav-bar Illuminate button or ⌥I with no selection.
           FAB removed 2026-05-18 (was cluttering bottom-right, redundant with nav bar button).
        ──────────────────────────────────────────────────────────────────────── -->
   <Teleport to="body">
-    <!-- Term-search panel — shown when nav-bar Illuminate button or ⌘I clicked with no active selection -->
+    <!-- Term-search panel — shown when nav-bar Illuminate button or ⌥I clicked with no active selection -->
     <Transition
       enter-active-class="transition-all duration-150 ease-out"
       enter-from-class="opacity-0 scale-95 translate-y-2"
@@ -1183,7 +1209,7 @@ function escapeHtml(s: string): string {
         <div class="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 flex items-center gap-2">
           <span class="text-sm" aria-hidden="true">💡</span>
           <span class="text-xs font-bold text-white tracking-wide flex-1">Illuminate any term</span>
-          <kbd class="text-[10px] text-white/70 font-mono bg-white/15 rounded px-1.5 py-0.5">⌘I</kbd>
+          <kbd class="text-[10px] text-white/70 font-mono bg-white/15 rounded px-1.5 py-0.5">⌥I</kbd>
         </div>
         <!-- Input -->
         <div class="px-3 py-2.5">
@@ -1223,8 +1249,8 @@ function escapeHtml(s: string): string {
       </div>
     </Transition>
 
-    <!-- FAB removed 2026-05-17: redundant — nav bar has "💡 Illuminate ⌘I" button,
-         floating pill appears on text selection, ⌘I works globally.
+    <!-- FAB removed 2026-05-17: redundant — nav bar has "💡 Illuminate ⌥I" button,
+         floating pill appears on text selection, ⌥I works globally.
          The persistent FAB was cluttering the bottom-right and clashing with
          the Actions / Mic / Read Aloud buttons. -->
   </Teleport>
