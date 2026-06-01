@@ -20,6 +20,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import { MODEL_ID } from '../config/llm'
 import type {
   ContractClause,
   ContractParty,
@@ -30,9 +31,9 @@ import type {
 } from '../types/contractTypes'
 
 // ── LLM client ────────────────────────────────────────────────────────────────
-
-const MODEL_ID = (import.meta.env.VITE_CLAUDE_MODEL as string | undefined)
-  ?? 'claude-3-5-haiku-20241022'
+// Model: imported from src/config/llm.ts (claude-sonnet-4-6).
+// Contract parsing is complex multi-section JSON generation — Haiku produces
+// malformed or wrapped-object responses. Sonnet required per Model Selection Rule.
 
 function _getClient(): Anthropic {
   const apiKey  = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
@@ -59,6 +60,20 @@ function _extractJson<T>(text: string): T | null {
     try { return JSON.parse(text.slice(start)) as T } catch { /* fall through */ }
   }
   return null
+}
+
+// Defensive array extractor — handles both bare arrays and LLM-wrapped objects
+// e.g. {"clauses": [...]} or {"result": [...]} or just [...].
+// Haiku (and occasionally Sonnet) wraps arrays even when told not to.
+function _extractJsonArray<T>(text: string): T[] {
+  const parsed = _extractJson<unknown>(text)
+  if (parsed === null || parsed === undefined) return []
+  if (Array.isArray(parsed)) return parsed as T[]
+  if (typeof parsed === 'object') {
+    const found = Object.values(parsed as Record<string, unknown>).find(v => Array.isArray(v))
+    if (found) return found as T[]
+  }
+  return []
 }
 
 function _uuid(): string {
@@ -179,7 +194,7 @@ export function useContractParser() {
       ...(signal ? {} : {}),   // AbortController not directly supported by SDK; caller manages
     })
     const text = response.content.find(b => b.type === 'text')?.text ?? '[]'
-    const splits = _extractJson<LLMClauseSplit[]>(text) ?? []
+    const splits = _extractJsonArray<LLMClauseSplit>(text)
 
     return splits.map((s): ContractClause => ({
       id:          _uuid(),
@@ -208,7 +223,7 @@ export function useContractParser() {
       messages:   [{ role: 'user', content: PARSE_CLAUSE_PROMPT(clause, parties) }],
     })
     const text = response.content.find(b => b.type === 'text')?.text ?? '[]'
-    const outputs = _extractJson<LLMEntryOutput[]>(text) ?? []
+    const outputs = _extractJsonArray<LLMEntryOutput>(text)
 
     return outputs.map((o): PlanguageContractEntry => ({
       id:              _uuid(),
