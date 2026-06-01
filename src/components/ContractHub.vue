@@ -448,6 +448,19 @@ const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
 }
 
 /**
+ * TAB_COLORS — distinctive per-tab identity color.
+ * Active tab: this color as background, white text.
+ * Inactive tab: this color as text/glyph color.
+ * Chosen from the Planguage canonical palette so each tab has semantic resonance.
+ */
+const TAB_COLORS: Record<string, string> = {
+  clauses: '#0f766e',  // teal   — contract identity / source text
+  entries: '#7c3aed',  // violet — Planguage Value canonical (dominant entry type)
+  matrix:  '#b45309',  // amber  — analysis / Evo Step palette
+  export:  '#1d4ed8',  // blue   — delivery / stakeholder canonical
+}
+
+/**
  * CONTRACT_ENTRY_FULL — spelled-out names for each ContractEntryType.
  * Universal label rule (Tom Gilb, 2026-06-01): type codes must never appear
  * alone. Always show the full name next to the code or glyph.
@@ -705,32 +718,32 @@ onUnmounted(() => { _stopContractAnimation() })
       </div>
 
       <!-- ── Tab bar (detail view only) ────────────────────────────────────── -->
+      <!-- Each tab has a distinctive identity color (TAB_COLORS). Active = that color as bg + white text.
+           Inactive = that color as text + glyph. Planguage SVG glyphs, no emoji. -->
       <div v-if="selectedContract" class="shrink-0 flex items-center gap-1 px-4 py-2 bg-white border-b border-slate-200">
         <button
           v-for="tab in (['clauses', 'entries', 'matrix', 'export'] as const)"
           :key="tab"
           type="button"
-          :title="tab === 'clauses'  ? 'Clauses — browse each clause and see its extracted Planguage obligations'
-                : tab === 'entries'  ? 'Entries — all Planguage entries across the contract, filterable by type (F./V./C./R./S.)'
-                : tab === 'matrix'   ? 'Matrix — party × obligation type grid showing which party owes which obligations'
-                :                     'Export — copy a colorful HTML table to paste into Keynote, Numbers, or Mail'"
-          class="px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
-          :class="activeTab === tab
-            ? 'bg-teal-700 text-white shadow-sm'
-            : 'text-slate-600 hover:bg-slate-100'"
+          :title="tab === 'clauses'  ? 'Clauses — browse each contract clause and its extracted Planguage obligations'
+                : tab === 'entries'  ? 'Entries — all Planguage obligations across the contract, filterable by type'
+                : tab === 'matrix'   ? 'Matrix — Gilb party × obligation-type grid showing who owes what'
+                :                     'Export — copy or email the colorful HTML table'"
+          class="px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
+          :class="activeTab === tab ? 'shadow-sm' : 'hover:bg-slate-100'"
+          :style="activeTab === tab
+            ? { background: TAB_COLORS[tab], color: 'white' }
+            : { color: TAB_COLORS[tab] }"
           @click="activeTab = tab"
         >
-          <!-- Contract view glyphs — purpose-designed SVG, currentColor for active/inactive states.
-               Planguage visual language: strokes, circles=entities, lines=scales/content, arrows=direction. -->
           <span class="inline-flex items-center gap-1.5">
 
             <!-- ── Clauses: bracketed text lines — §-concept (structured legal source text) ── -->
             <template v-if="tab === 'clauses'">
-              <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor"
+              <svg viewBox="0 0 18 18" width="16" height="16" fill="none"
+                   :stroke="activeTab === tab ? 'white' : TAB_COLORS[tab]"
                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <!-- Left bracket — clause/section boundary marker -->
                 <path d="M5 2 L3 2 L3 16 L5 16"/>
-                <!-- Three text lines of varying length — raw contract text -->
                 <line x1="7" y1="5"  x2="16" y2="5"/>
                 <line x1="7" y1="9"  x2="13" y2="9"/>
                 <line x1="7" y1="13" x2="15" y2="13"/>
@@ -738,11 +751,10 @@ onUnmounted(() => { _stopContractAnimation() })
               Clauses
             </template>
 
-            <!-- ── Entries: circle-badge + line rows — typed obligation list ── -->
-            <!-- Three small circles (type indicators) each with a content line, echoing     -->
-            <!-- the Planguage glyph vocabulary where circles represent capabilities/types.   -->
+            <!-- ── Entries: circle-badge + line rows — typed obligation roster ── -->
             <template v-else-if="tab === 'entries'">
-              <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor"
+              <svg viewBox="0 0 18 18" width="16" height="16" fill="none"
+                   :stroke="activeTab === tab ? 'white' : TAB_COLORS[tab]"
                    stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
                 <circle cx="3.5" cy="4"  r="2"/>
                 <line x1="7.5" y1="4"  x2="17" y2="4"/>
@@ -755,31 +767,27 @@ onUnmounted(() => { _stopContractAnimation() })
             </template>
 
             <!-- ── Matrix: party × obligation grid — the Gilb obligation matrix ── -->
-            <!-- A grid with highlighted party column (top-left), representing the            -->
-            <!-- stakeholder × entry-type analysis tool.                                      -->
             <template v-else-if="tab === 'matrix'">
-              <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor"
+              <svg viewBox="0 0 18 18" width="16" height="16" fill="none"
+                   :stroke="activeTab === tab ? 'white' : TAB_COLORS[tab]"
                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <!-- Outer frame -->
                 <rect x="1" y="1" width="16" height="16" rx="1.5"/>
-                <!-- Vertical dividers: party col | type-1 col | type-2 col -->
                 <line x1="6"  y1="1"  x2="6"  y2="17"/>
                 <line x1="12" y1="1"  x2="12" y2="17"/>
-                <!-- Horizontal divider: header row | data rows -->
                 <line x1="1"  y1="6"  x2="17" y2="6"/>
-                <!-- Party/header intersection — highlighted (current color, low opacity) -->
-                <rect x="1.5" y="1.5" width="4" height="4" fill="currentColor" fill-opacity="0.25" stroke="none"/>
+                <!-- Party/header cell highlighted -->
+                <rect x="1.5" y="1.5" width="4" height="4" stroke="none"
+                      :fill="activeTab === tab ? 'white' : TAB_COLORS[tab]" fill-opacity="0.28"/>
               </svg>
               Matrix
             </template>
 
             <!-- ── Export: delivery arrow into tray — Evo "deliver" concept ── -->
             <template v-else>
-              <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor"
+              <svg viewBox="0 0 18 18" width="16" height="16" fill="none"
+                   :stroke="activeTab === tab ? 'white' : TAB_COLORS[tab]"
                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <!-- Tray / output destination -->
                 <path d="M2 13 L2 17 L16 17 L16 13"/>
-                <!-- Downward delivery arrow (content flowing to output) -->
                 <line x1="9" y1="2" x2="9" y2="11"/>
                 <polyline points="6 8.5  9 11.5  12 8.5"/>
               </svg>
@@ -788,35 +796,51 @@ onUnmounted(() => { _stopContractAnimation() })
 
           </span>
         </button>
-        <!-- Persistent Copy + Email — always both, always together (Tom 2026-06-01) -->
-        <div class="ml-auto flex items-center gap-1.5">
-          <span class="text-[11px] text-slate-400 tabular-nums mr-1">
-            {{ store.allEntries.value.length }} entries ·
-            {{ selectedContract.clauses.length }} clauses
+
+        <!-- ── Copy + Mail action buttons — SVG icons, no emoji ── -->
+        <div class="ml-auto flex items-center gap-2 pl-3 border-l border-slate-200">
+          <span class="text-[11px] text-slate-400 tabular-nums">
+            {{ store.allEntries.value.length }} entries · {{ selectedContract.clauses.length }} clauses
           </span>
+
+          <!-- Copy: two-document "copy to clipboard" icon -->
           <button
             type="button"
-            title="Copy HTML table — paste into Keynote, Numbers, or Mail"
-            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border"
+            title="Copy color-coded HTML table to clipboard — paste into Keynote, Numbers, or Mail"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ring-1"
             :class="copiedExport
-              ? 'bg-emerald-600 text-white border-emerald-600'
-              : 'bg-white text-teal-700 border-teal-300 hover:bg-teal-50'"
+              ? 'bg-emerald-50 text-emerald-700 ring-emerald-300'
+              : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:ring-teal-300'"
             @click="copyExport"
           >
-            <span aria-hidden="true">{{ copiedExport ? '✅' : '📋' }}</span>
-            <span>{{ copiedExport ? 'Copied' : 'Copy' }}</span>
+            <svg viewBox="0 0 13 13" width="13" height="13" fill="none" stroke="currentColor"
+                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <!-- Back document (L-shape: top + left edges visible) -->
+              <path d="M2 9.5 L2 2 L9.5 2"/>
+              <!-- Front document -->
+              <rect x="3.5" y="3.5" width="8" height="8" rx="1"/>
+            </svg>
+            <span>{{ copiedExport ? '✓ Copied' : 'Copy' }}</span>
           </button>
+
+          <!-- Mail: clean envelope icon -->
           <button
             type="button"
-            title="Email HTML table — opens a pre-filled draft in Mail.app"
-            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border"
+            title="Mail — downloads a .eml file that opens in Mail.app as a pre-filled draft with the full color table"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ring-1"
             :class="emailedExport
-              ? 'bg-emerald-600 text-white border-emerald-600'
-              : 'bg-white text-teal-700 border-teal-300 hover:bg-teal-50'"
+              ? 'bg-emerald-50 text-emerald-700 ring-emerald-300'
+              : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:ring-teal-300'"
             @click="emailExport"
           >
-            <span aria-hidden="true">{{ emailedExport ? '✅' : '✉️' }}</span>
-            <span>{{ emailedExport ? 'Opened' : 'Email' }}</span>
+            <svg viewBox="0 0 13 13" width="13" height="13" fill="none" stroke="currentColor"
+                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <!-- Envelope body -->
+              <rect x="1" y="3" width="11" height="8" rx="1"/>
+              <!-- Envelope flap (V shape) -->
+              <polyline points="1,3.5 6.5,8 12,3.5"/>
+            </svg>
+            <span>{{ emailedExport ? '✓ Sent' : 'Mail' }}</span>
           </button>
         </div>
       </div>
