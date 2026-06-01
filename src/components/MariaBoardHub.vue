@@ -225,6 +225,10 @@ function memberName(id: string): string {
 
 // ─── Email Board Report ────────────────────────────────────────────────────────
 
+/** Recipient address — editable by user; auto-detects chair if blank. */
+const emailTo = ref('')
+const FROM_ADDR = 'Tom Gilb <kaigilb@me.com>'
+
 function buildReportHtml(): string {
   const openItems = entries.value.filter(e => e.status === 'open' || e.status === 'in-progress')
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
@@ -294,7 +298,16 @@ async function sendBoardReport(): Promise<void> {
   const html    = buildReportHtml()
   const subject = '🏛 Maria — Board Support Report'
   const plain   = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-  const eml     = buildEml(html, plain, subject, [])
+
+  // Determine To: address — typed value wins, otherwise auto-detect chair
+  const typedAddr = emailTo.value.trim()
+  const chair = members.value.find(
+    (m) => m.role.toLowerCase().includes('chair') && m.email,
+  )
+  const toAddr = typedAddr || chair?.email || ''
+  if (!typedAddr && toAddr) emailTo.value = toAddr  // show auto-detected value
+
+  const eml = buildEml(html, plain, subject, toAddr ? [toAddr] : [], [], FROM_ADDR)
 
   // Primary: POST to Vite dev-server plugin → `open <file.eml>` → Mail.app
   // with HTML body pre-filled. Same pattern as MariaAgentBoard.vue.
@@ -319,7 +332,10 @@ async function sendBoardReport(): Promise<void> {
       })])
       .catch(() => navigator.clipboard.writeText(plain))
 
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}`
+    const mailtoUrl = toAddr
+      ? `mailto:${encodeURIComponent(toAddr)}?subject=${encodeURIComponent(subject)}`
+      : `mailto:?subject=${encodeURIComponent(subject)}`
+    window.location.href = mailtoUrl
   }
 }
 
@@ -457,6 +473,18 @@ function copyBoardReport(): void {
             </div>
 
             <!-- Action buttons row -->
+            <!-- To: field for board report email -->
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs font-bold text-teal-800 shrink-0">To:</span>
+              <input
+                v-model="emailTo"
+                type="email"
+                multiple
+                class="flex-1 rounded-lg border border-teal-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                placeholder="Chair auto-detected · or type recipient address"
+                title="To: recipient for the board report email. The chairman's email is auto-detected from the Members tab. You can type any address here before clicking Email Board Report."
+              />
+            </div>
             <div class="flex flex-wrap gap-3">
               <button
                 type="button"
@@ -466,7 +494,7 @@ function copyBoardReport(): void {
               >📊 Run New Analysis</button>
               <button
                 type="button"
-                title="Email Board Report — single-click to open a pre-formatted board report email with member list and open action items in Mail.app"
+                title="Email Board Report — single-click to open Mail.app with To:, Subject:, and the full board report pre-filled. Type an address in the To: field above, or leave blank to auto-detect the chairman."
                 class="flex-1 min-w-[160px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-3 px-4 transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                 @click="sendBoardReport"
               >📧 Email Board Report</button>

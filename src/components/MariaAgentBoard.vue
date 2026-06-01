@@ -766,7 +766,10 @@ async function sendEmailReport(): Promise<void> {
   if (!typedAddr && toAddr) emailTo.value = toAddr  // fill field so user sees it
 
   // 3 — Build the full RFC 2822 .eml
-  const eml = buildEml(html, plain, subject, toAddr ? [toAddr] : [])
+  // From: prevents Mail.app "No Sender" — use the app owner's address so
+  // Mail treats it as an outgoing draft rather than a received message.
+  const FROM_ADDR = 'Tom Gilb <kaigilb@me.com>'
+  const eml = buildEml(html, plain, subject, toAddr ? [toAddr] : [], [], FROM_ADDR)
 
   // 4 — Primary: POST to local Vite dev-server endpoint → `open` → Mail.app with HTML body
   let preFilled = false
@@ -1504,15 +1507,16 @@ async function sendEmailReport(): Promise<void> {
                 <span>{{ copyDone ? 'Copied — press ⌘V to paste into Mail, Slack, Keynote…' : 'Copy Report (rich HTML)' }}</span>
               </button>
 
-              <!-- Email via mailto: + clipboard -->
-              <div class="flex gap-2 mb-2">
+              <!-- Email recipient field -->
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-emerald-800 shrink-0">To:</span>
                 <input
                   v-model="emailTo"
                   type="email"
                   multiple
                   class="flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Chair auto-detected · or type address here"
-                  title="Email recipient — optional. The chairman's email is auto-detected from the Board Members roster. You can also type any address here. Click 'Open Mail.app' to open a pre-addressed compose window; press ⌘V once to paste the full report."
+                  placeholder="Chair auto-detected · or type recipient address"
+                  title="To: recipient — the chairman's email is auto-detected from the Board Members roster. You can type any address here (or leave blank to auto-detect). Click 'Open Mail.app' to open a pre-addressed compose window."
                 />
               </div>
               <button

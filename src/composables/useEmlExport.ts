@@ -74,6 +74,7 @@ export function buildEml(
   subject:   string,
   to:        string[] = [],
   cc:        string[] = [],
+  from?:     string,
 ): string {
   // High-entropy boundary: timestamp + 9 random chars — collision probability
   // is negligible even across thousands of concurrent users.
@@ -84,6 +85,10 @@ export function buildEml(
     'MIME-Version: 1.0',
     `Subject: ${subject}`,
   ]
+  // From: header prevents Mail.app from showing "No Sender". When the sender
+  // is the same account that opens the file, Mail presents it as a compose
+  // draft rather than a received message.
+  if (from) lines.push(`From: ${from}`)
   if (to.length) lines.push(`To: ${to.join(', ')}`)
   if (cc.length) lines.push(`Cc: ${cc.join(', ')}`)
 
@@ -110,6 +115,8 @@ export function buildEml(
 // ── Public API ─────────────────────────────────────────────────────────────────
 
 export interface EmlOptions {
+  /** Sender address — prevents Mail.app "No Sender". Use "Name <addr>" format. */
+  from?: string
   /** Recipient address list (optional — opens blank To: if omitted). */
   to?: string[]
   /** CC address list (optional). */
@@ -143,7 +150,7 @@ export function openEml(
   const plain = opts?.plainBody
     ?? htmlBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 
-  const eml = buildEml(htmlBody, plain, subject, opts?.to ?? [], opts?.cc ?? [])
+  const eml = buildEml(htmlBody, plain, subject, opts?.to ?? [], opts?.cc ?? [], opts?.from)
 
   // Sanitise filename — strip characters that are problematic across filesystems.
   const safeName = subject
