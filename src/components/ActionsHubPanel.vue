@@ -102,10 +102,16 @@ const allSections = computed<SectionDef[]>(() => [
   // ── 2. ANALYZE ─────────────────────────────────────────────────────────────
   {
     key: 'analyze', label: 'ANALYZE', emoji: '📊',
-    blurb: 'Rank priorities against values and constraints. Set delivery targets.',
+    blurb: 'Rank priorities against values and constraints. Set delivery targets. Review Evo plan health.',
     tiles: [
-      { id: 'planTargets',    label: 'Plan Targets',    emoji: '🎯', thumb: 'planTargets',   tip: 'Set delivery targets and milestones' },
-      { id: 'globalPriority', label: 'Global Priority', emoji: '🏆', thumb: 'priorityGlyph', tip: 'Full plan priority ranking: [A>B>C] across all entries', disabled: !props.hasSpec },
+      { id: 'planTargets',      label: 'Plan Targets',    emoji: '🎯', thumb: 'planTargets',   tip: 'Set delivery targets and milestones' },
+      { id: 'globalPriority',   label: 'Global Priority', emoji: '🏆', thumb: 'priorityGlyph', tip: 'Full plan priority ranking: [A>B>C] across all entries', disabled: !props.hasSpec },
+      {
+        id: 'evo-step-critique', label: 'Evo Critiquer',  emoji: '🔬', thumb: 'emoji',
+        tip: 'AI reviews plan against all 9 Evo cycle steps — scores 10 health dimensions, critiques each step, deep-dives Value Delivery cycle',
+        disabled: !props.hasConfirmedSteps,
+        disabledTip: 'No confirmed Evo Steps yet. Go to Stage 6 (Evo Steps) and confirm at least one delivery step to unlock Evo Critiquer.',
+      },
     ],
   },
 
@@ -224,6 +230,30 @@ const allSections = computed<SectionDef[]>(() => [
         emoji: '🏛',
         thumb: 'maria' as const,
         tip:   'Analyse board documents: classify decisions by governance layer, flag authority gaps, surface governance gaps, identify governance patterns',
+      },
+      {
+        id: 'contracts', label: 'Contracts', emoji: '📋', thumb: 'emoji' as const,
+        tip: 'Import any contract — SLA, NDA, service agreement — convert to Planguage clauses, F./V./C. entries, and party obligation matrix',
+      },
+      {
+        id: 'models', label: 'Plan Models', emoji: '🗂️', thumb: 'emoji' as const,
+        tip: 'Browse 18 built-in domain models across 6 categories — Organizational, Project, Product, National, International, Software',
+      },
+      {
+        id: 'stakeholder-mapper', label: 'Stakeholder Mapper', emoji: '👥', thumb: 'emoji' as const,
+        tip: 'AI drafts all 10 stakeholder attribute levels (Power, Interest, Influence, Support…) with source URLs for any named entity',
+        disabled: !props.hasSpec,
+        disabledTip: 'Load or create a spec first — the Stakeholder Mapper uses your plan entries as context for attribute profiling.',
+      },
+      {
+        id: 'plan-importer', label: 'Plan Agent', emoji: '📄', thumb: 'emoji' as const,
+        tip: 'Paste any text — brief, roadmap, strategy doc, rough notes — AI converts it to full Planguage F./V./C./R./S. entries',
+      },
+      {
+        id: 'decisions', label: 'Decisions', emoji: '🎯', thumb: 'emoji' as const,
+        tip: 'Build a scored decision matrix (options × Planguage criteria) and get a ranked recommendation with rationale',
+        disabled: !props.hasSpec,
+        disabledTip: 'Load or create a spec first — the Decisions agent uses your plan values and constraints as the scoring criteria.',
       },
     ],
   },

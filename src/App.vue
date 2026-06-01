@@ -3434,7 +3434,14 @@ function handleAction(id: string): void {
     // ── VOICE ──────────────────────────────────────────────────────────────
     case 'dictation':        toggleDictation();                 break
     // ── AGENTS ─────────────────────────────────────────────────────────────
-    case 'maria':            mariaOpen.value = true;            break
+    case 'maria':              mariaOpen.value            = true; break
+    case 'contracts':          contractsOpen.value        = true; break
+    case 'models':             modelLibraryOpen.value     = true; break
+    case 'stakeholder-mapper': stakeholderMapperOpen.value = true; break
+    case 'plan-importer':      planImporterOpen.value     = true; break
+    case 'decisions':          decisionMapperOpen.value   = true; break
+    // evo-step-critique lives in ANALYZE section; same routing pattern
+    case 'evo-step-critique':  evoCritiquerOpen.value     = true; break
   }
 }
 
