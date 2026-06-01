@@ -374,12 +374,21 @@ watch(result, (r) => {
   // Silent background probe — 404s are swallowed; pin shows only on a vault match.
   // Pass `wasOpen` so the response handler can immediately re-show detail panel.
   if (r?.term) {
-    fetchEntry(r.term).then(() => {
+    fetchEntry(r.term).then(async () => {
       // Auto-expand detail panel whenever the vault has a glossary entry —
       // Tom: "I cannot see the extensive data and diagram for Planguage glossary
       // concepts." The wasOpen sticky behaviour was correct for drill-down but
       // wrong for first-time viewing: users never saw the data because the panel
       // defaulted to collapsed. Now: always open when an entry exists.
+      //
+      // Auto-load best near-match (2026-06-01): if no exact entry but near-matches
+      // exist, silently fetch the first near-match so the full glossary tabs appear
+      // without requiring the user to click a pill. The pill buttons remain visible
+      // as alternatives. This solves "big window not appearing" for inflected/short
+      // terms like "scale" (→ Scale of Measure) or "priorities" (→ Priority).
+      if (!gEntry.value && gNearMatchOptions.value.length > 0) {
+        await fetchEntry(gNearMatchOptions.value[0])
+      }
       detailOpen.value = !!gEntry.value
     }).catch(() => {
       detailOpen.value = false
