@@ -29,6 +29,7 @@ import {
 import type { MappedStakeholder, StakeholderType, AttributeLevel } from '../composables/useStakeholderMapper'
 import { useModelLibrary } from '../composables/useModelLibrary'
 import type { ModelEntry } from '../composables/useModelLibrary'
+import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
 
 const emit = defineEmits<{
   close: []
@@ -393,6 +394,16 @@ watch(
   { immediate: true },
 )
 
+// ── Continue Amuse Me (useAmuseLifecycle) ──────────────────────────────────
+// Keeps the wisdom carousel visible for 10 s after generation completes.
+const _smIsGenerating = computed(() => autoGenStatus.value === 'generating')
+const {
+  amuseActive:    smAmuseActive,
+  amuseFinishing: smAmuseFinishing,
+  amuseCountdown: smAmuseCountdown,
+  extendAmuse:    smExtendAmuse,
+} = useAmuseLifecycle(_smIsGenerating)
+
 // ── Per-stakeholder attribute drafting timer (separate from auto-gen timer) ──
 
 const shDraftElapsed           = ref(0)
@@ -710,36 +721,40 @@ onUnmounted(() => {
         <!-- RIGHT CONTENT -->
         <div class="flex-1 min-w-0 flex flex-col">
           <!-- Auto-generating: full-panel loading state (Rule 8: spinner + elapsed + progress + wisdom) -->
+          <!-- smAmuseActive keeps this block mounted for 10 s post-generation (Continue Amuse Me) -->
           <div
-            v-if="!selected && !showAddForm && autoGenStatus === 'generating'"
+            v-if="!selected && !showAddForm && (autoGenStatus === 'generating' || smAmuseActive)"
             class="flex-1 flex items-center justify-center px-8"
           >
             <div class="max-w-md w-full text-center">
-              <!-- 1. Spinner -->
-              <svg class="animate-spin h-10 w-10 text-indigo-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <!-- Heading + elapsed -->
-              <p class="text-sm font-semibold text-indigo-700 mb-0.5">Generating Planguage Model…</p>
-              <p class="text-xs text-slate-400 mb-4">
-                {{ smElapsed }}s elapsed — AI is building S./F./V./C./R. entries for
-                <strong class="text-slate-600">{{ activeModel?.title }}</strong>
-              </p>
-              <!-- 2. Progress bar -->
-              <div
-                class="w-full bg-indigo-100 rounded-full h-2 mb-6"
-                role="progressbar"
-                :aria-valuenow="smSimulatedProgress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-              >
+              <!-- Spinner + elapsed + progress: only while actually generating -->
+              <template v-if="autoGenStatus === 'generating'">
+                <!-- 1. Spinner -->
+                <svg class="animate-spin h-10 w-10 text-indigo-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <!-- Heading + elapsed -->
+                <p class="text-sm font-semibold text-indigo-700 mb-0.5">Generating Planguage Model…</p>
+                <p class="text-xs text-slate-400 mb-4">
+                  {{ smElapsed }}s elapsed — AI is building S./F./V./C./R. entries for
+                  <strong class="text-slate-600">{{ activeModel?.title }}</strong>
+                </p>
+                <!-- 2. Progress bar -->
                 <div
-                  class="bg-indigo-500 h-2 rounded-full transition-all duration-300"
-                  :style="{ width: smSimulatedProgress + '%' }"
-                />
-              </div>
-              <!-- 3. Wisdom card -->
+                  class="w-full bg-indigo-100 rounded-full h-2 mb-6"
+                  role="progressbar"
+                  :aria-valuenow="smSimulatedProgress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
+                  <div
+                    class="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+                    :style="{ width: smSimulatedProgress + '%' }"
+                  />
+                </div>
+              </template>
+              <!-- 3. Wisdom card (always visible while block is mounted) -->
               <div class="rounded-2xl bg-indigo-50 border border-indigo-200 p-5 text-left shadow-sm min-h-[140px]">
                 <div class="flex items-start gap-3">
                   <span class="text-2xl shrink-0 mt-0.5" aria-hidden="true">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].emoji }}</span>
@@ -748,6 +763,20 @@ onUnmounted(() => {
                     <p class="text-xs text-slate-600 leading-relaxed">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].text }}</p>
                     <p class="text-[10px] text-indigo-400 mt-2 italic">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].ref }}</p>
                   </div>
+                </div>
+                <!-- Continue Amuse Me: blinking button + countdown shown after generation ends -->
+                <div v-if="smAmuseFinishing" class="mt-3 pt-3 border-t border-indigo-200/60 flex flex-col items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="animate-pulse rounded-full bg-indigo-600/90 hover:bg-indigo-700 px-5 py-1.5 text-xs font-bold text-white shadow-md transition-colors"
+                    title="Continue reading — click to keep the wisdom card visible; it will disappear on its own if you don't click"
+                    @click="smExtendAmuse"
+                  >
+                    ✨ Click to Continue Amuse Me
+                  </button>
+                  <p class="text-[10px] text-slate-400 tabular-nums">
+                    Disappearing in {{ smAmuseCountdown }}s if you don't click
+                  </p>
                 </div>
               </div>
               <!-- 4. Dot navigation -->

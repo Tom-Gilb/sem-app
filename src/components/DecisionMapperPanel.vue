@@ -26,6 +26,7 @@ import {
   useDecisionMapper,
 } from '../composables/useDecisionMapper'
 import type { DecisionOption, DecisionCriterion, PlanguagizedEntry } from '../composables/useDecisionMapper'
+import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
 
 const emit = defineEmits<{
   close: []
@@ -288,6 +289,17 @@ watch(
 )
 
 onUnmounted(() => _stopDecisionLoadingAnim())
+
+// ── Continue Amuse Me (useAmuseLifecycle) ──────────────────────────────────
+// Keeps the wisdom carousel visible for 10 s after analysis completes, with
+// a blinking "Continue" button so the user can extend it indefinitely.
+const _dmIsAnalysing = computed(() => selectedDecision.value?.analysisStatus === 'analysing')
+const {
+  amuseActive:    dmAmuseActive,
+  amuseFinishing: dmAmuseFinishing,
+  amuseCountdown: dmAmuseCountdown,
+  extendAmuse:    dmExtendAmuse,
+} = useAmuseLifecycle(_dmIsAnalysing)
 </script>
 
 <template>
@@ -475,31 +487,35 @@ onUnmounted(() => _stopDecisionLoadingAnim())
         </template>
 
         <!-- ── Analysing state (Rule 8: spinner + elapsed + progress + wisdom) ── -->
-        <template v-else-if="selectedDecision && selectedDecision.analysisStatus === 'analysing'">
+        <!-- dmAmuseActive keeps this block mounted for 10 s post-analysis (Continue Amuse Me) -->
+        <template v-else-if="(selectedDecision && selectedDecision.analysisStatus === 'analysing') || dmAmuseActive">
           <div class="flex-1 flex items-center justify-center px-8">
             <div class="max-w-md w-full text-center">
-              <!-- 1. Spinner -->
-              <svg class="animate-spin h-10 w-10 text-rose-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <!-- Heading + elapsed -->
-              <p class="text-sm font-semibold text-rose-700 mb-0.5">Building decision matrix…</p>
-              <p class="text-xs text-slate-400 mb-4">{{ dmElapsed }}s elapsed — AI is creating options, criteria, and weighted scores</p>
-              <!-- 2. Progress bar -->
-              <div
-                class="w-full bg-rose-100 rounded-full h-2 mb-6"
-                role="progressbar"
-                :aria-valuenow="dmSimulatedProgress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-              >
+              <!-- Spinner + elapsed + progress: only while actually analysing -->
+              <template v-if="selectedDecision && selectedDecision.analysisStatus === 'analysing'">
+                <!-- 1. Spinner -->
+                <svg class="animate-spin h-10 w-10 text-rose-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <!-- Heading + elapsed -->
+                <p class="text-sm font-semibold text-rose-700 mb-0.5">Building decision matrix…</p>
+                <p class="text-xs text-slate-400 mb-4">{{ dmElapsed }}s elapsed — AI is creating options, criteria, and weighted scores</p>
+                <!-- 2. Progress bar -->
                 <div
-                  class="bg-rose-500 h-2 rounded-full transition-all duration-300"
-                  :style="{ width: dmSimulatedProgress + '%' }"
-                />
-              </div>
-              <!-- 3. Wisdom card -->
+                  class="w-full bg-rose-100 rounded-full h-2 mb-6"
+                  role="progressbar"
+                  :aria-valuenow="dmSimulatedProgress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
+                  <div
+                    class="bg-rose-500 h-2 rounded-full transition-all duration-300"
+                    :style="{ width: dmSimulatedProgress + '%' }"
+                  />
+                </div>
+              </template>
+              <!-- 3. Wisdom card (always visible while block is mounted) -->
               <div class="rounded-2xl bg-rose-50 border border-rose-200 p-5 text-left shadow-sm min-h-[140px]">
                 <div class="flex items-start gap-3">
                   <span class="text-2xl shrink-0 mt-0.5" aria-hidden="true">{{ DECISION_WISDOM[dmActiveWisdomIdx].emoji }}</span>
@@ -508,6 +524,20 @@ onUnmounted(() => _stopDecisionLoadingAnim())
                     <p class="text-xs text-slate-600 leading-relaxed">{{ DECISION_WISDOM[dmActiveWisdomIdx].text }}</p>
                     <p class="text-[10px] text-rose-400 mt-2 italic">{{ DECISION_WISDOM[dmActiveWisdomIdx].ref }}</p>
                   </div>
+                </div>
+                <!-- Continue Amuse Me: blinking button + countdown shown after analysis ends -->
+                <div v-if="dmAmuseFinishing" class="mt-3 pt-3 border-t border-rose-200/60 flex flex-col items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="animate-pulse rounded-full bg-rose-600/90 hover:bg-rose-700 px-5 py-1.5 text-xs font-bold text-white shadow-md transition-colors"
+                    title="Continue reading — click to keep the wisdom card visible; it will disappear on its own if you don't click"
+                    @click="dmExtendAmuse"
+                  >
+                    ✨ Click to Continue Amuse Me
+                  </button>
+                  <p class="text-[10px] text-slate-400 tabular-nums">
+                    Disappearing in {{ dmAmuseCountdown }}s if you don't click
+                  </p>
                 </div>
               </div>
               <!-- 4. Dot navigation -->

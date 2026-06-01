@@ -25,6 +25,7 @@ import {
   usePlanImporter,
 } from '../composables/usePlanImporter'
 import type { PlanguagizedEntry, PlanProblem, PlanVersion } from '../composables/usePlanImporter'
+import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -337,6 +338,19 @@ watch(
 )
 
 onUnmounted(() => _stopPlanImportLoadingAnim())
+
+// ── Continue Amuse Me (useAmuseLifecycle) ──────────────────────────────────
+// Keeps the wisdom carousel visible for 10 s after import/analysis completes.
+const _piIsLoading = computed(() =>
+  !!selectedPlan.value &&
+  (selectedPlan.value.importStatus === 'importing' || selectedPlan.value.importStatus === 'analysing')
+)
+const {
+  amuseActive:    piAmuseActive,
+  amuseFinishing: piAmuseFinishing,
+  amuseCountdown: piAmuseCountdown,
+  extendAmuse:    piExtendAmuse,
+} = useAmuseLifecycle(_piIsLoading)
 </script>
 
 <template>
@@ -520,35 +534,39 @@ onUnmounted(() => _stopPlanImportLoadingAnim())
         <template v-else>
 
           <!-- Importing/analysing state (Rule 8: spinner + elapsed + progress + wisdom) -->
+          <!-- piAmuseActive keeps this block mounted for 10 s post-import (Continue Amuse Me) -->
           <div
-            v-if="selectedPlan && (selectedPlan.importStatus === 'importing' || selectedPlan.importStatus === 'analysing')"
+            v-if="(selectedPlan && (selectedPlan.importStatus === 'importing' || selectedPlan.importStatus === 'analysing')) || piAmuseActive"
             class="h-full flex items-center justify-center px-8"
           >
             <div class="max-w-md w-full text-center">
-              <!-- 1. Spinner -->
-              <svg class="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <!-- Heading + elapsed -->
-              <p class="text-sm font-semibold text-orange-700 mb-0.5">
-                {{ selectedPlan.importStatus === 'importing' ? 'Converting to Planguage…' : 'Analysing for problems…' }}
-              </p>
-              <p class="text-xs text-slate-400 mb-4">{{ piElapsed }}s elapsed — This may take 30–60 seconds</p>
-              <!-- 2. Progress bar -->
-              <div
-                class="w-full bg-orange-100 rounded-full h-2 mb-6"
-                role="progressbar"
-                :aria-valuenow="piSimulatedProgress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-              >
+              <!-- Spinner + elapsed + progress: only while actually importing/analysing -->
+              <template v-if="selectedPlan && (selectedPlan.importStatus === 'importing' || selectedPlan.importStatus === 'analysing')">
+                <!-- 1. Spinner -->
+                <svg class="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <!-- Heading + elapsed -->
+                <p class="text-sm font-semibold text-orange-700 mb-0.5">
+                  {{ selectedPlan.importStatus === 'importing' ? 'Converting to Planguage…' : 'Analysing for problems…' }}
+                </p>
+                <p class="text-xs text-slate-400 mb-4">{{ piElapsed }}s elapsed — This may take 30–60 seconds</p>
+                <!-- 2. Progress bar -->
                 <div
-                  class="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                  :style="{ width: piSimulatedProgress + '%' }"
-                />
-              </div>
-              <!-- 3. Wisdom card -->
+                  class="w-full bg-orange-100 rounded-full h-2 mb-6"
+                  role="progressbar"
+                  :aria-valuenow="piSimulatedProgress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
+                  <div
+                    class="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                    :style="{ width: piSimulatedProgress + '%' }"
+                  />
+                </div>
+              </template>
+              <!-- 3. Wisdom card (always visible while block is mounted) -->
               <div class="rounded-2xl bg-orange-50 border border-orange-200 p-5 text-left shadow-sm min-h-[140px]">
                 <div class="flex items-start gap-3">
                   <span class="text-2xl shrink-0 mt-0.5" aria-hidden="true">{{ PLAN_IMPORTER_WISDOM[piActiveWisdomIdx].emoji }}</span>
@@ -557,6 +575,20 @@ onUnmounted(() => _stopPlanImportLoadingAnim())
                     <p class="text-xs text-slate-600 leading-relaxed">{{ PLAN_IMPORTER_WISDOM[piActiveWisdomIdx].text }}</p>
                     <p class="text-[10px] text-orange-400 mt-2 italic">{{ PLAN_IMPORTER_WISDOM[piActiveWisdomIdx].ref }}</p>
                   </div>
+                </div>
+                <!-- Continue Amuse Me: blinking button + countdown shown after import ends -->
+                <div v-if="piAmuseFinishing" class="mt-3 pt-3 border-t border-orange-200/60 flex flex-col items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="animate-pulse rounded-full bg-orange-600/90 hover:bg-orange-700 px-5 py-1.5 text-xs font-bold text-white shadow-md transition-colors"
+                    title="Continue reading — click to keep the wisdom card visible; it will disappear on its own if you don't click"
+                    @click="piExtendAmuse"
+                  >
+                    ✨ Click to Continue Amuse Me
+                  </button>
+                  <p class="text-[10px] text-slate-400 tabular-nums">
+                    Disappearing in {{ piAmuseCountdown }}s if you don't click
+                  </p>
                 </div>
               </div>
               <!-- 4. Dot navigation -->
