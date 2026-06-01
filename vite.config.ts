@@ -113,8 +113,9 @@ function singularCandidates(hyphenated: string): string[] {
 }
 
 /**
- * Find up to `limit` glossary files whose stem partially overlaps `prefix`.
- * Requires at least 4 chars of shared prefix (stem.startsWith(p) or p.startsWith(stem)).
+ * Find up to `limit` glossary files whose stem shares a common prefix with `prefix`.
+ * Uses longest-common-prefix (LCP) ≥ 4 chars — catches inflected/plural forms that
+ * the old startsWith check missed (e.g. "priorities" → "Priority": LCP "priorit" = 7).
  * Used to populate X-Near-Match-Options for "Did you mean?" suggestions.
  */
 function findNearMatchOptions(prefix: string, files: string[], limit = 3): string[] {
@@ -125,8 +126,10 @@ function findNearMatchOptions(prefix: string, files: string[], limit = 3): strin
     if (!f.endsWith('.md') || f.startsWith('00-')) continue
     const stem = f.toLowerCase().split('.')[0]
     if (stem === p) continue
-    const overlapLen = Math.min(stem.length, p.length)
-    if (overlapLen >= 4 && (stem.startsWith(p) || p.startsWith(stem))) {
+    // Longest common prefix — count chars that match from position 0
+    let lcp = 0
+    while (lcp < stem.length && lcp < p.length && stem[lcp] === p[lcp]) lcp++
+    if (lcp >= 4) {
       const raw = f.replace(/\.\d+[a-z]?\.md$/, '').replace(/-/g, ' ')
       results.push(raw.charAt(0).toUpperCase() + raw.slice(1))
       if (results.length >= limit) break

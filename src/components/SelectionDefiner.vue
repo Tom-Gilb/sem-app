@@ -248,7 +248,13 @@ function _onKeydown(e: KeyboardEvent): void {
     if (sel.length >= MIN_CHARS && sel.length <= MAX_CHARS) {
       defineCurrentSelection(props.spec)
     } else {
-      handleDefineFABClick()  // no selection → open term search
+      // ⌘I with no live selection → always open a BLANK term search aperture.
+      // Do NOT fall back to pillTerm (last hovered term) — Tom: "I want ⌘I to
+      // open a blank aperture to put in a new word." pillTerm is used only by
+      // the floating pill click path, not by the keyboard shortcut.
+      defineSearchOpen.value = true
+      termSearchValue.value  = ''
+      nextTick(() => termSearchInputRef.value?.focus())
     }
   }
   // Escape — close result panel OR term search
@@ -366,10 +372,12 @@ watch(result, (r) => {
   // Pass `wasOpen` so the response handler can immediately re-show detail panel.
   if (r?.term) {
     fetchEntry(r.term).then(() => {
-      // Only keep open if the new term actually resolved to a vault entry —
-      // otherwise the empty pin would show "open" with nothing inside.
-      if (wasOpen && gEntry.value) detailOpen.value = true
-      else if (!wasOpen) detailOpen.value = false
+      // Auto-expand detail panel whenever the vault has a glossary entry —
+      // Tom: "I cannot see the extensive data and diagram for Planguage glossary
+      // concepts." The wasOpen sticky behaviour was correct for drill-down but
+      // wrong for first-time viewing: users never saw the data because the panel
+      // defaulted to collapsed. Now: always open when an entry exists.
+      detailOpen.value = !!gEntry.value
     }).catch(() => {
       detailOpen.value = false
     })
