@@ -4866,7 +4866,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <img
               src="/icon-sem-app.svg"
               alt="SEM App"
-              title="SEM App icon — each person = a Stakeholder (someone with needs); each target circle = an End (a Value or Constraint to be met); each arrow = a Means (a Function or Solution that delivers). Together they form a complete Planguage specification."
+              title="SEM App icon — three levels of concern (Keeney, Value-Focused Thinking): TOP ROW = Given level (context imposed from above — environment, parent org, regulations); MIDDLE ROW = Strategic level (our own plan — the Ends/Values we own); BOTTOM ROW = Means level (what supports us — Functions and Solutions that deliver our Ends). Each person = Stakeholder · each circle = End (Value/Constraint) · each arrow = Means (Function/Solution)."
               class="h-20 w-20 flex-shrink-0 rounded-2xl shadow-lg cursor-help"
             />
             <div>
