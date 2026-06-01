@@ -273,6 +273,10 @@ function _onKeydown(e: KeyboardEvent): void {
 }
 
 function handlePillClick(): void {
+  // Clear browser selection so it does not persist into the next lookup's DOM.
+  // Stale selection ranges can cause _updatePill to fire with old coordinates
+  // when the new concept detail content mounts, showing a mispositioned pill.
+  window.getSelection()?.removeAllRanges()
   pillVisible.value = false
   defineTerm(pillTerm.value, props.spec)
 }
@@ -287,6 +291,13 @@ function handlePillClick(): void {
 function _onOutsideMousedown(e: MouseEvent): void {
   const t = e.target as Element | null
   if (!t) return
+  // The floating Illuminate pill (data-seldef-pill) is Teleported to <body> —
+  // it is NOT a descendant of data-seldef-card. Without this guard the capture-
+  // phase handler would call closeDefine() every time the pill is clicked,
+  // causing the panel to flash close-and-reopen (true→false→true on _open)
+  // before handlePillClick() fires. That rapid toggle corrupts the watch(open)
+  // → clearEntry() sequence and breaks subsequent selections. (2026-06-01)
+  if ((t as Element).closest?.('[data-seldef-pill]')) return
   // Term-search popup: check first (it is z-[10101] — child of the same session)
   if (defineSearchOpen.value) {
     const search = document.querySelector<HTMLElement>('[data-seldef-search]')
@@ -711,6 +722,7 @@ function escapeHtml(s: string): string {
       <button
         v-if="pillVisible"
         type="button"
+        data-seldef-pill
         aria-label="Illuminate selected text"
         class="fixed z-[10102] flex items-center gap-1.5 px-3 py-1.5 rounded-full
                bg-violet-600 text-white text-xs font-semibold shadow-lg
