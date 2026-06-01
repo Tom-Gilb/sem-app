@@ -545,7 +545,7 @@ function _togglePlanStory(): void {
 // else. Plan Crest sits below it at fixed top-[STAGE_BAR_H].
 // ResizeObserver tracks Plan Crest height so toggling the DNA strip
 // automatically adjusts content padding-top — no hardcoded crest height needed.
-const STAGE_BAR_H  = 120    // ValueCounter nav: py-3(12px) + pill(96px) + py-3(12px) = 120px
+const STAGE_BAR_H  = 124    // ValueCounter nav: py-3(12px) + pill(96px) + pb-1(4px) + py-3(12px) = 124px
 const planCrestEl  = ref<HTMLElement | null>(null)
 const planCrestH   = ref(0)
 let _planCrestRO: ResizeObserver | null = null
@@ -3730,7 +3730,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <div
     ref="planCrestEl"
     v-if="view === 'app' && planModel"
-    class="fixed top-[120px] left-0 right-0 z-[300] flex flex-col px-4 py-1.5 relative
+    class="fixed top-[124px] left-0 right-0 z-[300] flex flex-col px-4 py-1.5
            bg-gradient-to-r from-indigo-800 via-indigo-600 to-violet-600
            text-white shadow-lg ring-1 ring-black/10 select-none"
     aria-label="Plan Crest — active plan"
@@ -4573,7 +4573,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <!-- Main content wrapper.
-       When plan loaded: padding-top = STAGE_BAR_H (120px, stage bar fixed at
+       When plan loaded: padding-top = STAGE_BAR_H (124px, stage bar fixed at
        top-0) + planCrestH (live ResizeObserver, tracks Plan Crest including
        DNA strip open/closed so content never starts under either fixed header).
        When no plan: pt-8 static (stage bar is in-flow, not fixed). -->
@@ -4702,7 +4702,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
            cannot prevent blocking; fixed takes the element out of document flow.
            top-0 (2026-06-01 rethink): Tom "wouldn't it be better to put it at the
            very top and everything below it scrolls" — stage bar now always anchors
-           at top-0; Plan Crest sits below at top-[120px]. Simpler than the earlier
+           at top-0; Plan Crest sits below at top-[124px]. Simpler than the earlier
            planCrestH-driven top offset. z-[250] stays below the Plan Crest z-[300]
            and below all modals/panels (≥z-[380]). -->
       <div
