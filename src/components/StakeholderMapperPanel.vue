@@ -393,7 +393,42 @@ watch(
   { immediate: true },
 )
 
-onUnmounted(() => _stopStakeholderLoadingAnim())
+// ── Per-stakeholder attribute drafting timer (separate from auto-gen timer) ──
+
+const shDraftElapsed           = ref(0)
+const shDraftSimulatedProgress = ref(0)
+
+let _shDraftElapsedTimer: ReturnType<typeof setInterval> | null = null
+let _shDraftAnimStart = 0
+
+function _startDraftingAnim(): void {
+  _shDraftAnimStart = Date.now()
+  shDraftElapsed.value = 0; shDraftSimulatedProgress.value = 0
+  if (_shDraftElapsedTimer) { clearInterval(_shDraftElapsedTimer); _shDraftElapsedTimer = null }
+  _shDraftElapsedTimer = setInterval(() => {
+    const secs = Math.round((Date.now() - _shDraftAnimStart) / 1000)
+    shDraftElapsed.value = secs
+    shDraftSimulatedProgress.value = Math.round(Math.min(95, (1 - Math.exp(-secs / 20)) * 100))
+  }, 250)
+}
+
+function _stopDraftingAnim(): void {
+  if (_shDraftElapsedTimer) { clearInterval(_shDraftElapsedTimer); _shDraftElapsedTimer = null }
+  shDraftSimulatedProgress.value = 100
+}
+
+watch(
+  () => selected.value?.draftStatus === 'drafting',
+  (nowDrafting) => {
+    if (nowDrafting) _startDraftingAnim()
+    else             _stopDraftingAnim()
+  },
+)
+
+onUnmounted(() => {
+  _stopStakeholderLoadingAnim()
+  _stopDraftingAnim()
+})
 </script>
 
 <template>
@@ -855,17 +890,42 @@ onUnmounted(() => _stopStakeholderLoadingAnim())
                 </p>
               </div>
 
-              <!-- Drafting state -->
+              <!-- Drafting state (Rule 8: spinner + elapsed + progress bar + wisdom card) -->
               <div
                 v-if="selected.draftStatus === 'drafting'"
-                class="flex flex-col items-center justify-center py-16 text-center"
+                class="flex flex-col items-center justify-center py-12 text-center"
               >
-                <svg class="animate-spin h-8 w-8 text-indigo-500 mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <!-- 1. Spinner -->
+                <svg class="animate-spin h-8 w-8 text-indigo-500 mb-3" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                <p class="text-sm font-medium text-indigo-600">Drafting attribute levels from AI knowledge…</p>
-                <p class="text-xs text-slate-400 mt-1">This may take 15–30 seconds</p>
+                <!-- Heading + elapsed -->
+                <p class="text-sm font-medium text-indigo-600 mb-0.5">Drafting attribute levels for {{ selected.name }}…</p>
+                <p class="text-xs text-slate-400 mb-3">{{ shDraftElapsed }}s elapsed — may take 15–30 seconds</p>
+                <!-- 2. Progress bar -->
+                <div
+                  class="w-full max-w-xs bg-indigo-100 rounded-full h-1.5 mb-5"
+                  role="progressbar"
+                  :aria-valuenow="shDraftSimulatedProgress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
+                  <div
+                    class="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
+                    :style="{ width: shDraftSimulatedProgress + '%' }"
+                  />
+                </div>
+                <!-- 3. Wisdom card (rotating, same pool as auto-gen state) -->
+                <div class="w-full max-w-xs rounded-xl bg-indigo-50 border border-indigo-200 p-4 text-left">
+                  <div class="flex items-start gap-2">
+                    <span class="text-lg shrink-0 mt-0.5" aria-hidden="true">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].emoji }}</span>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-xs font-bold text-indigo-800 mb-1">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].title }}</p>
+                      <p class="text-[11px] text-slate-600 leading-relaxed">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].text }}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- Idle state (not yet analyzed) -->

@@ -815,14 +815,39 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
             </div>
           </div>
 
+          <!-- Loading (Rule 8: shares timer state from Tab 1's full loading block) -->
           <div
             v-else-if="critiqueLoading"
-            class="h-full flex items-center justify-center"
+            class="h-full flex items-center justify-center px-8"
           >
-            <svg class="animate-spin h-8 w-8 text-violet-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+            <div class="max-w-md w-full text-center">
+              <svg class="animate-spin h-8 w-8 text-violet-500 mx-auto mb-3" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <p class="text-xs text-slate-400 mb-3">{{ elapsed }}s elapsed — analysis in progress</p>
+              <div
+                class="w-full bg-violet-100 rounded-full h-1.5 mb-4"
+                role="progressbar"
+                :aria-valuenow="simulatedProgress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div
+                  class="bg-violet-500 h-1.5 rounded-full transition-all duration-300"
+                  :style="{ width: simulatedProgress + '%' }"
+                />
+              </div>
+              <div class="rounded-xl bg-violet-50 border border-violet-200 p-4 text-left">
+                <div class="flex items-start gap-2">
+                  <span class="text-xl shrink-0 mt-0.5" aria-hidden="true">{{ EVO_WISDOM[activeWisdomIdx].emoji }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-violet-800 mb-1">{{ EVO_WISDOM[activeWisdomIdx].title }}</p>
+                    <p class="text-[11px] text-slate-600 leading-relaxed">{{ EVO_WISDOM[activeWisdomIdx].text }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <ScrollContainer
@@ -996,14 +1021,39 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
             </div>
           </div>
 
+          <!-- Loading (Rule 8: shares timer state from Tab 1's full loading block) -->
           <div
             v-else-if="critiqueLoading"
-            class="h-full flex items-center justify-center"
+            class="h-full flex items-center justify-center px-8"
           >
-            <svg class="animate-spin h-8 w-8 text-violet-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+            <div class="max-w-md w-full text-center">
+              <svg class="animate-spin h-8 w-8 text-violet-500 mx-auto mb-3" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <p class="text-xs text-slate-400 mb-3">{{ elapsed }}s elapsed — analysis in progress</p>
+              <div
+                class="w-full bg-violet-100 rounded-full h-1.5 mb-4"
+                role="progressbar"
+                :aria-valuenow="simulatedProgress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div
+                  class="bg-violet-500 h-1.5 rounded-full transition-all duration-300"
+                  :style="{ width: simulatedProgress + '%' }"
+                />
+              </div>
+              <div class="rounded-xl bg-violet-50 border border-violet-200 p-4 text-left">
+                <div class="flex items-start gap-2">
+                  <span class="text-xl shrink-0 mt-0.5" aria-hidden="true">{{ EVO_WISDOM[activeWisdomIdx].emoji }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-violet-800 mb-1">{{ EVO_WISDOM[activeWisdomIdx].title }}</p>
+                    <p class="text-[11px] text-slate-600 leading-relaxed">{{ EVO_WISDOM[activeWisdomIdx].text }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <ScrollContainer
