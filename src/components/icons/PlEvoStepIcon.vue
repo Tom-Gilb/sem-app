@@ -17,7 +17,7 @@
 <script setup lang="ts">
 // UNIT_TYPE=Widget
 withDefaults(defineProps<{
-  size?: 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }>(), { size: 'lg' })
 </script>
 
@@ -30,8 +30,8 @@ withDefaults(defineProps<{
     viewBox="0 0 72 48"
     width="72"
     height="48"
-    :width="size === 'xl' ? 84 : size === 'lg' ? 66 : 48"
-    :height="size === 'xl' ? 56 : size === 'lg' ? 44 : 32"
+    :width="size === 'xl' ? 84 : size === 'lg' ? 66 : size === 'md' ? 48 : 30"
+    :height="size === 'xl' ? 56 : size === 'lg' ? 44 : size === 'md' ? 32 : 20"
     fill="none"
     aria-label="Evo Step glyph — < ->+-> (past, gap, value, accumulation, value)"
     role="img"

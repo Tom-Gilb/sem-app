@@ -2489,14 +2489,8 @@
             <!-- Entry type badge + ID -->
             <div class="flex items-center gap-2 mb-1.5">
               <span class="text-xs font-semibold text-slate-500">{{ i + 1 }}</span>
-              <span
-                class="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide"
-                :class="{
-                  'bg-green-100 text-green-700': t.type === 'F',
-                  'bg-violet-100 text-violet-700': t.type === 'V',
-                  'bg-orange-100 text-orange-700': t.type === 'S',
-                }"
-              >{{ t.type }}.</span>
+              <!-- DD-010: colour glyph replaces text letter badge -->
+              <PlTypeBadge :entry-type="t.type" />
               <span class="font-mono text-xs text-slate-600">{{ t.id }}</span>
             </div>
             <!-- Tweet text -->
@@ -7838,7 +7832,8 @@
  */
 import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick, reactive } from 'vue'
 import { openEml } from '../composables/useEmlExport'
-import CopyGlyph  from './icons/CopyGlyph.vue'
+import CopyGlyph    from './icons/CopyGlyph.vue'
+import PlTypeBadge  from './icons/PlTypeBadge.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 // DD-001 (2026-05-13) — SaveGlyph (`*→[*]`) replaces 💾 for save-to-copy
 // and save-to-file actions; GetGlyph (`[*]→*`) replaces 📥/📂 for input-side

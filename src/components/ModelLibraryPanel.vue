@@ -26,6 +26,7 @@ import { ref, computed, nextTick, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EditGlyph from './icons/EditGlyph.vue'
+import PlTypeBadge from './icons/PlTypeBadge.vue'
 import {
   useModelLibrary,
   formatModelAsPlanguage,
@@ -1322,12 +1323,14 @@ function faceStyle(transform: string): Record<string, string> {
                   <!-- Entry type counts -->
                   <div v-if="model.entries.length > 0" class="flex flex-wrap gap-1">
                     <template v-for="t in ENTRY_TYPES" :key="t">
+                      <!-- DD-010: colour glyph replaces text letter badge -->
                       <span
                         v-if="countByType(model, t) > 0"
-                        :class="['text-[10px] font-bold px-1.5 py-0.5 rounded', TYPE_BADGE_CLASS[t]]"
-                        :title="`${countByType(model, t)} ${t}. ${t === 'F' ? 'Function' : t === 'V' ? 'Value' : t === 'C' ? 'Constraint' : t === 'R' ? 'Resource' : 'Solution'} entries`"
+                        class="inline-flex items-center gap-0.5"
+                        :title="`${countByType(model, t)} ${t === 'F' ? 'Function' : t === 'V' ? 'Value' : t === 'C' ? 'Constraint' : t === 'R' ? 'Resource' : 'Solution'} entries`"
                       >
-                        {{ t }}.×{{ countByType(model, t) }}
+                        <PlTypeBadge :entry-type="t" />
+                        <span class="text-[10px] font-mono text-slate-500">×{{ countByType(model, t) }}</span>
                       </span>
                     </template>
                   </div>
@@ -1623,10 +1626,12 @@ function faceStyle(transform: string): Record<string, string> {
             <div class="flex flex-col gap-2">
               <label class="text-xs font-bold text-slate-600">Target entry types</label>
               <div class="flex gap-2 flex-wrap">
+                <!-- DD-010: colour glyph filter buttons — ring shows selected state -->
                 <button v-for="t in ENTRY_TYPES" :key="t" type="button"
-                  :class="['text-xs rounded-full px-3 py-1.5 font-semibold border transition-colors duration-150', batchTypes.has(t) ? TYPE_BADGE_CLASS[t] + ' border-transparent' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-400']"
-                  :title="`Toggle ${t}. entries — click to include or exclude from batch operation`"
-                  @click="toggleBatchType(t)">{{ t }}.</button>
+                  :class="['inline-flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all duration-150',
+                           batchTypes.has(t) ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-400']"
+                  :title="`Toggle ${t === 'F' ? 'Function' : t === 'V' ? 'Value' : t === 'C' ? 'Constraint' : t === 'R' ? 'Resource' : 'Solution'}. entries — click to include or exclude from batch operation`"
+                  @click="toggleBatchType(t)"><PlTypeBadge :entry-type="t" /></button>
               </div>
             </div>
             <!-- Keyword filter -->
@@ -1674,7 +1679,7 @@ function faceStyle(transform: string): Record<string, string> {
               <div v-if="batchMatchedEntries.length === 0" class="text-xs text-slate-400 italic py-2">No entries match the current filter</div>
               <div v-else class="flex flex-col gap-1.5 max-h-48 overflow-y-auto rounded-xl ring-1 ring-slate-200 bg-white p-3">
                 <div v-for="m in batchMatchedEntries" :key="m.idx" class="flex items-start gap-2 text-xs">
-                  <span :class="['shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5', TYPE_BADGE_CLASS[m.entry.type]]">{{ m.entry.type }}.</span>
+                  <PlTypeBadge :entry-type="m.entry.type" class="shrink-0 mt-0.5" />
                   <span v-if="batchAction === 'delete'" class="text-red-600 line-through">{{ m.entry.description }}</span>
                   <template v-else>
                     <span class="text-slate-500 line-through truncate">{{ m.entry.description }}</span>
@@ -1761,9 +1766,12 @@ function faceStyle(transform: string): Record<string, string> {
             <!-- Filters -->
             <div class="flex items-center gap-4 flex-wrap">
               <div class="flex gap-1.5">
+                <!-- DD-010: colour glyph filter buttons -->
                 <button v-for="t in ENTRY_TYPES" :key="t" type="button"
-                  :class="['text-xs rounded-full px-2.5 py-1 font-semibold border transition-colors duration-150', editTypes.has(t) ? TYPE_BADGE_CLASS[t] + ' border-transparent' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-400']"
-                  :title="`Toggle ${t}. entries`" @click="toggleEditType(t)">{{ t }}.</button>
+                  :class="['inline-flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all duration-150',
+                           editTypes.has(t) ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-400']"
+                  :title="`Toggle ${t === 'F' ? 'Function' : t === 'V' ? 'Value' : t === 'C' ? 'Constraint' : t === 'R' ? 'Resource' : 'Solution'}. entries`"
+                  @click="toggleEditType(t)"><PlTypeBadge :entry-type="t" /></button>
               </div>
               <input v-model="editKeyword" type="text" class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 transition"
                 placeholder="Filter by keyword…" title="Filter by keyword — only matching entries shown" />
@@ -1777,7 +1785,7 @@ function faceStyle(transform: string): Record<string, string> {
                 class="flex flex-col gap-1.5 rounded-xl bg-white ring-1 ring-slate-200 px-4 py-3"
               >
                 <div class="flex items-center gap-2 mb-1">
-                  <span :class="['shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded', TYPE_BADGE_CLASS[entry.type]]">{{ entry.type }}.</span>
+                  <PlTypeBadge :entry-type="entry.type" class="shrink-0" />
                   <span class="text-[10px] text-slate-400">Entry {{ idx + 1 }}</span>
                 </div>
                 <input
@@ -2530,7 +2538,7 @@ function faceStyle(transform: string): Record<string, string> {
                         :key="i"
                         class="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2"
                       >
-                        <span :class="['shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5', TYPE_BADGE_CLASS[entry.type]]">{{ entry.type }}.</span>
+                        <PlTypeBadge :entry-type="entry.type" class="shrink-0 mt-0.5" />
                         <div class="flex-1 min-w-0">
                           <p class="text-xs font-medium text-slate-800">{{ entry.description }}</p>
                           <p v-if="entry.details" class="text-[10px] text-slate-500 mt-0.5">{{ entry.details }}</p>
@@ -2805,10 +2813,8 @@ function faceStyle(transform: string): Record<string, string> {
                   class="flex flex-col gap-0.5 rounded-lg bg-white ring-1 ring-slate-200 px-4 py-3"
                 >
                   <div class="flex items-start gap-2">
-                    <span
-                      :class="['shrink-0 text-[11px] font-bold px-1.5 py-0.5 rounded mt-0.5', TYPE_BADGE_CLASS[entry.type]]"
-                      :title="`${entry.type}. entry — ${entry.type === 'F' ? 'Function: binary capability present or absent' : entry.type === 'V' ? 'Value: measurable quality attribute' : entry.type === 'C' ? 'Constraint: hard boundary that must not be breached' : entry.type === 'R' ? 'Resource: budget or resource boundary' : 'Solution: design choice or means'}`"
-                    >{{ entry.type }}.</span>
+                    <!-- DD-010: colour glyph replaces text letter badge; PlTypeIcon carries canonical tooltip -->
+                    <PlTypeBadge :entry-type="entry.type" class="shrink-0 mt-0.5" />
                     <span class="text-xs text-slate-800 font-medium leading-relaxed">{{ entry.description }}</span>
                   </div>
                   <p v-if="entry.details" class="text-[11px] text-slate-500 leading-relaxed pl-8">{{ entry.details }}</p>

@@ -18,7 +18,7 @@
 <script setup lang="ts">
 // UNIT_TYPE=Widget
 withDefaults(defineProps<{
-  size?: 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }>(), { size: 'lg' })
 </script>
 
@@ -31,8 +31,8 @@ withDefaults(defineProps<{
     viewBox="0 0 70 48"
     width="70"
     height="48"
-    :width="size === 'xl' ? 82 : size === 'lg' ? 64 : 47"
-    :height="size === 'xl' ? 56 : size === 'lg' ? 44 : 32"
+    :width="size === 'xl' ? 82 : size === 'lg' ? 64 : size === 'md' ? 47 : 29"
+    :height="size === 'xl' ? 56 : size === 'lg' ? 44 : size === 'md' ? 32 : 20"
     fill="none"
     aria-label="Task glyph — →O→* (effort in, process, sub-level output)"
     role="img"

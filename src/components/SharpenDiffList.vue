@@ -10,6 +10,7 @@
 
 <script setup lang="ts">
 import type { SharpenRound } from '../composables/useSharpen'
+import PlTypeBadge from './icons/PlTypeBadge.vue'
 
 defineProps<{
   rounds: SharpenRound[]
@@ -76,16 +77,8 @@ function fieldLabel(key: string): string {
           class="flex items-center gap-2 px-2.5 py-1.5"
           :class="c.status === 'added' ? 'bg-emerald-50' : 'bg-amber-50'"
         >
-          <!-- F. / V. / S. type badge -->
-          <span
-            class="flex-shrink-0 font-mono text-[9px] font-black px-1.5 py-0.5 rounded leading-none"
-            :class="{
-              'bg-blue-100 text-blue-700':     c.entryType === 'F',
-              'bg-purple-100 text-purple-700': c.entryType === 'V',
-              'bg-amber-100 text-amber-700':   c.entryType === 'S',
-            }"
-            :aria-label="`${c.entryType === 'F' ? 'Function' : c.entryType === 'V' ? 'Value' : 'Solution'} entry`"
-          >{{ c.entryType }}.</span>
+          <!-- DD-010: colour glyph replaces text letter badge -->
+          <PlTypeBadge :entry-type="c.entryType" class="flex-shrink-0" />
 
           <!-- Entry ID -->
           <span class="font-mono font-semibold text-slate-700 truncate flex-1 min-w-0">{{ c.id }}</span>

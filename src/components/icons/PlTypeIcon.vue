@@ -63,8 +63,8 @@ const CANONICAL_LABELS: Record<PlGlyphType, string> = {
 const props = withDefaults(defineProps<{
   /** The Planguage entry type to render. */
   plType: PlGlyphType
-  /** Glyph size passed to every child icon component. */
-  size?: 'md' | 'lg' | 'xl'
+  /** Glyph size passed to every child icon component. sm=20px for inline badges. */
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   /**
    * Hover tooltip text. Defaults to the canonical label for this type.
    * Pass a custom string to override (e.g. a project-specific definition).
