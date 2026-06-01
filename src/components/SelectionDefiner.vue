@@ -123,95 +123,36 @@ let _selectionTimer: ReturnType<typeof setTimeout> | null = null
 const MIN_CHARS = 2
 const MAX_CHARS = 120
 
-// ── Illuminate loading animation — Rule 8 (spinner + elapsed + % + amuse) ──
+// ── Illuminate loading animation — spinner + elapsed + % (no amuse; short calls) ──
 // Asymptote τ=20s: reaches ~50% at 14s, ~80% at 32s, caps at 95% until done.
-// Faster than Evo Critiquer (τ=45s) because Illuminate calls are typically 10–30s.
+// No wisdom carousel — Tom: "do not include amuse, as I do not expect long waits."
 
-const ILLUMINATE_WISDOM = [
-  {
-    emoji: '📖',
-    title: 'Every Word Is a Decision',
-    text: 'Choosing "priorities" vs "ranked values within constraints" shapes what you build. Planguage treats every term as a precision instrument, not a feeling.',
-    ref: 'Gilb, Competitive Engineering, Ch.2',
-  },
-  {
-    emoji: '🎯',
-    title: 'Planguage Has 732 Canonical Terms',
-    text: 'Each entry has a precise definition, scale, range, goal, and constraint. Shared terminology prevents the misunderstandings that cause most project failures.',
-    ref: 'Tom Gilb Planguage Glossary, 2026 edition',
-  },
-  {
-    emoji: '💡',
-    title: 'Definitions Create Contracts',
-    text: 'A term without a definition is a promise without a witness. Illuminate surfaces the exact canonical meaning so planners and stakeholders agree on what was written.',
-    ref: 'Gilb, Clear Communication, 2023',
-  },
-  {
-    emoji: '📐',
-    title: 'Measurement Starts With Definition',
-    text: 'You cannot measure what you have not defined. Before setting a Goal or Threshold on a Value, the value itself must be unambiguously named and scaled.',
-    ref: 'Planguage Rule_Write_planguage-spec.md §Scale',
-  },
-  {
-    emoji: '⚡',
-    title: '"Bad Language Costs More Than Good"',
-    text: 'Tom Gilb\'s standing principle: ambiguous requirements are the single largest source of rework. Precise Planguage terms eliminate entire classes of defects before a line is written.',
-    ref: 'Gilb, Value Improvement, 2026',
-  },
-  {
-    emoji: '🌍',
-    title: 'International Teams Need Shared Definitions',
-    text: '"Availability" means 99.99% uptime in one culture and "the system is sometimes on" in another. Canonical glossary terms make cross-border planning reliable.',
-    ref: 'Gilb, Stakeholder Engineering, §Glossary',
-  },
-  {
-    emoji: '🏗️',
-    title: 'A Value Without a Scale Is a Wish',
-    text: 'Planguage requires every Value entry to carry a Scale (unit), Range (worst/best), and Goal (target). Illuminate shows you whether the term you selected has those fields.',
-    ref: 'Template_Write_Values.md',
-  },
-  {
-    emoji: '🔍',
-    title: 'Ambiguity Is the Root of Most Defects',
-    text: 'Research consistently finds 40–60% of software defects trace to unclear or misunderstood requirements. Illuminating a term before building is the cheapest possible defect prevention.',
-    ref: 'Gilb, RISK, §Requirements Ambiguity',
-  },
-] as const
-
-const illuminateElapsed   = ref(0)
-const illuminateProgress  = ref(0)
-const illuminateWisdomIdx = ref(0)
+const illuminateElapsed  = ref(0)
+const illuminateProgress = ref(0)
 
 let _ilElapsedTimer: ReturnType<typeof setInterval> | null = null
-let _ilWisdomTimer:  ReturnType<typeof setInterval> | null = null
 let _ilAnimStart = 0
 
 function _startIlluminateAnimation(): void {
   _ilAnimStart = Date.now()
-  illuminateElapsed.value   = 0
-  illuminateProgress.value  = 0
-  illuminateWisdomIdx.value = 0
+  illuminateElapsed.value  = 0
+  illuminateProgress.value = 0
   if (_ilElapsedTimer) { clearInterval(_ilElapsedTimer); _ilElapsedTimer = null }
-  if (_ilWisdomTimer)  { clearInterval(_ilWisdomTimer);  _ilWisdomTimer  = null }
   _ilElapsedTimer = setInterval(() => {
     const secs = Math.round((Date.now() - _ilAnimStart) / 1000)
     illuminateElapsed.value  = secs
     illuminateProgress.value = Math.round(Math.min(95, (1 - Math.exp(-secs / 20)) * 100))
   }, 250)
-  _ilWisdomTimer = setInterval(() => {
-    illuminateWisdomIdx.value = (illuminateWisdomIdx.value + 1) % ILLUMINATE_WISDOM.length
-  }, 8_000)
 }
 
 function _stopIlluminateAnimation(): void {
   if (_ilElapsedTimer) { clearInterval(_ilElapsedTimer); _ilElapsedTimer = null }
-  if (_ilWisdomTimer)  { clearInterval(_ilWisdomTimer);  _ilWisdomTimer  = null }
   illuminateProgress.value = 100
 }
 
 watch(loading, (nowLoading) => {
-  if (nowLoading) { illuminateWisdomIdx.value = 0; _startIlluminateAnimation() }
-  else            { _stopIlluminateAnimation() }
+  if (nowLoading) _startIlluminateAnimation()
+  else            _stopIlluminateAnimation()
 })
 
 function _updatePill(): void {
@@ -843,30 +784,6 @@ function escapeHtml(s: string): string {
                 <div class="flex justify-between text-[10px] text-slate-400">
                   <span>Searching Planguage glossary…</span>
                   <span class="tabular-nums">{{ illuminateProgress }}%</span>
-                </div>
-              </div>
-
-              <!-- Row 3: rotating wisdom card -->
-              <div class="rounded-lg bg-violet-50 ring-1 ring-violet-100 px-3 py-2.5 space-y-1">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-base leading-none" aria-hidden="true">{{ ILLUMINATE_WISDOM[illuminateWisdomIdx].emoji }}</span>
-                  <span class="text-[11px] font-bold text-violet-700 uppercase tracking-wide leading-tight">
-                    {{ ILLUMINATE_WISDOM[illuminateWisdomIdx].title }}
-                  </span>
-                </div>
-                <p class="text-[11px] text-slate-600 leading-snug">{{ ILLUMINATE_WISDOM[illuminateWisdomIdx].text }}</p>
-                <p class="text-[9px] text-slate-400 italic">{{ ILLUMINATE_WISDOM[illuminateWisdomIdx].ref }}</p>
-                <!-- Dot navigation — DD-009: each dot has a title explaining its card -->
-                <div class="flex items-center gap-1 pt-0.5">
-                  <button
-                    v-for="(card, idx) in ILLUMINATE_WISDOM"
-                    :key="idx"
-                    type="button"
-                    class="w-1.5 h-1.5 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-violet-400"
-                    :class="idx === illuminateWisdomIdx ? 'bg-violet-500' : 'bg-violet-200 hover:bg-violet-300'"
-                    :title="`${card.emoji} ${card.title} — click to jump to this card`"
-                    @click="illuminateWisdomIdx = idx"
-                  />
                 </div>
               </div>
 
