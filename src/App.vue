@@ -4866,7 +4866,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <img
               src="/icon-sem-app.svg"
               alt="SEM App"
-              class="h-20 w-20 flex-shrink-0 rounded-2xl shadow-lg"
+              title="SEM App icon — each person = a Stakeholder (someone with needs); each target circle = an End (a Value or Constraint to be met); each arrow = a Means (a Function or Solution that delivers). Together they form a complete Planguage specification."
+              class="h-20 w-20 flex-shrink-0 rounded-2xl shadow-lg cursor-help"
             />
             <div>
               <h1 class="text-3xl font-bold text-gray-900 tracking-tight leading-tight">SEM App</h1>
@@ -4874,7 +4875,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <img
                 src="/symbol-sem.svg"
                 alt="Stakeholder fires means at ends"
-                class="mt-2 h-8 opacity-60"
+                title="S·E·M — Stakeholder (person with needs) fires Means (arrows = Functions and Solutions) at Ends (target circles = Values and Constraints). The result is a measurable Planguage plan. Tom Gilb, Competitive Engineering (2005)."
+                class="mt-2 h-8 opacity-60 cursor-help"
               />
             </div>
           </div>
