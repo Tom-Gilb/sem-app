@@ -137,6 +137,21 @@ async function handleFileImport(e: Event): Promise<void> {
 
 const library = useContractLibrary()
 
+/** Built-in samples only — shown on the landing page as one-click starters. */
+const builtInEntries = computed(() => library.allEntries.value.filter(e => e.source === 'built-in'))
+
+/**
+ * Load a library entry and immediately run analysis — no import modal needed.
+ * Sets the import refs, then calls doImport() which navigates to the detail view
+ * and runs the full clause-split + Planguage extraction pipeline.
+ */
+async function quickAnalyse(entry: ContractLibraryEntry): Promise<void> {
+  importTitle.value = entry.title
+  importText.value  = entry.text
+  importType.value  = entry.contractType
+  await doImport()
+}
+
 /** Separate useDocumentImport instance for library uploads (own loading/error state). */
 const { importFromFile: libImportFromFile, importLoading: libExtracting } = useDocumentImport()
 
@@ -542,24 +557,8 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
             </button>
           </div>
 
-          <!-- Empty state -->
-          <div v-if="store.contracts.value.length === 0" class="flex flex-col items-center py-20 gap-4 text-center">
-            <div class="text-6xl" aria-hidden="true">📋</div>
-            <h2 class="text-lg font-bold text-slate-700">No contracts yet</h2>
-            <p class="text-sm text-slate-500 max-w-xs">
-              Import any contract — SLA, NDA, service agreement — and SEM converts it into
-              measurable Planguage obligations, identifying vague language automatically.
-            </p>
-            <button
-              type="button"
-              title="Import your first contract — paste or upload contract text; SEM converts it to Planguage obligations automatically"
-              class="mt-2 px-5 py-2.5 bg-teal-700 hover:bg-teal-600 text-white font-bold rounded-xl shadow transition-all text-sm"
-              @click="openImport"
-            >Import your first contract</button>
-          </div>
-
-          <!-- Contract cards grid -->
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- ── Analysed contracts grid (when present) ──────────────────── -->
+          <div v-if="store.contracts.value.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
             <div
               v-for="contract in store.contracts.value"
               :key="contract.id"
@@ -607,6 +606,49 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
                   {{ type }}. {{ contract.clauses.flatMap(cl => cl.entries).filter(e => e.type === type).length }}
                 </span>
               </div>
+            </div>
+          </div>
+
+          <!-- ── Empty-state welcome (no analysed contracts yet) ───────── -->
+          <div v-else class="flex flex-col items-center pt-8 pb-4 gap-2 text-center">
+            <div class="text-5xl" aria-hidden="true">📋</div>
+            <h2 class="text-base font-bold text-slate-700">No contracts analysed yet</h2>
+            <p class="text-sm text-slate-500 max-w-sm">
+              Import your own contract or click a sample below — SEM converts it into
+              measurable Planguage obligations and flags vague language automatically.
+            </p>
+          </div>
+
+          <!-- ── Built-in sample contracts — always visible ─────────────── -->
+          <div>
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              Sample contracts — click to load &amp; analyse
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                v-for="entry in builtInEntries"
+                :key="entry.id"
+                type="button"
+                :title="`Load and analyse: ${entry.title} — SEM will split into clauses and extract all Planguage obligations`"
+                class="group text-left bg-white rounded-2xl border border-teal-100 shadow-sm hover:shadow-md hover:border-teal-400 transition-all p-4 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                @click="quickAnalyse(entry)"
+              >
+                <div class="flex items-start gap-3">
+                  <span class="text-xl shrink-0 mt-0.5" aria-hidden="true">📄</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-bold text-sm text-slate-800 leading-tight group-hover:text-teal-700 transition-colors">
+                      {{ entry.title }}
+                    </p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">
+                      {{ CONTRACT_TYPE_LABELS[entry.contractType] ?? entry.contractType }}
+                    </p>
+                  </div>
+                  <span
+                    class="shrink-0 self-center text-[10px] font-bold px-2 py-1 rounded-lg bg-teal-600 group-hover:bg-teal-700 text-white transition-colors whitespace-nowrap"
+                    aria-hidden="true"
+                  >Analyse →</span>
+                </div>
+              </button>
             </div>
           </div>
         </ScrollContainer>
