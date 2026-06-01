@@ -227,7 +227,7 @@ function memberName(id: string): string {
 
 /** Recipient address — editable by user; auto-detects chair if blank. */
 const emailTo = ref('')
-const FROM_ADDR = 'Tom Gilb <kaigilb@me.com>'
+const FROM_ADDR = 'Tom Gilb <Tom@Gilb.com>'
 
 function buildReportHtml(): string {
   const openItems = entries.value.filter(e => e.status === 'open' || e.status === 'in-progress')

@@ -305,7 +305,7 @@ const filteredEntries = computed<PlanguageContractEntry[]>(() => {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
-const FROM_ADDR     = 'Tom Gilb <kaigilb@me.com>'
+const FROM_ADDR     = 'Tom Gilb <Tom@Gilb.com>'
 const copiedExport  = ref(false)
 const emailedExport = ref(false)
 /** Recipient address for the email export — typed by the user before clicking Email. */

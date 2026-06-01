@@ -768,7 +768,7 @@ async function sendEmailReport(): Promise<void> {
   // 3 — Build the full RFC 2822 .eml
   // From: prevents Mail.app "No Sender" — use the app owner's address so
   // Mail treats it as an outgoing draft rather than a received message.
-  const FROM_ADDR = 'Tom Gilb <kaigilb@me.com>'
+  const FROM_ADDR = 'Tom Gilb <Tom@Gilb.com>'
   const eml = buildEml(html, plain, subject, toAddr ? [toAddr] : [], [], FROM_ADDR)
 
   // 4 — Primary: POST to local Vite dev-server endpoint → `open` → Mail.app with HTML body
