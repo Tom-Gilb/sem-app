@@ -2489,8 +2489,8 @@
             <!-- Entry type badge + ID -->
             <div class="flex items-center gap-2 mb-1.5">
               <span class="text-xs font-semibold text-slate-500">{{ i + 1 }}</span>
-              <!-- DD-010: colour glyph replaces text letter badge -->
-              <PlTypeBadge :entry-type="t.type" />
+              <!-- DD-010: colour glyph + spelled-out label (universal label rule) -->
+              <PlTypeBadge :entry-type="t.type" show-label />
               <span class="font-mono text-xs text-slate-600">{{ t.id }}</span>
             </div>
             <!-- Tweet text -->

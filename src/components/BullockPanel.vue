@@ -334,8 +334,8 @@ function truncate(text: string, len = 80): string {
                 <!-- Entry ID with type badge -->
                 <td class="px-3 py-2">
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <!-- DD-010: colour glyph replaces text letter badge -->
-                    <PlTypeBadge :entry-type="row.entryType" class="shrink-0" />
+                    <!-- DD-010: colour glyph + spelled-out label (universal label rule) -->
+                    <PlTypeBadge :entry-type="row.entryType" class="shrink-0" show-label />
                     <span class="font-mono text-slate-700 truncate" :title="row.entryId">
                       {{ row.entryId.replace(/^[FVS]\./, '') }}
                     </span>

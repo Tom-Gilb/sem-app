@@ -27,6 +27,7 @@ import { useDocumentImport } from '../composables/useDocumentImport'
 import { useContractLibrary } from '../composables/useContractLibrary'
 import type { ContractLibraryEntry } from '../composables/useContractLibrary'
 import { openEml } from '../composables/useEmlExport'
+import PlTypeBadge from './icons/PlTypeBadge.vue'
 import type {
   ContractModel,
   ContractClause,
@@ -309,9 +310,11 @@ function buildExportHtml(): string {
   if (!c) return ''
   const entries = store.allEntries.value
 
+  // Universal label rule: show "[Type.] TypeName" — never the code alone.
   const badge = (type: ContractEntryType) =>
-    `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;` +
-    `background:${TYPE_COLORS[type].bg};color:${TYPE_COLORS[type].text}">${type}.</span>`
+    `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;` +
+    `background:${TYPE_COLORS[type].bg};color:${TYPE_COLORS[type].text}">` +
+    `${type}. ${CONTRACT_ENTRY_FULL[type]}</span>`
 
   // Labelled sub-field — small grey label + value, one per line.
   const field = (label: string, value: string | undefined, color = '#334155') =>
@@ -442,6 +445,35 @@ const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
   'lease':             'Lease Agreement',
   'license':           'License Agreement',
   'other':             'Contract',
+}
+
+/**
+ * CONTRACT_ENTRY_FULL — spelled-out names for each ContractEntryType.
+ * Universal label rule (Tom Gilb, 2026-06-01): type codes must never appear
+ * alone. Always show the full name next to the code or glyph.
+ */
+const CONTRACT_ENTRY_FULL: Record<ContractEntryType, string> = {
+  F:    'Function',
+  V:    'Value',
+  C:    'Constraint',
+  R:    'Resource',
+  S:    'Stakeholder Duty',
+  Task: 'Task',
+}
+
+/**
+ * CONTRACT_ENTRY_GLYPH — maps ContractEntryType to a PlGlyphType string for
+ * PlTypeBadge. Note: in contracts, S. = Stakeholder Duty (NOT Solution —
+ * which is what the single letter 'S' maps to in the main plan domain).
+ * Passing the full name 'stakeholder' overrides the LETTER_MAP.
+ */
+const CONTRACT_ENTRY_GLYPH: Record<ContractEntryType, string> = {
+  F:    'function',
+  V:    'value',
+  C:    'constraint',
+  R:    'resource',
+  S:    'stakeholder',   // Stakeholder Duty in contract context
+  Task: 'task',
 }
 
 /**
@@ -1053,8 +1085,10 @@ onUnmounted(() => { _stopContractAnimation() })
                         :class="TYPE_COLORS[entry.type].entryCardCls"
                       >
                         <div class="flex items-center gap-2 flex-wrap">
+                          <!-- Glyph + spelled-out type name (universal label rule) + tag number -->
+                          <PlTypeBadge :entry-type="CONTRACT_ENTRY_GLYPH[entry.type]" size="sm" show-label />
                           <span
-                            class="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+                            class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full border"
                             :class="TYPE_COLORS[entry.type].tw"
                           >{{ entry.tag }}</span>
                           <span v-if="entry.obligatedParty" class="text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">{{ entry.obligatedParty }}</span>
@@ -1114,15 +1148,20 @@ onUnmounted(() => { _stopContractAnimation() })
               v-for="type in (['all', 'F', 'V', 'C', 'R', 'S', 'Task'] as const)"
               :key="type"
               type="button"
-              :title="`Show ${type === 'all' ? 'all entry types' : type + '. entries only'}`"
-              class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors"
+              :title="type === 'all'
+                ? 'Show all entry types'
+                : `Show ${CONTRACT_ENTRY_FULL[type as ContractEntryType]} entries only (${type}.)`"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors"
               :class="entryFilter === type
                 ? typeColorActive(type)
                 : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'"
               @click="entryFilter = type"
             >
-              {{ type === 'all' ? 'All' : type + '.' }}
-              <span class="ml-1 opacity-70">{{ type === 'all' ? store.allEntries.value.length : store.entryCounts.value[type as ContractEntryType] }}</span>
+              <template v-if="type === 'all'">All</template>
+              <template v-else>
+                <PlTypeBadge :entry-type="CONTRACT_ENTRY_GLYPH[type as ContractEntryType]" size="sm" show-label />
+              </template>
+              <span class="opacity-60 text-[10px]">{{ type === 'all' ? store.allEntries.value.length : store.entryCounts.value[type as ContractEntryType] }}</span>
             </button>
           </div>
           <ScrollContainer
@@ -1139,7 +1178,9 @@ onUnmounted(() => { _stopContractAnimation() })
                 :class="TYPE_COLORS[entry.type].textBorder"
               >
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="text-[11px] font-bold px-2 py-0.5 rounded-full border" :class="TYPE_COLORS[entry.type].tw">{{ entry.tag }}</span>
+                  <!-- Glyph + spelled-out type name (universal label rule) + tag number -->
+                  <PlTypeBadge :entry-type="CONTRACT_ENTRY_GLYPH[entry.type]" size="sm" show-label />
+                  <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full border" :class="TYPE_COLORS[entry.type].tw">{{ entry.tag }}</span>
                   <span v-if="entry.obligatedParty" class="text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">{{ entry.obligatedParty }}</span>
                   <span v-if="entry.isAmbiguous" class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">⚠ Ambiguous</span>
                   <span class="ml-auto text-[10px] text-slate-400 font-mono">{{ selectedContract.clauses.find(cl => cl.id === entry.clauseRef)?.number ?? '' }}</span>
@@ -1173,7 +1214,12 @@ onUnmounted(() => { _stopContractAnimation() })
                 <thead>
                   <tr class="bg-teal-700 text-white">
                     <th class="p-3 text-left font-bold whitespace-nowrap">Party</th>
-                    <th v-for="type in (['F','V','C','R','S','Task'] as ContractEntryType[])" :key="type" class="p-3 text-center font-bold">{{ type }}.</th>
+                    <th v-for="type in (['F','V','C','R','S','Task'] as ContractEntryType[])" :key="type" class="p-2 text-center font-bold text-[11px] whitespace-nowrap">
+                      <div class="flex flex-col items-center gap-0.5">
+                        <PlTypeBadge :entry-type="CONTRACT_ENTRY_GLYPH[type]" size="sm" />
+                        <span>{{ CONTRACT_ENTRY_FULL[type] }}</span>
+                      </div>
+                    </th>
                     <th class="p-3 text-center font-bold">Total</th>
                   </tr>
                 </thead>

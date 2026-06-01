@@ -1679,7 +1679,7 @@ function faceStyle(transform: string): Record<string, string> {
               <div v-if="batchMatchedEntries.length === 0" class="text-xs text-slate-400 italic py-2">No entries match the current filter</div>
               <div v-else class="flex flex-col gap-1.5 max-h-48 overflow-y-auto rounded-xl ring-1 ring-slate-200 bg-white p-3">
                 <div v-for="m in batchMatchedEntries" :key="m.idx" class="flex items-start gap-2 text-xs">
-                  <PlTypeBadge :entry-type="m.entry.type" class="shrink-0 mt-0.5" />
+                  <PlTypeBadge :entry-type="m.entry.type" class="shrink-0 mt-0.5" show-label />
                   <span v-if="batchAction === 'delete'" class="text-red-600 line-through">{{ m.entry.description }}</span>
                   <template v-else>
                     <span class="text-slate-500 line-through truncate">{{ m.entry.description }}</span>
@@ -1785,7 +1785,7 @@ function faceStyle(transform: string): Record<string, string> {
                 class="flex flex-col gap-1.5 rounded-xl bg-white ring-1 ring-slate-200 px-4 py-3"
               >
                 <div class="flex items-center gap-2 mb-1">
-                  <PlTypeBadge :entry-type="entry.type" class="shrink-0" />
+                  <PlTypeBadge :entry-type="entry.type" class="shrink-0" show-label />
                   <span class="text-[10px] text-slate-400">Entry {{ idx + 1 }}</span>
                 </div>
                 <input
@@ -2538,7 +2538,7 @@ function faceStyle(transform: string): Record<string, string> {
                         :key="i"
                         class="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2"
                       >
-                        <PlTypeBadge :entry-type="entry.type" class="shrink-0 mt-0.5" />
+                        <PlTypeBadge :entry-type="entry.type" class="shrink-0 mt-0.5" show-label />
                         <div class="flex-1 min-w-0">
                           <p class="text-xs font-medium text-slate-800">{{ entry.description }}</p>
                           <p v-if="entry.details" class="text-[10px] text-slate-500 mt-0.5">{{ entry.details }}</p>
@@ -2813,8 +2813,8 @@ function faceStyle(transform: string): Record<string, string> {
                   class="flex flex-col gap-0.5 rounded-lg bg-white ring-1 ring-slate-200 px-4 py-3"
                 >
                   <div class="flex items-start gap-2">
-                    <!-- DD-010: colour glyph replaces text letter badge; PlTypeIcon carries canonical tooltip -->
-                    <PlTypeBadge :entry-type="entry.type" class="shrink-0 mt-0.5" />
+                    <!-- DD-010: colour glyph + spelled-out label (universal label rule) -->
+                    <PlTypeBadge :entry-type="entry.type" class="shrink-0 mt-0.5" show-label />
                     <span class="text-xs text-slate-800 font-medium leading-relaxed">{{ entry.description }}</span>
                   </div>
                   <p v-if="entry.details" class="text-[11px] text-slate-500 leading-relaxed pl-8">{{ entry.details }}</p>
