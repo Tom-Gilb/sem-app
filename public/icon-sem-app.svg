@@ -2,64 +2,70 @@
 
   <!-- ═══════════════════════════════════════════════
        SEM App Icon
-       3 × 3 grid: rows = levels (above / MY / below)
-                   cols = S (Stake) / E (Ends) / M (Means)
-       Middle row: full size, full opacity — MY level
-       Top/bottom: 55% scale, 25% opacity — adjacent levels
+       3 × 3 grid: rows = levels (Fundamental / Strategic / Means)
+                   cols = S (Stakeholder) / E (Ends) / M (Means)
+
+       Colors encode Keeney's three levels (Value-Focused Thinking, 1992):
+         TOP    = Fundamental level — amber  #FBB040  (given from above: environment, org, regulations)
+         MIDDLE = Strategic level  — violet  #A78BFA  (our own plan — the Ends we own)
+         BOTTOM = Means level      — emerald #6EE7B7  (supports us — Functions & Solutions)
+
+       Middle row: full size, full opacity — OUR level (hero)
+       Top/bottom: 60% scale, 80% opacity — adjacent levels (recede but still read)
        ═══════════════════════════════════════════════ -->
 
   <!-- Background: dark navy -->
   <rect width="200" height="200" rx="30" fill="#1B2B3C"/>
 
-  <!-- Subtle row separator lines to reinforce level structure -->
-  <line x1="14" y1="72" x2="186" y2="72" stroke="#FFFFFF" stroke-width="0.6" opacity="0.12"/>
-  <line x1="14" y1="128" x2="186" y2="128" stroke="#FFFFFF" stroke-width="0.6" opacity="0.12"/>
+  <!-- Row separator lines — tinted to meet adjacent level colors -->
+  <line x1="14" y1="72" x2="186" y2="72" stroke="#FBB040" stroke-width="0.8" opacity="0.25"/>
+  <line x1="14" y1="128" x2="186" y2="128" stroke="#6EE7B7" stroke-width="0.8" opacity="0.25"/>
 
 
   <!-- ═══════════════════════════════════════════════
-       MY LEVEL — middle row  (y=100)  full size, white
+       STRATEGIC LEVEL — middle row  (y=100)
+       Violet #A78BFA — full size, full opacity — OUR level
        ═══════════════════════════════════════════════ -->
 
-  <!-- S · Stake / Person  (x=46) -->
-  <g transform="translate(46,100)">
-    <!-- head -->
-    <circle cy="-13" r="10.5" fill="#FFFFFF"/>
-    <!-- shoulders / body bust -->
-    <path d="M-17,13 C-17,1 -9,-1 0,-1 C9,-1 17,1 17,13 Z" fill="#FFFFFF"/>
+  <!-- S · Stakeholder / Person  (x=46) -->
+  <g transform="translate(46,100)" fill="#A78BFA">
+    <circle cy="-13" r="10.5"/>
+    <path d="M-17,13 C-17,1 -9,-1 0,-1 C9,-1 17,1 17,13 Z"/>
   </g>
 
   <!-- E · Ends / Bullseye  (x=100) -->
-  <g transform="translate(100,100)" fill="none" stroke="#FFFFFF">
+  <g transform="translate(100,100)" fill="none" stroke="#A78BFA">
     <circle r="20"  stroke-width="2.8"/>
     <circle r="11.5" stroke-width="2.8"/>
-    <circle r="3.5" fill="#FFFFFF" stroke="none"/>
+    <circle r="3.5" fill="#A78BFA" stroke="none"/>
   </g>
 
-  <!-- M · Means / Arrow →  (x=154) — Planguage "impacts" & Scale symbol -->
-  <g transform="translate(154,100)" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+  <!-- M · Means / Arrow →  (x=154) -->
+  <g transform="translate(154,100)" stroke="#A78BFA" stroke-linecap="round" stroke-linejoin="round">
     <line x1="-19" y1="0" x2="15" y2="0" stroke-width="4"/>
     <polyline points="7,-9  17,0  7,9" fill="none" stroke-width="4"/>
   </g>
 
 
   <!-- ═══════════════════════════════════════════════
-       LEVEL ABOVE — top row  (y=40)  55% scale, 25% opacity
+       FUNDAMENTAL LEVEL — top row  (y=40)
+       Amber #FBB040 — 60% scale, 80% opacity — given from above
        ═══════════════════════════════════════════════ -->
 
-  <g opacity="0.25">
+  <g opacity="0.80">
     <!-- S -->
-    <g transform="translate(46,40) scale(0.55)">
-      <circle cy="-13" r="10.5" fill="#FFFFFF"/>
-      <path d="M-17,13 C-17,1 -9,-1 0,-1 C9,-1 17,1 17,13 Z" fill="#FFFFFF"/>
+    <g transform="translate(46,40) scale(0.60)" fill="#FBB040">
+      <circle cy="-13" r="10.5"/>
+      <path d="M-17,13 C-17,1 -9,-1 0,-1 C9,-1 17,1 17,13 Z"/>
     </g>
     <!-- E -->
-    <g transform="translate(100,40) scale(0.55)" fill="none" stroke="#FFFFFF">
+    <g transform="translate(100,40) scale(0.60)" fill="none" stroke="#FBB040">
       <circle r="20"  stroke-width="2.8"/>
       <circle r="11.5" stroke-width="2.8"/>
-      <circle r="3.5" fill="#FFFFFF" stroke="none"/>
+      <circle r="3.5" fill="#FBB040" stroke="none"/>
     </g>
     <!-- M -->
-    <g transform="translate(154,40) scale(0.55)" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(154,40) scale(0.60)" stroke="#FBB040" stroke-linecap="round" stroke-linejoin="round">
       <line x1="-19" y1="0" x2="15" y2="0" stroke-width="4"/>
       <polyline points="7,-9  17,0  7,9" fill="none" stroke-width="4"/>
     </g>
@@ -67,23 +73,24 @@
 
 
   <!-- ═══════════════════════════════════════════════
-       LEVEL BELOW — bottom row  (y=160)  55% scale, 25% opacity
+       MEANS LEVEL — bottom row  (y=160)
+       Emerald #6EE7B7 — 60% scale, 80% opacity — supports us
        ═══════════════════════════════════════════════ -->
 
-  <g opacity="0.25">
+  <g opacity="0.80">
     <!-- S -->
-    <g transform="translate(46,160) scale(0.55)">
-      <circle cy="-13" r="10.5" fill="#FFFFFF"/>
-      <path d="M-17,13 C-17,1 -9,-1 0,-1 C9,-1 17,1 17,13 Z" fill="#FFFFFF"/>
+    <g transform="translate(46,160) scale(0.60)" fill="#6EE7B7">
+      <circle cy="-13" r="10.5"/>
+      <path d="M-17,13 C-17,1 -9,-1 0,-1 C9,-1 17,1 17,13 Z"/>
     </g>
     <!-- E -->
-    <g transform="translate(100,160) scale(0.55)" fill="none" stroke="#FFFFFF">
+    <g transform="translate(100,160) scale(0.60)" fill="none" stroke="#6EE7B7">
       <circle r="20"  stroke-width="2.8"/>
       <circle r="11.5" stroke-width="2.8"/>
-      <circle r="3.5" fill="#FFFFFF" stroke="none"/>
+      <circle r="3.5" fill="#6EE7B7" stroke="none"/>
     </g>
     <!-- M -->
-    <g transform="translate(154,160) scale(0.55)" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(154,160) scale(0.60)" stroke="#6EE7B7" stroke-linecap="round" stroke-linejoin="round">
       <line x1="-19" y1="0" x2="15" y2="0" stroke-width="4"/>
       <polyline points="7,-9  17,0  7,9" fill="none" stroke-width="4"/>
     </g>
