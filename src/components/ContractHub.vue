@@ -310,15 +310,49 @@ function buildExportHtml(): string {
   const entries = store.allEntries.value
 
   const badge = (type: ContractEntryType) =>
-    `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;
-     background:${TYPE_COLORS[type].bg};color:${TYPE_COLORS[type].text}">${type}.</span>`
+    `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;` +
+    `background:${TYPE_COLORS[type].bg};color:${TYPE_COLORS[type].text}">${type}.</span>`
+
+  // Labelled sub-field — small grey label + value, one per line.
+  const field = (label: string, value: string | undefined, color = '#334155') =>
+    value
+      ? `<div style="margin-top:4px;font-size:10px;">` +
+        `<span style="color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${label}:</span> ` +
+        `<span style="color:${color}">${value}</span></div>`
+      : ''
+
+  // All type-specific Planguage fields — shown below description for each entry.
+  const details = (e: PlanguageContractEntry): string => {
+    const parts: string[] = []
+    // F — binary presence statement
+    if (e.type === 'F' && e.presenceTest)
+      parts.push(field('Presence test', e.presenceTest))
+    // V — full scale/meter/goal/tolerable/wish
+    if (e.type === 'V') {
+      parts.push(field('Scale',     e.scale))
+      parts.push(field('Meter',     e.meter))
+      parts.push(field('Goal',      e.goal,      '#0f766e'))
+      parts.push(field('Tolerable', e.tolerable, '#b45309'))
+      parts.push(field('Wish',      e.wish,      '#6d28d9'))
+    }
+    // C — hard constraint text
+    if (e.type === 'C' && e.constraintText)
+      parts.push(field('Constraint', e.constraintText, '#dc2626'))
+    // Task / S — deadline
+    if ((e.type === 'Task' || e.type === 'S') && e.deadline)
+      parts.push(field('Deadline', e.deadline, '#0369a1'))
+    return parts.join('')
+  }
 
   const rows = entries.map(e => `
-    <tr style="border-bottom:1px solid #e2e8f0">
-      <td style="padding:8px 10px;white-space:nowrap">${badge(e.type)} ${e.tag}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#334155">${e.obligatedParty ?? '—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#1e293b">${e.description}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#64748b">${e.isAmbiguous ? '⚠ ' + (e.ambiguityNote ?? 'Ambiguous') : '✓'}</td>
+    <tr style="border-bottom:1px solid #e2e8f0;vertical-align:top;">
+      <td style="padding:8px 10px;white-space:nowrap">${badge(e.type)} <span style="font-family:monospace;font-size:10px;color:#475569">${e.tag}</span></td>
+      <td style="padding:8px 10px;font-size:11px;color:#334155;white-space:nowrap">${e.obligatedParty ?? '—'}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#1e293b">
+        <div style="font-weight:600">${e.description}</div>
+        ${details(e)}
+      </td>
+      <td style="padding:8px 10px;font-size:11px;color:#64748b">${e.isAmbiguous ? `<span style="color:#b45309">⚠ ${e.ambiguityNote ?? 'Ambiguous'}</span>` : '<span style="color:#059669">✓</span>'}</td>
     </tr>`).join('')
 
   return `<!DOCTYPE html>
@@ -330,8 +364,8 @@ function buildExportHtml(): string {
 <table style="width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #0001">
   <thead><tr style="background:#0f766e;color:white">
     <th style="padding:10px;text-align:left;font-size:12px;white-space:nowrap">Type · Tag</th>
-    <th style="padding:10px;text-align:left;font-size:12px">Party</th>
-    <th style="padding:10px;text-align:left;font-size:12px">Obligation</th>
+    <th style="padding:10px;text-align:left;font-size:12px;white-space:nowrap">Party</th>
+    <th style="padding:10px;text-align:left;font-size:12px">Obligation &amp; Details</th>
     <th style="padding:10px;text-align:left;font-size:12px">Ambiguity</th>
   </tr></thead>
   <tbody>${rows}</tbody>
@@ -373,9 +407,23 @@ function emailExport(): void {
 function buildObligationText(): string {
   const c = selectedContract.value
   if (!c) return ''
-  return store.allEntries.value
-    .map(e => `${e.tag}\t${e.obligatedParty ?? 'ALL'}\t${e.description}`)
-    .join('\n')
+  return store.allEntries.value.map(e => {
+    const extras: string[] = []
+    if (e.type === 'F' && e.presenceTest)      extras.push(`Presence: ${e.presenceTest}`)
+    if (e.type === 'V') {
+      if (e.scale)     extras.push(`Scale: ${e.scale}`)
+      if (e.meter)     extras.push(`Meter: ${e.meter}`)
+      if (e.goal)      extras.push(`Goal: ${e.goal}`)
+      if (e.tolerable) extras.push(`Tolerable: ${e.tolerable}`)
+      if (e.wish)      extras.push(`Wish: ${e.wish}`)
+    }
+    if (e.type === 'C' && e.constraintText)    extras.push(`Constraint: ${e.constraintText}`)
+    if ((e.type === 'Task' || e.type === 'S') && e.deadline)
+                                               extras.push(`Deadline: ${e.deadline}`)
+    if (e.isAmbiguous && e.ambiguityNote)      extras.push(`⚠ ${e.ambiguityNote}`)
+    const detail = extras.length ? `\n    ${extras.join('\n    ')}` : ''
+    return `${e.tag}\t${e.obligatedParty ?? 'ALL'}\t${e.description}${detail}`
+  }).join('\n')
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
