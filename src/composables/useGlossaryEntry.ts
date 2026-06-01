@@ -37,6 +37,12 @@ export function useGlossaryEntry() {
   /** Near-match concept names from the server when no glossary entry exists.
    *  Shown as "Did you mean?" buttons in the Define panel. */
   const nearMatchOptions = ref<string[]>([])
+  /**
+   * True when the probe failed due to a connectivity problem (503 or network error)
+   * rather than a genuine 404 (term absent from vault glossary).
+   * Allows SelectionDefiner to show a "dev server needed" hint instead of silence.
+   */
+  const probeError = ref(false)
 
   /**
    * Fetch the glossary entry for `term`.  Sets `entry` on success.
@@ -65,37 +71,49 @@ export function useGlossaryEntry() {
       return
     }
 
-    loading.value = true
-    error.value   = ''
-    entry.value   = null
+    loading.value    = true
+    error.value      = ''
+    entry.value      = null
+    probeError.value = false
+
+    console.debug(`[glossary] fetchEntry("${normalised}") — starting fetch`)
 
     try {
       const res = await fetch(`/api/glossary?term=${encodeURIComponent(normalised)}`)
+
+      console.debug(`[glossary] fetchEntry("${normalised}") — HTTP ${res.status}`)
 
       if (res.status === 404) {
         // Read near-match suggestions before caching the miss
         const opts    = res.headers.get('x-near-match-options')
         const optList = opts ? opts.split(',').map(s => s.trim()).filter(Boolean) : []
+        console.debug(`[glossary] fetchEntry("${normalised}") — 404, near-matches:`, optList)
         nearMatchOptions.value = optList
         if (optList.length > 0) _nearMatchCache.set(normalised, optList)
         _notFound.add(normalised)
         return
       }
       if (res.status === 503) {
+        probeError.value = true
         if (userInitiated) error.value = 'Vault glossary folder not accessible — is the vault mounted?'
         return
       }
       if (!res.ok) {
+        probeError.value = true
         if (userInitiated) error.value = `Glossary lookup failed (HTTP ${res.status}).`
         return
       }
 
       const markdown    = await res.text()
       const parsed      = parseGlossaryEntry(markdown, normalised)
+      console.debug(`[glossary] fetchEntry("${normalised}") — parsed OK, setting entry.value. term="${parsed.term}"`)
       _cache.set(normalised, parsed)
       entry.value   = parsed
       synonymOf.value = res.headers.get('x-synonym-of') ?? null
-    } catch {
+      console.debug(`[glossary] fetchEntry("${normalised}") — entry.value now:`, entry.value?.term ?? 'null')
+    } catch (err) {
+      console.error(`[glossary] fetchEntry("${normalised}") — caught error:`, err)
+      probeError.value = true
       if (userInitiated) error.value = 'Network error — could not reach local glossary endpoint.'
     } finally {
       loading.value = false
@@ -104,10 +122,11 @@ export function useGlossaryEntry() {
 
   /** Clear the current entry without clearing the module-level caches. */
   function clearEntry(): void {
-    entry.value           = null
-    error.value           = ''
-    synonymOf.value       = null
+    entry.value            = null
+    error.value            = ''
+    synonymOf.value        = null
     nearMatchOptions.value = []
+    probeError.value       = false
   }
 
   return {
@@ -116,6 +135,7 @@ export function useGlossaryEntry() {
     error,
     synonymOf,
     nearMatchOptions,
+    probeError,
     fetchEntry,
     clearEntry,
   }

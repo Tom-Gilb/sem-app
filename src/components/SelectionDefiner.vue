@@ -299,6 +299,15 @@ onMounted(() => {
   document.addEventListener('mouseup',         _onMouseup)
   window.addEventListener('keydown',           _onKeydown)
   document.addEventListener('mousedown',       _onOutsideMousedown, true) // capture
+
+  // HMR safety: when Vite hot-reloads this component while the Define panel is
+  // already showing a result, the new instance's watch(result) does NOT fire
+  // (no change occurred — the module-level result ref kept its value across the
+  // hot-reload). Manually probe the glossary for the active term so gEntry is
+  // populated and the "More Concept Detail" button appears.
+  if (result.value?.term) {
+    fetchEntry(result.value.term)
+  }
 })
 
 onUnmounted(() => {
@@ -367,10 +376,12 @@ const activeDiagrams = computed<string[]>(() =>
 // User can still manually collapse by clicking the "More Concept Detail" pin;
 // the panel won't re-expand until a NEW entry loads (gEntry changes reference).
 watch(gEntry, (newEntry) => {
+  console.debug('[illuminate] watch(gEntry) fired — newEntry:', newEntry?.term ?? 'null', '→ detailOpen =', !!newEntry)
   if (newEntry) detailOpen.value = true
 })
 
 watch(result, (r) => {
+  console.debug('[illuminate] watch(result) fired — r.term:', r?.term ?? 'null')
   activeDetailTab.value    = 'card'
   diagramRendered.value    = false
   diagramError.value       = ''
@@ -383,6 +394,7 @@ watch(result, (r) => {
   // detailOpen is now driven reactively by watch(gEntry) above, not by this async chain.
   if (r?.term) {
     fetchEntry(r.term).then(async () => {
+      console.debug('[illuminate] fetchEntry().then() — gEntry.value:', gEntry.value?.term ?? 'null', 'nearMatches:', gNearMatchOptions.value)
       // Auto-load best near-match (2026-06-01): if no exact entry but near-matches
       // exist, silently fetch the first near-match so the full glossary tabs appear
       // without requiring the user to click a pill. The pill buttons remain visible
@@ -391,7 +403,10 @@ watch(result, (r) => {
       if (!gEntry.value && gNearMatchOptions.value.length > 0) {
         await fetchEntry(gNearMatchOptions.value[0])
       }
-      // detailOpen is handled by watch(gEntry) — no explicit set needed here
+      // Belt-and-suspenders: also set detailOpen directly here in case
+      // the watch(gEntry) fires before Vue has flushed reactivity after
+      // an awaited fetch inside an async watcher context.
+      if (gEntry.value) detailOpen.value = true
     })
   } else {
     detailOpen.value = false
