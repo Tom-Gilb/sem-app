@@ -191,21 +191,15 @@ function _updatePill(): void {
 
     // Position: centred above the selection, 8px gap.
     //
-    // Bug fix (2026-05-12): when the selection is INSIDE the SelectionDefiner
-    // card itself (drilling into a glossary term inside More Concept Detail),
-    // the pill at `rect.top − 44px` often lands on top of the violet gradient
-    // header — the user sees their own selection covered by the bar. Detect
-    // that case via `closest('[data-seldef-card]')` and force the pill BELOW
-    // the selection instead so the highlighted text and the surrounding
-    // context both stay visible.
+    // Flip logic: show below selection only when placing above would put the
+    // pill behind the fixed Plan Crest + stage bar at the top of the viewport
+    // (~200px). For selections anywhere else — including text selected INSIDE
+    // the More Concept Detail window — the pill appears ABOVE the word, which
+    // is where users expect it (Tom 2026-06-01: "right above the selected word").
+    // The pill uses z-[10102] so it renders above the result panel (z-[10100]).
     const PILL_HEIGHT = 36
-    const insideCard  = (() => {
-      const node = range.startContainer
-      const el   = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement
-      return !!el?.closest('[data-seldef-card]')
-    })()
     const rawTop = rect.top - PILL_HEIGHT - 8
-    const flipBelow = insideCard || rawTop < 4
+    const flipBelow = rawTop < 200    // 200px ≈ Plan Crest (60px) + stage bar (124px) + 16px buffer
 
     pillX.value       = Math.min(
       Math.max(rect.left + rect.width / 2, 60),
@@ -718,7 +712,7 @@ function escapeHtml(s: string): string {
         v-if="pillVisible"
         type="button"
         aria-label="Illuminate selected text"
-        class="fixed z-[10100] flex items-center gap-1.5 px-3 py-1.5 rounded-full
+        class="fixed z-[10102] flex items-center gap-1.5 px-3 py-1.5 rounded-full
                bg-violet-600 text-white text-xs font-semibold shadow-lg
                hover:bg-violet-700 active:scale-95
                focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-1
