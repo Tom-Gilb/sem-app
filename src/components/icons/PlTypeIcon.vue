@@ -41,7 +41,7 @@ import PlStakeholderIcon from './PlStakeholderIcon.vue'
 import PlEvoStepIcon from './PlEvoStepIcon.vue'
 import PlTaskIcon from './PlTaskIcon.vue'
 import PlResourceIcon from './PlResourceIcon.vue'
-import { useGlyphPanel } from '@/composables/useGlyphPanel'
+import { useGlyphPanel } from '../../composables/useGlyphPanel'
 
 /** All 8 canonical Planguage entry types. */
 export type PlGlyphType =

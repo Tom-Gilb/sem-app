@@ -18,7 +18,7 @@
  * openGlyphPanel(type) / closeGlyphPanel() / navigateGlyphPanel(type).
  */
 import { ref } from 'vue'
-import type { PlGlyphType } from '@/components/icons/PlTypeIcon.vue'
+import type { PlGlyphType } from '../components/icons/PlTypeIcon.vue'
 
 // ── Module-level singleton state ──────────────────────────────────────────────
 const _open = ref(false)
