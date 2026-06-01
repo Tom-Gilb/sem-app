@@ -40,8 +40,8 @@
     <circle r="3.5" fill="#A78BFA" stroke="none"/>
   </g>
 
-  <!-- M · Means / Arrow →  (x=154) -->
-  <g transform="translate(154,100)" stroke="#A78BFA" stroke-linecap="round" stroke-linejoin="round">
+  <!-- M · Means / Arrow ←  (x=154) — points LEFT: Means delivers INTO Ends -->
+  <g transform="translate(154,100) scale(-1,1)" stroke="#A78BFA" stroke-linecap="round" stroke-linejoin="round">
     <line x1="-19" y1="0" x2="15" y2="0" stroke-width="4"/>
     <polyline points="7,-9  17,0  7,9" fill="none" stroke-width="4"/>
   </g>
@@ -64,8 +64,8 @@
       <circle r="11.5" stroke-width="2.8"/>
       <circle r="3.5" fill="#FBB040" stroke="none"/>
     </g>
-    <!-- M -->
-    <g transform="translate(154,40) scale(0.60)" stroke="#FBB040" stroke-linecap="round" stroke-linejoin="round">
+    <!-- M — reversed: Means delivers INTO Ends -->
+    <g transform="translate(154,40) scale(-0.60,0.60)" stroke="#FBB040" stroke-linecap="round" stroke-linejoin="round">
       <line x1="-19" y1="0" x2="15" y2="0" stroke-width="4"/>
       <polyline points="7,-9  17,0  7,9" fill="none" stroke-width="4"/>
     </g>
@@ -89,8 +89,8 @@
       <circle r="11.5" stroke-width="2.8"/>
       <circle r="3.5" fill="#6EE7B7" stroke="none"/>
     </g>
-    <!-- M -->
-    <g transform="translate(154,160) scale(0.60)" stroke="#6EE7B7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- M — reversed: Means delivers INTO Ends -->
+    <g transform="translate(154,160) scale(-0.60,0.60)" stroke="#6EE7B7" stroke-linecap="round" stroke-linejoin="round">
       <line x1="-19" y1="0" x2="15" y2="0" stroke-width="4"/>
       <polyline points="7,-9  17,0  7,9" fill="none" stroke-width="4"/>
     </g>
