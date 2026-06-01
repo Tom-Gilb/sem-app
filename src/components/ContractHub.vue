@@ -26,6 +26,7 @@ import { useContractParser } from '../composables/useContractParser'
 import { useDocumentImport } from '../composables/useDocumentImport'
 import { useContractLibrary } from '../composables/useContractLibrary'
 import type { ContractLibraryEntry } from '../composables/useContractLibrary'
+import { openEml } from '../composables/useEmlExport'
 import type {
   ContractModel,
   ContractClause,
@@ -299,7 +300,9 @@ const filteredEntries = computed<PlanguageContractEntry[]>(() => {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
-const copiedExport = ref(false)
+const FROM_ADDR     = 'Tom Gilb <kaigilb@me.com>'
+const copiedExport  = ref(false)
+const emailedExport = ref(false)
 
 function buildExportHtml(): string {
   const c = selectedContract.value
@@ -353,6 +356,18 @@ async function copyExport(): Promise<void> {
     copiedExport.value = true
     setTimeout(() => { copiedExport.value = false }, 2500)
   }
+}
+
+function emailExport(): void {
+  const c = selectedContract.value
+  if (!c) return
+  const subject = `${c.title} — Planguage Contract Analysis`
+  openEml(buildExportHtml(), subject, {
+    from: FROM_ADDR,
+    plainBody: buildObligationText(),
+  })
+  emailedExport.value = true
+  setTimeout(() => { emailedExport.value = false }, 2500)
 }
 
 function buildObligationText(): string {
@@ -627,10 +642,37 @@ onUnmounted(() => { _stopContractAnimation() })
         >
           {{ tab === 'clauses' ? '📄 Clauses' : tab === 'entries' ? '📊 Entries' : tab === 'matrix' ? '🗂 Matrix' : '⬇ Export' }}
         </button>
-        <span class="ml-auto text-[11px] text-slate-400 tabular-nums">
-          {{ store.allEntries.value.length }} entries ·
-          {{ selectedContract.clauses.length }} clauses
-        </span>
+        <!-- Persistent Copy + Email — always both, always together (Tom 2026-06-01) -->
+        <div class="ml-auto flex items-center gap-1.5">
+          <span class="text-[11px] text-slate-400 tabular-nums mr-1">
+            {{ store.allEntries.value.length }} entries ·
+            {{ selectedContract.clauses.length }} clauses
+          </span>
+          <button
+            type="button"
+            title="Copy HTML table — paste into Keynote, Numbers, or Mail"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border"
+            :class="copiedExport
+              ? 'bg-emerald-600 text-white border-emerald-600'
+              : 'bg-white text-teal-700 border-teal-300 hover:bg-teal-50'"
+            @click="copyExport"
+          >
+            <span aria-hidden="true">{{ copiedExport ? '✅' : '📋' }}</span>
+            <span>{{ copiedExport ? 'Copied' : 'Copy' }}</span>
+          </button>
+          <button
+            type="button"
+            title="Email HTML table — opens a pre-filled draft in Mail.app"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border"
+            :class="emailedExport
+              ? 'bg-emerald-600 text-white border-emerald-600'
+              : 'bg-white text-teal-700 border-teal-300 hover:bg-teal-50'"
+            @click="emailExport"
+          >
+            <span aria-hidden="true">{{ emailedExport ? '✅' : '✉️' }}</span>
+            <span>{{ emailedExport ? 'Opened' : 'Email' }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- ── Body ───────────────────────────────────────────────────────────── -->
@@ -1129,15 +1171,32 @@ onUnmounted(() => { _stopContractAnimation() })
           >
             <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
               <h2 class="text-base font-bold text-slate-800">Export as Colorful HTML Table</h2>
-              <p class="text-sm text-slate-500">Copy a rich HTML table with all Planguage entries — color-coded by type. Paste directly into Keynote, Numbers, or Mail.</p>
-              <button
-                type="button"
-                title="Copy rich HTML table to clipboard — paste into Keynote or Numbers"
-                class="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-700 hover:bg-teal-600 text-white font-bold rounded-xl shadow transition-all text-sm"
-                @click="copyExport"
-              >
-                {{ copiedExport ? '✅ Copied!' : '📋 Copy HTML Table' }}
-              </button>
+              <p class="text-sm text-slate-500">Color-coded Planguage obligations table. Copy to paste into Keynote / Numbers, or Email to open a pre-filled draft in Mail.app.</p>
+              <!-- Copy + Email always together (Tom 2026-06-01) -->
+              <div class="flex items-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  title="Copy rich HTML table to clipboard — paste into Keynote, Numbers, or Mail"
+                  class="inline-flex items-center gap-2 px-5 py-2.5 font-bold rounded-xl shadow transition-all text-sm"
+                  :class="copiedExport
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-teal-700 hover:bg-teal-600 text-white'"
+                  @click="copyExport"
+                >
+                  {{ copiedExport ? '✅ Copied!' : '📋 Copy HTML Table' }}
+                </button>
+                <button
+                  type="button"
+                  title="Email HTML table — downloads a .eml file that opens in Mail.app as a ready-to-send draft with the full color table in the body"
+                  class="inline-flex items-center gap-2 px-5 py-2.5 font-bold rounded-xl shadow transition-all text-sm"
+                  :class="emailedExport
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-teal-700 hover:bg-teal-600 text-white'"
+                  @click="emailExport"
+                >
+                  {{ emailedExport ? '✅ Opening Mail…' : '✉️ Email Table' }}
+                </button>
+              </div>
             </div>
 
             <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-3">
