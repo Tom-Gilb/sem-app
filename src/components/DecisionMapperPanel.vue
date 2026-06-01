@@ -19,7 +19,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import {
@@ -196,6 +196,98 @@ function tabClass(tab: Tab): string {
     ? 'border-rose-600 text-rose-700 bg-white border-b-2'
     : 'border-transparent text-slate-500 hover:text-rose-600 hover:bg-white/60 border-b-2'
 }
+
+// ── Rule 8: Loading-state (4-element: spinner + elapsed + progress + amuse) ──
+
+const DECISION_WISDOM = [
+  {
+    emoji: '⚖️',
+    title: 'Values Before Verdicts',
+    text: 'Planguage separates what you want (Values, Constraints) from which option delivers it. Defining criteria before scoring options eliminates confirmation bias in decision-making.',
+    ref: 'Competitive Engineering, Gilb 2005 — Chapter 7',
+  },
+  {
+    emoji: '🎯',
+    title: 'Weighted Criteria Capture Trade-offs',
+    text: 'No option is perfect across all criteria. A weighted score surfaces the option that best satisfies your priorities — not just the one that excels on a single dimension.',
+    ref: 'Value Delivery Thinking, Gilb 2018',
+  },
+  {
+    emoji: '📐',
+    title: 'Constraints Are Binary, Values Are Scalar',
+    text: 'In Planguage, a Constraint (C.) is either met or violated — there is no partial credit. A Value (V.) has a scale and a goal. The best decision meets ALL constraints, then maximises value.',
+    ref: 'Tom Gilb, Planguage Standard — C. entry rules',
+  },
+  {
+    emoji: '🔄',
+    title: 'Decisions Are Revisable',
+    text: 'A good decision process is one you can redo. As context changes — new options emerge, constraints shift, stakeholders are identified — re-running the matrix with fresh criteria is not indecision; it is learning.',
+    ref: 'EVO 2024, Gilb — Step 9: Learn',
+  },
+  {
+    emoji: '🧩',
+    title: 'Options Are Partial Planguage Models',
+    text: 'Each decision option is modelled as a mini Planguage spec: F. (what it does), V. (what value it delivers), C. (what constraints it respects). Comparing options this way makes trade-offs explicit and auditable.',
+    ref: 'gilb.com/tomtwin — Decision entry type specification',
+  },
+  {
+    emoji: '📊',
+    title: 'Feasibility Is a Separate Dimension',
+    text: 'An option with the highest value score may be infeasible to implement. The decision matrix tracks feasibility independently so you can weigh "ideal" vs "achievable" consciously — not accidentally.',
+    ref: 'Competitive Engineering, Gilb 2005 — S. entry: Solution feasibility',
+  },
+  {
+    emoji: '👥',
+    title: 'Stakeholders Own the Criteria Weights',
+    text: 'Criteria weights are not technical judgements — they represent stakeholder priorities. Who cares about speed vs cost vs quality? Explicitly assigning weights forces alignment conversations that "gut feel" decisions skip.',
+    ref: 'Stakeholder Engineering, Gilb 2004',
+  },
+  {
+    emoji: '📋',
+    title: 'Write Decisions Down, In Planguage',
+    text: 'A decision not written in a structured form is a guess. Writing the question, options, criteria, and recommendation creates an audit trail that lets future teams understand WHY a choice was made — not just what was chosen.',
+    ref: 'gilb.com — "Write It In Planguage" talk, 2023',
+  },
+] as const
+
+const dmElapsed           = ref(0)
+const dmSimulatedProgress = ref(0)
+const dmActiveWisdomIdx   = ref(0)
+
+let _dmElapsedTimer: ReturnType<typeof setInterval> | null = null
+let _dmWisdomTimer:  ReturnType<typeof setInterval> | null = null
+let _dmAnimStart = 0
+
+function _startDecisionLoadingAnim(): void {
+  _dmAnimStart = Date.now()
+  dmElapsed.value = 0; dmSimulatedProgress.value = 0
+  if (_dmElapsedTimer) { clearInterval(_dmElapsedTimer); _dmElapsedTimer = null }
+  if (_dmWisdomTimer)  { clearInterval(_dmWisdomTimer);  _dmWisdomTimer  = null }
+  _dmElapsedTimer = setInterval(() => {
+    const secs = Math.round((Date.now() - _dmAnimStart) / 1000)
+    dmElapsed.value = secs
+    dmSimulatedProgress.value = Math.round(Math.min(95, (1 - Math.exp(-secs / 45)) * 100))
+  }, 250)
+  _dmWisdomTimer = setInterval(() => {
+    dmActiveWisdomIdx.value = (dmActiveWisdomIdx.value + 1) % DECISION_WISDOM.length
+  }, 8_000)
+}
+
+function _stopDecisionLoadingAnim(): void {
+  if (_dmElapsedTimer) { clearInterval(_dmElapsedTimer); _dmElapsedTimer = null }
+  if (_dmWisdomTimer)  { clearInterval(_dmWisdomTimer);  _dmWisdomTimer  = null }
+  dmSimulatedProgress.value = 100
+}
+
+watch(
+  () => selectedDecision.value?.analysisStatus === 'analysing',
+  (nowAnalysing) => {
+    if (nowAnalysing) { dmActiveWisdomIdx.value = 0; _startDecisionLoadingAnim() }
+    else              { _stopDecisionLoadingAnim() }
+  },
+)
+
+onUnmounted(() => _stopDecisionLoadingAnim())
 </script>
 
 <template>
@@ -382,16 +474,58 @@ function tabClass(tab: Tab): string {
           </div>
         </template>
 
-        <!-- ── Analysing state ── -->
+        <!-- ── Analysing state (Rule 8: spinner + elapsed + progress + wisdom) ── -->
         <template v-else-if="selectedDecision && selectedDecision.analysisStatus === 'analysing'">
-          <div class="flex-1 flex items-center justify-center text-center">
-            <div>
+          <div class="flex-1 flex items-center justify-center px-8">
+            <div class="max-w-md w-full text-center">
+              <!-- 1. Spinner -->
               <svg class="animate-spin h-10 w-10 text-rose-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              <p class="text-sm font-medium text-rose-600">Building decision matrix…</p>
-              <p class="text-xs text-slate-400 mt-1">AI is creating options, criteria, and scores — may take 30–60 seconds</p>
+              <!-- Heading + elapsed -->
+              <p class="text-sm font-semibold text-rose-700 mb-0.5">Building decision matrix…</p>
+              <p class="text-xs text-slate-400 mb-4">{{ dmElapsed }}s elapsed — AI is creating options, criteria, and weighted scores</p>
+              <!-- 2. Progress bar -->
+              <div
+                class="w-full bg-rose-100 rounded-full h-2 mb-6"
+                role="progressbar"
+                :aria-valuenow="dmSimulatedProgress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div
+                  class="bg-rose-500 h-2 rounded-full transition-all duration-300"
+                  :style="{ width: dmSimulatedProgress + '%' }"
+                />
+              </div>
+              <!-- 3. Wisdom card -->
+              <div class="rounded-2xl bg-rose-50 border border-rose-200 p-5 text-left shadow-sm min-h-[140px]">
+                <div class="flex items-start gap-3">
+                  <span class="text-2xl shrink-0 mt-0.5" aria-hidden="true">{{ DECISION_WISDOM[dmActiveWisdomIdx].emoji }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold text-rose-800 mb-1.5">{{ DECISION_WISDOM[dmActiveWisdomIdx].title }}</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">{{ DECISION_WISDOM[dmActiveWisdomIdx].text }}</p>
+                    <p class="text-[10px] text-rose-400 mt-2 italic">{{ DECISION_WISDOM[dmActiveWisdomIdx].ref }}</p>
+                  </div>
+                </div>
+              </div>
+              <!-- 4. Dot navigation -->
+              <div class="flex items-center justify-center gap-1.5 mt-3" role="tablist" aria-label="Decision wisdom cards">
+                <button
+                  v-for="(_, i) in DECISION_WISDOM"
+                  :key="i"
+                  type="button"
+                  :class="[
+                    'h-1.5 rounded-full transition-all duration-200',
+                    i === dmActiveWisdomIdx ? 'bg-rose-500 w-3' : 'bg-rose-200 hover:bg-rose-300 w-1.5',
+                  ]"
+                  :aria-label="`Go to wisdom card ${i + 1} of ${DECISION_WISDOM.length}`"
+                  :aria-selected="i === dmActiveWisdomIdx"
+                  role="tab"
+                  @click="dmActiveWisdomIdx = i"
+                />
+              </div>
             </div>
           </div>
         </template>

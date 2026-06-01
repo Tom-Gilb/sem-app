@@ -18,7 +18,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import {
@@ -243,6 +243,100 @@ const unappliedProblemCount = computed<number>(() => {
   if (!version) return 0
   return version.problems.filter(p => !p.applied).length
 })
+
+// ── Rule 8: Loading-state (4-element: spinner + elapsed + progress + amuse) ──
+
+const PLAN_IMPORTER_WISDOM = [
+  {
+    emoji: '📐',
+    title: 'Two-Phase Conversion',
+    text: 'Phase 1 extracts F. (Functions), V. (Values), C. (Constraints), R. (Resources), and S. (Stakeholders) from your raw text. Phase 2 analyses the resulting entries for missing measurements, ambiguous scope, and violated Planguage rules.',
+    ref: 'Rule_Write_planguage-spec.md — 10.Standard/Standard.Kai-Zen/',
+  },
+  {
+    emoji: '🔢',
+    title: 'Values Must Be Measurable',
+    text: 'A Value entry (V.) is only complete when it has a Scale (unit of measurement), a Meter (how you measure it), a Goal (the target), and a Tolerable (the minimum acceptable). Without these, a value is a wish — not a specification.',
+    ref: 'Template_Write_Values.md — Gilb Planguage Standard',
+  },
+  {
+    emoji: '⚖️',
+    title: 'Functions Are Binary',
+    text: 'A Function (F.) is WHAT the system DOES — present or absent. Quality, speed, and cost attach as Values, not inside the function. "A fast search function" becomes F. (Search) + V. (Search response time, Goal ≤0.5s).',
+    ref: 'DD-004 — SEM Design Decisions, design-decisions.md',
+  },
+  {
+    emoji: '🛑',
+    title: 'Constraints Are Non-Negotiable',
+    text: 'A Constraint (C.) uses Must / Must not form. It is binary — either respected or violated. No option that violates a constraint is acceptable, regardless of its Value score. Budget, legal, and safety rules are always C. entries.',
+    ref: 'Template_Write_Constraint.md — Gilb Planguage Standard',
+  },
+  {
+    emoji: '👥',
+    title: 'Stakeholders Include the Inanimate',
+    text: 'Data has needs (privacy, integrity). Laws have requirements (compliance). Regulations have enforcement mechanisms. In Planguage, any entity whose needs must be respected is a Stakeholder (S.) — not just people and organisations.',
+    ref: 'Tom Gilb, 2026-05-15 — "all data is a stakeholder, it has needs like GDPR"',
+  },
+  {
+    emoji: '💰',
+    title: 'Resources Are Budgets, Not Estimates',
+    text: 'A Resource entry (R.) defines an allocated budget: time, money, people, compute, or any scarce input. Budgets constrain the solution space. Running out of a resource mid-project is a constraint violation, not a surprise.',
+    ref: 'Template_Write_Resource.md — Gilb Planguage Standard',
+  },
+  {
+    emoji: '🔄',
+    title: 'Version History Is a Design Record',
+    text: 'Every improvement command creates a new plan version. The history is not just undo — it is an audit trail of how your thinking evolved. Future reviewers can trace which problem was fixed in which version and why.',
+    ref: 'EVO 2024, Gilb — Step 9: Learn',
+  },
+  {
+    emoji: '🎯',
+    title: 'Planguage Precision Reduces Rework',
+    text: 'Ambiguous briefs cause expensive late-stage rework when teams discover they built to different assumptions. A Planguage spec converts soft intent into testable, verifiable criteria before a single line of code is written.',
+    ref: 'Competitive Engineering, Gilb 2005 — Chapter 1',
+  },
+] as const
+
+const piElapsed           = ref(0)
+const piSimulatedProgress = ref(0)
+const piActiveWisdomIdx   = ref(0)
+
+let _piElapsedTimer: ReturnType<typeof setInterval> | null = null
+let _piWisdomTimer:  ReturnType<typeof setInterval> | null = null
+let _piAnimStart = 0
+
+function _startPlanImportLoadingAnim(): void {
+  _piAnimStart = Date.now()
+  piElapsed.value = 0; piSimulatedProgress.value = 0
+  if (_piElapsedTimer) { clearInterval(_piElapsedTimer); _piElapsedTimer = null }
+  if (_piWisdomTimer)  { clearInterval(_piWisdomTimer);  _piWisdomTimer  = null }
+  _piElapsedTimer = setInterval(() => {
+    const secs = Math.round((Date.now() - _piAnimStart) / 1000)
+    piElapsed.value = secs
+    piSimulatedProgress.value = Math.round(Math.min(95, (1 - Math.exp(-secs / 45)) * 100))
+  }, 250)
+  _piWisdomTimer = setInterval(() => {
+    piActiveWisdomIdx.value = (piActiveWisdomIdx.value + 1) % PLAN_IMPORTER_WISDOM.length
+  }, 8_000)
+}
+
+function _stopPlanImportLoadingAnim(): void {
+  if (_piElapsedTimer) { clearInterval(_piElapsedTimer); _piElapsedTimer = null }
+  if (_piWisdomTimer)  { clearInterval(_piWisdomTimer);  _piWisdomTimer  = null }
+  piSimulatedProgress.value = 100
+}
+
+watch(
+  () =>
+    !!selectedPlan.value &&
+    (selectedPlan.value.importStatus === 'importing' || selectedPlan.value.importStatus === 'analysing'),
+  (nowLoading) => {
+    if (nowLoading) { piActiveWisdomIdx.value = 0; _startPlanImportLoadingAnim() }
+    else            { _stopPlanImportLoadingAnim() }
+  },
+)
+
+onUnmounted(() => _stopPlanImportLoadingAnim())
 </script>
 
 <template>
@@ -425,20 +519,62 @@ const unappliedProblemCount = computed<number>(() => {
         <!-- ── MODE B: PLAN LOADED ── -->
         <template v-else>
 
-          <!-- Importing/analysing state -->
+          <!-- Importing/analysing state (Rule 8: spinner + elapsed + progress + wisdom) -->
           <div
             v-if="selectedPlan && (selectedPlan.importStatus === 'importing' || selectedPlan.importStatus === 'analysing')"
-            class="h-full flex items-center justify-center text-center"
+            class="h-full flex items-center justify-center px-8"
           >
-            <div>
+            <div class="max-w-md w-full text-center">
+              <!-- 1. Spinner -->
               <svg class="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              <p class="text-sm font-medium text-orange-600">
+              <!-- Heading + elapsed -->
+              <p class="text-sm font-semibold text-orange-700 mb-0.5">
                 {{ selectedPlan.importStatus === 'importing' ? 'Converting to Planguage…' : 'Analysing for problems…' }}
               </p>
-              <p class="text-xs text-slate-400 mt-1">This may take 30–60 seconds</p>
+              <p class="text-xs text-slate-400 mb-4">{{ piElapsed }}s elapsed — This may take 30–60 seconds</p>
+              <!-- 2. Progress bar -->
+              <div
+                class="w-full bg-orange-100 rounded-full h-2 mb-6"
+                role="progressbar"
+                :aria-valuenow="piSimulatedProgress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div
+                  class="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                  :style="{ width: piSimulatedProgress + '%' }"
+                />
+              </div>
+              <!-- 3. Wisdom card -->
+              <div class="rounded-2xl bg-orange-50 border border-orange-200 p-5 text-left shadow-sm min-h-[140px]">
+                <div class="flex items-start gap-3">
+                  <span class="text-2xl shrink-0 mt-0.5" aria-hidden="true">{{ PLAN_IMPORTER_WISDOM[piActiveWisdomIdx].emoji }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold text-orange-800 mb-1.5">{{ PLAN_IMPORTER_WISDOM[piActiveWisdomIdx].title }}</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">{{ PLAN_IMPORTER_WISDOM[piActiveWisdomIdx].text }}</p>
+                    <p class="text-[10px] text-orange-400 mt-2 italic">{{ PLAN_IMPORTER_WISDOM[piActiveWisdomIdx].ref }}</p>
+                  </div>
+                </div>
+              </div>
+              <!-- 4. Dot navigation -->
+              <div class="flex items-center justify-center gap-1.5 mt-3" role="tablist" aria-label="Planguage conversion wisdom cards">
+                <button
+                  v-for="(_, i) in PLAN_IMPORTER_WISDOM"
+                  :key="i"
+                  type="button"
+                  :class="[
+                    'h-1.5 rounded-full transition-all duration-200',
+                    i === piActiveWisdomIdx ? 'bg-orange-500 w-3' : 'bg-orange-200 hover:bg-orange-300 w-1.5',
+                  ]"
+                  :aria-label="`Go to wisdom card ${i + 1} of ${PLAN_IMPORTER_WISDOM.length}`"
+                  :aria-selected="i === piActiveWisdomIdx"
+                  role="tab"
+                  @click="piActiveWisdomIdx = i"
+                />
+              </div>
             </div>
           </div>
 

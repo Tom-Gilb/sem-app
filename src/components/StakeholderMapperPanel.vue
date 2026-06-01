@@ -18,7 +18,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EditGlyph from './icons/EditGlyph.vue'
@@ -301,6 +301,99 @@ function avgScore(sh: MappedStakeholder): number | null {
   if (vals.length === 0) return null
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10
 }
+
+// ── Rule 8: Loading-state (4-element: spinner + elapsed + progress + amuse) ──
+
+const STAKEHOLDER_WISDOM = [
+  {
+    emoji: '👥',
+    title: 'Stakeholders Include the Inanimate',
+    text: 'In Planguage, any entity whose needs must be respected is a Stakeholder. Data has privacy needs. Laws have compliance requirements. Systems have interface constraints. All are S. entries — not just people and organisations.',
+    ref: 'Tom Gilb, 2026-05-15 — "all data is a stakeholder, it has needs like GDPR"',
+  },
+  {
+    emoji: '⚡',
+    title: 'Power vs Interest Matrix',
+    text: 'High Power + High Interest = manage closely. High Power + Low Interest = keep satisfied. Low Power + High Interest = keep informed. Low Power + Low Interest = monitor. These four quadrants guide engagement strategy without a single meeting.',
+    ref: 'Stakeholder Engineering, Gilb 2004 — Attribute: Influence',
+  },
+  {
+    emoji: '🌍',
+    title: '10 Attributes Per Entity',
+    text: 'Each stakeholder is profiled on: Power, Interest, Influence, Urgency, Legitimacy, Volatility, Proximity, Dependency, Expertise, and Alignment. Together these paint a complete picture of who shapes success — and how.',
+    ref: 'SEM StakeholderMapper — useStakeholderMapper.ts ATTRIBUTE_DEFS',
+  },
+  {
+    emoji: '📋',
+    title: 'Source Every Claim',
+    text: 'An attribute level without a source is an opinion. The AI drafts each level from real knowledge — citing URLs and specific facts. Your job is to verify, correct, and extend. Sourced profiles are defensible in stakeholder reviews.',
+    ref: 'gilb.com — Planguage principle: Testability',
+  },
+  {
+    emoji: '🏛️',
+    title: 'Regulatory Stakeholders Are Always C. Entries',
+    text: 'GDPR, HIPAA, ISO standards, financial regulations — these are stakeholders whose requirements translate directly into Constraint (C.) entries. They cannot be negotiated. Identifying them early prevents costly late-stage compliance rework.',
+    ref: 'Tom Gilb — inanimate stakeholders principle; Template_Write_Constraint.md',
+  },
+  {
+    emoji: '🔄',
+    title: 'Stakeholders Change Over Time',
+    text: 'A stakeholder who was low-power at project start may gain power as the project scales. Re-running the analysis at each Evo step — Measure and Learn — keeps stakeholder intelligence current rather than stale.',
+    ref: 'EVO 2024, Gilb — Step 8: Measure; Step 9: Learn',
+  },
+  {
+    emoji: '🎯',
+    title: 'S. Entries Feed the Entire Plan',
+    text: 'Stakeholder entries (S.) are not isolated — they seed the rest of the Planguage model. Each stakeholder\'s needs become V. or C. entries. Their resources become R. entries. Their required functions become F. entries. Start with stakeholders; the plan follows.',
+    ref: 'Proc_v_p_o_SpecifyFunction.md — 10.Standard/Standard.Kai-Zen/',
+  },
+  {
+    emoji: '📊',
+    title: 'Alignment Determines Plan Health',
+    text: 'A stakeholder with high power and low alignment is the single biggest threat to plan success. Identifying misaligned high-power stakeholders early — before delivery — allows engagement strategies to be built into the plan as explicit actions.',
+    ref: 'Competitive Engineering, Gilb 2005 — Stakeholder section',
+  },
+] as const
+
+const smElapsed           = ref(0)
+const smSimulatedProgress = ref(0)
+const smActiveWisdomIdx   = ref(0)
+
+let _smElapsedTimer: ReturnType<typeof setInterval> | null = null
+let _smWisdomTimer:  ReturnType<typeof setInterval> | null = null
+let _smAnimStart = 0
+
+function _startStakeholderLoadingAnim(): void {
+  _smAnimStart = Date.now()
+  smElapsed.value = 0; smSimulatedProgress.value = 0
+  if (_smElapsedTimer) { clearInterval(_smElapsedTimer); _smElapsedTimer = null }
+  if (_smWisdomTimer)  { clearInterval(_smWisdomTimer);  _smWisdomTimer  = null }
+  _smElapsedTimer = setInterval(() => {
+    const secs = Math.round((Date.now() - _smAnimStart) / 1000)
+    smElapsed.value = secs
+    smSimulatedProgress.value = Math.round(Math.min(95, (1 - Math.exp(-secs / 30)) * 100))
+  }, 250)
+  _smWisdomTimer = setInterval(() => {
+    smActiveWisdomIdx.value = (smActiveWisdomIdx.value + 1) % STAKEHOLDER_WISDOM.length
+  }, 8_000)
+}
+
+function _stopStakeholderLoadingAnim(): void {
+  if (_smElapsedTimer) { clearInterval(_smElapsedTimer); _smElapsedTimer = null }
+  if (_smWisdomTimer)  { clearInterval(_smWisdomTimer);  _smWisdomTimer  = null }
+  smSimulatedProgress.value = 100
+}
+
+watch(
+  () => autoGenStatus.value === 'generating',
+  (nowGenerating) => {
+    if (nowGenerating) { smActiveWisdomIdx.value = 0; _startStakeholderLoadingAnim() }
+    else               { _stopStakeholderLoadingAnim() }
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => _stopStakeholderLoadingAnim())
 </script>
 
 <template>
@@ -581,23 +674,63 @@ function avgScore(sh: MappedStakeholder): number | null {
 
         <!-- RIGHT CONTENT -->
         <div class="flex-1 min-w-0 flex flex-col">
-          <!-- Auto-generating: full-panel loading state -->
+          <!-- Auto-generating: full-panel loading state (Rule 8: spinner + elapsed + progress + wisdom) -->
           <div
             v-if="!selected && !showAddForm && autoGenStatus === 'generating'"
-            class="flex-1 flex items-center justify-center text-center px-8"
+            class="flex-1 flex items-center justify-center px-8"
           >
-            <div class="max-w-sm">
-              <svg class="animate-spin h-12 w-12 text-indigo-400 mx-auto mb-5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <div class="max-w-md w-full text-center">
+              <!-- 1. Spinner -->
+              <svg class="animate-spin h-10 w-10 text-indigo-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              <h3 class="text-lg font-semibold text-indigo-700 mb-2">Generating Planguage Model…</h3>
-              <p class="text-sm text-slate-500 leading-relaxed">
-                AI is generating the initial S. (Stakeholders), F. (Functions),
-                V. (Values), C. (Constraints), and R. (Resources) entries for
-                <strong class="text-slate-700">{{ activeModel?.title }}</strong>.
+              <!-- Heading + elapsed -->
+              <p class="text-sm font-semibold text-indigo-700 mb-0.5">Generating Planguage Model…</p>
+              <p class="text-xs text-slate-400 mb-4">
+                {{ smElapsed }}s elapsed — AI is building S./F./V./C./R. entries for
+                <strong class="text-slate-600">{{ activeModel?.title }}</strong>
               </p>
-              <p class="text-xs text-slate-400 mt-3">This may take 15–30 seconds.</p>
+              <!-- 2. Progress bar -->
+              <div
+                class="w-full bg-indigo-100 rounded-full h-2 mb-6"
+                role="progressbar"
+                :aria-valuenow="smSimulatedProgress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div
+                  class="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+                  :style="{ width: smSimulatedProgress + '%' }"
+                />
+              </div>
+              <!-- 3. Wisdom card -->
+              <div class="rounded-2xl bg-indigo-50 border border-indigo-200 p-5 text-left shadow-sm min-h-[140px]">
+                <div class="flex items-start gap-3">
+                  <span class="text-2xl shrink-0 mt-0.5" aria-hidden="true">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].emoji }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold text-indigo-800 mb-1.5">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].title }}</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].text }}</p>
+                    <p class="text-[10px] text-indigo-400 mt-2 italic">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].ref }}</p>
+                  </div>
+                </div>
+              </div>
+              <!-- 4. Dot navigation -->
+              <div class="flex items-center justify-center gap-1.5 mt-3" role="tablist" aria-label="Stakeholder analysis wisdom cards">
+                <button
+                  v-for="(_, i) in STAKEHOLDER_WISDOM"
+                  :key="i"
+                  type="button"
+                  :class="[
+                    'h-1.5 rounded-full transition-all duration-200',
+                    i === smActiveWisdomIdx ? 'bg-indigo-500 w-3' : 'bg-indigo-200 hover:bg-indigo-300 w-1.5',
+                  ]"
+                  :aria-label="`Go to wisdom card ${i + 1} of ${STAKEHOLDER_WISDOM.length}`"
+                  :aria-selected="i === smActiveWisdomIdx"
+                  role="tab"
+                  @click="smActiveWisdomIdx = i"
+                />
+              </div>
             </div>
           </div>
 
