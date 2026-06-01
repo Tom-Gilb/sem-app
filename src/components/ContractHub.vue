@@ -803,7 +803,7 @@ onUnmounted(() => { _stopContractAnimation() })
             {{ store.allEntries.value.length }} entries · {{ selectedContract.clauses.length }} clauses
           </span>
 
-          <!-- Copy: two-document "copy to clipboard" icon -->
+          <!-- Copy: two-document "copy to clipboard" icon — DD-011: SVG only, no emoji -->
           <button
             type="button"
             title="Copy color-coded HTML table to clipboard — paste into Keynote, Numbers, or Mail"
@@ -813,17 +813,19 @@ onUnmounted(() => { _stopContractAnimation() })
               : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:ring-teal-300'"
             @click="copyExport"
           >
-            <svg viewBox="0 0 13 13" width="13" height="13" fill="none" stroke="currentColor"
+            <svg v-if="copiedExport" viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3,9 7,13 15,5"/>
+            </svg>
+            <svg v-else viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor"
                  stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <!-- Back document (L-shape: top + left edges visible) -->
-              <path d="M2 9.5 L2 2 L9.5 2"/>
-              <!-- Front document -->
-              <rect x="3.5" y="3.5" width="8" height="8" rx="1"/>
+              <path d="M3 13 L3 3 L13 3"/>
+              <rect x="5" y="5" width="10" height="10" rx="1.5"/>
             </svg>
             <span>{{ copiedExport ? '✓ Copied' : 'Copy' }}</span>
           </button>
 
-          <!-- Mail: clean envelope icon -->
+          <!-- Mail: clean envelope icon — DD-011: SVG only, no emoji -->
           <button
             type="button"
             title="Mail — downloads a .eml file that opens in Mail.app as a pre-filled draft with the full color table"
@@ -833,12 +835,14 @@ onUnmounted(() => { _stopContractAnimation() })
               : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:ring-teal-300'"
             @click="emailExport"
           >
-            <svg viewBox="0 0 13 13" width="13" height="13" fill="none" stroke="currentColor"
+            <svg v-if="emailedExport" viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3,9 7,13 15,5"/>
+            </svg>
+            <svg v-else viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor"
                  stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <!-- Envelope body -->
-              <rect x="1" y="3" width="11" height="8" rx="1"/>
-              <!-- Envelope flap (V shape) -->
-              <polyline points="1,3.5 6.5,8 12,3.5"/>
+              <rect x="1.5" y="3.5" width="15" height="11" rx="1.5"/>
+              <polyline points="1.5,4.5 9,10.5 16.5,4.5"/>
             </svg>
             <span>{{ emailedExport ? '✓ Sent' : 'Mail' }}</span>
           </button>
@@ -1358,27 +1362,47 @@ onUnmounted(() => { _stopContractAnimation() })
               <p class="text-sm text-slate-500">Color-coded Planguage obligations table. Copy to paste into Keynote / Numbers, or Email to open a pre-filled draft in Mail.app.</p>
               <!-- Copy + Email always together (Tom 2026-06-01) -->
               <div class="flex items-center gap-3 flex-wrap">
+                <!-- DD-011: no emoji — SVG copy icon + checkmark feedback -->
                 <button
                   type="button"
                   title="Copy rich HTML table to clipboard — paste into Keynote, Numbers, or Mail"
-                  class="inline-flex items-center gap-2 px-5 py-2.5 font-bold rounded-xl shadow transition-all text-sm"
+                  class="inline-flex items-center gap-2.5 px-5 py-2.5 font-bold rounded-xl shadow transition-all text-sm"
                   :class="copiedExport
                     ? 'bg-emerald-600 text-white'
                     : 'bg-teal-700 hover:bg-teal-600 text-white'"
                   @click="copyExport"
                 >
-                  {{ copiedExport ? '✅ Copied!' : '📋 Copy HTML Table' }}
+                  <svg v-if="copiedExport" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
+                       stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="3,10 8,15 17,5"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
+                       stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 14 L4 4 L14 4"/>
+                    <rect x="6" y="6" width="11" height="11" rx="1.5"/>
+                  </svg>
+                  {{ copiedExport ? '✓ Copied!' : 'Copy HTML Table' }}
                 </button>
+                <!-- DD-011: no emoji — SVG envelope icon + checkmark feedback -->
                 <button
                   type="button"
                   title="Email HTML table — downloads a .eml file that opens in Mail.app as a ready-to-send draft with the full color table in the body"
-                  class="inline-flex items-center gap-2 px-5 py-2.5 font-bold rounded-xl shadow transition-all text-sm"
+                  class="inline-flex items-center gap-2.5 px-5 py-2.5 font-bold rounded-xl shadow transition-all text-sm"
                   :class="emailedExport
                     ? 'bg-emerald-600 text-white'
                     : 'bg-teal-700 hover:bg-teal-600 text-white'"
                   @click="emailExport"
                 >
-                  {{ emailedExport ? '✅ Opening Mail…' : '✉️ Email Table' }}
+                  <svg v-if="emailedExport" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
+                       stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="3,10 8,15 17,5"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
+                       stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="1.5" y="3.5" width="17" height="13" rx="1.5"/>
+                    <polyline points="1.5,5 10,12 18.5,5"/>
+                  </svg>
+                  {{ emailedExport ? '✓ Sent!' : 'Email Table' }}
                 </button>
               </div>
             </div>
