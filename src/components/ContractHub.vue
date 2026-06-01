@@ -17,7 +17,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EditGlyph from './icons/EditGlyph.vue'
@@ -445,6 +445,109 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
   pending:   'Pending',
   done:      'Done',
 }
+
+// ── Loading animation — Rule 8 (spinner + elapsed + % + amuse cards) ──────────
+// Contract analysis runs in two phases: splitting (~10–30 s) + parsing (~20–90 s
+// depending on clause count). Rule 8 requires all four elements on every spinner.
+
+const CONTRACT_AMUSE = [
+  {
+    emoji: '📋',
+    title: 'OBLIGATIONS NEED NUMBERS',
+    text: 'A contract that says "promptly" or "reasonable efforts" without a number is a dispute waiting to happen. Planguage requires every obligation to carry a Scale, a Meter, and a numeric Goal.',
+    ref: 'Tom Gilb, Competitive Engineering, 2005',
+  },
+  {
+    emoji: '⚖️',
+    title: 'CONTRACTS ARE SPECIFICATIONS',
+    text: 'Every contract clause is a Planguage spec entry. Functions state what is present or absent; Values define measurable performance; Constraints set hard limits. Contracts and system specs share the same formal structure.',
+    ref: 'Planguage Glossary — Function, Value, Constraint',
+  },
+  {
+    emoji: '🚢',
+    title: 'USS MONITOR — 100-DAY DEADLINE',
+    text: 'The 1861 Monitor contract set a 100-day delivery deadline with $300/day liquidated damages — a measurable, unambiguous Constraint. The ship was delivered in 101 days and fought at Hampton Roads 25 days later.',
+    ref: 'US Navy Department, 4 October 1861',
+  },
+  {
+    emoji: '🔴',
+    title: '"REASONABLE" IS ALWAYS AMBIGUOUS',
+    text: '"Reasonable care," "best efforts," "timely manner" — any clause containing these phrases scores as ambiguous. Planguage demands a numeric scale: response within 15 minutes, not "promptly."',
+    ref: 'Planguage Rule_Write_planguage-spec.md',
+  },
+  {
+    emoji: '🏦',
+    title: 'SERVICE CREDITS ARE PLANGUAGE VALUES',
+    text: 'A well-written SLA credits 5% per breach, capped at 20%/month — a V. entry with Scale (credit %), Meter (breach count), Goal (0 breaches), Tolerable (≤20% lost). Most SLAs omit the Goal and Tolerable, making the credit clause unenforceable.',
+    ref: 'Tom Gilb, SEM App Contracts module',
+  },
+  {
+    emoji: '👥',
+    title: 'PARTIES ARE STAKEHOLDERS',
+    text: 'In Planguage, every party to a contract is a Stakeholder (K. entry). Their obligations are F. entries; their performance targets are V. entries; the hard limits they cannot breach are C. entries. The obligation matrix IS the stakeholder-value matrix.',
+    ref: 'Planguage Glossary — Stakeholder',
+  },
+  {
+    emoji: '📐',
+    title: 'FIVE AXES OF CONTRACT SUCCESS',
+    text: 'A contract succeeds only when ALL five axes are met: Functions present, Values within range, Constraints respected, Conditions satisfied, Resource budgets not exceeded. One axis failing makes the whole delivery a deviation.',
+    ref: 'Tom Gilb, SUCCESS book (DD-006)',
+  },
+  {
+    emoji: '🔍',
+    title: 'CLAUSE SPLITTING FINDS HIDDEN STRUCTURE',
+    text: 'Long contract paragraphs typically contain 3–5 distinct obligations. Splitting by semantic boundary — not just by numbering — exposes each obligation as a separate entry for individual measurement and tracking.',
+    ref: 'SEM App Contract Parser design',
+  },
+] as const
+
+const contractElapsed           = ref(0)
+const contractSimulatedProgress = ref(0)
+const contractAmuseIdx          = ref(0)
+
+/** True while the selected contract is in splitting or parsing phase. */
+const isContractAnalysing = computed(() =>
+  selectedContract.value !== null &&
+  (selectedContract.value.parseStatus === 'splitting' ||
+   selectedContract.value.parseStatus === 'parsing')
+)
+
+let _contractElapsedTimer: ReturnType<typeof setInterval> | null = null
+let _contractAmuseTimer:   ReturnType<typeof setInterval> | null = null
+let _contractAnimStart = 0
+
+function _startContractAnimation(): void {
+  _contractAnimStart = Date.now()
+  contractElapsed.value = 0
+  contractSimulatedProgress.value = 0
+  contractAmuseIdx.value = 0
+  if (_contractElapsedTimer) { clearInterval(_contractElapsedTimer); _contractElapsedTimer = null }
+  if (_contractAmuseTimer)   { clearInterval(_contractAmuseTimer);   _contractAmuseTimer   = null }
+
+  _contractElapsedTimer = setInterval(() => {
+    const secs = Math.round((Date.now() - _contractAnimStart) / 1000)
+    contractElapsed.value = secs
+    // Asymptotic toward 95%: ~50% at 30 s, ~80% at 55 s, ~95% at 100 s.
+    contractSimulatedProgress.value = Math.round(Math.min(95, (1 - Math.exp(-secs / 45)) * 100))
+  }, 250)
+
+  _contractAmuseTimer = setInterval(() => {
+    contractAmuseIdx.value = (contractAmuseIdx.value + 1) % CONTRACT_AMUSE.length
+  }, 8_000)
+}
+
+function _stopContractAnimation(): void {
+  if (_contractElapsedTimer) { clearInterval(_contractElapsedTimer); _contractElapsedTimer = null }
+  if (_contractAmuseTimer)   { clearInterval(_contractAmuseTimer);   _contractAmuseTimer   = null }
+  contractSimulatedProgress.value = 100
+}
+
+watch(isContractAnalysing, (nowLoading) => {
+  if (nowLoading) _startContractAnimation()
+  else _stopContractAnimation()
+})
+
+onUnmounted(() => { _stopContractAnimation() })
 </script>
 
 <template>
@@ -657,8 +760,87 @@ const PARSE_STATUS_LABEL: Record<string, string> = {
       <!-- ════════════════════ DETAIL VIEW ══════════════════════════════════ -->
       <template v-else-if="selectedContract">
 
+        <!-- ── ANALYSIS LOADING STATE — Rule 8 (spinner + elapsed + % + amuse) ── -->
+        <!-- Shown while the LLM pipeline runs (splitting + parsing phases).        -->
+        <!-- Replaces tab content area; tab bar above is still visible.             -->
+        <div
+          v-if="isContractAnalysing"
+          class="flex-1 min-h-0 flex flex-col items-center justify-center px-8 py-8 gap-6 bg-white"
+        >
+          <!-- (1) Spinner + phase label -->
+          <div class="flex flex-col items-center gap-3">
+            <svg class="animate-spin h-10 w-10 text-teal-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <div class="text-center">
+              <p class="text-sm font-semibold text-teal-700">
+                {{ selectedContract.parseStatus === 'splitting'
+                    ? 'Splitting contract into clauses…'
+                    : 'Extracting Planguage obligations from each clause…' }}
+              </p>
+              <!-- (2) Elapsed seconds -->
+              <p class="text-xs text-slate-400 mt-0.5">
+                {{ contractElapsed }}s elapsed · may take 30–120 seconds
+              </p>
+            </div>
+          </div>
+
+          <!-- (3) Simulated % progress bar -->
+          <div class="w-full max-w-xs">
+            <div class="flex justify-between text-[10px] font-medium text-slate-400 mb-1.5">
+              <span>Progress</span>
+              <span>{{ contractSimulatedProgress }}%</span>
+            </div>
+            <div class="h-2 bg-teal-100 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-teal-500 rounded-full transition-all duration-500"
+                :style="{ width: contractSimulatedProgress + '%' }"
+                role="progressbar"
+                :aria-valuenow="contractSimulatedProgress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              />
+            </div>
+          </div>
+
+          <!-- (4) Amuse cards — contract & Planguage knowledge, 8 s auto-advance -->
+          <div class="w-full max-w-sm bg-teal-50 border border-teal-100 rounded-2xl p-4 shadow-sm">
+            <div class="flex items-start gap-3">
+              <span class="text-3xl leading-none shrink-0 drop-shadow-sm" aria-hidden="true">
+                {{ CONTRACT_AMUSE[contractAmuseIdx].emoji }}
+              </span>
+              <div class="min-w-0">
+                <p class="text-[10px] font-extrabold text-teal-700 uppercase tracking-[0.14em] mb-1 leading-none">
+                  {{ CONTRACT_AMUSE[contractAmuseIdx].title }}
+                </p>
+                <p class="text-[12px] text-slate-600 leading-relaxed">
+                  {{ CONTRACT_AMUSE[contractAmuseIdx].text }}
+                </p>
+                <p class="text-[10px] text-slate-400 mt-2 italic">
+                  — {{ CONTRACT_AMUSE[contractAmuseIdx].ref }}
+                </p>
+              </div>
+            </div>
+            <!-- Dot navigation (DD-009: title= on every dot) -->
+            <div class="flex justify-center gap-1.5 mt-3" role="tablist" aria-label="Contract knowledge cards">
+              <button
+                v-for="(_, i) in CONTRACT_AMUSE"
+                :key="i"
+                type="button"
+                role="tab"
+                :aria-selected="i === contractAmuseIdx"
+                :class="['h-1.5 rounded-full transition-all duration-300 focus:outline-none',
+                          i === contractAmuseIdx ? 'w-4 bg-teal-500' : 'w-1.5 bg-teal-200 hover:bg-teal-300']"
+                :title="`Contract insight ${i + 1} of ${CONTRACT_AMUSE.length}: ${CONTRACT_AMUSE[i].title} — click to jump to this card`"
+                @click="contractAmuseIdx = i"
+              />
+            </div>
+          </div>
+        </div>
+
         <!-- ── CLAUSES TAB ──────────────────────────────────────────────── -->
-        <template v-if="activeTab === 'clauses'">
+        <template v-else-if="activeTab === 'clauses'">
           <div class="flex-1 min-h-0 flex">
 
             <!-- Clause list sidebar -->
