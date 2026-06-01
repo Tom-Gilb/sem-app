@@ -247,12 +247,19 @@ function _onKeydown(e: KeyboardEvent): void {
       document.activeElement instanceof HTMLTextAreaElement
     ) return
     e.preventDefault()
-    // Block ⌥I only when a completed result is being READ — not during loading or error.
+    // Evaluate selection BEFORE the completed-result guard so concept-within-concept
+    // drill-down works: user can select text INSIDE the More Concept Detail window and
+    // press ⌥I to look up that term. Design requirement 2026-06-01.
+    const sel = window.getSelection()?.toString().trim() ?? ''
+    const hasSelection = sel.length >= MIN_CHARS && sel.length <= MAX_CHARS
+    // Block ⌥I only when a completed result is showing, the panel is not loading,
+    // AND the user has no new text selected (pressing ⌥I with nothing selected while
+    // a result is visible would open a blank search, losing the current view pointlessly).
+    // With a selection always proceed — drill-down from inside the detail window.
     // If the panel is stuck on a spinner (open=true, loading=true, result=null),
     // allow ⌥I to start a fresh call so the user is never locked out.
-    if (open.value && result.value && !loading.value) return
-    const sel = window.getSelection()?.toString().trim() ?? ''
-    if (sel.length >= MIN_CHARS && sel.length <= MAX_CHARS) {
+    if (open.value && result.value && !loading.value && !hasSelection) return
+    if (hasSelection) {
       defineCurrentSelection(props.spec)
     } else {
       // ⌥I with no live selection → always open a BLANK term search aperture.
