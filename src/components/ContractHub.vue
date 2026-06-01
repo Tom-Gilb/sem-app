@@ -720,7 +720,73 @@ onUnmounted(() => { _stopContractAnimation() })
             : 'text-slate-600 hover:bg-slate-100'"
           @click="activeTab = tab"
         >
-          {{ tab === 'clauses' ? '📄 Clauses' : tab === 'entries' ? '📊 Entries' : tab === 'matrix' ? '🗂 Matrix' : '⬇ Export' }}
+          <!-- Contract view glyphs — purpose-designed SVG, currentColor for active/inactive states.
+               Planguage visual language: strokes, circles=entities, lines=scales/content, arrows=direction. -->
+          <span class="inline-flex items-center gap-1.5">
+
+            <!-- ── Clauses: bracketed text lines — §-concept (structured legal source text) ── -->
+            <template v-if="tab === 'clauses'">
+              <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- Left bracket — clause/section boundary marker -->
+                <path d="M5 2 L3 2 L3 16 L5 16"/>
+                <!-- Three text lines of varying length — raw contract text -->
+                <line x1="7" y1="5"  x2="16" y2="5"/>
+                <line x1="7" y1="9"  x2="13" y2="9"/>
+                <line x1="7" y1="13" x2="15" y2="13"/>
+              </svg>
+              Clauses
+            </template>
+
+            <!-- ── Entries: circle-badge + line rows — typed obligation list ── -->
+            <!-- Three small circles (type indicators) each with a content line, echoing     -->
+            <!-- the Planguage glyph vocabulary where circles represent capabilities/types.   -->
+            <template v-else-if="tab === 'entries'">
+              <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                <circle cx="3.5" cy="4"  r="2"/>
+                <line x1="7.5" y1="4"  x2="17" y2="4"/>
+                <circle cx="3.5" cy="10" r="2"/>
+                <line x1="7.5" y1="10" x2="15" y2="10"/>
+                <circle cx="3.5" cy="16" r="2"/>
+                <line x1="7.5" y1="16" x2="16" y2="16"/>
+              </svg>
+              Entries
+            </template>
+
+            <!-- ── Matrix: party × obligation grid — the Gilb obligation matrix ── -->
+            <!-- A grid with highlighted party column (top-left), representing the            -->
+            <!-- stakeholder × entry-type analysis tool.                                      -->
+            <template v-else-if="tab === 'matrix'">
+              <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- Outer frame -->
+                <rect x="1" y="1" width="16" height="16" rx="1.5"/>
+                <!-- Vertical dividers: party col | type-1 col | type-2 col -->
+                <line x1="6"  y1="1"  x2="6"  y2="17"/>
+                <line x1="12" y1="1"  x2="12" y2="17"/>
+                <!-- Horizontal divider: header row | data rows -->
+                <line x1="1"  y1="6"  x2="17" y2="6"/>
+                <!-- Party/header intersection — highlighted (current color, low opacity) -->
+                <rect x="1.5" y="1.5" width="4" height="4" fill="currentColor" fill-opacity="0.25" stroke="none"/>
+              </svg>
+              Matrix
+            </template>
+
+            <!-- ── Export: delivery arrow into tray — Evo "deliver" concept ── -->
+            <template v-else>
+              <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <!-- Tray / output destination -->
+                <path d="M2 13 L2 17 L16 17 L16 13"/>
+                <!-- Downward delivery arrow (content flowing to output) -->
+                <line x1="9" y1="2" x2="9" y2="11"/>
+                <polyline points="6 8.5  9 11.5  12 8.5"/>
+              </svg>
+              Export
+            </template>
+
+          </span>
         </button>
         <!-- Persistent Copy + Email — always both, always together (Tom 2026-06-01) -->
         <div class="ml-auto flex items-center gap-1.5">
