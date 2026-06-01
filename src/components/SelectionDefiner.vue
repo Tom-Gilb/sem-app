@@ -779,6 +779,7 @@ function escapeHtml(s: string): string {
       <div
         v-if="open"
         class="fixed bottom-0 left-0 right-0 z-[10100] flex justify-center px-4 pb-4 pt-0"
+        style="transform: translateZ(0);"
         role="dialog"
         aria-modal="true"
         aria-label="Term definition"
