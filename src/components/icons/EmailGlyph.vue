@@ -1,69 +1,51 @@
 <!--
-  EmailGlyph.vue — the SEM App's Email glyph: `[*] ---→ @`.
-  Design discussion 2026-06-01. Final form: synthesis of two competing proposals.
-
-  Notation: [*] ---→ @
+  EmailGlyph.vue — the SEM App's Email glyph: `[*]→@`.
+  Tom Gilb 2026-05-29: new Planguage keyed-icon for the "email" action.
 
   Semantics:
-    Source vessel [*]: content to be sent (the specified thing).
-    Dashed arrow ---→: non-instantaneous digital transmission across a network
-      — multiple hops, not local, not instant. The dashes encode "longer travel,"
-      Tom Gilb's framing: "the arrow symbolizing longer travel of a digital copy."
-    @ destination: the canonical internet-era address mark (Ray Tomlinson 1971,
-      ARPANET — chosen precisely because it means "user AT host/domain").
-      NOT anachronistic: @ is the defining typographic mark of the digital age,
-      on every keyboard, in every email address, universally readable across all
-      languages and cultures. Carries semantic precision the vessel family alone
-      cannot: the destination is an ADDRESS, not a container.
+    "Vessel sends its content to an address."
+    The `@` is the internet-era universal recipient mark — Ray Tomlinson 1971,
+    ARPANET: "user AT host/domain." Present on every keyboard, in every email
+    address globally. Not anachronistic — it is the defining typographic mark
+    of digital communication. The `→` is the directional transfer, as in all
+    other family members. Together: vessel-content leaves toward a named address
+    in the network.
 
-  Why @ beats [*] as the destination:
-    The vessel-to-vessel form [*]---→[*] reads as "content moved to another
-    container" — ambiguous (could be export, share, sync, duplicate-to-remote).
-    The @ makes it EMAIL specifically and unambiguously. DD-003 principle:
-    clarity of communication outranks classification tidiness. A borrowed symbol
-    that communicates more precisely than a native one is correct Planguage.
+  Design decision 2026-06-01 (after discussion):
+    Three options considered — `[*]→@` (A), `[*]---→[*]` (B), `[*]---→@` (C).
+    Tom chose A. The @ is strong enough on its own; the solid arrow is clean
+    and consistent with Save/Get/Edit. The @ uniquely identifies email; no
+    dashes needed.
 
-  Why the dashes beat a solid arrow:
-    Email is asynchronous, multi-hop, not instantaneous. The dashes encode that
-    travel-across-network semantic. Copy [*]=[*] is instant and local (equals
-    sign, no movement). The dashes are the visual tell: "not copy — sent."
-
-  Full family reference:
-    [*] = [*]     Copy    — duplicate; both vessels keep content (equals = same)
-    [*] ---→ @    Email   — sent across network to an address             ← this
-    *  →  [*]     Save    — push bare content into vessel (local)
-    [*] →  *      Get     — pull content out of vessel
-    [*] → [**]    Edit    — augment vessel contents in place
-    [*] →  [ ]    Cancel  — empty the vessel entirely
+  Distinct from:
+    *  → [*]   Save   — push INTO vessel (origin is bare asterisk)
+    [*] → *    Get    — pull OUT of vessel (destination is bare asterisk)
+    [*] = [*]  Copy   — duplicate to clipboard (both vessels hold the asterisk)
+    [*] → @    Email  — send to remote address    ← this
 
   Renders via `currentColor`. Three sizes match the rest of the family.
-
-  SVG construction:
-    - stroke-dasharray on the ARROW LINE only (SVG does not inherit it, so
-      the arrowhead <polyline> and the @ symbol remain solid — correct)
-    - stroke-linecap="butt" on the dashed line for clean dash termination
-    - Left-vessel bracket coordinates identical to CopyGlyph for visual alignment
-    - @ drawn as: outer ring + inner 3/4-arc (gap top-right) + hook tail
+  The @ is drawn as: outer ring + inner 3/4 arc (the "a" body) + hook tail
+  exiting right, then curving down — recognisable as @ at all three sizes.
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Widget
 withDefaults(defineProps<{
   size?: 'compact' | 'standard' | 'large'
-  /** Optional aria-label. Defaults to semantics description. */
+  /** Optional aria-label. Defaults to "Email — send vessel content to address". */
   ariaLabel?: string
 }>(), {
   size: 'standard',
-  ariaLabel: 'Email — vessel content transmitted across network to address',
+  ariaLabel: 'Email — send vessel content to address',
 })
 </script>
 
 <template>
-  <!-- ── Large: 96×32, stroke 2.8 ───────────────────────────────────────── -->
+  <!-- ── Large: 100×32, stroke 2.8 ──────────────────────────────────────── -->
   <svg
     v-if="size === 'large'"
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 96 32"
-    width="96"
+    viewBox="0 0 100 32"
+    width="100"
     height="32"
     fill="none"
     stroke="currentColor"
@@ -79,26 +61,25 @@ withDefaults(defineProps<{
     <line x1="14.34" y1="21" x2="31.66" y2="11" />
     <line x1="14.34" y1="11" x2="31.66" y2="21" />
     <polyline points="36,2 43,2 43,30 36,30" />
-    <!-- Dashed arrow ---→ (dashes = network hops / longer digital travel) -->
-    <line x1="48" y1="16" x2="61" y2="16"
-          stroke-dasharray="5 3" stroke-linecap="butt" />
-    <polyline points="53,9 61,16 53,23" />
-    <!-- @ address mark: outer ring, inner 3/4-arc, hook tail -->
-    <!-- Outer ring: center (79,16) r=11 -->
-    <circle cx="79" cy="16" r="11" />
-    <!-- Inner 3/4-arc: center (77,16) r=4 — gap opens at top-right for hook -->
-    <path d="M77,12 A4,4 0 1,0 81,16" stroke-linecap="round" />
-    <!-- Hook: inner-right → outer ring → drop -->
-    <line x1="81" y1="16" x2="90" y2="16" />
-    <line x1="90" y1="16" x2="90" y2="23" />
+    <!-- Arrow → -->
+    <line x1="48" y1="16" x2="66" y2="16" stroke-linecap="butt" />
+    <polyline points="58,9 66,16 58,23" />
+    <!-- @ symbol: outer ring + inner 3/4 arc + hook tail -->
+    <!-- Outer ring, center (80,16), r=12 -->
+    <circle cx="80" cy="16" r="12" />
+    <!-- Inner arc: center (78,16), r=4.5 — 3/4 circle, gap at top-right -->
+    <path d="M78,11.5 A4.5,4.5 0 1,0 82.5,16" stroke-linecap="round" />
+    <!-- Hook: inner-right → outer-right → drop -->
+    <line x1="82.5" y1="16" x2="92" y2="16" />
+    <line x1="92" y1="16" x2="92" y2="24" />
   </svg>
 
-  <!-- ── Standard: 76×24, stroke 2.2 ───────────────────────────────────── -->
+  <!-- ── Standard: 80×24, stroke 2.2 ───────────────────────────────────── -->
   <svg
     v-else-if="size === 'standard'"
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 76 24"
-    width="76"
+    viewBox="0 0 80 24"
+    width="80"
     height="24"
     fill="none"
     stroke="currentColor"
@@ -114,25 +95,25 @@ withDefaults(defineProps<{
     <line x1="9.94" y1="15.5" x2="22.06" y2="8.5" />
     <line x1="9.94" y1="8.5" x2="22.06" y2="15.5" />
     <polyline points="25,1 30,1 30,23 25,23" />
-    <!-- Dashed arrow ---→ -->
-    <line x1="34" y1="12" x2="47" y2="12"
-          stroke-dasharray="3.5 2.5" stroke-linecap="butt" />
-    <polyline points="41,7 47,12 41,17" />
-    <!-- @ address mark: outer ring center (62,12) r=9 -->
-    <circle cx="62" cy="12" r="9" />
-    <!-- Inner 3/4-arc: center (60,12) r=3.5 -->
-    <path d="M60,8.5 A3.5,3.5 0 1,0 63.5,12" stroke-linecap="round" />
-    <!-- Hook -->
-    <line x1="63.5" y1="12" x2="71" y2="12" />
-    <line x1="71" y1="12" x2="71" y2="17" />
+    <!-- Arrow → -->
+    <line x1="33" y1="12" x2="50" y2="12" stroke-linecap="butt" />
+    <polyline points="44,7 50,12 44,17" />
+    <!-- @ symbol: outer ring + inner 3/4 arc + hook tail -->
+    <!-- Outer ring, center (63,12), r=9 -->
+    <circle cx="63" cy="12" r="9" />
+    <!-- Inner arc: center (61,12), r=3.5 — 3/4 circle, gap at top-right -->
+    <path d="M61,8.5 A3.5,3.5 0 1,0 64.5,12" stroke-linecap="round" />
+    <!-- Hook: inner-right → outer-right → drop -->
+    <line x1="64.5" y1="12" x2="72" y2="12" />
+    <line x1="72" y1="12" x2="72" y2="18" />
   </svg>
 
-  <!-- ── Compact: 65×20, stroke 2.0 ─────────────────────────────────────── -->
+  <!-- ── Compact: 67×20, stroke 2.0 ─────────────────────────────────────── -->
   <svg
     v-else
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 65 20"
-    width="65"
+    viewBox="0 0 67 20"
+    width="67"
     height="20"
     fill="none"
     stroke="currentColor"
@@ -148,16 +129,16 @@ withDefaults(defineProps<{
     <line x1="7.8" y1="13" x2="18.2" y2="7" />
     <line x1="7.8" y1="7" x2="18.2" y2="13" />
     <polyline points="21,1 25,1 25,19 21,19" />
-    <!-- Dashed arrow ---→ -->
-    <line x1="29" y1="10" x2="40" y2="10"
-          stroke-dasharray="3 2" stroke-linecap="butt" />
-    <polyline points="36,6 40,10 36,14" />
-    <!-- @ address mark: outer ring center (53,10) r=7.5 -->
+    <!-- Arrow → -->
+    <line x1="29" y1="10" x2="42" y2="10" stroke-linecap="butt" />
+    <polyline points="37,6 42,10 37,14" />
+    <!-- @ symbol: outer ring + inner 3/4 arc + hook tail -->
+    <!-- Outer ring, center (53,10), r=7.5 -->
     <circle cx="53" cy="10" r="7.5" />
-    <!-- Inner 3/4-arc: center (51.5,10) r=3 -->
+    <!-- Inner arc: center (51.5,10), r=3 — 3/4 circle, gap at top-right -->
     <path d="M51.5,7 A3,3 0 1,0 54.5,10" stroke-linecap="round" />
-    <!-- Hook -->
-    <line x1="54.5" y1="10" x2="60.5" y2="10" />
-    <line x1="60.5" y1="10" x2="60.5" y2="14.5" />
+    <!-- Hook: inner-right → outer-right → drop -->
+    <line x1="54.5" y1="10" x2="61" y2="10" />
+    <line x1="61" y1="10" x2="61" y2="15" />
   </svg>
 </template>
