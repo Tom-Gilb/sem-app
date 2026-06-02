@@ -401,17 +401,33 @@ function claudeCodeProxy(): Plugin {
           }
 
           // Build the claude CLI args. Notable flags:
-          //   -p                          — print mode (non-interactive)
-          //   --output-format json        — structured response, easy to parse
-          //   --output-format stream-json — line-delimited events (streaming mode)
-          //   --include-partial-messages  — emit text deltas (streaming mode)
-          //   --model <X>                 — use the model the composable requested
-          //   --system-prompt <X>         — system prompt
-          //   --no-session-persistence    — do not pollute Tom's session list
+          //   -p                                          — print mode (non-interactive)
+          //   --output-format json                        — structured response, easy to parse
+          //   --output-format stream-json                 — line-delimited events (streaming mode)
+          //   --include-partial-messages                  — emit text deltas (streaming mode)
+          //   --model <X>                                 — use the model the composable requested
+          //   --system-prompt <X>                         — system prompt
+          //   --no-session-persistence                    — do not pollute Tom's session list
+          //   --setting-sources user                      — skip project + local settings (Tom 2026-06-03)
+          //   --exclude-dynamic-system-prompt-sections    — skip cwd/env/git/memory context (Tom 2026-06-03)
+          //
+          // SPEED FIX (Tom 2026-06-03): Without --setting-sources user +
+          // --exclude-dynamic-system-prompt-sections + a clean cwd, every
+          // subprocess call loaded ~16,000 tokens of project context
+          // (sem-app's CLAUDE.md, git status, file memory, env info).
+          // That input-token load alone added many seconds to every call
+          // — the SEM App does NOT need Claude to know about its own code;
+          // each call carries its own system+user prompt. Skipping these
+          // context loads brought a 3-step Evo plan from 200s+ down to
+          // model-time (~30-60s for Sonnet 4.6).
+          //
           // Prompt is piped via stdin (avoids shell-arg length / escaping issues).
           const args: string[] = streaming
-            ? ['-p', '--output-format', 'stream-json', '--include-partial-messages', '--verbose', '--no-session-persistence']
-            : ['-p', '--output-format', 'json', '--no-session-persistence']
+            ? ['-p', '--output-format', 'stream-json', '--include-partial-messages', '--verbose',
+               '--no-session-persistence', '--setting-sources', 'user',
+               '--exclude-dynamic-system-prompt-sections']
+            : ['-p', '--output-format', 'json', '--no-session-persistence',
+               '--setting-sources', 'user', '--exclude-dynamic-system-prompt-sections']
           if (model) args.push('--model', model)
           if (system) args.push('--system-prompt', system)
 
@@ -427,8 +443,14 @@ function claudeCodeProxy(): Plugin {
           console.log(`[claude-code-proxy] → claude ${model ?? 'default'} (${prompt.length}b prompt, ${system?.length ?? 0}b system)${streaming ? ' [stream]' : ''}`)
           const startMs = Date.now()
 
+          // SPEED FIX (Tom 2026-06-03): spawn from tmpdir() so claude does NOT
+          // auto-discover the sem-app CLAUDE.md / git status / project memory.
+          // OAuth still works (the auth files are in ~/.claude, not the cwd).
+          // The actual prompt the model sees is exactly what the composable
+          // sent via system+user — Claude Code's project-aware features are
+          // off-by-design for batch API calls.
           const child = spawn(CLAUDE_BIN, args, {
-            cwd: process.cwd(),
+            cwd: tmpdir(),
             stdio: ['pipe', 'pipe', 'pipe'],
             env: process.env, // inherits OAuth, PATH, etc.
           })
