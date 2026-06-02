@@ -260,21 +260,26 @@ export function useEvoPlan() {
 
     // ── Backup timeout guard — setInterval-based (reliable in WKWebView) ────────
     //
-    // ROOT CAUSE (2026-06-02): setTimeout(fn, 60_000) does NOT reliably fire in
+    // ROOT CAUSE (2026-06-02): setTimeout(fn, ms) does NOT reliably fire in
     // this WKWebView/Electron context.  Evidence: spinner reached 182s despite
-    // three independent 60s setTimeout mechanisms.  setInterval(fn, 1_000) IS
+    // three independent setTimeout mechanisms.  setInterval(fn, 1_000) IS
     // reliable (LoadingProgress elapsed counter proved it by reaching 182s).
     //
-    // APPROACH: Count 60 ticks of 1s each using setInterval.  On the 60th tick,
+    // APPROACH: Count ticks of 1s each using setInterval.  On the Nth tick,
     // call cancelFetch().  The interval is cleared in the finally block so a
-    // successful API call before 60s cancels it cleanly.
+    // successful API call before the ceiling cancels it cleanly.
     //
-    // 60 s matches EVO_TIMEOUT in useEvoPlannerAPI.ts.
+    // CEILING (Tom 2026-06-03): 180s for streaming, 60s for non-streaming.
+    // Streaming surfaces live step names in the UI, so the user has
+    // continuous feedback and a longer ceiling is reasonable. Non-streaming
+    // is a blank wait — 60s is the "no ad counting" limit. Must match
+    // EVO_TIMEOUT_S in useEvoPlannerAPI.ts.
+    const _backupCeilingSec = onProgress ? 180 : 60
     let _backupTicks = 0
     const _backupIntervalHandle = setInterval(() => {
       _backupTicks++
-      if (_backupTicks >= 60 && !_userCancelled && _fetchGeneration === thisGeneration) {
-        cancelFetch('Evo generation timed out after 60 s — click Retry.')
+      if (_backupTicks >= _backupCeilingSec && !_userCancelled && _fetchGeneration === thisGeneration) {
+        cancelFetch(`Evo generation timed out after ${_backupCeilingSec} s — click Retry.`)
         clearInterval(_backupIntervalHandle)
       }
     }, 1_000)

@@ -268,17 +268,30 @@ export function useEvoPlannerAPI() {
     //     async stack is gone; it cannot write to any reactive state). This is safe.
     //   - clearInterval in finally ensures a successful call cancels the timer.
     //
-    // 60 s rationale: most Evo plans complete in 20–45 s on a healthy network.
-    //   60 s is a firm UX ceiling — Tom 2026-06-02: "no 66sec ad counting."
-    //   Previously 120 s (too long for the user to wait with no escape).
-    //   The Cancel button in EvoPlanView is the user's escape hatch before timeout.
+    // Timeout ceiling rationale:
+    //   - 60 s (the original) was set when calls were non-streaming — the user
+    //     stared at a blank progress bar with no visible output. Tom 2026-06-02:
+    //     "no 66sec ad counting." That ceiling existed because BLANK waits
+    //     past 60s feel broken.
+    //   - 180 s (streaming, Tom 2026-06-03): with the Claude Code SSE adapter,
+    //     EvoPlanView surfaces ACTUAL step names live ("Drafting Evo Step 4:
+    //     Education & Job Training Rollout") as they are typed by the model.
+    //     The user has continuous visible feedback, not a blank wait — so the
+    //     ceiling can be much longer. Detailed 4–5 step plans with long
+    //     descriptions legitimately take 90–150 s; capping at 60 s aborted
+    //     plans mid-Step-4 (Tom 2026-06-03 screenshot, 107s elapsed at Step 4).
+    //   - The Cancel button in EvoPlanView is the user's escape hatch — they
+    //     can always abort earlier if they want.
+    //   - For non-streaming callers (none currently), the same ceiling applies
+    //     but they get no visible feedback. Non-streaming use is discouraged
+    //     and should remain a fallback path only.
     //
-    // RELIABILITY NOTE (2026-06-02): setTimeout(fn, 60_000) does NOT reliably fire
-    // in WKWebView/Electron — empirically proven when the spinner reached 182s with
-    // three independent 60s setTimeout mechanisms all failing simultaneously.
-    // setInterval(fn, 1_000) IS reliable in this runtime.  This timeout race now
-    // uses the same setInterval + tick-count pattern as useEvoPlan.ts's backup timer.
-    const EVO_TIMEOUT_S = 60
+    // RELIABILITY NOTE (2026-06-02): setTimeout(fn, ms) does NOT reliably fire
+    // in WKWebView/Electron — empirically proven when the spinner reached 182s
+    // with three independent setTimeout mechanisms all failing simultaneously.
+    // setInterval(fn, 1_000) IS reliable in this runtime.  This timeout race
+    // uses the same setInterval + tick-count pattern as useEvoPlan.ts's backup.
+    const EVO_TIMEOUT_S = onProgress ? 180 : 60
     let _timeoutId: ReturnType<typeof setInterval> | null = null
 
     // Timeout promise — rejects after EVO_TIMEOUT_S seconds via setInterval tick count.

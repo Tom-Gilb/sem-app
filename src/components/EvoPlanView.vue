@@ -3200,15 +3200,23 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       ("17 entries, ~40h Week cycle") not generic placeholders.
     -->
     <div v-if="loading" class="py-10 px-2 space-y-4">
+      <!--
+        Ceiling raised to 180s (Tom 2026-06-03) because streaming gives the
+        user live step names instead of a blank wait — the original 60s
+        ceiling was "no blank ad counter" and no longer applies when actual
+        step names appear in the commentary. Detailed 4-5 step plans
+        legitimately take 90-150s. Cancel button below remains the user's
+        early-escape hatch.
+      -->
       <LoadingProgress
         :loading="loading"
         label="Generating Evo Value Delivery Steps…"
-        :baseline="60"
-        :max-seconds="60"
-        hint="Evo planning typically takes 20–45s · auto-stops at 60s · or cancel below"
+        :baseline="120"
+        :max-seconds="180"
+        hint="Detailed plans (4–5 steps) typically take 60–150s · auto-stops at 180s · or cancel below"
         color="indigo"
         :phases="evoPlannerPhases"
-        @timeout="cancelFetch('Evo generation timed out after 60 s — click Retry.')"
+        @timeout="cancelFetch('Evo generation timed out after 180 s — click Retry.')"
       />
       <!-- Cancel button — Tom 2026-06-02: "no 66sec ad counting".
            Immediately resets loading state; the background API call finishes
