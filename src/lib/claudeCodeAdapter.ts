@@ -189,6 +189,34 @@ class ClaudeCodeStream {
   }
 
   private async _run(params: AnthropicParams): Promise<void> {
+    // Hold a reference to the body-stream reader so the abort handler
+    // below can hard-cancel it. WebKit does not always promptly throw
+    // from an in-flight `reader.read()` when only the fetch signal aborts —
+    // explicitly calling reader.cancel() makes the next .read() resolve
+    // with `{done: true}` immediately so the loop exits and the
+    // middleware's res.on('close') fires (which SIGTERMs the subprocess).
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+
+    // Early-out if the signal is already aborted (e.g. cancelFetch fired
+    // before this Stream's _run() even started).
+    if (params.signal?.aborted) {
+      this._reject(new DOMException('Aborted before start', 'AbortError'))
+      return
+    }
+
+    // Attach an abort listener that forcibly cancels the reader and the
+    // wider _done promise the moment cancelFetch fires. Cleanup runs in
+    // the finally block so a successful completion does not leak it.
+    const onAbort = (): void => {
+      if (reader !== null) {
+        // Fire-and-forget; cancel() rejects in some browsers when the
+        // stream has already closed — that is fine.
+        reader.cancel(new DOMException('Aborted', 'AbortError')).catch(() => {})
+      }
+      this._reject(new DOMException('Aborted', 'AbortError'))
+    }
+    params.signal?.addEventListener('abort', onAbort, { once: true })
+
     try {
       // Streaming endpoint — ?stream=1 flips the middleware into SSE mode.
       const url = `${adapterUrl()}?stream=1`
@@ -208,7 +236,7 @@ class ClaudeCodeStream {
         throw new Error(`Claude Code stream error ${res.status}: ${await res.text()}`)
       }
 
-      const reader  = res.body.getReader()
+      reader = res.body.getReader()
       const decoder = new TextDecoder()
       let   buffer  = ''
       let   gotError: string | null = null
@@ -275,6 +303,11 @@ class ClaudeCodeStream {
       this._resolve()
     } catch (e) {
       this._reject(e)
+    } finally {
+      // Always remove the abort listener; calling onAbort after _done has
+      // settled is a no-op but the listener would still hold a reference
+      // to the closure (memory leak in long-running sessions).
+      params.signal?.removeEventListener('abort', onAbort)
     }
   }
 }
