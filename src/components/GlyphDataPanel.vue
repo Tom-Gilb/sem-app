@@ -26,6 +26,7 @@
 // UNIT_TYPE=Panel
 import { computed, onMounted, onUnmounted } from 'vue'
 import PlTypeIcon, { type PlGlyphType } from './icons/PlTypeIcon.vue'
+import PlSpecFieldIcon, { type SpecFieldType } from './icons/PlSpecFieldIcon.vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 
@@ -53,6 +54,13 @@ interface GlossaryTerm {
   term: string
   abbrev: string
   definition: string
+  /**
+   * Optional PlSpecFieldIcon type for this glossary term.
+   * When present, a PlSpecFieldIcon is shown beside the term name.
+   * Currently used for the 'value' type's Scale/Meter/Goal/Tolerable terms.
+   * Other types may add fieldIcon in future without breaking the interface.
+   */
+  fieldIcon?: SpecFieldType
 }
 
 interface HistoricalFact {
@@ -145,11 +153,11 @@ const GLYPH_DATA: Record<PlGlyphType, GlyphEntry> = {
   Goal:      < 1 s
   Record: [2026-05-01] Current: 3.2 s`,
     glossaryTerms: [
-      { term: 'Scale',     abbrev: 'Sc.',  definition: 'The dimension of measurement — the named, observable property being quantified. Must be unambiguous: not "user happiness" but "Net Promoter Score (−100 to +100)".' },
-      { term: 'Meter',     abbrev: 'Me.',  definition: 'The measurement instrument or procedure — HOW the Scale is measured. A Meter without a Scale is meaningless; a Scale without a Meter is unmeasurable.' },
-      { term: 'Goal',      abbrev: 'Go.',  definition: 'The optimum target level on the Scale — the desired state if resources were unlimited. Not a minimum, not a threshold: the best achievable outcome.' },
-      { term: 'Tolerable', abbrev: 'To.',  definition: 'The minimum acceptable level — below this, the stakeholder need is unmet. The boundary between acceptable and unacceptable performance.' },
-      { term: 'Record',    abbrev: 'Rec.', definition: 'Time-stamped actual measurements on the Scale — the empirical evidence base. Without Records, the Value is a hypothesis, not an engineering claim.' },
+      { term: 'Scale',     abbrev: 'Sc.',  fieldIcon: 'scale',     definition: 'The dimension of measurement — the named, observable property being quantified. Must be unambiguous: not "user happiness" but "Net Promoter Score (−100 to +100)".' },
+      { term: 'Meter',     abbrev: 'Me.',  fieldIcon: 'meter',     definition: 'The measurement instrument or procedure — HOW the Scale is measured. A Meter without a Scale is meaningless; a Scale without a Meter is unmeasurable.' },
+      { term: 'Goal',      abbrev: 'Go.',  fieldIcon: 'goal',      definition: 'The optimum target level on the Scale — the desired state if resources were unlimited. Not a minimum, not a threshold: the best achievable outcome.' },
+      { term: 'Tolerable', abbrev: 'To.',  fieldIcon: 'tolerable', definition: 'The minimum acceptable level — below this, the stakeholder need is unmet. The boundary between acceptable and unacceptable performance.' },
+      { term: 'Record',    abbrev: 'Rec.',                         definition: 'Time-stamped actual measurements on the Scale — the empirical evidence base. Without Records, the Value is a hypothesis, not an engineering claim.' },
     ],
     history: {
       year:    '1950',
@@ -893,7 +901,15 @@ onUnmounted(() => document.removeEventListener('keydown', _onKeydown, { capture:
                   :style="{ background: data.hex + '15', color: data.hex }"
                 >{{ term.abbrev }}</span>
                 <div>
-                  <span class="text-[11px] font-bold text-slate-700">{{ term.term }}</span>
+                  <span class="flex items-center gap-1">
+                    <!-- PlSpecFieldIcon for Value field terms (Scale/Meter/Goal/Tolerable) -->
+                    <PlSpecFieldIcon
+                      v-if="term.fieldIcon"
+                      :field="term.fieldIcon"
+                      size="xs"
+                    />
+                    <span class="text-[11px] font-bold text-slate-700">{{ term.term }}</span>
+                  </span>
                   <p class="text-[10px] text-slate-500 leading-snug mt-0.5">{{ term.definition }}</p>
                 </div>
               </div>

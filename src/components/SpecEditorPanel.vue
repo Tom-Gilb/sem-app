@@ -12,6 +12,8 @@ import CloseDot from './CloseDot.vue'
 import ConceptHint from './ConceptHint.vue'
 // DD-001 (2026-05-13) — Save glyph replaces 💾 floppy disc.
 import SaveGlyph from './icons/SaveGlyph.vue'
+// DD-011 (2026-06-02) — Planguage Spec Field Icons replace generic emoji on field labels.
+import PlSpecFieldIcon from './icons/PlSpecFieldIcon.vue'
 import EditGlyph from './icons/EditGlyph.vue'
 import PriorityActionButton from './PriorityActionButton.vue'
 import ValueFlowDiagram from './ValueFlowDiagram.vue'
@@ -1253,19 +1255,27 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                 <template v-if="editLevel >= 2">
                   <div class="grid grid-cols-2 gap-3">
                     <div>
-                      <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Scale</label>
+                      <label class="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                        <PlSpecFieldIcon field="scale" size="xs" /><span>Scale</span>
+                      </label>
                       <input :value="entry.scale ?? ''" type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400" @input="updateVEntry(idx, { scale: ($event.target as HTMLInputElement).value })" />
                     </div>
                     <div>
-                      <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Meter</label>
+                      <label class="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                        <PlSpecFieldIcon field="meter" size="xs" /><span>Meter</span>
+                      </label>
                       <input :value="entry.meter ?? ''" type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400" @input="updateVEntry(idx, { meter: ($event.target as HTMLInputElement).value })" />
                     </div>
                     <div>
-                      <label class="block text-[10px] font-semibold text-emerald-600 uppercase tracking-wide mb-1">Tolerable <span class="font-normal normal-case text-gray-400">— minimum</span></label>
+                      <label class="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 uppercase tracking-wide mb-1">
+                        <PlSpecFieldIcon field="tolerable" size="xs" /><span>Tolerable <span class="font-normal normal-case text-gray-400">— minimum</span></span>
+                      </label>
                       <input :value="entry.tolerable ?? ''" type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400" @input="updateVEntry(idx, { tolerable: ($event.target as HTMLInputElement).value })" />
                     </div>
                     <div>
-                      <label class="block text-[10px] font-semibold text-emerald-600 uppercase tracking-wide mb-1">Goal <span class="font-normal normal-case text-gray-400">— target</span></label>
+                      <label class="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 uppercase tracking-wide mb-1">
+                        <PlSpecFieldIcon field="goal" size="xs" /><span>Goal <span class="font-normal normal-case text-gray-400">— target</span></span>
+                      </label>
                       <input :value="entry.goal ?? ''" type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400" @input="updateVEntry(idx, { goal: ($event.target as HTMLInputElement).value })" />
                     </div>
                   </div>
@@ -1274,7 +1284,9 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                     <input :value="entry.wishStakeholder ?? ''" type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400" @input="updateVEntry(idx, { wishStakeholder: ($event.target as HTMLInputElement).value })" />
                   </div>
                   <div>
-                    <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Status <span class="font-normal normal-case text-gray-400">— current measured state</span></label>
+                    <label class="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <PlSpecFieldIcon field="status" size="xs" /><span>Status <span class="font-normal normal-case text-gray-400">— current measured state</span></span>
+                    </label>
                     <input :value="entry.status ?? ''" type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400" @input="updateVEntry(idx, { status: ($event.target as HTMLInputElement).value })" />
                   </div>
                 </template>

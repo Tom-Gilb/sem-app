@@ -6257,28 +6257,28 @@
                     </div>
                   </div>
 
-                  <!-- Scale block — icon: 📐 -->
+                  <!-- Scale block — icon: PlSpecFieldIcon field="scale" -->
                   <div
                     v-if="v.scale"
                     class="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5"
                     :class="pulseStructured ? 'animate-pulse-once' : ''"
                   >
                     <div class="flex items-center gap-1.5 mb-1">
-                      <span aria-hidden="true" class="text-sm">📐</span>
+                      <PlSpecFieldIcon field="scale" size="xs" />
                       <!-- Feature #11: tooltip on Scale label -->
                       <PlanguageTerm term="Scale" class="text-xs font-semibold text-slate-600" />
                     </div>
                     <p class="text-sm text-slate-700">{{ v.scale }}</p>
                   </div>
 
-                  <!-- Meter block — icon: 🔬 -->
+                  <!-- Meter block — icon: PlSpecFieldIcon field="meter" -->
                   <div
                     v-if="v.meter"
                     class="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5"
                     :class="pulseStructured ? 'animate-pulse-once' : ''"
                   >
                     <div class="flex items-center gap-1.5 mb-1">
-                      <span aria-hidden="true" class="text-sm">🔬</span>
+                      <PlSpecFieldIcon field="meter" size="xs" />
                       <!-- Feature #11: tooltip on Meter label -->
                       <PlanguageTerm term="Meter" class="text-xs font-semibold text-slate-600" />
                     </div>
@@ -6298,7 +6298,7 @@
                       :class="pulseStructured ? 'animate-pulse-once' : ''"
                     >
                       <div class="flex items-center gap-1.5 mb-1">
-                        <span aria-hidden="true" class="text-sm">📍</span>
+                        <PlSpecFieldIcon field="status" size="xs" />
                         <PlanguageTerm term="Status" class="text-xs font-semibold text-red-700" />
                       </div>
                       <p class="text-sm text-red-800">{{ v.status }}</p>
@@ -6309,7 +6309,7 @@
                       :class="pulseStructured ? 'animate-pulse-once' : ''"
                     >
                       <div class="flex items-center gap-1.5 mb-1">
-                        <span aria-hidden="true" class="text-sm">🟡</span>
+                        <PlSpecFieldIcon field="tolerable" size="xs" />
                         <PlanguageTerm term="Tolerable" class="text-xs font-semibold text-amber-700" />
                       </div>
                       <p class="text-sm text-amber-800">{{ v.tolerable }}</p>
@@ -6320,7 +6320,7 @@
                       :class="pulseStructured ? 'animate-pulse-once' : ''"
                     >
                       <div class="flex items-center gap-1.5 mb-1">
-                        <span aria-hidden="true" class="text-sm">⭐</span>
+                        <PlSpecFieldIcon field="wish" size="xs" />
                         <PlanguageTerm term="Wish" class="text-xs font-semibold text-violet-700" />
                       </div>
                       <p class="text-sm text-violet-800">{{ v.goal }}</p>
@@ -7839,6 +7839,7 @@ import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick, re
 import AmuseMeButton from './AmuseMeButton.vue'
 import { openEml } from '../composables/useEmlExport'
 import CopyGlyph    from './icons/CopyGlyph.vue'
+import PlSpecFieldIcon from './icons/PlSpecFieldIcon.vue'
 import PlTypeBadge  from './icons/PlTypeBadge.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 // DD-001 (2026-05-13) — SaveGlyph (`*→[*]`) replaces 💾 for save-to-copy
