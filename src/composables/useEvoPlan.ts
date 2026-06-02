@@ -6,6 +6,7 @@ import { ref, readonly } from 'vue'
 import { useEvoPlannerAPI } from './useEvoPlannerAPI'
 import { useWorkspace } from './useWorkspace'
 import { useSpecHistory } from './useSpecHistory'
+import { usePlanModel } from './usePlanModel'
 import { getSupabaseClient } from '../config/supabase'
 import type { SpecBlock } from '../types/spec'
 import type { EvoStepPlan } from '../types/evo-plan'
@@ -76,6 +77,23 @@ let _skipNextFetch = false
  * after the first plan appears, then regenerating in a loop.
  */
 let _inFlight = false
+
+/**
+ * Monotonic generation counter.  Every fetchPlan() invocation captures its
+ * own generation number at entry.  The finally block only clears _inFlight
+ * and _loading if the generation hasn't been superseded — preventing a
+ * cancelled+immediately-restarted fetch from having its new loading state
+ * killed by the old invocation's finally block.
+ */
+let _fetchGeneration = 0
+
+/**
+ * User-cancellation flag. Set by cancelFetch() so that when planSteps()
+ * eventually resolves (after the cancel), fetchPlan does not write the
+ * result into reactive state — the API call keeps running in background
+ * but its result is silently discarded.
+ */
+let _userCancelled = false
 /** Tracks the most recent spec we've seen so subsequent calls with the
  *  exact same SpecBlock identity are a guaranteed no-op even after the
  *  inFlight guard clears.  Without this, a watcher firing twice with the
@@ -117,6 +135,32 @@ export function resetPlanForLoad(): void {
 }
 
 /**
+ * Cancels an in-flight fetchPlan() call immediately from the caller's side.
+ *
+ * Sets _userCancelled so that when planSteps() eventually resolves (the
+ * Anthropic API call cannot be aborted mid-flight), fetchPlan silently discards
+ * the result instead of writing it into reactive state.
+ *
+ * Also clears the in-flight and loading guards immediately, so the UI returns
+ * to the idle "Generate Evo Steps" state right away — the user does not have to
+ * wait for the background API call to finish.
+ *
+ * Tom 2026-06-02: "no 66sec ad counting" — Cancel must be instant and obvious.
+ */
+/**
+ * @param errorMessage  Optional message to surface in the UI after cancelling.
+ *   Pass a non-empty string for timeout cancels so the user sees "timed out" rather
+ *   than a blank error area.  Omit (or pass '') for user-initiated Cancel clicks —
+ *   the UI returns to idle with no error banner.
+ */
+export function cancelFetch(errorMessage = ''): void {
+  _userCancelled = true
+  _inFlight      = false
+  _loading.value = false
+  _planError.value = errorMessage
+}
+
+/**
  * Resets ALL module-level singleton state to initial values.
  *
  * @internal — for Vitest isolation ONLY. Not part of the public API.
@@ -136,6 +180,8 @@ export function _resetModuleState(): void {
   _loading.value    = false
   _skipNextFetch    = false
   _inFlight         = false
+  _userCancelled    = false
+  _fetchGeneration  = 0
   _lastFetchedSpec  = null
 }
 
@@ -147,6 +193,7 @@ export function useEvoPlan() {
   const { error: apiError, planSteps } = useEvoPlannerAPI()
   const { currentWorkspace } = useWorkspace()
   const { updateLatestPlan } = useSpecHistory()
+  const { currentModel } = usePlanModel()
 
   // error alias — wraps the module-level ref so callers keep the same API
   const error = _planError
@@ -164,7 +211,17 @@ export function useEvoPlan() {
    * "Generate Evo Plan" CTA and the Retry button) so that clicking always
    * launches a fresh LLM call regardless of cached / pre-loaded state.
    */
-  async function fetchPlan(specBlock: SpecBlock, force = false): Promise<void> {
+  async function fetchPlan(
+    specBlock: SpecBlock,
+    force = false,
+    /**
+     * Optional streaming progress callback — forwarded to planSteps().
+     * Fires with the accumulated partial text every time a new token chunk
+     * arrives. Used by EvoPlanView to extract step names live for the
+     * loading-state commentary. Safe to omit.
+     */
+    onProgress?: (partialText: string) => void,
+  ): Promise<void> {
     // Restore path: a plan was pre-loaded — use it directly, skip AI generation.
     // Bypassed when force = true (user explicitly asked to regenerate).
     if (!force && _skipNextFetch) {
@@ -199,12 +256,45 @@ export function useEvoPlan() {
 
     _inFlight = true
     _loading.value = true
+    const thisGeneration = ++_fetchGeneration
+
+    // ── Backup timeout guard — setInterval-based (reliable in WKWebView) ────────
+    //
+    // ROOT CAUSE (2026-06-02): setTimeout(fn, 60_000) does NOT reliably fire in
+    // this WKWebView/Electron context.  Evidence: spinner reached 182s despite
+    // three independent 60s setTimeout mechanisms.  setInterval(fn, 1_000) IS
+    // reliable (LoadingProgress elapsed counter proved it by reaching 182s).
+    //
+    // APPROACH: Count 60 ticks of 1s each using setInterval.  On the 60th tick,
+    // call cancelFetch().  The interval is cleared in the finally block so a
+    // successful API call before 60s cancels it cleanly.
+    //
+    // 60 s matches EVO_TIMEOUT in useEvoPlannerAPI.ts.
+    let _backupTicks = 0
+    const _backupIntervalHandle = setInterval(() => {
+      _backupTicks++
+      if (_backupTicks >= 60 && !_userCancelled && _fetchGeneration === thisGeneration) {
+        cancelFetch('Evo generation timed out after 60 s — click Retry.')
+        clearInterval(_backupIntervalHandle)
+      }
+    }, 1_000)
+
     try {
       error.value = ''
       isConfirmed.value = false
       plan.value = null
 
-      const result = await planSteps(specBlock)
+      // Read cycle length from the active plan model — constrains LLM step sizing.
+      // Default 'week' if no model is active yet.
+      const cycleLength = currentModel.value?.evoCycleLength ?? 'week'
+      const result = await planSteps(specBlock, cycleLength, onProgress)
+
+      // User cancelled while the API call was in-flight — discard result silently.
+      // _loading and _inFlight are already reset by cancelFetch(); just clear the flag.
+      if (_userCancelled) {
+        _userCancelled = false
+        return
+      }
 
       if (apiError.value) {
         // Propagate API error into this composable's error ref for the component
@@ -235,8 +325,18 @@ export function useEvoPlan() {
       // "No Evo plan yet" with no way to know what went wrong (useEvoPlan r06).
       error.value = err instanceof Error ? err.message : String(err)
     } finally {
-      _inFlight = false
-      _loading.value = false
+      // Cancel the backup timeout — the API responded (or we already cancelled)
+      // so the timer must not fire late and clobber a newly started fetch.
+      clearInterval(_backupIntervalHandle)
+
+      // Only clear the guards if THIS invocation is still the active generation.
+      // If the user cancelled and immediately re-generated (force=true), a newer
+      // generation will have incremented _fetchGeneration — we must not kill its
+      // loading state from this old finally block.
+      if (_fetchGeneration === thisGeneration) {
+        _inFlight = false
+        _loading.value = false
+      }
     }
   }
 
@@ -373,6 +473,7 @@ export function useEvoPlan() {
     loading: readonly(_loading),
     error: readonly(error),
     fetchPlan,
+    cancelFetch,
     reorderSteps,
     renameStep,
     removeStep,

@@ -370,6 +370,15 @@ function claudeCodeProxy(): Plugin {
           return
         }
 
+        // Streaming mode is requested via ?stream=1. When enabled, this
+        // middleware spawns claude with --output-format stream-json
+        // --include-partial-messages and forwards each stdout JSON line
+        // as a Server-Sent Event so the browser sees text deltas live.
+        // Non-streaming mode (the default) returns a single JSON response
+        // when the subprocess closes — used by .create() callers.
+        const url = new URL(req.url ?? '', 'http://localhost')
+        const streaming = url.searchParams.get('stream') === '1'
+
         let body = ''
         req.on('data', (chunk: Buffer) => { body += chunk.toString('utf-8') })
         req.on('end', () => {
@@ -394,12 +403,15 @@ function claudeCodeProxy(): Plugin {
           // Build the claude CLI args. Notable flags:
           //   -p                          — print mode (non-interactive)
           //   --output-format json        — structured response, easy to parse
+          //   --output-format stream-json — line-delimited events (streaming mode)
+          //   --include-partial-messages  — emit text deltas (streaming mode)
           //   --model <X>                 — use the model the composable requested
           //   --system-prompt <X>         — system prompt
-          //   --permission-mode acceptEdits — auto-accept (no interactive prompts)
           //   --no-session-persistence    — do not pollute Tom's session list
           // Prompt is piped via stdin (avoids shell-arg length / escaping issues).
-          const args: string[] = ['-p', '--output-format', 'json', '--no-session-persistence']
+          const args: string[] = streaming
+            ? ['-p', '--output-format', 'stream-json', '--include-partial-messages', '--verbose', '--no-session-persistence']
+            : ['-p', '--output-format', 'json', '--no-session-persistence']
           if (model) args.push('--model', model)
           if (system) args.push('--system-prompt', system)
 
@@ -412,7 +424,7 @@ function claudeCodeProxy(): Plugin {
 
           // One concise log line per call — model + prompt size for visibility.
           // eslint-disable-next-line no-console
-          console.log(`[claude-code-proxy] → claude ${model ?? 'default'} (${prompt.length}b prompt, ${system?.length ?? 0}b system)`)
+          console.log(`[claude-code-proxy] → claude ${model ?? 'default'} (${prompt.length}b prompt, ${system?.length ?? 0}b system)${streaming ? ' [stream]' : ''}`)
           const startMs = Date.now()
 
           const child = spawn(CLAUDE_BIN, args, {
@@ -424,9 +436,44 @@ function claudeCodeProxy(): Plugin {
           let stdout = ''
           let stderr = ''
           let aborted = false
+          let responseSent = false
 
-          child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf-8') })
-          child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf-8') })
+          // ── Streaming mode (SSE) ──────────────────────────────────────────
+          // Set SSE headers immediately and forward each stdout JSON line as
+          // a Server-Sent Event. We buffer partial lines because Node pipes
+          // do not guarantee complete-line chunks. Each complete line is one
+          // claude CLI event (message_start, content_block_delta, etc.).
+          if (streaming) {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'text/event-stream')
+            res.setHeader('Cache-Control', 'no-cache')
+            res.setHeader('Connection', 'keep-alive')
+            res.setHeader('X-Accel-Buffering', 'no') // disable proxy buffering if any
+            // Hint to client that SSE has started before any events.
+            res.write(': stream-open\n\n')
+
+            let lineBuffer = ''
+            child.stdout.on('data', (chunk: Buffer) => {
+              if (responseSent) return
+              const text = chunk.toString('utf-8')
+              stdout += text
+              lineBuffer += text
+              let nl: number
+              while ((nl = lineBuffer.indexOf('\n')) !== -1) {
+                const line = lineBuffer.slice(0, nl).trim()
+                lineBuffer = lineBuffer.slice(nl + 1)
+                if (line) {
+                  // Forward as SSE. Browser EventSource API expects "data: ...\n\n".
+                  res.write(`data: ${line}\n\n`)
+                }
+              }
+            })
+            child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf-8') })
+          } else {
+            // ── Non-streaming mode ───────────────────────────────────────────
+            child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf-8') })
+            child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf-8') })
+          }
 
           // Pipe the prompt to the subprocess's stdin and close it.
           child.stdin.write(prompt, 'utf-8')
@@ -439,7 +486,6 @@ function claudeCodeProxy(): Plugin {
           // which would SIGTERM every healthy child the instant it spawned.
           // `res.on('close')` only fires when the underlying TCP connection
           // closes, which is the real "client gave up" signal.
-          let responseSent = false
           res.on('close', () => {
             if (responseSent || child.killed) return
             // eslint-disable-next-line no-console
@@ -460,10 +506,29 @@ function claudeCodeProxy(): Plugin {
             res.end(JSON.stringify(body))
           }
 
+          // Send a final SSE event then close (streaming mode only).
+          const sendSseEnd = (payload: object): void => {
+            if (responseSent) return
+            responseSent = true
+            // Emit a sentinel event so the client knows to stop listening.
+            res.write(`event: done\ndata: ${JSON.stringify(payload)}\n\n`)
+            res.end()
+          }
+
           child.on('close', (code) => {
             // eslint-disable-next-line no-console
-            console.log(`[claude-code-proxy] ← ${Date.now() - startMs}ms code=${code} stdout=${stdout.length}b${aborted ? ' (aborted)' : ''}`)
+            console.log(`[claude-code-proxy] ← ${Date.now() - startMs}ms code=${code} stdout=${stdout.length}b${aborted ? ' (aborted)' : ''}${streaming ? ' [stream]' : ''}`)
             if (aborted) return // response already closed
+
+            if (streaming) {
+              if (code !== 0) {
+                sendSseEnd({ ok: false, error: `claude CLI exited with code ${code}`, exit_code: code, stderr: stderr.slice(0, 4000) })
+              } else {
+                sendSseEnd({ ok: true })
+              }
+              return
+            }
+
             if (code !== 0) {
               send(500, {
                 ok: false,
@@ -474,8 +539,8 @@ function claudeCodeProxy(): Plugin {
               return
             }
 
-            // Parse the CLI's JSON output. Shape (from `claude -p --output-format json`):
-            //   { type: 'result', result: '<text>', usage: { input_tokens, output_tokens, ... },
+            // Parse the CLI's JSON output (non-streaming). Shape:
+            //   { type: 'result', result: '<text>', usage: {...},
             //     stop_reason: '...', total_cost_usd: <n>, ... }
             try {
               const out = JSON.parse(stdout) as {

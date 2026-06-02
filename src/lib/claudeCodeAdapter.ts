@@ -135,9 +135,36 @@ type MiddlewareResponse = MiddlewareSuccess | MiddlewareError
 
 // ── Streaming wrapper ──────────────────────────────────────────────────────────
 //
-// Current implementation: degraded streaming. The middleware returns the full
-// response when the subprocess completes; we fire the on('text') handler once
-// with the entire text. UI shows no progressive output but doesn't break.
+// Real streaming via Server-Sent Events. The middleware spawns `claude -p
+// --output-format stream-json --include-partial-messages` and forwards each
+// stdout JSON line as an SSE event. We parse each event and call the registered
+// 'text' handlers for each content_block_delta. UI consumers (useSDK,
+// useSpecCollaborator, useEvoPlannerAPI) see progressive text in real time.
+
+/**
+ * One Claude-CLI streaming event. The CLI emits a sequence of envelope events
+ * each carrying a `type` field at the top level:
+ *   { type: 'system', subtype: 'init', ... }            — startup
+ *   { type: 'system', subtype: 'status', ... }          — status updates
+ *   { type: 'rate_limit_event', ... }                   — rate-limit hint
+ *   { type: 'stream_event', event: { ... }, ttft_ms? }  — Anthropic SDK events
+ *   { type: 'assistant', message: { ... } }             — full assistant msg
+ *   { type: 'result', subtype: 'success', result, ... } — terminal summary
+ *
+ * The actual model text deltas appear inside stream_event envelopes:
+ *   { type: 'stream_event', event: { type: 'content_block_delta',
+ *     index: 0, delta: { type: 'text_delta', text: '...' } } }
+ * Everything else is metadata that the on('text') handler doesn't need.
+ */
+interface ClaudeCliEvent {
+  type?: string
+  event?: { type?: string; delta?: { type?: string; text?: string } }
+  // Final result event (only at end of stream-json with --include-partial-messages)
+  result?: string
+  stop_reason?: string
+  usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number }
+  is_error?: boolean
+}
 
 class ClaudeCodeStream {
   private readonly _textHandlers: Array<(t: string) => void> = []
@@ -163,9 +190,11 @@ class ClaudeCodeStream {
 
   private async _run(params: AnthropicParams): Promise<void> {
     try {
-      const res = await fetch(adapterUrl(), {
+      // Streaming endpoint — ?stream=1 flips the middleware into SSE mode.
+      const url = `${adapterUrl()}?stream=1`
+      const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
         signal: params.signal,
         body: JSON.stringify({
           model:       cliModel(params.model),
@@ -175,20 +204,74 @@ class ClaudeCodeStream {
         }),
       })
 
-      if (!res.ok) {
-        const errText = await res.text()
-        throw new Error(`Claude Code adapter error ${res.status}: ${errText}`)
+      if (!res.ok || !res.body) {
+        throw new Error(`Claude Code stream error ${res.status}: ${await res.text()}`)
       }
 
-      const data = await res.json() as MiddlewareResponse
-      if (!data.ok) {
-        throw new Error(data.error)
+      const reader  = res.body.getReader()
+      const decoder = new TextDecoder()
+      let   buffer  = ''
+      let   gotError: string | null = null
+
+      // Parse SSE event blocks separated by \n\n. Each block may have
+      // multiple "data: ..." lines (concatenated) plus an optional "event: ..."
+      // header. We treat the final "event: done" + "data: {ok|error}" pair
+      // as the stream terminator from the middleware.
+      const processBlock = (block: string): void => {
+        // Skip comment-only blocks (e.g. ": stream-open").
+        const lines = block.split('\n').filter(l => l.length > 0 && !l.startsWith(':'))
+        if (lines.length === 0) return
+
+        let event = 'message'
+        const dataParts: string[] = []
+        for (const line of lines) {
+          if (line.startsWith('event: ')) event = line.slice(7).trim()
+          else if (line.startsWith('data: ')) dataParts.push(line.slice(6))
+        }
+        if (dataParts.length === 0) return
+        const dataStr = dataParts.join('\n')
+
+        // Terminator event from the middleware.
+        if (event === 'done') {
+          try {
+            const payload = JSON.parse(dataStr) as { ok: boolean; error?: string }
+            if (!payload.ok && payload.error) gotError = payload.error
+          } catch { /* ignore malformed terminator */ }
+          return
+        }
+
+        // Forward claude CLI event payload. We only handle text_delta — the
+        // actual model output. The CLI wraps Anthropic SDK events in a
+        // {type: 'stream_event', event: {...}} envelope; we unwrap it.
+        // Everything else is metadata useful for debugging.
+        try {
+          const ev = JSON.parse(dataStr) as ClaudeCliEvent
+          if (ev.type === 'stream_event'
+              && ev.event?.type === 'content_block_delta'
+              && ev.event.delta?.type === 'text_delta'
+              && ev.event.delta.text) {
+            const text = ev.event.delta.text
+            this._textHandlers.forEach(h => h(text))
+          }
+        } catch { /* skip malformed lines from the CLI */ }
       }
 
-      // Degraded streaming: fire one chunk with the full text at the end.
-      if (data.text) {
-        this._textHandlers.forEach(h => h(data.text))
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        // Split on SSE event boundary (blank line between events).
+        let sep: number
+        while ((sep = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, sep)
+          buffer = buffer.slice(sep + 2)
+          processBlock(block)
+        }
       }
+      // Final flush in case the last block lacked a trailing blank line.
+      if (buffer.trim()) processBlock(buffer)
+
+      if (gotError) throw new Error(gotError)
       this._resolve()
     } catch (e) {
       this._reject(e)

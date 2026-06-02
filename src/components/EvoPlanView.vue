@@ -235,6 +235,48 @@ const cycleLengthLabel = computed(() => {
   return labels[cycleLength.value]
 })
 
+// ── Live streaming commentary (Tom 2026-06-03 — "streaming") ──────────────────
+//
+// partialPlanText accumulates raw model output as it streams in. Each token
+// chunk triggers a re-extraction of step names via the simple regex below:
+// matches `"name":"..."` patterns even when later JSON fields are incomplete.
+// This is robust to partial JSON because we only need the name strings — we
+// do not attempt to parse the surrounding object structure mid-stream.
+//
+// When streamedStepNames is non-empty, the loading UI shows live step names
+// ("Drafting Evo Step 1: Set up Norwegian-tax-bracket eligibility…") instead
+// of the static time-based phase commentary.
+const partialPlanText = ref('')
+
+const streamedStepNames = computed<string[]>(() => {
+  const txt = partialPlanText.value
+  if (!txt) return []
+  // Match every `"name":"..."` — JSON string with escaped quotes handled by
+  // a single non-greedy capture group. Names appear in order in the model
+  // output, so the array index aligns with the step number (1-based).
+  const out: string[] = []
+  const re = /"name"\s*:\s*"((?:[^"\\]|\\.)*)"/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(txt)) !== null) {
+    // Unescape \" and \\ in the captured name.
+    out.push(m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'))
+  }
+  return out
+})
+
+/** Stream-progress handler — passed to fetchPlan() so the planner forwards
+ *  each token chunk up here. Reset on every new generation. */
+function _onPlannerProgress(partialText: string): void {
+  partialPlanText.value = partialText
+}
+
+/** Wrapper used by both onMounted auto-fetch and the Retry button so all
+ *  paths get the same streaming progress handler and partial-text reset. */
+async function fetchPlanWithProgress(spec: SpecBlock, force = false): Promise<void> {
+  partialPlanText.value = ''
+  await fetchPlan(spec, force, _onPlannerProgress)
+}
+
 /**
  * Phase commentary shown during the "Generating Evo Value Delivery Steps…"
  * loading state. Tom 2026-06-03 — "display a commentary about exactly what is
@@ -242,9 +284,10 @@ const cycleLengthLabel = computed(() => {
  * in that window of elapsed time. Counts and cycle context are pulled live
  * from the SpecBlock so the user sees REAL numbers, not generic placeholders.
  *
- * Why no actual step names: the Claude Code adapter returns the full response
- * in one chunk (no token streaming yet). When real streaming lands, this can
- * be replaced with parse-as-you-go step-name extraction.
+ * When streaming returns actual step names (streamedStepNames is non-empty),
+ * those names override the time-based phases — the user sees "Drafting Evo
+ * Step 1: Set up Norwegian tax bracket eligibility…" with the AI's real name
+ * the moment it streams in, rather than the generic time-based narration.
  */
 const evoPlannerPhases = computed(() => {
   const sb = props.specBlock
@@ -260,6 +303,29 @@ const evoPlannerPhases = computed(() => {
   const f = fCount === 1 ? 'Function' : 'Functions'
   const s = sCount === 1 ? 'Solution' : 'Solutions'
 
+  // ── Streaming path: REAL step names from the partial JSON ─────────────
+  // Each phase appears the moment its step name is parsed out of the
+  // accumulated stream text. We anchor each phase at atSecond:0 so the
+  // latest-wins rule in LoadingProgress always picks the newest one. We
+  // disambiguate with atSecond ordinals (0, 1, 2, ...) so insertion order
+  // becomes the sort key — picking the highest-index phase, i.e. the
+  // most-recently-streamed step name.
+  const liveNames = streamedStepNames.value
+  if (liveNames.length > 0) {
+    const phases = [{
+      atSecond: 0,
+      message: `Reading your spec — ${totalEntries} ${totalEntries === 1 ? 'entry' : 'entries'} (${vCount} ${v}, ${fCount} ${f}, ${sCount} ${s})…`,
+    }]
+    liveNames.forEach((name, i) => {
+      phases.push({
+        atSecond: i + 1,
+        message: `Drafting Evo Step ${i + 1}: ${name}`,
+      })
+    })
+    return phases
+  }
+
+  // ── Fallback: time-based phases when streaming hasn't surfaced names yet ──
   return [
     { atSecond: 0,
       message: `Reading your spec — ${totalEntries} ${totalEntries === 1 ? 'entry' : 'entries'} (${vCount} ${v}, ${fCount} ${f}, ${sCount} ${s})…` },
@@ -1765,7 +1831,7 @@ onMounted(() => {
   // but checking here avoids the network round-trip entirely.
   if (plan.value) return
   if (props.specBlock) {
-    void fetchPlan(props.specBlock)
+    void fetchPlanWithProgress(props.specBlock)
   }
 })
 
@@ -1777,7 +1843,7 @@ watch(
   () => props.specBlock,
   async (block, prev) => {
     if (block && block !== prev) {
-      await fetchPlan(block)
+      await fetchPlanWithProgress(block)
     }
   },
 )
@@ -3194,7 +3260,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold
                  bg-indigo-600 text-white hover:bg-indigo-700
                  focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
-          @click="fetchPlan(props.specBlock, true)"
+          @click="fetchPlanWithProgress(props.specBlock, true)"
         >
           <span aria-hidden="true">↻</span> Retry
         </button>
@@ -6198,7 +6264,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
                focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2
                transition-all duration-200 active:scale-[0.98] min-h-[44px]"
         aria-label="Generate Evo Plan"
-        @click="fetchPlan(props.specBlock, true)"
+        @click="fetchPlanWithProgress(props.specBlock, true)"
       >
         <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />

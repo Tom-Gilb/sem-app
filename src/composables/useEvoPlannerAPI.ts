@@ -13,6 +13,17 @@ import { logLlmCall } from './useAnalyticsEvents'
 
 let _plannerClient: Anthropic | null = null
 
+// Vite HMR dispose — reset the singleton when this module hot-reloads.
+// Without this, the client created before `maxRetries: 0` was added persists
+// through hot reloads indefinitely; the SDK retries twice per call (100s+ stall)
+// and Promise.race never gets a chance to win.  Full page reload would fix it
+// too, but HMR dispose makes it automatic (Architectural Resilience Rule).
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    _plannerClient = null
+  })
+}
+
 /**
  * Returns the singleton Anthropic client for the Evo planner pipeline,
  * initialised lazily from the VITE_ANTHROPIC_API_KEY environment variable.
@@ -26,7 +37,16 @@ function getPlannerClient(): Anthropic {
     if (!apiKey && !isLocal) {
       throw new Error('VITE_ANTHROPIC_API_KEY is not set — configure this environment variable to enable the Evo planner pipeline')
     }
-    _plannerClient = new Anthropic({ apiKey: apiKey ?? 'local', dangerouslyAllowBrowser: true })
+    // maxRetries: 0 — disable the SDK's built-in retry logic.
+    // By default the SDK retries up to 2× on 429/5xx responses, each retry can
+    // take as long as the original call.  This means a 50 s stall retries for
+    // another 50 s → 100 s total before the SDK promise settles, which blows
+    // past our 75 s Promise.race timeout even though the race fires correctly.
+    // With maxRetries: 0, the SDK promise rejects immediately on the first failure,
+    // so Promise.race is guaranteed to honour its timeout.
+    // We implement our OWN retry at the composable level (re-clicking Generate)
+    // instead of hiding it inside the SDK, which gives the user full visibility.
+    _plannerClient = new Anthropic({ apiKey: apiKey ?? 'local', dangerouslyAllowBrowser: true, maxRetries: 0 })
   }
   return _plannerClient
 }
@@ -209,10 +229,69 @@ export function useEvoPlannerAPI() {
   const error = ref('')
   const { startLoading, stopLoading } = useLoadingState()
 
-  async function planSteps(specBlock: SpecBlock): Promise<EvoStepPlan | null> {
+  async function planSteps(
+    specBlock: SpecBlock,
+    cycleLength: 'day' | 'week' | 'month' | 'quarter' = 'week',
+    /**
+     * Optional streaming progress callback. Fires with the full accumulated
+     * text every time a new token chunk arrives from the Claude Code adapter.
+     * Tom 2026-06-03 — "streaming" — used by EvoPlanView to extract step
+     * names as they appear in the partial JSON and display them live. Safe
+     * to omit; non-streaming callers continue to work unchanged.
+     */
+    onProgress?: (partialText: string) => void,
+  ): Promise<EvoStepPlan | null> {
     loading.value = true
     error.value = ''
     startLoading('evo:planSteps', 'Planning Evo Steps…')
+
+    // Hard timeout guard — Promise.race implementation (Architectural Resilience Rule, 2026-06-02).
+    //
+    // WHY Promise.race instead of AbortController.signal:
+    //   AbortController.signal passed to client.beta.messages.create() depends on the
+    //   Anthropic SDK internally forwarding the signal to its underlying fetch() call.
+    //   In practice, the browser SDK does not reliably honour the signal in all contexts
+    //   (confirmed: 122s elapsed with no abort firing despite a 90s AbortController).
+    //
+    // WHY maxRetries: 0 is required for this to work:
+    //   The Anthropic SDK retries failed requests up to 2× by default (429/5xx).
+    //   Each retry can take as long as the original call — a 50 s stall becomes 100 s+.
+    //   The SDK promise does NOT reject during retries; it keeps polling internally.
+    //   Result: Promise.race fires at 75 s but the SDK promise is still live inside
+    //   the retry loop → the UI never stops loading (confirmed: 100 s still showing).
+    //   Fix: maxRetries: 0 on the Anthropic client (see getPlannerClient).
+    //
+    // Promise.race is framework-agnostic and always works when the SDK settles promptly:
+    //   - If the API call completes first → race resolves with the API response.
+    //   - If 120 s elapse first → race rejects with a sentinel EVO_TIMEOUT error.
+    //   - The API call continues in the background but its result is ignored (the
+    //     async stack is gone; it cannot write to any reactive state). This is safe.
+    //   - clearInterval in finally ensures a successful call cancels the timer.
+    //
+    // 60 s rationale: most Evo plans complete in 20–45 s on a healthy network.
+    //   60 s is a firm UX ceiling — Tom 2026-06-02: "no 66sec ad counting."
+    //   Previously 120 s (too long for the user to wait with no escape).
+    //   The Cancel button in EvoPlanView is the user's escape hatch before timeout.
+    //
+    // RELIABILITY NOTE (2026-06-02): setTimeout(fn, 60_000) does NOT reliably fire
+    // in WKWebView/Electron — empirically proven when the spinner reached 182s with
+    // three independent 60s setTimeout mechanisms all failing simultaneously.
+    // setInterval(fn, 1_000) IS reliable in this runtime.  This timeout race now
+    // uses the same setInterval + tick-count pattern as useEvoPlan.ts's backup timer.
+    const EVO_TIMEOUT_S = 60
+    let _timeoutId: ReturnType<typeof setInterval> | null = null
+
+    // Timeout promise — rejects after EVO_TIMEOUT_S seconds via setInterval tick count.
+    const _timeoutRace = new Promise<never>((_, reject) => {
+      let _ticks = 0
+      _timeoutId = setInterval(() => {
+        _ticks++
+        if (_ticks >= EVO_TIMEOUT_S) {
+          if (_timeoutId !== null) { clearInterval(_timeoutId); _timeoutId = null }
+          reject(new Error('EVO_TIMEOUT'))
+        }
+      }, 1_000)
+    })
 
     // 3P.V.LLMResponseReliability — declared before try so catch can reference them
     let _callStart = 0
@@ -230,11 +309,23 @@ export function useEvoPlannerAPI() {
       }
 
       const client = getPlannerClient()
-      // Local models follow end-of-message instructions more reliably than
-      // a prefix or a distant system prompt. The schema is repeated after
-      // the SpecBlock so it's the last thing the model reads before generating.
+      // Cycle length context — informs the LLM of the time-box constraint so that
+      // steps are sized to fit the chosen cycle (Tom 2026-06-02 SEM App Book p.179).
+      const CYCLE_HOURS: Record<'day' | 'week' | 'month' | 'quarter', number> = {
+        day: 8, week: 40, month: 160, quarter: 480,
+      }
+      const clHours = CYCLE_HOURS[cycleLength]
+      const clLabel = cycleLength.charAt(0).toUpperCase() + cycleLength.slice(1)
+      const cycleContext = [
+        `EVO CYCLE LENGTH: ${clLabel} (~${clHours}h maximum per step).`,
+        `CONSTRAINT: Each Evo step MUST fit within ONE ${cycleLength} cycle.`,
+        `The effortPercent values across all steps should sum to 100.`,
+        `When estimating effort, ensure effortPercent × ${clHours}h ≈ that step's wall-clock time.`,
+      ].join('\n')
+
       const userContent =
         `INPUT SPEC:\n${JSON.stringify(specBlock, null, 2)}\n\n` +
+        `${cycleContext}\n\n` +
         `TASK: Derive 2–5 ranked Evo implementation steps from the spec above.\n` +
         `Return ONLY this JSON — no prose, no markdown, no extra keys:\n` +
         `{"steps":[{"name":"Evo 1 — Example Setup","description":"what is being implemented in this step","linkedValues":["Some Value"],"linkedSolutions":["Some Solution"],"effortPercent":25}]}`
@@ -247,33 +338,84 @@ export function useEvoPlannerAPI() {
 
       _callStart = Date.now()
 
-      const response = await client.beta.messages.create({
-        model: MODEL_ID,
-        max_tokens: 4096,
-        system: [systemBlock],
-        messages: [{ role: 'user', content: userContent }],
-        betas: ['prompt-caching-2024-07-31'],
-      })
+      // ── Streaming path (Tom 2026-06-03) ──────────────────────────────────
+      // When the caller passes onProgress, use client.beta.messages.stream so
+      // the partial text flows up to the UI for live step-name extraction.
+      // When onProgress is omitted, fall back to .create() — same behaviour as
+      // before, slightly less overhead.
+      let accumulatedText = ''
 
-      const textBlock = response.content.find((b) => b.type === 'text')
-      if (!textBlock || textBlock.type !== 'text') {
-        throw new Error('LLM response contained no text block')
+      if (onProgress) {
+        const streamPromise: Promise<void> = (async () => {
+          const stream = client.beta.messages.stream({
+            model: MODEL_ID,
+            max_tokens: 1024,
+            system: [systemBlock],
+            messages: [{ role: 'user', content: userContent }],
+            betas: ['prompt-caching-2024-07-31'],
+          })
+          stream.on('text', (delta: string) => {
+            accumulatedText += delta
+            // Fire on every chunk so EvoPlanView can re-extract step names
+            // as they appear in the partial JSON.
+            try { onProgress(accumulatedText) } catch { /* swallow handler errors */ }
+          })
+          await stream.finalMessage()
+        })()
+        await Promise.race([streamPromise, _timeoutRace])
+      } else {
+        // Race: API call vs hard timeout. Whichever settles first wins.
+        const response = await Promise.race([
+          client.beta.messages.create({
+            model: MODEL_ID,
+            max_tokens: 1024, // Evo plan output is 400–700 tokens (3–5 steps); 4096 was the CE budget by mistake
+            system: [systemBlock],
+            messages: [{ role: 'user', content: userContent }],
+            betas: ['prompt-caching-2024-07-31'],
+          }),
+          _timeoutRace,
+        ])
+        const textBlock = response.content.find((b) => b.type === 'text')
+        if (!textBlock || textBlock.type !== 'text') {
+          throw new Error('LLM response contained no text block')
+        }
+        accumulatedText = textBlock.text
       }
 
-      const plan = parseEvoPlan(textBlock.text.trim(), specBlock)
+      const plan = parseEvoPlan(accumulatedText.trim(), specBlock)
 
       _callSucceeded = true
-      const cacheHit = ((response.usage as Record<string, unknown>)?.cache_read_input_tokens as number ?? 0) > 0
+      // Streaming path does not expose cache hit detail directly; treat as miss.
+      const cacheHit = false
       logLlmCall('evo-plan', Date.now() - _callStart, true, cacheHit)
 
       return plan
     } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
+      const errMsg = err instanceof Error ? err.message : String(err)
+
+      // Sentinel check: timeout fired before the API responded.
+      if (err instanceof Error && err.message === 'EVO_TIMEOUT') {
+        error.value =
+          `Evo generation timed out after ${EVO_TIMEOUT_S} seconds. ` +
+          `The AI may be overloaded — click Retry or SOS to reset.`
+
+      // Anthropic credit exhaustion — 400 invalid_request_error with billing message.
+      // Raw JSON is unreadable; surface a friendly action message instead.
+      } else if (errMsg.includes('credit balance is too low') || errMsg.includes('insufficient_quota')) {
+        error.value =
+          `Anthropic API credits are exhausted. ` +
+          `Please top up at console.anthropic.com/settings/billing, then Retry.`
+
+      } else {
+        error.value = errMsg
+      }
       if (!_callSucceeded && _callStart > 0) {
         logLlmCall('evo-plan', Date.now() - _callStart, false, false)
       }
       return null
     } finally {
+      // Clear the interval so it doesn't fire spuriously after a successful call.
+      if (_timeoutId !== null) { clearInterval(_timeoutId); _timeoutId = null }
       loading.value = false
       stopLoading('evo:planSteps')
     }
