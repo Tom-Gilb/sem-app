@@ -294,6 +294,15 @@ async function fetchPlanWithProgress(spec: SpecBlock, force = false): Promise<vo
  * Step 1: Set up Norwegian tax bracket eligibility…" with the AI's real name
  * the moment it streams in, rather than the generic time-based narration.
  */
+// evoPlannerPhases — TIME-BASED commentary only.
+//
+// Earlier (r02) this also tried to surface live step names via the phase
+// system, but LoadingProgress is single-line and the latest-wins rule made
+// users feel the planner "jumped from Step 1 to Step 4" when the model
+// emitted multiple names inside one 150ms throttle window (Tom 2026-06-03).
+// Live step names now render as a persistent checklist below the
+// LoadingProgress — see streamedStepNamesList in the template — so each
+// step's appearance persists even when several arrive in quick succession.
 const evoPlannerPhases = computed(() => {
   const sb = props.specBlock
   const vCount = sb.values?.length ?? 0
@@ -308,45 +317,18 @@ const evoPlannerPhases = computed(() => {
   const f = fCount === 1 ? 'Function' : 'Functions'
   const s = sCount === 1 ? 'Solution' : 'Solutions'
 
-  // ── Streaming path: REAL step names from the partial JSON ─────────────
-  // Each phase appears the moment its step name is parsed out of the
-  // accumulated stream text. We anchor each phase at atSecond:0 so the
-  // latest-wins rule in LoadingProgress always picks the newest one. We
-  // disambiguate with atSecond ordinals (0, 1, 2, ...) so insertion order
-  // becomes the sort key — picking the highest-index phase, i.e. the
-  // most-recently-streamed step name.
-  const liveNames = streamedStepNames.value
-  if (liveNames.length > 0) {
-    const phases = [{
-      atSecond: 0,
-      message: `Reading your spec — ${totalEntries} ${totalEntries === 1 ? 'entry' : 'entries'} (${vCount} ${v}, ${fCount} ${f}, ${sCount} ${s})…`,
-    }]
-    liveNames.forEach((name, i) => {
-      phases.push({
-        atSecond: i + 1,
-        message: `Drafting Evo Step ${i + 1}: ${name}`,
-      })
-    })
-    return phases
-  }
-
-  // ── Fallback: time-based phases when streaming hasn't surfaced names yet ──
   return [
     { atSecond: 0,
       message: `Reading your spec — ${totalEntries} ${totalEntries === 1 ? 'entry' : 'entries'} (${vCount} ${v}, ${fCount} ${f}, ${sCount} ${s})…` },
     { atSecond: 6,
       message: `Identifying value-priority sequencing — which ${v.toLowerCase()} should be delivered first?` },
     { atSecond: 14,
-      message: `Drafting Evo Step 1 — picking the smallest deliverable that proves the riskiest assumption…` },
-    { atSecond: 24,
-      message: `Drafting Evo Step 2 — building on Step 1's measurement to extend value delivery…` },
-    { atSecond: 34,
-      message: `Drafting Evo Step 3 — broadening to additional stakeholders / value dimensions…` },
-    { atSecond: 42,
-      message: `Sizing each step to fit one ${cycleLabel} (~${cycleH}h) — adjusting scope if a step is too large…` },
-    { atSecond: 50,
+      message: `Drafting Evo steps — see the live checklist below as each step name is decided…` },
+    { atSecond: 40,
+      message: `Sizing each step to fit one ${cycleLabel} (~${cycleH}h)…` },
+    { atSecond: 60,
       message: `Sequencing by value-per-cost ratio and dependency order…` },
-    { atSecond: 56,
+    { atSecond: 90,
       message: `Finalizing — checking effortPercent values sum to 100 across all steps…` },
   ]
 })
@@ -3223,6 +3205,52 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         :phases="evoPlannerPhases"
         @timeout="cancelFetch('Evo generation timed out after 180 s — click Retry.')"
       />
+
+      <!--
+        Live step-name checklist — Tom 2026-06-03 ("it seemed to jump from
+        step 1 to 4"). Persistent vertical list of every Evo step name as it
+        appears in the streamed JSON. Earlier each new name replaced the
+        previous one in the LoadingProgress single-line commentary; with
+        fast-emitting models multiple names landed inside one 150ms throttle
+        window, so the user only saw the latest. List-style makes the
+        progression unmissable: completed names get a ✓, the latest gets a
+        live ⟳ spinner. Hidden until at least one name has streamed in to
+        avoid an empty box on cold start.
+      -->
+      <div
+        v-if="streamedStepNames.length > 0"
+        class="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/50 px-4 py-3"
+        role="status"
+        aria-live="polite"
+        :aria-label="`Drafted ${streamedStepNames.length} Evo step ${streamedStepNames.length === 1 ? 'name' : 'names'} so far`"
+      >
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-700 mb-2">
+          Drafted so far ({{ streamedStepNames.length }})
+        </p>
+        <ol class="space-y-1.5 text-xs text-slate-700">
+          <li
+            v-for="(name, i) in streamedStepNames"
+            :key="`streamed-${i}`"
+            class="flex items-start gap-2 leading-snug"
+          >
+            <!-- Last item = currently in-flight; earlier = completed. -->
+            <span
+              v-if="i === streamedStepNames.length - 1"
+              class="inline-block h-3.5 w-3.5 flex-shrink-0 mt-px animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"
+              aria-hidden="true"
+              :title="`Step ${i + 1} is being written now`"
+            />
+            <span
+              v-else
+              class="inline-block h-3.5 w-3.5 flex-shrink-0 mt-px text-emerald-600 font-bold leading-none"
+              aria-hidden="true"
+              :title="`Step ${i + 1} draft complete`"
+            >✓</span>
+            <span class="font-mono text-[10px] text-slate-400 mt-0.5">{{ i + 1 }}.</span>
+            <span class="flex-1 break-words">{{ name }}</span>
+          </li>
+        </ol>
+      </div>
       <!-- Cancel button — Tom 2026-06-02: "no 66sec ad counting".
            Immediately resets loading state; the background API call finishes
            but its result is silently discarded by the _userCancelled guard in
