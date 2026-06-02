@@ -1218,9 +1218,14 @@ onUnmounted(() => { _stopContractAnimation() })
                   type="button"
                   :title="`${clause.number} — ${clause.heading} · ${clause.entries.length} entries`"
                   class="w-full text-left px-3 py-2.5 border-b border-slate-50 transition-colors text-xs"
-                  :class="selectedClauseId === clause.id
-                    ? 'bg-teal-50 border-l-2 border-l-teal-500 text-teal-800'
-                    : 'hover:bg-slate-50 text-slate-700'"
+                  :class="[
+                    selectedClauseId === clause.id
+                      ? 'bg-teal-50 border-l-2 border-l-teal-500 text-teal-800'
+                      : 'hover:bg-slate-50 text-slate-700',
+                    entryFilter !== 'all' && !clause.entries.some(e => e.type === entryFilter)
+                      ? 'opacity-40 pointer-events-none'
+                      : '',
+                  ]"
                   @click="selectedClauseId = clause.id"
                 >
                   <!-- Row 1: §N + parse-status dot -->
