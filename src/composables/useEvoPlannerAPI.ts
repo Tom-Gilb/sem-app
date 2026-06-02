@@ -394,7 +394,7 @@ export function useEvoPlannerAPI() {
         const streamPromise: Promise<void> = (async () => {
           const stream = client.beta.messages.stream({
             model: MODEL_ID,
-            max_tokens: 1024,
+            max_tokens: 768,  // Tom 2026-06-03: was 1024; prompt now caps descriptions at 25 words so 768 is ample for 5 steps and stops verbose runaway sooner.
             system: [systemBlock],
             messages: [{ role: 'user', content: userContent }],
             betas: ['prompt-caching-2024-07-31'],
@@ -426,7 +426,7 @@ export function useEvoPlannerAPI() {
         const response = await Promise.race([
           client.beta.messages.create({
             model: MODEL_ID,
-            max_tokens: 1024, // Evo plan output is 400–700 tokens (3–5 steps); 4096 was the CE budget by mistake
+            max_tokens: 768,  // Tom 2026-06-03: was 1024; prompt now caps descriptions at 25 words so 768 is ample for 5 steps and stops verbose runaway sooner. // Evo plan output is 400–700 tokens (3–5 steps); 4096 was the CE budget by mistake
             system: [systemBlock],
             messages: [{ role: 'user', content: userContent }],
             betas: ['prompt-caching-2024-07-31'],

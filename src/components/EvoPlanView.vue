@@ -253,6 +253,50 @@ const cycleLengthLabel = computed(() => {
 // of the static time-based phase commentary.
 const partialPlanText = ref('')
 
+// Tracks the wall-clock timestamp when the CURRENT in-flight step name first
+// appeared. Used to show a "model is writing a long description" hint when
+// the same step has been in-progress for > 15 seconds — Tom 2026-06-03
+// ("seem hung on 4") was the model writing Step 4's description, which the
+// user perceived as a hang.
+const currentStepStartedMs = ref<number | null>(null)
+let _lastSeenStepCount = 0
+
+watch(
+  () => partialPlanText.value,
+  () => {
+    const count = streamedStepNames.value.length
+    if (count > _lastSeenStepCount) {
+      // A new step name just appeared — restart the in-progress clock.
+      currentStepStartedMs.value = Date.now()
+      _lastSeenStepCount = count
+    } else if (count === 0) {
+      currentStepStartedMs.value = null
+      _lastSeenStepCount = 0
+    }
+  },
+)
+
+// Re-evaluated every second by the elapsed counter further down — true when
+// the current in-flight step name has been on screen for > 15 seconds with
+// no new step name appearing. Triggers a subtle hint under the spinner row.
+const _nowMs = ref(Date.now())
+let _nowTimer: ReturnType<typeof setInterval> | null = null
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    _nowMs.value = Date.now()
+    _nowTimer = setInterval(() => { _nowMs.value = Date.now() }, 1_000)
+  } else {
+    if (_nowTimer) { clearInterval(_nowTimer); _nowTimer = null }
+    _lastSeenStepCount = 0
+    currentStepStartedMs.value = null
+  }
+}, { immediate: true })
+
+const currentStepDwellSec = computed<number>(() => {
+  if (currentStepStartedMs.value === null) return 0
+  return Math.floor((_nowMs.value - currentStepStartedMs.value) / 1_000)
+})
+
 const streamedStepNames = computed<string[]>(() => {
   const txt = partialPlanText.value
   if (!txt) return []
@@ -3266,6 +3310,22 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
             <span class="flex-1 break-words">{{ name }}</span>
           </li>
         </ol>
+        <!--
+          Long-dwell hint (Tom 2026-06-03 — "seem hung on 4"). The model is
+          writing the current step's description and JSON metadata. After
+          15s on the same step name with no new name appearing, surface what
+          is actually happening so the user does not assume it has hung.
+          Hidden as soon as the next step name streams in.
+        -->
+        <p
+          v-if="currentStepDwellSec >= 15"
+          class="mt-2 text-[11px] italic text-slate-500"
+        >
+          Step {{ streamedStepNames.length }}'s details are being written
+          ({{ currentStepDwellSec }}s on this step) — the model writes name first,
+          then description, then links. The next step's name will appear when
+          this one's description completes.
+        </p>
       </div>
       <!-- Cancel button — Tom 2026-06-02: "no 66sec ad counting".
            Immediately resets loading state; the background API call finishes

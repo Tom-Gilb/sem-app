@@ -522,7 +522,9 @@ Where each EvoStep is:
 
 {
   "name":            string,   // Short step name, e.g. "Evo 6 — Evo Step Planner Backend"
-  "description":     string,   // What is being built/implemented — NOT a value delivery claim
+  "description":     string,   // What is being built/implemented — NOT a value delivery claim.
+                                // MUST be ≤ 25 words (1 short sentence). Brevity is mandatory:
+                                // longer descriptions slow generation and bury the signal.
   "linkedValues":    string[], // IDs of V. entries this step is designed to move toward Goal
   "linkedSolutions": string[], // IDs of S. entries whose design ideas this step implements (≥1)
   "effortPercent":   number    // Estimated share of total project effort as an integer 1–100
@@ -537,6 +539,7 @@ Where each EvoStep is:
 6. effortPercent: independent integer estimate 1–100. Values need NOT sum to 100 — each is a standalone estimate of relative effort for that step vs. the whole project.
 7. Minimum: ≥1 step in the output.
 8. Step names: use natural readable words — e.g. "Evo 1 — Supabase Auth Setup", "Database Redundancy Core", "Test Infrastructure". No type prefix (S., F., V.). No PascalCase.
+9. BREVITY IS MANDATORY (Tom 2026-06-03 — generation was hanging on long descriptions). Each `description` field ≤ 25 words / 1 short sentence. Each `name` ≤ 8 words. Do not pad. Total output should fit in ~500 tokens for a 4-step plan. The Few-Shot Example below shows the target length — match it; do not exceed it.
 
 == FEW-SHOT EXAMPLE ==
 
