@@ -5,26 +5,36 @@
      Per vault CLAUDE.md "Universal Close-Button Rule" — never use X / × / ✕
      glyphs as close buttons.
 
+     Hover indicator: ExitGlyph `[->` (Blissymbolics exit, Tom Gilb 2026-06-02).
+     The `[` is the surface you are inside; `->` is the exit direction.
+     Replaces the previous ⊖ character — now semantically precise via the
+     Planguage Keyed Action Glyph family.
+
      Usage:
        <CloseDot @click="close" aria-label="Close Settings" />
        <CloseDot variant="on-dark" @click="close" aria-label="Close Modal" />
 
      Props:
        ariaLabel — required, screen-reader label (e.g. "Close Settings")
-       title     — tooltip text (default: "Close")
+       title     — tooltip text (default: "Close [->")
        variant   — 'on-light' (default — red dot on light background)
                  | 'on-dark'  (white-tinted dot on dark/coloured header background)
                  | 'subtle'   (gray traffic-light variant for secondary contexts)
 -->
 
 <script setup lang="ts">
+import ExitGlyph from './icons/ExitGlyph.vue'
+
 withDefaults(defineProps<{
   ariaLabel: string
   title?: string
   variant?: 'on-light' | 'on-dark' | 'subtle'
+  /** size — 'md' = 20×20px (default); 'lg' = 32×32px (use when cursor blocks the icon) */
+  size?: 'md' | 'lg'
 }>(), {
-  title: 'Close',
+  title: 'Close [->',
   variant: 'on-light',
+  size: 'md',
 })
 
 defineEmits<{ click: [MouseEvent] }>()
@@ -50,12 +60,19 @@ defineEmits<{ click: [MouseEvent] }>()
     The ⊖ glyph stays the visible "click me" cue (no x/× ever — see
     Universal Close-Button Rule) and bumps to text-[11px].
   -->
+  <!--
+    size='md' = h-5 w-5 (20px, original).
+    size='lg' = h-8 w-8 (32px) — use when cursor physically covers the icon,
+    e.g. ContractHub header where the 20px dot is obscured by the mouse pointer.
+    ExitGlyph scales proportionally: md=18×8px, lg=26×11px.
+  -->
   <button
     type="button"
     :class="[
-      'group relative flex h-5 w-5 items-center justify-center rounded-full shadow-sm',
+      'group relative flex items-center justify-center rounded-full shadow-sm',
       'transition-all hover:scale-125 shrink-0',
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+      size === 'lg' ? 'h-8 w-8' : 'h-5 w-5',
       variant === 'on-light' && [
         'bg-red-500 ring-1 ring-red-700/40',
         'hover:bg-red-600 hover:shadow-md hover:ring-red-800/60',
@@ -76,18 +93,23 @@ defineEmits<{ click: [MouseEvent] }>()
     :aria-label="ariaLabel"
     @click="$emit('click', $event)"
   >
-    <!-- macOS traffic-light: glyph hidden at rest, appears on hover only.
-         Tom 2026-05-31: "the close dot is visually big and you see the - in middle."
-         Fix: opacity-0 at rest → opacity-100 on group-hover, matching macOS. -->
+    <!-- ExitGlyph `[->` — Blissymbolics exit (Tom Gilb 2026-06-02).
+         Hidden at rest, appears on group-hover — matching macOS traffic-light UX.
+         The bracket IS the door; the arrow exits through it.
+         md: 18×8px (fits 20px dot). lg: 26×11px (fits 32px dot, visible past cursor). -->
     <span
       :class="[
-        'opacity-0 group-hover:opacity-100 transition-opacity',
-        'text-[11px] font-black leading-none select-none',
-        variant === 'on-light' && 'text-white',
-        variant === 'on-dark'  && 'text-white',
-        variant === 'subtle'   && 'text-slate-800 group-hover:text-white',
+        'opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center',
+        variant === 'subtle' && 'group-hover:text-white',
       ]"
+      :style="{ color: 'white' }"
       aria-hidden="true"
-    >⊖</span>
+    >
+      <ExitGlyph
+        size="compact"
+        :style="size === 'lg' ? { width: '26px', height: '11px' } : { width: '18px', height: '8px' }"
+        aria-hidden="true"
+      />
+    </span>
   </button>
 </template>

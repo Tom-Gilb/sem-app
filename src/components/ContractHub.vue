@@ -738,10 +738,11 @@ onUnmounted(() => { _stopContractAnimation() })
           {{ PARSE_STATUS_LABEL[store.overallParseStatus.value] ?? store.overallParseStatus.value }}
         </span>
 
-        <!-- CloseDot -->
+        <!-- CloseDot — size="lg" (32px) so ExitGlyph [-> is visible past the mouse cursor -->
         <div class="ml-auto shrink-0">
           <CloseDot
             variant="on-dark"
+            size="lg"
             title="Close Contracts — return to main workspace"
             ariaLabel="Close Contracts mode"
             @click="emit('close')"
@@ -1222,19 +1223,42 @@ onUnmounted(() => { _stopContractAnimation() })
                     : 'hover:bg-slate-50 text-slate-700'"
                   @click="selectedClauseId = clause.id"
                 >
+                  <!-- Row 1: §N + parse-status dot -->
                   <div class="flex items-center gap-1.5">
                     <span class="font-mono text-[10px] text-slate-400 shrink-0">{{ clause.number }}</span>
+                    <!-- Status dot — only shown while not-done (parsing/error/pending) -->
                     <span
+                      v-if="clause.parseStatus !== 'done'"
                       class="shrink-0 w-1.5 h-1.5 rounded-full"
-                      :class="clause.parseStatus === 'done'    ? 'bg-emerald-400'
-                             : clause.parseStatus === 'parsing' ? 'bg-amber-400 animate-pulse'
+                      :class="clause.parseStatus === 'parsing' ? 'bg-amber-400 animate-pulse'
                              : clause.parseStatus === 'error'   ? 'bg-red-400'
                              :                                     'bg-slate-200'"
                       :title="clause.parseStatus"
                     />
                   </div>
+                  <!-- Row 2: Clause heading -->
                   <div class="font-semibold mt-0.5 leading-tight truncate">{{ clause.heading }}</div>
-                  <div class="text-[10px] text-slate-400 mt-0.5">{{ clause.entries.length }} entries</div>
+                  <!-- Row 3: Color Glyph type indicators (DD-013: dblclick → GlyphDataPanel) -->
+                  <!-- Single-click on these propagates up to the clause selector button above. -->
+                  <!-- Double-click opens GlyphDataPanel for that entry type (PlTypeIcon handles this). -->
+                  <div
+                    v-if="clause.parseStatus === 'done' && clause.entries.length > 0"
+                    class="flex items-center gap-0.5 mt-1 flex-wrap"
+                  >
+                    <template v-for="ct in CONTRACT_FILTER_GLYPHS" :key="ct.contractType">
+                      <PlTypeIcon
+                        v-if="clause.entries.some(e => e.type === ct.contractType)"
+                        :pl-type="ct.glyphType"
+                        size="sm"
+                        :title="`${ct.keyword} (${ct.contractType}.) — ${clause.entries.filter(e => e.type === ct.contractType).length} in §${clause.number} · Single-click to select clause`"
+                      />
+                    </template>
+                  </div>
+                  <!-- "No entries" label when done but empty -->
+                  <div
+                    v-else-if="clause.parseStatus === 'done'"
+                    class="text-[10px] text-slate-300 mt-0.5 italic"
+                  >no entries</div>
                 </button>
               </ScrollContainer>
             </div>
