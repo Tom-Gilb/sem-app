@@ -88,6 +88,19 @@ let _inFlight = false
 let _fetchGeneration = 0
 
 /**
+ * AbortController for the currently in-flight streaming fetch.
+ * cancelFetch() aborts it so the SSE reader's await reader.read() throws,
+ * which unblocks the planner promise, kills the Claude Code subprocess
+ * via the Vite middleware's res.on('close') handler, and stops the
+ * reactivity storm that was starving the event loop.
+ *
+ * Without this, cancelFetch only flipped Vue refs but the background SSE
+ * stream kept pumping text-deltas indefinitely (Tom 2026-06-03: 215s
+ * elapsed with Cancel button non-responsive).
+ */
+let _currentAbortController: AbortController | null = null
+
+/**
  * User-cancellation flag. Set by cancelFetch() so that when planSteps()
  * eventually resolves (after the cancel), fetchPlan does not write the
  * result into reactive state — the API call keeps running in background
@@ -158,6 +171,15 @@ export function cancelFetch(errorMessage = ''): void {
   _inFlight      = false
   _loading.value = false
   _planError.value = errorMessage
+  // Hard-cancel the in-flight streaming fetch so the SSE reader exits and
+  // the Claude Code subprocess gets SIGTERM'd via the middleware's
+  // res.on('close') handler. Otherwise the background stream keeps pumping
+  // text-deltas, saturating the event loop and making subsequent UI
+  // interactions sluggish (Tom 2026-06-03 Cancel-non-responsive bug).
+  if (_currentAbortController !== null) {
+    try { _currentAbortController.abort() } catch { /* ignore */ }
+    _currentAbortController = null
+  }
 }
 
 /**
@@ -292,7 +314,13 @@ export function useEvoPlan() {
       // Read cycle length from the active plan model — constrains LLM step sizing.
       // Default 'week' if no model is active yet.
       const cycleLength = currentModel.value?.evoCycleLength ?? 'week'
-      const result = await planSteps(specBlock, cycleLength, onProgress)
+
+      // Fresh AbortController per fetch — cancelFetch() will abort this
+      // signal to hard-stop the streaming fetch + Claude subprocess.
+      // Cleared in the finally block so a successful fetch leaves no
+      // stale controller for the next cancelFetch to (no-op) abort.
+      _currentAbortController = new AbortController()
+      const result = await planSteps(specBlock, cycleLength, onProgress, _currentAbortController.signal)
 
       // User cancelled while the API call was in-flight — discard result silently.
       // _loading and _inFlight are already reset by cancelFetch(); just clear the flag.
@@ -341,6 +369,9 @@ export function useEvoPlan() {
       if (_fetchGeneration === thisGeneration) {
         _inFlight = false
         _loading.value = false
+        // Clear the controller only if it's still ours — a newer fetch may
+        // have replaced it while this finally was running.
+        _currentAbortController = null
       }
     }
   }

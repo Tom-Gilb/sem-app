@@ -155,9 +155,9 @@ const {
   confirmPlan,
 } = useEvoPlan()
 
-// ── Hard 60-second UI timeout — setInterval wall-clock poller ─────────────────
+// ── Hard UI timeout — setInterval wall-clock poller ───────────────────────────
 //
-// ROOT CAUSE (2026-06-02): setTimeout(fn, 60_000) is NOT reliably firing in
+// ROOT CAUSE (2026-06-02): setTimeout(fn, ms) is NOT reliably firing in
 // this WKWebView/Electron context.  Empirical evidence: the spinner reached
 // 182 s despite three independent setTimeout mechanisms (useEvoPlannerAPI
 // Promise.race, useEvoPlan backup timer, and a previous watch+setTimeout here).
@@ -167,16 +167,21 @@ const {
 //
 // FIX: Replace the setTimeout-based approach with a 1s setInterval that
 // uses Date.now() as a wall-clock reference.  Guaranteed to fire within
-// ±1 s of the 60s ceiling regardless of WKWebView timer behaviour.
+// ±1 s of the ceiling regardless of WKWebView timer behaviour.
+//
+// CEILING (Tom 2026-06-03): 180s for streaming. Aligned with the
+// 180s ceilings in useEvoPlan.ts and useEvoPlannerAPI.ts and the
+// LoadingProgress :max-seconds prop. All four timeouts must move
+// together — they are intentionally redundant for reliability.
 //
 // Logic:
 //   - When loading becomes true, record _loadingStartedAt = Date.now()
-//   - Every second, check if enough wall-clock time has elapsed (≥60 s)
+//   - Every second, check if enough wall-clock time has elapsed (≥180 s)
 //   - If yes AND loading is still true → call cancelFetch()
 //   - When loading goes false (response arrived or user cancelled) → clear interval
 //   - onUnmounted → clear interval (component teardown safety)
 
-const EVOPLAN_HARD_TIMEOUT_S = 60
+const EVOPLAN_HARD_TIMEOUT_S = 180
 let _loadingStartedAt: number | null = null
 let _evoTimeoutInterval: ReturnType<typeof setInterval> | null = null
 
@@ -201,7 +206,7 @@ watch(loading, (isLoading) => {
       }
       const elapsedS = (Date.now() - (_loadingStartedAt ?? Date.now())) / 1_000
       if (elapsedS >= EVOPLAN_HARD_TIMEOUT_S) {
-        cancelFetch('Evo generation timed out after 60 s — click Retry.')
+        cancelFetch(`Evo generation timed out after ${EVOPLAN_HARD_TIMEOUT_S} s — click Retry.`)
         _clearEvoTimeout()
       }
     }, 1_000)

@@ -238,8 +238,21 @@ export function useEvoPlannerAPI() {
      * Tom 2026-06-03 — "streaming" — used by EvoPlanView to extract step
      * names as they appear in the partial JSON and display them live. Safe
      * to omit; non-streaming callers continue to work unchanged.
+     *
+     * Throttled: only forwarded at most every 150 ms to prevent reactive-update
+     * storms when text-deltas arrive every ~30 ms — those storms were
+     * starving the event loop so the user's Cancel-button click could not
+     * register (Tom 2026-06-03 screenshot, 215s elapsed with Cancel
+     * non-responsive).
      */
     onProgress?: (partialText: string) => void,
+    /**
+     * Optional AbortSignal for cancellation. When the signal fires, the
+     * SSE fetch aborts, the Vite middleware's res.on('close') fires,
+     * and the claude subprocess is SIGTERM'd. Without this, cancelFetch
+     * only set Vue refs but the background work kept going indefinitely.
+     */
+    signal?: AbortSignal,
   ): Promise<EvoStepPlan | null> {
     loading.value = true
     error.value = ''
@@ -359,6 +372,25 @@ export function useEvoPlannerAPI() {
       let accumulatedText = ''
 
       if (onProgress) {
+        // ── Throttle the onProgress firing to ≤ ~7Hz ────────────────────
+        // Text-deltas arrive at ~30/sec when the model is generating fast.
+        // Each delta triggers partialPlanText.value=... → streamedStepNames
+        // recompute → evoPlannerPhases recompute → LoadingProgress's
+        // phases prop diff → currentPhase recompute. That cascade was
+        // saturating the event loop, blocking the Cancel button's click
+        // handler from getting scheduled (Tom 2026-06-03 screenshot:
+        // Cancel non-responsive at 215s elapsed).
+        // 150ms = 6.67Hz updates feels live to humans without starving
+        // the event loop. We still ACCUMULATE every token; we just don't
+        // re-render reactivity for every one.
+        let lastProgressMs = 0
+        let pendingFlush: ReturnType<typeof setTimeout> | null = null
+        const flushProgress = (): void => {
+          lastProgressMs = Date.now()
+          if (pendingFlush !== null) { clearTimeout(pendingFlush); pendingFlush = null }
+          try { onProgress(accumulatedText) } catch { /* swallow handler errors */ }
+        }
+
         const streamPromise: Promise<void> = (async () => {
           const stream = client.beta.messages.stream({
             model: MODEL_ID,
@@ -366,16 +398,29 @@ export function useEvoPlannerAPI() {
             system: [systemBlock],
             messages: [{ role: 'user', content: userContent }],
             betas: ['prompt-caching-2024-07-31'],
+            signal,  // propagates to the SSE fetch in claudeCodeAdapter
           })
           stream.on('text', (delta: string) => {
             accumulatedText += delta
-            // Fire on every chunk so EvoPlanView can re-extract step names
-            // as they appear in the partial JSON.
-            try { onProgress(accumulatedText) } catch { /* swallow handler errors */ }
+            const sinceLast = Date.now() - lastProgressMs
+            if (sinceLast >= 150) {
+              flushProgress()
+            } else if (pendingFlush === null) {
+              // Schedule a flush at the next throttle boundary so the
+              // FINAL chunk is never lost even if it arrives in the
+              // throttle window.
+              pendingFlush = setTimeout(flushProgress, 150 - sinceLast)
+            }
           })
           await stream.finalMessage()
+          // Final flush so the UI sees the complete text after the stream ends.
+          flushProgress()
         })()
-        await Promise.race([streamPromise, _timeoutRace])
+        try {
+          await Promise.race([streamPromise, _timeoutRace])
+        } finally {
+          if (pendingFlush !== null) clearTimeout(pendingFlush)
+        }
       } else {
         // Race: API call vs hard timeout. Whichever settles first wins.
         const response = await Promise.race([
