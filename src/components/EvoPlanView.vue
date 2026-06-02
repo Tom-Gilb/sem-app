@@ -1921,6 +1921,22 @@ async function handleConfirm(): Promise<void> {
   }
 }
 
+/**
+ * Smooth-scroll the first Evo step card into view.
+ * Used by the "Review steps ↓" button in the plan-ready continue banner
+ * (Tom 2026-06-03 — "At end it did not continue"). The user gets one click
+ * to jump from the top-of-plan banner to the editable step cards.
+ */
+function scrollToStepList(): void {
+  // The first <li> in the step list carries aria-label="Evo step 1: …".
+  // Falling back to role=list parent if for some reason that isn't present.
+  const firstStep = document.querySelector<HTMLElement>('li[aria-label^="Evo step 1:"]')
+                 ?? document.querySelector<HTMLElement>('ol[aria-label="Evo step plan"]')
+  if (firstStep) {
+    firstStep.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
 // ── Per-step card copy ────────────────────────────────────────────────────────
 // Keyed by step index so each card has independent copied feedback.
 // Uses execCommand('copy') on a hidden contenteditable div so the HTML table
@@ -3348,6 +3364,71 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           :spec="props.specBlock"
           class="mb-4 rounded-lg"
         />
+
+        <!-- ── Plan-ready continue banner (Tom 2026-06-03) ──────────────────
+             "At end it did not continue" — after generation, the natural next
+             process is Evo Impact (Stage 7) or step editing, but the existing
+             Confirm Plan button sat at the BOTTOM of a long step list. Users
+             saw the plan render and had no obvious forward path.
+
+             This banner is the unmissable next-step affordance. Two paths:
+               • Review steps ↓  — scroll to step list for editing
+               • Continue → Evo Impact  — confirm the plan and auto-advance
+                 to the Impact Estimation stage in one click (calls
+                 handleConfirm, which emits 'confirmed', which App.vue's
+                 onPlanConfirmed handles by setting stage.value = 3).
+             Disappears once the plan is confirmed (replaced by the green
+             "Plan confirmed and saved" banner below). -->
+        <div
+          v-if="!isConfirmed"
+          class="mb-4 rounded-xl bg-gradient-to-r from-emerald-50 via-indigo-50 to-violet-50
+                 border border-emerald-200 p-4 shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-bold text-emerald-800 flex items-center gap-2">
+                <span class="text-base" aria-hidden="true">✓</span>
+                Plan ready — {{ steps.length }} Evo {{ steps.length === 1 ? 'step' : 'steps' }} drafted
+              </p>
+              <p class="text-xs text-slate-700 mt-1 leading-relaxed">
+                Review and edit below if needed, or continue to <strong>Evo Impact</strong>
+                to estimate how much value each step delivers per unit cost.
+              </p>
+            </div>
+            <div class="flex gap-2 shrink-0">
+              <button
+                type="button"
+                title="Scroll down to review and edit the Evo steps"
+                class="px-3.5 py-2 rounded-lg text-xs font-semibold
+                       text-emerald-800 bg-white border border-emerald-300
+                       hover:bg-emerald-50 hover:border-emerald-400
+                       focus:outline-none focus:ring-2 focus:ring-emerald-300
+                       transition-colors shadow-sm"
+                @click="scrollToStepList"
+              >
+                Review steps ↓
+              </button>
+              <button
+                type="button"
+                title="Confirm this plan and advance to Evo Impact (Stage 7)"
+                aria-label="Confirm plan and continue to Evo Impact"
+                class="px-4 py-2 rounded-lg text-xs font-bold text-white
+                       bg-gradient-to-r from-indigo-600 to-violet-600
+                       hover:from-indigo-700 hover:to-violet-700
+                       focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1
+                       transition-all shadow-md hover:shadow-lg
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="!canConfirm || confirming"
+                @click="handleConfirm"
+              >
+                <span v-if="confirming">Saving plan…</span>
+                <span v-else>Continue → Evo Impact</span>
+              </button>
+            </div>
+          </div>
+        </div>
 
         <!-- Confirmed banner -->
         <div
