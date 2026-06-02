@@ -155,6 +155,48 @@ const {
   confirmPlan,
 } = useEvoPlan()
 
+// ── Force-hide override (Tom 2026-06-03 — "stuck at end and cancel not working,
+//     same procedure as last time James") ────────────────────────────────────
+//
+// PROBLEM: across multiple sessions, cancelFetch sets _loading.value=false but
+// the loading UI sometimes does not hide. The exact upstream reason has been
+// elusive (HMR module duplication? readonly() proxy edge case? watcher
+// suppressed by reactivity scheduler under streaming load?). Whatever it is,
+// the SYMPTOM is the user sits past 180s+ with the spinner showing and the
+// Cancel button apparently doing nothing.
+//
+// FIX (defensive, UI-side, decoupled from upstream): a local ref
+// forceHideLoading that the cancel button can set synchronously. The v-if on
+// the loading block is `showLoading` which gates on `loading && !forceHideLoading`.
+// One click guarantees the loading UI vanishes; the upstream abort/cleanup
+// still happens via cancelFetch in the background.
+const forceHideLoading = ref(false)
+const showLoading = computed(() => loading.value && !forceHideLoading.value)
+
+/**
+ * The one entry point used by every cancel surface (manual Cancel button,
+ * LoadingProgress timeout, EvoPlanView wall-clock timeout). Synchronously
+ * hides the loading UI, then fires the upstream cancelFetch to clean up
+ * refs + abort the SSE fetch + SIGTERM the subprocess.
+ */
+function userCancel(errorMessage = ''): void {
+  // 1. UI side — guaranteed instant hide.
+  forceHideLoading.value = true
+  partialPlanText.value = ''
+  // 2. Upstream cleanup — sets refs, aborts SSE, middleware kills subprocess.
+  cancelFetch(errorMessage)
+}
+
+// Auto-reset the local override on EVERY loading toggle.
+//  - false→true (new generation kicked off): clear stale override from a
+//    previous cancel, otherwise the new generation's loading UI would be
+//    suppressed and the user would see nothing.
+//  - true→false (completion or upstream cancel propagated): clear override
+//    so the override does not interfere with any future loading cycle.
+watch(loading, () => {
+  forceHideLoading.value = false
+})
+
 // ── Hard UI timeout — setInterval wall-clock poller ───────────────────────────
 //
 // ROOT CAUSE (2026-06-02): setTimeout(fn, ms) is NOT reliably firing in
@@ -206,7 +248,7 @@ watch(loading, (isLoading) => {
       }
       const elapsedS = (Date.now() - (_loadingStartedAt ?? Date.now())) / 1_000
       if (elapsedS >= EVOPLAN_HARD_TIMEOUT_S) {
-        cancelFetch(`Evo generation timed out after ${EVOPLAN_HARD_TIMEOUT_S} s — click Retry.`)
+        userCancel(`Evo generation timed out after ${EVOPLAN_HARD_TIMEOUT_S} s — click Retry.`)
         _clearEvoTimeout()
       }
     }, 1_000)
@@ -3245,8 +3287,13 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       the AI is doing in each window of elapsed time. Counts and cycle label
       are interpolated from the live SpecBlock so the user sees real numbers
       ("17 entries, ~40h Week cycle") not generic placeholders.
+
+      v-if uses showLoading (not loading directly) so the forceHideLoading
+      override can synchronously hide the UI on cancel even when the
+      upstream _loading.value=false fails to propagate. Tom 2026-06-03:
+      "stuck at end and cancel not working, same procedure as last time".
     -->
-    <div v-if="loading" class="py-10 px-2 space-y-4">
+    <div v-if="showLoading" class="py-10 px-2 space-y-4">
       <!--
         Ceiling raised to 180s (Tom 2026-06-03) because streaming gives the
         user live step names instead of a blank wait — the original 60s
@@ -3263,7 +3310,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         hint="Detailed plans (4–5 steps) typically take 60–150s · auto-stops at 180s · or cancel below"
         color="indigo"
         :phases="evoPlannerPhases"
-        @timeout="cancelFetch('Evo generation timed out after 180 s — click Retry.')"
+        @timeout="userCancel('Evo generation timed out after 180 s — click Retry.')"
       />
 
       <!--
@@ -3340,7 +3387,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
                  hover:border-red-300 hover:text-red-600 hover:bg-red-50
                  focus:outline-none focus:ring-2 focus:ring-red-400
                  transition-colors shadow-sm"
-          @click="cancelFetch()"
+          @click="userCancel()"
         >
           <CancelEmptyGlyph size="compact" class="h-3.5 w-auto shrink-0" aria-hidden="true" />
           Cancel generation
