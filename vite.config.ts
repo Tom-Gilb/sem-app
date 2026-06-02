@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config'
 import { loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { exec } from 'node:child_process'
+import { exec, spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Plugin } from 'vite'
@@ -331,22 +331,226 @@ function glossaryPlugin(): Plugin {
   }
 }
 
+/**
+ * Vite dev-server plugin: POST /api/claude-code
+ *
+ * Spawns the local `claude` CLI in print mode (`-p --output-format json`) and
+ * pipes the user prompt via stdin. Returns the response in a shape consumable
+ * by claudeCodeAdapter.ts.
+ *
+ * Per CLAUDE.md "Claude-Code-as-AI-Layer Rule" (2026-06-02):
+ *   The SEM App MUST NOT make external AI API calls. All AI flows through
+ *   Tom's local Claude Code installation, which uses his OAuth subscription
+ *   (no per-call ANTHROPIC_API_KEY billing). This middleware is the bridge
+ *   between the browser composables (file-watch / file-read pattern is the
+ *   long-term target; this subprocess proxy is the pragmatic shorter path
+ *   that requires zero composable changes).
+ *
+ * Request body: { model: string, max_tokens?: number, system?: string, prompt: string }
+ * Response shape:
+ *   success: { ok: true, text: string, usage: {...}, stop_reason: string }
+ *   error:   { ok: false, error: string, exit_code?: number, stderr?: string }
+ *
+ * Cancellation: the browser closes the connection on AbortSignal; the
+ * middleware listens for `req.on('close')` and kills the subprocess if the
+ * request was aborted before completion.
+ *
+ * Auth: the subprocess inherits Tom's environment, so `claude` uses his
+ * existing OAuth session from ~/.claude/auth. No API key is read or sent.
+ */
+function claudeCodeProxy(): Plugin {
+  return {
+    name: 'vite-plugin-claude-code-proxy',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/api/claude-code', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method not allowed')
+          return
+        }
+
+        let body = ''
+        req.on('data', (chunk: Buffer) => { body += chunk.toString('utf-8') })
+        req.on('end', () => {
+          let parsed: { model?: string; max_tokens?: number; system?: string; prompt?: string }
+          try {
+            parsed = JSON.parse(body)
+          } catch (err) {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: false, error: `Invalid JSON body: ${String(err)}` }))
+            return
+          }
+
+          const { model, system, prompt } = parsed
+          if (!prompt || typeof prompt !== 'string') {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: false, error: 'Missing or empty `prompt` in request body' }))
+            return
+          }
+
+          // Build the claude CLI args. Notable flags:
+          //   -p                          — print mode (non-interactive)
+          //   --output-format json        — structured response, easy to parse
+          //   --model <X>                 — use the model the composable requested
+          //   --system-prompt <X>         — system prompt
+          //   --permission-mode acceptEdits — auto-accept (no interactive prompts)
+          //   --no-session-persistence    — do not pollute Tom's session list
+          // Prompt is piped via stdin (avoids shell-arg length / escaping issues).
+          const args: string[] = ['-p', '--output-format', 'json', '--no-session-persistence']
+          if (model) args.push('--model', model)
+          if (system) args.push('--system-prompt', system)
+
+          // Absolute path — `spawn('claude', ...)` relies on PATH lookup which
+          // can silently fail in the Vite dev-server's Node process (it doesn't
+          // always inherit the full interactive-shell PATH on macOS). Using the
+          // absolute path eliminates the lookup entirely. Override via
+          // VITE_CLAUDE_CLI_PATH if your claude is elsewhere.
+          const CLAUDE_BIN = process.env.VITE_CLAUDE_CLI_PATH || '/usr/local/bin/claude'
+
+          // One concise log line per call — model + prompt size for visibility.
+          // eslint-disable-next-line no-console
+          console.log(`[claude-code-proxy] → claude ${model ?? 'default'} (${prompt.length}b prompt, ${system?.length ?? 0}b system)`)
+          const startMs = Date.now()
+
+          const child = spawn(CLAUDE_BIN, args, {
+            cwd: process.cwd(),
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: process.env, // inherits OAuth, PATH, etc.
+          })
+
+          let stdout = ''
+          let stderr = ''
+          let aborted = false
+
+          child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf-8') })
+          child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf-8') })
+
+          // Pipe the prompt to the subprocess's stdin and close it.
+          child.stdin.write(prompt, 'utf-8')
+          child.stdin.end()
+
+          // Abort handling — kill the child only if the response stream is
+          // closed BEFORE we've written a reply (i.e. the client disconnected
+          // mid-request). Crucially: do NOT use `req.on('close')` — that fires
+          // on normal request-body completion too (after `req.on('end')`),
+          // which would SIGTERM every healthy child the instant it spawned.
+          // `res.on('close')` only fires when the underlying TCP connection
+          // closes, which is the real "client gave up" signal.
+          let responseSent = false
+          res.on('close', () => {
+            if (responseSent || child.killed) return
+            // eslint-disable-next-line no-console
+            console.log(`[claude-code-proxy] ⚠ client disconnected — killing pid=${child.pid}`)
+            aborted = true
+            child.kill('SIGTERM')
+            setTimeout(() => { if (!child.killed) child.kill('SIGKILL') }, 2000).unref()
+          })
+
+          // Helper — write final response exactly once, and flip the
+          // responseSent flag so the res.on('close') abort handler doesn't
+          // SIGTERM an already-completed child.
+          const send = (status: number, body: object): void => {
+            if (responseSent) return
+            responseSent = true
+            res.statusCode = status
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(body))
+          }
+
+          child.on('close', (code) => {
+            // eslint-disable-next-line no-console
+            console.log(`[claude-code-proxy] ← ${Date.now() - startMs}ms code=${code} stdout=${stdout.length}b${aborted ? ' (aborted)' : ''}`)
+            if (aborted) return // response already closed
+            if (code !== 0) {
+              send(500, {
+                ok: false,
+                error: `claude CLI exited with code ${code}`,
+                exit_code: code,
+                stderr: stderr.slice(0, 4000),
+              })
+              return
+            }
+
+            // Parse the CLI's JSON output. Shape (from `claude -p --output-format json`):
+            //   { type: 'result', result: '<text>', usage: { input_tokens, output_tokens, ... },
+            //     stop_reason: '...', total_cost_usd: <n>, ... }
+            try {
+              const out = JSON.parse(stdout) as {
+                result?: string
+                stop_reason?: string
+                usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number }
+                is_error?: boolean
+                api_error_status?: unknown
+              }
+
+              if (out.is_error) {
+                send(500, {
+                  ok: false,
+                  error: `claude CLI reported error: ${out.api_error_status ?? 'unknown'}`,
+                  stderr: stderr.slice(0, 4000),
+                })
+                return
+              }
+
+              send(200, {
+                ok: true,
+                text: out.result ?? '',
+                stop_reason: out.stop_reason ?? 'end_turn',
+                usage: {
+                  input_tokens:            out.usage?.input_tokens ?? 0,
+                  output_tokens:           out.usage?.output_tokens ?? 0,
+                  cache_read_input_tokens: out.usage?.cache_read_input_tokens ?? 0,
+                },
+              })
+            } catch (err) {
+              send(500, {
+                ok: false,
+                error: `Failed to parse claude CLI output: ${String(err)}`,
+                stderr: stdout.slice(0, 4000),
+              })
+            }
+          })
+
+          child.on('error', (err) => {
+            if (aborted) return
+            send(500, {
+              ok: false,
+              error: `Failed to spawn claude CLI: ${err.message}. Is the 'claude' binary on PATH? Try \`which claude\`.`,
+            })
+          })
+        })
+      })
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   // loadEnv reads .env, .env.local, .env.[mode], .env.[mode].local in order.
-  // In Vercel production builds VITE_OLLAMA_MODEL is never set, so the alias
-  // is skipped and the real @anthropic-ai/sdk is bundled.
+  // In Vercel production builds neither VITE_AI_PROVIDER nor VITE_OLLAMA_MODEL
+  // is set, so the alias is skipped and the real @anthropic-ai/sdk is bundled.
   const env = loadEnv(mode, process.cwd(), '')
-  const useOllama = Boolean(env.VITE_OLLAMA_MODEL)
+  const useClaudeCode = env.VITE_AI_PROVIDER === 'claude-code'
+  const useOllama     = !useClaudeCode && Boolean(env.VITE_OLLAMA_MODEL)
+
+  // ── Pick the adapter (Claude Code wins over Ollama if both are set) ──────
+  const adapterPath = useClaudeCode
+    ? resolve(__dirname, 'src/lib/claudeCodeAdapter.ts')
+    : useOllama
+      ? resolve(__dirname, 'src/lib/ollamaAdapter.ts')
+      : null
 
   return {
-  plugins: [vue(), mariaMailPlugin(), glossaryPlugin()],
+  plugins: [vue(), mariaMailPlugin(), glossaryPlugin(), claudeCodeProxy()],
   resolve: {
-    alias: useOllama ? {
-      // Local dev only — route all SDK imports to the Ollama drop-in adapter
-      // so no Anthropic API key or internet access is needed during development.
+    alias: adapterPath ? {
+      // Local dev only — route all SDK imports to the chosen adapter so no
+      // Anthropic API key or internet access is needed during development.
       // The more-specific deep path must come first.
-      '@anthropic-ai/sdk/resources/beta/messages/messages': resolve(__dirname, 'src/lib/ollamaAdapter.ts'),
-      '@anthropic-ai/sdk': resolve(__dirname, 'src/lib/ollamaAdapter.ts'),
+      '@anthropic-ai/sdk/resources/beta/messages/messages': adapterPath,
+      '@anthropic-ai/sdk': adapterPath,
     } : {},
   },
   optimizeDeps: {
@@ -366,14 +570,13 @@ export default defineConfig(({ mode }) => {
       // with an on-the-fly CJS→ESM shim, which works fine.
       'pdfjs-dist',
 
-      // When Ollama mode is active, @anthropic-ai/sdk is aliased to
-      // ollamaAdapter.ts (a local source file that routes to localhost:11434).
-      // If esbuild pre-bundles the real npm package into .vite/deps/ first,
-      // Vite serves that cached bundle instead of resolving through the alias —
-      // silently bypassing the adapter and sending live requests to
-      // api.anthropic.com, which returns 401 (invalid x-api-key).
-      // Excluding it forces Vite to always resolve the alias at request time.
-      ...(useOllama ? ['@anthropic-ai/sdk'] : []),
+      // When an adapter mode is active, @anthropic-ai/sdk is aliased to a
+      // local source file. If esbuild pre-bundles the real npm package into
+      // .vite/deps/ first, Vite serves that cached bundle instead of resolving
+      // through the alias — silently bypassing the adapter and sending live
+      // requests to api.anthropic.com. Excluding it forces Vite to always
+      // resolve the alias at request time.
+      ...(adapterPath ? ['@anthropic-ai/sdk'] : []),
     ],
   },
   server: {
