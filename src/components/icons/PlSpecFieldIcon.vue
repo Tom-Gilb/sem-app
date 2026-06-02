@@ -60,7 +60,7 @@ const CANONICAL_LABELS: Record<SpecFieldType, string> = {
   'meter':     'Meter ({∆}) — how this value is measured. The instrument, method, or formula that returns a numeric level.',
   'status':    'Status ([●]) — lifecycle state of this entry: Draft → Proposed → Approved → Active → Met → Superseded → Retired.',
   'tag':       'Tag (#) — classification label. Used for filtering, grouping, and priority organisation across entry types.',
-  'ambition':  'Ambition Level ({≡}) — derived metric: (Goal − Past) / Scale Range. High ambition + Met = maximum value delivered.',
+  'ambition':  'Ambition Level ({≡}) — a short quoted sentence describing a Value Objective (e.g. "Competitive Quality"). Ideally quoted from a responsible source (CEO, website, presentation). Seeds the Planguage spec (Scale, Wish) and provides authority for QC.',
 }
 
 const SIZE_PX: Record<'xs' | 'sm' | 'md', number> = { xs: 14, sm: 18, md: 22 }
@@ -200,18 +200,18 @@ const resolvedTitle = computed(() => props.title ?? CANONICAL_LABELS[props.field
       </g>
 
       <!-- ── 10 · Ambition · {≡} · Fuchsia #701a75 ────────────────────────── -->
-      <!--  Scale bar (left axis) + Goal tick (y=6) + Tolerable tick (y=14)    -->
-      <!--  + right bracket showing the ambition span between them.            -->
-      <!--  Fuchsia is unused in existing palette → signals "derived insight."  -->
+      <!--  Speech bubble: a QUOTED ASPIRATIONAL STATEMENT from a responsible   -->
+      <!--  source (CEO, website, presentation). NOT a derived numeric metric.  -->
+      <!--  {≡}: structured text content (≡ triple lines = text body) inside   -->
+      <!--  a process container {}. Seeds Scale/Wish/Goal; used for QC/review. -->
+      <!--  Tail at bottom-left (like 💬, already used in SpecOutput for this  -->
+      <!--  field). Two horizontal lines = the quoted sentence content.         -->
       <g v-else-if="field === 'ambition'" stroke="#701a75" stroke-width="1.8">
-        <!-- Left scale axis -->
-        <line x1="4" y1="3"  x2="4" y2="17" />
-        <!-- Goal level tick (y=6) -->
-        <line x1="2.5" y1="6"  x2="6.5" y2="6" />
-        <!-- Tolerable level tick (y=14) -->
-        <line x1="2.5" y1="14" x2="6.5" y2="14" />
-        <!-- Right bracket: span from Goal to Tolerable -->
-        <polyline points="8,6 14,6 14,14 8,14" />
+        <!-- Speech bubble outline with tail pointing down-left -->
+        <path d="M 3 2 Q 2 2 2 3 L 2 11 Q 2 12 3 12 L 5 12 L 4 16 L 8 12 L 17 12 Q 18 12 18 11 L 18 3 Q 18 2 17 2 Z" />
+        <!-- Two text lines — the aspirational statement (first line full, second shorter) -->
+        <line x1="5" y1="5.5" x2="15" y2="5.5" />
+        <line x1="5" y1="9"   x2="11" y2="9" />
       </g>
 
     </svg>
