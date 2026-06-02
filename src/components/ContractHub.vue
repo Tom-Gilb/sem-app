@@ -28,6 +28,7 @@ import { useDocumentImport } from '../composables/useDocumentImport'
 import { useContractLibrary } from '../composables/useContractLibrary'
 import type { ContractLibraryEntry } from '../composables/useContractLibrary'
 import { openEml } from '../composables/useEmlExport'
+import { useGlyphPanel } from '../composables/useGlyphPanel'
 import PlTypeBadge from './icons/PlTypeBadge.vue'
 import PlTypeIcon from './icons/PlTypeIcon.vue'
 import CopyGlyph from './icons/CopyGlyph.vue'
@@ -47,6 +48,7 @@ const emit = defineEmits<{ 'close': [] }>()
 
 const store  = useContractStore()
 const parser = useContractParser()
+const { openGlyphPanel } = useGlyphPanel()
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 
@@ -907,12 +909,18 @@ onUnmounted(() => { _stopContractAnimation() })
                 ? { backgroundColor: ct.hex + '18', boxShadow: `0 0 0 2.5px ${ct.hex}80` }
                 : {}"
               :aria-pressed="String(entryFilter === ct.contractType)"
+              :title="`${ct.label} (${ct.contractType}.) — ${store.entryCounts.value[ct.contractType] ?? 0} entries · Single-click to filter · Double-click for Glyph Detail`"
               @click="entryFilter = (entryFilter === ct.contractType ? 'all' : ct.contractType)"
+              @dblclick.stop="openGlyphPanel(ct.glyphType)"
             >
+              <!-- noDetailClick: outer button owns @dblclick for the full tile hit-area.
+                   PlTypeIcon's own handler still fires when cursor is on the SVG pixels;
+                   outer button's @dblclick.stop catches hits on the p-1.5 padding zone.
+                   openGlyphPanel() is idempotent — called twice is fine. -->
               <PlTypeIcon
                 :pl-type="ct.glyphType"
                 size="xl"
-                :title="`${ct.label} (${ct.contractType}.) — ${store.entryCounts.value[ct.contractType] ?? 0} entries · Single-click to filter`"
+                :title="`${ct.label} (${ct.contractType}.) — ${store.entryCounts.value[ct.contractType] ?? 0} entries · Single-click to filter · Double-click for Glyph Detail`"
               />
             </button>
             <!-- Keyword label — colored to match the glyph family -->
@@ -1244,19 +1252,25 @@ onUnmounted(() => { _stopContractAnimation() })
                   <!-- Row 2: Clause heading -->
                   <div class="font-semibold mt-0.5 leading-tight truncate">{{ clause.heading }}</div>
                   <!-- Row 3: Color Glyph type indicators (DD-013: dblclick → GlyphDataPanel) -->
-                  <!-- Single-click on these propagates up to the clause selector button above. -->
-                  <!-- Double-click opens GlyphDataPanel for that entry type (PlTypeIcon handles this). -->
+                  <!-- Single-click propagates up to outer clause selector button.          -->
+                  <!-- Double-click: each glyph wrapped in @dblclick.stop so the full      -->
+                  <!-- 20px hit-area reliably opens GlyphDataPanel for that specific type. -->
                   <div
                     v-if="clause.parseStatus === 'done' && clause.entries.length > 0"
                     class="flex items-center gap-0.5 mt-1 flex-wrap"
                   >
                     <template v-for="ct in CONTRACT_FILTER_GLYPHS" :key="ct.contractType">
-                      <PlTypeIcon
+                      <span
                         v-if="clause.entries.some(e => e.type === ct.contractType)"
-                        :pl-type="ct.glyphType"
-                        size="sm"
-                        :title="`${ct.keyword} (${ct.contractType}.) — ${clause.entries.filter(e => e.type === ct.contractType).length} in §${clause.number} · Single-click to select clause`"
-                      />
+                        class="inline-flex"
+                        @dblclick.stop="openGlyphPanel(ct.glyphType)"
+                      >
+                        <PlTypeIcon
+                          :pl-type="ct.glyphType"
+                          size="sm"
+                          :title="`${ct.keyword} (${ct.contractType}.) — ${clause.entries.filter(e => e.type === ct.contractType).length} in §${clause.number} · Single-click to select clause · Double-click for Glyph Detail`"
+                        />
+                      </span>
                     </template>
                   </div>
                   <!-- "No entries" label when done but empty -->

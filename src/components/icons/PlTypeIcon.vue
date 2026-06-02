@@ -112,7 +112,7 @@ const { openGlyphPanel } = useGlyphPanel()
  */
 const resolvedTitle = computed(() => {
   const base = props.title ?? CANONICAL_LABELS[props.plType]
-  return props.noDetailClick ? base : `${base} · Double-click for detailed icon info`
+  return props.noDetailClick ? base : `${base} · Double-click for Glyph Detail`
 })
 
 function handleActivate(): void {
@@ -140,7 +140,7 @@ function handleDblClick(): void {
     :tabindex="interactive ? 0 : undefined"
     :class="interactive ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-current rounded' : ''"
     @click="handleActivate"
-    @dblclick.stop="handleDblClick"
+    @dblclick.prevent="handleDblClick"
     @keydown.enter="handleActivate"
     @keydown.space.prevent="handleActivate"
   >
