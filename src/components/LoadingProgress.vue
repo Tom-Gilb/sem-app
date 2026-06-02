@@ -4,16 +4,34 @@
        • a growing bar (capped at 88% until resolved)
        • "~N% · Ns elapsed"
        • an optional slow-network hint after baseline/2 seconds
+       • an optional rotating phase commentary (Tom 2026-06-03 — "display a
+         commentary about exactly what is happening" during long AI calls so
+         the user knows what the AI is doing in any given second, not just
+         that "something is loading")
 
      Props:
        loading   — drives the timer; pass the composable's loading ref
        label     — e.g. "Parsing as Planguage…"
        baseline  — expected seconds to completion (calibrates % estimate)
        hint      — sentence shown after baseline/2 s, e.g. "can take up to 60s on slow networks"
-       color     — bar + text accent: indigo | amber | slate | emerald (default: indigo) -->
+       color     — bar + text accent: indigo | amber | slate | emerald (default: indigo)
+       phases    — optional [{ atSecond, message }] — when elapsed crosses
+                   each `atSecond` boundary, the matching `message` is shown
+                   under the stats row. Last phase whose `atSecond ≤ elapsed`
+                   wins. Use this to narrate what the AI is doing right now
+                   ("Drafting Evo Step 1 — picking the smallest delivery…") -->
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+
+/** One step in a rotating phase commentary. */
+export interface LoadingPhase {
+  /** Elapsed seconds at which this phase becomes active. Phases are picked by
+   *  taking the latest one whose atSecond ≤ current elapsed time. */
+  atSecond: number
+  /** What the AI is doing right now — short user-facing sentence. */
+  message: string
+}
 
 const props = withDefaults(
   defineProps<{
@@ -22,6 +40,12 @@ const props = withDefaults(
     baseline?: number
     hint?: string
     color?: 'indigo' | 'amber' | 'slate' | 'emerald'
+    /** Hard ceiling in seconds. When elapsed reaches this value, emits 'timeout'.
+     *  Works even for in-progress generations: Vue component HMR re-applies new
+     *  watchers to existing instances within one setInterval tick (~1s). */
+    maxSeconds?: number
+    /** Optional rotating commentary — see header docblock for usage. */
+    phases?: LoadingPhase[]
   }>(),
   {
     label: 'Working…',
@@ -29,6 +53,8 @@ const props = withDefaults(
     color: 'indigo',
   },
 )
+
+const emit = defineEmits<{ timeout: [] }>()
 
 const elapsed = ref(0)
 let _timer: ReturnType<typeof setInterval> | null = null
@@ -51,11 +77,36 @@ onUnmounted(() => {
   if (_timer !== null) clearInterval(_timer)
 })
 
+// Hard-ceiling timeout — fires 'timeout' when elapsed reaches maxSeconds.
+// Vue component HMR re-applies this watcher to existing instances, so it catches
+// in-progress generations within the next setInterval tick (~1s after HMR).
+watch(elapsed, (s) => {
+  if (props.maxSeconds && s >= props.maxSeconds) {
+    emit('timeout')
+  }
+})
+
 /** Estimated completion — grows linearly, capped at 88% until the call returns. */
 const pct = computed(() => Math.min(88, Math.round((elapsed.value / props.baseline) * 88)))
 
 /** Show slow-network hint once half the baseline time has elapsed. */
 const showHint = computed(() => !!props.hint && elapsed.value >= Math.floor(props.baseline / 2))
+
+/**
+ * Currently active phase commentary — the latest phase whose `atSecond` boundary
+ * has been crossed. Null when no phases prop is passed or none have triggered yet.
+ * Sorted internally so callers can pass phases in any order.
+ */
+const currentPhase = computed<LoadingPhase | null>(() => {
+  if (!props.phases || props.phases.length === 0) return null
+  const sorted = [...props.phases].sort((a, b) => a.atSecond - b.atSecond)
+  let active: LoadingPhase | null = null
+  for (const p of sorted) {
+    if (p.atSecond <= elapsed.value) active = p
+    else break
+  }
+  return active
+})
 
 const barClass = computed(() => ({
   'bg-indigo-500': props.color === 'indigo',
@@ -95,10 +146,13 @@ const trackClass = computed(() => ({
       <span class="text-sm font-medium">{{ label }}</span>
     </div>
 
-    <!-- Progress track -->
-    <div class="h-2 w-full rounded-full overflow-hidden" :class="trackClass">
+    <!-- Progress track — no overflow-hidden: that clips to a composited layer
+         which Safari renders with a 1px hairline at the bottom (GPU artifact).
+         Fill bar uses rounded-r-full so the right cap is rounded; the left cap
+         matches the track's own rounded-full left end naturally. -->
+    <div class="h-2 w-full rounded-full" :class="trackClass">
       <div
-        class="h-full rounded-full transition-[width] duration-1000 ease-linear"
+        class="h-full rounded-r-full transition-[width] duration-1000 ease-linear"
         :class="barClass"
         :style="{ width: pct + '%' }"
         role="progressbar"
@@ -113,6 +167,20 @@ const trackClass = computed(() => ({
     <p class="text-[11px]" :class="textClass" style="opacity: 0.7">
       ~{{ pct }}% · {{ elapsed }}s elapsed
       <span v-if="showHint"> — {{ hint }}</span>
+    </p>
+
+    <!-- Phase commentary — narrates what the AI is doing right now.
+         Italic + softer indent so it reads as live status, not a header.
+         Fades in/out via opacity for a gentle transition between phases. -->
+    <p
+      v-if="currentPhase"
+      :key="currentPhase.atSecond"
+      class="text-xs italic pl-1 pt-0.5 transition-opacity duration-500"
+      :class="textClass"
+      style="opacity: 0.9"
+      aria-live="polite"
+    >
+      → {{ currentPhase.message }}
     </p>
   </div>
 </template>

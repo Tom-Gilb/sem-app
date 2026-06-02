@@ -22,10 +22,11 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Widget
-import { ref, computed, watch, onMounted, reactive, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, reactive, nextTick } from 'vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import { useEvoPlan } from '../composables/useEvoPlan'
+import { usePlanModel, EVO_CYCLE_HOURS } from '../composables/usePlanModel'
 import { useStepCostEstimator } from '../composables/useStepCostEstimator'
 import { useSprintPlanner } from '../composables/useSprintPlanner'
 import { useWsjfScorer } from '../composables/useWsjfScorer'
@@ -90,7 +91,9 @@ import AmuseMeButton from './AmuseMeButton.vue'
 import ConceptHint from './ConceptHint.vue'
 import { CONCEPT_HINTS } from '../data/conceptHints'
 import EditGlyph from './icons/EditGlyph.vue'
+import CancelEmptyGlyph from './icons/CancelEmptyGlyph.vue'
 import PinMenuPreview from './PinMenuPreview.vue'
+import EvoCycleLengthPicker from './EvoCycleLengthPicker.vue'
 import { VIZ_STRIP_ITEMS } from '../constants/vizThumbs'
 import type { VisualisTab } from '../constants/vizThumbs'
 import { useVizThumbs } from '../composables/useVizThumbs'
@@ -145,11 +148,137 @@ const {
   loading,
   error,
   fetchPlan,
+  cancelFetch,
   reorderSteps,
   renameStep,
   removeStep,
   confirmPlan,
 } = useEvoPlan()
+
+// ── Hard 60-second UI timeout — setInterval wall-clock poller ─────────────────
+//
+// ROOT CAUSE (2026-06-02): setTimeout(fn, 60_000) is NOT reliably firing in
+// this WKWebView/Electron context.  Empirical evidence: the spinner reached
+// 182 s despite three independent setTimeout mechanisms (useEvoPlannerAPI
+// Promise.race, useEvoPlan backup timer, and a previous watch+setTimeout here).
+//
+// PROOF setInterval WORKS: LoadingProgress's elapsed counter uses
+// setInterval(fn, 1_000) and reliably reached 182 in the same environment.
+//
+// FIX: Replace the setTimeout-based approach with a 1s setInterval that
+// uses Date.now() as a wall-clock reference.  Guaranteed to fire within
+// ±1 s of the 60s ceiling regardless of WKWebView timer behaviour.
+//
+// Logic:
+//   - When loading becomes true, record _loadingStartedAt = Date.now()
+//   - Every second, check if enough wall-clock time has elapsed (≥60 s)
+//   - If yes AND loading is still true → call cancelFetch()
+//   - When loading goes false (response arrived or user cancelled) → clear interval
+//   - onUnmounted → clear interval (component teardown safety)
+
+const EVOPLAN_HARD_TIMEOUT_S = 60
+let _loadingStartedAt: number | null = null
+let _evoTimeoutInterval: ReturnType<typeof setInterval> | null = null
+
+function _clearEvoTimeout(): void {
+  if (_evoTimeoutInterval !== null) {
+    clearInterval(_evoTimeoutInterval)
+    _evoTimeoutInterval = null
+  }
+  _loadingStartedAt = null
+}
+
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    // New loading cycle — restart the wall-clock
+    _clearEvoTimeout()
+    _loadingStartedAt = Date.now()
+    _evoTimeoutInterval = setInterval(() => {
+      if (!loading.value) {
+        // Loading stopped on its own — clean up
+        _clearEvoTimeout()
+        return
+      }
+      const elapsedS = (Date.now() - (_loadingStartedAt ?? Date.now())) / 1_000
+      if (elapsedS >= EVOPLAN_HARD_TIMEOUT_S) {
+        cancelFetch('Evo generation timed out after 60 s — click Retry.')
+        _clearEvoTimeout()
+      }
+    }, 1_000)
+  } else {
+    // Loading stopped (API returned or user cancelled)
+    _clearEvoTimeout()
+  }
+}, { immediate: true })
+
+onUnmounted(() => {
+  _clearEvoTimeout()
+})
+
+// ── Evo Cycle Length ───────────────────────────────────────────────────────────
+// Tom 2026-06-02 (SEM App Book p.179): each Evo step must fit within one cycle.
+// cycleLength drives: (1) EvoCycleLengthPicker display, (2) step-card hour estimate,
+// (3) LLM prompt constraint injected at next fetchPlan() call,
+// (4) explicit "Maximum Evo Cycle Length is set to…" label on the step list.
+const { currentModel } = usePlanModel()
+const cycleLength = computed(() => currentModel.value?.evoCycleLength ?? 'week')
+const cycleHours  = computed(() => EVO_CYCLE_HOURS[cycleLength.value])
+
+/** Human-readable cycle label: 'week' → '1 Week', 'day' → '1 Day', etc. */
+const cycleLengthLabel = computed(() => {
+  const labels: Record<'day' | 'week' | 'month' | 'quarter', string> = {
+    day:     '1 Day',
+    week:    '1 Week',
+    month:   '1 Month',
+    quarter: '1 Quarter',
+  }
+  return labels[cycleLength.value]
+})
+
+/**
+ * Phase commentary shown during the "Generating Evo Value Delivery Steps…"
+ * loading state. Tom 2026-06-03 — "display a commentary about exactly what is
+ * happening (Evo Step 1 [name]". Each phase narrates what the planner is doing
+ * in that window of elapsed time. Counts and cycle context are pulled live
+ * from the SpecBlock so the user sees REAL numbers, not generic placeholders.
+ *
+ * Why no actual step names: the Claude Code adapter returns the full response
+ * in one chunk (no token streaming yet). When real streaming lands, this can
+ * be replaced with parse-as-you-go step-name extraction.
+ */
+const evoPlannerPhases = computed(() => {
+  const sb = props.specBlock
+  const vCount = sb.values?.length ?? 0
+  const fCount = sb.functions?.length ?? 0
+  const sCount = sb.solutions?.length ?? 0
+  const totalEntries = vCount + fCount + sCount
+  const cycleH = cycleHours.value
+  const cycleLabel = cycleLengthLabel.value
+
+  // Pluralisation helpers — read better than "1 values".
+  const v = vCount === 1 ? 'Value' : 'Values'
+  const f = fCount === 1 ? 'Function' : 'Functions'
+  const s = sCount === 1 ? 'Solution' : 'Solutions'
+
+  return [
+    { atSecond: 0,
+      message: `Reading your spec — ${totalEntries} ${totalEntries === 1 ? 'entry' : 'entries'} (${vCount} ${v}, ${fCount} ${f}, ${sCount} ${s})…` },
+    { atSecond: 6,
+      message: `Identifying value-priority sequencing — which ${v.toLowerCase()} should be delivered first?` },
+    { atSecond: 14,
+      message: `Drafting Evo Step 1 — picking the smallest deliverable that proves the riskiest assumption…` },
+    { atSecond: 24,
+      message: `Drafting Evo Step 2 — building on Step 1's measurement to extend value delivery…` },
+    { atSecond: 34,
+      message: `Drafting Evo Step 3 — broadening to additional stakeholders / value dimensions…` },
+    { atSecond: 42,
+      message: `Sizing each step to fit one ${cycleLabel} (~${cycleH}h) — adjusting scope if a step is too large…` },
+    { atSecond: 50,
+      message: `Sequencing by value-per-cost ratio and dependency order…` },
+    { atSecond: 56,
+      message: `Finalizing — checking effortPercent values sum to 100 across all steps…` },
+  ]
+})
 
 // ── Live viz thumbnails (Thumbnail Reality Rule) ───────────────────────────────
 // useVizThumbs derives real-data SVG mini-renders from the current specBlock.
@@ -1819,6 +1948,16 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       </template>
     </div>
 
+    <!-- ── Evo Cycle Length picker ────────────────────────────────────────────
+         Tom 2026-06-02 (SEM App Book p.179): "Evo steps are designed to fit a
+         specified cycle maximum." Amber sticky banner; selecting a cycle updates
+         PlanModel.evoCycleLength, refreshes step-hour estimates, and constrains
+         the LLM on the next Generate call. -->
+    <!-- :modelValue only — the picker calls setEvoCycleLength() internally,
+         which updates the reactive PlanModel store, so cycleLength computed
+         re-derives automatically. No @update:modelValue handler needed here. -->
+    <EvoCycleLengthPicker :model-value="cycleLength" />
+
     <!-- ── Visualise tool strip — live-data tiles (Thumbnail Reality Rule) ──────
          Tom 2026-05-28: "all the tools (Value flow etc.) need to meet the same
          standard for their pin as in action. Larger, get rid of all old 'pencil'
@@ -1835,20 +1974,20 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         v-for="item in VIZ_STRIP_ITEMS"
         :key="item.tab"
         type="button"
-        class="group flex flex-col overflow-hidden rounded-xl border border-slate-200
-               bg-white shadow-sm hover:shadow-md hover:scale-[1.03] hover:border-slate-300
+        class="group flex flex-col overflow-hidden rounded-xl border border-slate-300
+               bg-white shadow-md hover:shadow-xl hover:scale-[1.06] hover:border-indigo-300
                active:scale-100 transition-all duration-150 w-[112px]"
         :aria-label="`Open ${item.label} diagram`"
         :title="`Open ${item.label} — live plan data · click to open full view`"
         @click="emit('open-visualise', { tab: item.tab })"
       >
         <!-- Live thumbnail: computed SVG derived from real plan data -->
-        <div class="h-[76px] overflow-hidden bg-slate-50 border-b border-slate-100">
+        <div class="h-[76px] overflow-hidden bg-white border-b border-slate-200">
           <div v-html="vizThumbs[item.tab]" class="w-full h-full" />
         </div>
         <!-- Label row -->
         <div class="px-2 py-2 text-center">
-          <span class="block text-[11px] font-bold text-slate-600 group-hover:text-slate-800
+          <span class="block text-[11px] font-bold text-slate-700 group-hover:text-indigo-700
                        leading-tight whitespace-nowrap truncate transition-colors">
             {{ item.label }}
           </span>
@@ -1865,7 +2004,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         title="Evo Simulator — value accumulation curve · click to open"
         @click="emit('open-evo-simulator')"
       >
-        <div class="h-[76px] overflow-hidden bg-violet-50 border-b border-violet-100">
+        <div class="h-[76px] overflow-hidden bg-white border-b border-violet-200">
           <div v-html="vizThumbs['simulator']" class="w-full h-full" />
         </div>
         <div class="px-2 py-2 text-center">
@@ -2987,14 +3126,43 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
     </div>
 
     <!-- ── Loading state ──────────────────────────────────────────────────── -->
-    <div v-if="loading" class="py-10 px-2">
+    <!--
+      Phase commentary (Tom 2026-06-03 — "display a commentary about exactly
+      what is happening (Evo Step 1 [name]"). The :phases array narrates what
+      the AI is doing in each window of elapsed time. Counts and cycle label
+      are interpolated from the live SpecBlock so the user sees real numbers
+      ("17 entries, ~40h Week cycle") not generic placeholders.
+    -->
+    <div v-if="loading" class="py-10 px-2 space-y-4">
       <LoadingProgress
         :loading="loading"
         label="Generating Evo Value Delivery Steps…"
-        :baseline="30"
-        hint="Each Evo step delivers incremental value from your Solutions · can take up to 60s on slow networks"
+        :baseline="60"
+        :max-seconds="60"
+        hint="Evo planning typically takes 20–45s · auto-stops at 60s · or cancel below"
         color="indigo"
+        :phases="evoPlannerPhases"
+        @timeout="cancelFetch('Evo generation timed out after 60 s — click Retry.')"
       />
+      <!-- Cancel button — Tom 2026-06-02: "no 66sec ad counting".
+           Immediately resets loading state; the background API call finishes
+           but its result is silently discarded by the _userCancelled guard in
+           useEvoPlan.fetchPlan(). No waiting required. -->
+      <div class="flex justify-center pt-1">
+        <button
+          type="button"
+          title="Stop Evo generation immediately — result will be discarded"
+          class="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold
+                 bg-white border border-slate-300 text-slate-600
+                 hover:border-red-300 hover:text-red-600 hover:bg-red-50
+                 focus:outline-none focus:ring-2 focus:ring-red-400
+                 transition-colors shadow-sm"
+          @click="cancelFetch()"
+        >
+          <CancelEmptyGlyph size="compact" class="h-3.5 w-auto shrink-0" aria-hidden="true" />
+          Cancel generation
+        </button>
+      </div>
       <AmuseMeButton
         :is-loading="loading"
         :spec-block="props.specBlock"
@@ -3055,7 +3223,19 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       <!-- Tab bar removed: plan content is now always visible.
            Diagrams/charts are in VisualisePanelModal (📊 Diagrams button above). -->
       <div>
-        <h2 class="text-lg font-semibold text-gray-900 mb-2">Suggested Evo Steps</h2>
+        <!-- Step list header with explicit cycle constraint (Tom 2026-06-02):
+             "in any evo steps presentation we need to explicitly state the max cycle length" -->
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <h2 class="text-lg font-semibold text-gray-900">Suggested Evo Steps</h2>
+          <!-- Explicit cycle length constraint label — always visible when steps are shown -->
+          <span
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
+                   bg-amber-100 border border-amber-300 text-amber-800"
+            :title="`Each Evo step is designed to fit within one ${cycleLength} cycle · change above`"
+          >
+            ⏱ Maximum Evo Cycle Length is set to {{ cycleLengthLabel }} (~{{ cycleHours }} h)
+          </span>
+        </div>
         <ConceptHint
           v-bind="CONCEPT_HINTS['evo-step']"
           :spec="props.specBlock"
@@ -3136,9 +3316,17 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
                   {{ step.linkedValues.join(', ') }}
                 </p>
 
-                <!-- Step meta strip — effort + task progress in one compact line -->
+                <!-- Step meta strip — effort + cycle-hour estimate + task progress -->
                 <div class="flex items-center gap-2 mt-1 flex-wrap text-xs text-gray-500">
                   <span>{{ step.effortPercent }}% of total build effort</span>
+                  <!-- Cycle-hour estimate: effortPercent × cycleHours (Tom p.179 "~10h" badge) -->
+                  <span
+                    class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded
+                           bg-amber-50 border border-amber-200 text-amber-700 font-mono font-medium"
+                    :title="`~${Math.round(step.effortPercent / 100 * cycleHours)}h estimated for this step (${step.effortPercent}% of ${cycleHours}h ${cycleLength} cycle)`"
+                  >
+                    ⏱ ~{{ Math.round(step.effortPercent / 100 * cycleHours) }}h
+                  </span>
                   <span aria-hidden="true">·</span>
                   <!-- Task progress: only shown once tasks have been added -->
                   <template v-if="stepTotalCount(step.name) > 0">
