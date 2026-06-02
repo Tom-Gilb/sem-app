@@ -475,12 +475,12 @@ const TAB_COLORS: Record<string, string> = {
  * Duty in the contract domain (not Solution — different domain mapping).
  */
 const CONTRACT_FILTER_GLYPHS = [
-  { contractType: 'F'    as const, glyphType: 'function'    as const, label: 'Function',         hex: '#16a34a' },
-  { contractType: 'V'    as const, glyphType: 'value'       as const, label: 'Value',            hex: '#7c3aed' },
-  { contractType: 'C'    as const, glyphType: 'constraint'  as const, label: 'Constraint',       hex: '#dc2626' },
-  { contractType: 'R'    as const, glyphType: 'resource'    as const, label: 'Resource',         hex: '#166534' },
-  { contractType: 'S'    as const, glyphType: 'stakeholder' as const, label: 'Stakeholder Duty', hex: '#2563eb' },
-  { contractType: 'Task' as const, glyphType: 'task'        as const, label: 'Task',             hex: '#374151' },
+  { contractType: 'F'    as const, glyphType: 'function'    as const, label: 'Function',         keyword: 'Function',    hex: '#16a34a' },
+  { contractType: 'V'    as const, glyphType: 'value'       as const, label: 'Value',            keyword: 'Value',       hex: '#7c3aed' },
+  { contractType: 'C'    as const, glyphType: 'constraint'  as const, label: 'Constraint',       keyword: 'Constraint',  hex: '#dc2626' },
+  { contractType: 'R'    as const, glyphType: 'resource'    as const, label: 'Resource',         keyword: 'Resource',    hex: '#166534' },
+  { contractType: 'S'    as const, glyphType: 'stakeholder' as const, label: 'Stakeholder Duty', keyword: 'Stakeholder', hex: '#2563eb' },
+  { contractType: 'Task' as const, glyphType: 'task'        as const, label: 'Task',             keyword: 'Task',        hex: '#374151' },
 ]
 
 /**
@@ -866,52 +866,69 @@ onUnmounted(() => { _stopContractAnimation() })
       </div>
 
       <!-- ── Color Glyph type filter strip ─────────────────────────────────── -->
-      <!-- 6 Color Glyphs (the contract-relevant types). Single-click filters entries.
-           Double-click on any glyph opens GlyphDataPanel — handled by PlTypeIcon DD-013.
-           PlTypeIcon appends "· Double-click for Glyph Detail" to each tooltip automatically. -->
-      <div v-if="selectedContract" class="shrink-0 flex items-center gap-2 px-4 py-1.5 bg-slate-50/80 border-b border-slate-100">
-        <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 shrink-0 select-none">Filter:</span>
+      <!-- Large glyph tiles with keyword labels. Single-click filters entries.
+           Double-click on any glyph opens GlyphDataPanel — PlTypeIcon DD-013.
+           PlTypeIcon automatically appends "· Double-click for Glyph Detail"
+           to every tooltip title (no noDetailClick prop → DD-013 compliant). -->
+      <div
+        v-if="selectedContract"
+        class="shrink-0 flex items-end justify-center gap-6 px-6 py-3 bg-slate-50/80 border-b border-slate-100 select-none"
+      >
+        <!-- "All types" tile -->
+        <div class="flex flex-col items-center gap-1.5">
+          <button
+            type="button"
+            title="Show all entry types — remove active type filter · Single-click to reset"
+            class="w-14 h-14 rounded-xl ring-1 transition-all flex items-center justify-center text-sm font-extrabold"
+            :class="entryFilter === 'all'
+              ? 'bg-slate-700 text-white ring-slate-700 shadow-md'
+              : 'bg-white text-slate-400 ring-slate-200 hover:bg-slate-100 hover:text-slate-600'"
+            @click="entryFilter = 'all'"
+          >All</button>
+          <span class="text-[10px] font-semibold text-slate-400">All Types</span>
+        </div>
 
-        <!-- All reset -->
-        <button
-          type="button"
-          title="Show all entry types — remove type filter"
-          class="px-2 py-0.5 rounded-full text-[9px] font-bold transition-all shrink-0"
-          :class="entryFilter === 'all'
-            ? 'bg-slate-700 text-white shadow-sm'
-            : 'bg-white text-slate-400 ring-1 ring-slate-200 hover:bg-slate-100'"
-          @click="entryFilter = 'all'"
-        >All</button>
+        <!-- Thin divider -->
+        <div class="w-px h-12 bg-slate-200 self-center shrink-0" aria-hidden="true" />
 
-        <!-- 6 Color Glyph filter pins — one per ContractEntryType -->
-        <button
-          v-for="ct in CONTRACT_FILTER_GLYPHS"
-          :key="ct.contractType"
-          type="button"
-          class="p-1 rounded-lg transition-all ring-1 shrink-0"
-          :class="entryFilter === ct.contractType
-            ? 'shadow-md ring-transparent'
-            : 'ring-transparent hover:bg-white hover:ring-slate-200 hover:shadow-sm'"
-          :style="entryFilter === ct.contractType
-            ? { backgroundColor: ct.hex + '18', boxShadow: `0 0 0 2px ${ct.hex}60` }
-            : {}"
-          :aria-pressed="String(entryFilter === ct.contractType)"
-          @click="entryFilter = (entryFilter === ct.contractType ? 'all' : ct.contractType)"
-        >
-          <!-- DD-013: PlTypeIcon handles dblclick → GlyphDataPanel. Single-click bubbles to button above for filter action. -->
-          <PlTypeIcon
-            :pl-type="ct.glyphType"
-            size="sm"
-            :title="`${ct.label} (${ct.contractType}.) — ${store.entryCounts.value[ct.contractType] ?? 0} entries · Click to filter`"
-          />
-        </button>
+        <!-- 6 Color Glyph filter tiles — one per ContractEntryType -->
+        <!-- DD-013: PlTypeIcon handles dblclick → GlyphDataPanel internally.  -->
+        <!-- Single-click on the outer button toggles the entry filter.         -->
+        <template v-for="ct in CONTRACT_FILTER_GLYPHS" :key="ct.contractType">
+          <div class="flex flex-col items-center gap-1.5">
+            <button
+              type="button"
+              class="p-1.5 rounded-xl transition-all ring-1 shrink-0"
+              :class="entryFilter === ct.contractType
+                ? 'shadow-lg ring-transparent'
+                : 'ring-transparent hover:bg-white hover:ring-slate-200 hover:shadow-md'"
+              :style="entryFilter === ct.contractType
+                ? { backgroundColor: ct.hex + '18', boxShadow: `0 0 0 2.5px ${ct.hex}80` }
+                : {}"
+              :aria-pressed="String(entryFilter === ct.contractType)"
+              @click="entryFilter = (entryFilter === ct.contractType ? 'all' : ct.contractType)"
+            >
+              <PlTypeIcon
+                :pl-type="ct.glyphType"
+                size="xl"
+                :title="`${ct.label} (${ct.contractType}.) — ${store.entryCounts.value[ct.contractType] ?? 0} entries · Single-click to filter`"
+              />
+            </button>
+            <!-- Keyword label — colored to match the glyph family -->
+            <span
+              class="text-[10px] font-bold leading-tight text-center"
+              :style="{ color: ct.hex }"
+            >{{ ct.keyword }}</span>
+          </div>
+        </template>
 
-        <!-- Active filter label + count -->
+        <!-- Active filter indicator — shown when a specific type is selected -->
         <span
           v-if="entryFilter !== 'all'"
-          class="text-[9px] font-semibold text-slate-500 ml-0.5 italic"
+          class="text-[9px] font-semibold text-slate-500 self-center italic ml-1"
         >
-          {{ CONTRACT_ENTRY_FULL[entryFilter as ContractEntryType] }} · {{ store.entryCounts.value[entryFilter as ContractEntryType] ?? 0 }} shown
+          {{ CONTRACT_ENTRY_FULL[entryFilter as ContractEntryType] }}<br>
+          <span class="not-italic font-bold text-slate-600">{{ store.entryCounts.value[entryFilter as ContractEntryType] ?? 0 }} shown</span>
         </span>
       </div>
 
