@@ -1445,14 +1445,27 @@ onUnmounted(() => { _stopContractAnimation() })
             inner-style="max-height: calc(100vh - 130px);"
             :no-pill="false"
           >
-            <p class="text-xs text-slate-500 mb-4">Party × obligation type matrix. Each cell shows entries where that party is obligated.</p>
+            <p class="text-xs text-slate-500 mb-4">
+              Party × obligation type matrix. Each cell shows entries where that party is obligated.
+              <span v-if="entryFilter !== 'all'" class="font-semibold text-teal-700">
+                — Filter active: {{ CONTRACT_ENTRY_FULL[entryFilter as ContractEntryType] }} column highlighted.
+              </span>
+            </p>
             <div class="overflow-x-auto">
               <table class="min-w-full border-collapse text-xs bg-white rounded-xl overflow-hidden shadow-sm">
                 <thead>
                   <tr class="bg-teal-700 text-white">
                     <th class="p-3 text-left font-bold whitespace-nowrap">Party</th>
-                    <th v-for="type in (['F','V','C','R','S','Task'] as ContractEntryType[])" :key="type" class="p-2 text-center font-bold text-[11px] whitespace-nowrap">
-                      <div class="flex flex-col items-center gap-0.5">
+                    <th
+                      v-for="type in (['F','V','C','R','S','Task'] as ContractEntryType[])"
+                      :key="type"
+                      class="p-2 text-center font-bold text-[11px] whitespace-nowrap transition-opacity"
+                      :class="entryFilter !== 'all' && entryFilter !== type ? 'opacity-25' : ''"
+                    >
+                      <div
+                        class="flex flex-col items-center gap-0.5 rounded-lg px-1 py-0.5 transition-colors"
+                        :class="entryFilter === type ? 'bg-white/25 ring-1 ring-white/50' : ''"
+                      >
                         <PlTypeBadge :entry-type="CONTRACT_ENTRY_GLYPH[type]" size="sm" />
                         <span>{{ CONTRACT_ENTRY_FULL[type] }}</span>
                       </div>
@@ -1473,7 +1486,11 @@ onUnmounted(() => { _stopContractAnimation() })
                     <td
                       v-for="type in (['F','V','C','R','S','Task'] as ContractEntryType[])"
                       :key="type"
-                      class="p-3 text-center"
+                      class="p-3 text-center transition-opacity"
+                      :class="[
+                        entryFilter !== 'all' && entryFilter !== type ? 'opacity-25' : '',
+                        entryFilter === type ? 'bg-slate-50' : '',
+                      ]"
                     >
                       <span
                         v-if="(party[type]?.length ?? 0) > 0"

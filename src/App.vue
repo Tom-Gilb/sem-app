@@ -117,6 +117,7 @@ import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
 import ModelHistory from './components/ModelHistory.vue'
 import GlyphDataPanel from './components/GlyphDataPanel.vue'
+import PlTypeIcon from './components/icons/PlTypeIcon.vue'
 import type { PlGlyphType } from './components/icons/PlTypeIcon.vue'
 import { useGlyphPanel } from './composables/useGlyphPanel'
 import SaveGlyph from './components/icons/SaveGlyph.vue'
@@ -3355,7 +3356,12 @@ registerExclusiveSurface('symbolFamily',      symbolFamilyOpen)
 registerExclusiveSurface('valueFlow',         valueFlowOpen)
 registerExclusiveSurface('modelDashboard',    modelDashboardOpen)
 registerExclusiveSurface('modelHistory',      modelHistoryOpen)
-registerExclusiveSurface('glyphDataPanel',    glyphPanelOpen)
+// GlyphDataPanel is intentionally NOT registered as exclusive surface.
+// It is a reference overlay (info card), not a workflow surface — it must
+// float on top of ContractHub, MariaAgentBoard, and any other full-screen
+// panel without closing them. Registering it caused double-click to
+// silently close the parent surface (2026-06-02).
+// registerExclusiveSurface('glyphDataPanel', glyphPanelOpen)
 registerExclusiveSurface('planHealthStatus',  planHealthStatusOpen)
 registerExclusiveSurface('planHealthAdmin',   planHealthAdminOpen)
 registerExclusiveSurface('history',           historyOpen)
@@ -3792,7 +3798,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <span class="text-sm leading-none" aria-hidden="true">💡</span>
           <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌥I</kbd>
         </button>
-        <!-- History 🕐 — with notification badge -->
+        <!-- History — Evo Step Color Glyph (amber < ->+-> encodes past cycles).
+             :no-detail-click per DD-013 (parent owns click for history panel).
+             DD-011 fix 2026-06-01: 🕐 emoji removed, Color Glyph applied. -->
         <div class="relative">
           <button
             type="button"
@@ -3800,9 +3808,11 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    text-white bg-white/10 hover:bg-white/20
                    focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
             aria-label="Version History"
-            title="Version History"
+            title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
             @click="historyOpen = true"
-          ><span aria-hidden="true">🕐</span></button>
+          >
+            <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" />
+          </button>
           <span
             v-if="specHistory.length > 0"
             class="absolute -top-1 -right-1 h-4 min-w-[1rem] rounded-full bg-rose-500 text-white
@@ -4585,10 +4595,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
                    transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
             aria-label="Get A Plan"
-            title="Get A Plan — `[*]→*` from vessel back out"
+            title="Get A Plan — load a saved Planguage plan into your workspace, or import new planning data"
             @click="planInputOpen = true"
           >
-            <GetGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
+            <!-- DD-011/DD-012: GetGlyph [*]→* is the correct Keyed Action Glyph for "retrieve a plan".
+                 SEM App identity icon is brand-only (h-20 hero size); not appropriate as a 12px nav button icon.
+                 GetGlyph already imported at top of file. 2026-06-01 fix. -->
+            <GetGlyph class="h-3 w-auto shrink-0" aria-hidden="true" />
             <span>Get A Plan</span>
           </button>
           <!-- Feature #17: Compare button — only visible in stage 1 -->
@@ -4597,11 +4610,15 @@ function handleApertureLoadPlan(model: PlanModel): void {
             type="button"
             class="h-9 px-2.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-medium
                    hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                   transition-colors duration-150 shrink-0"
+                   transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
             aria-label="Compare"
+            title="Compare — side-by-side view of two plan models. See which solution scores better against your Values and Constraints."
             @click="comparisonMode = true"
           >
-            ⇄ Compare
+            <!-- Color Glyph for 'comparison': Value glyph (violet) — comparison is value-assessment.
+                 :no-detail-click per DD-013 (parent owns click for comparison action). -->
+            <PlTypeIcon pl-type="value" size="sm" :no-detail-click="true" class="shrink-0" />
+            <span>Compare</span>
           </button>
           <!-- Plan History — also in the persistent plan identity bar + in Actions menu -->
           <div class="relative shrink-0">
@@ -4609,11 +4626,15 @@ function handleApertureLoadPlan(model: PlanModel): void {
               type="button"
               class="h-9 px-2.5 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium
                      hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                     transition-colors duration-150"
+                     transition-colors duration-150 inline-flex items-center gap-1.5"
               aria-label="Plan History"
+              title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
               @click="historyOpen = true"
             >
-              🕐 History
+              <!-- Color Glyph for 'history': Evo Step glyph (amber) — encodes past cycles via '<' (past anchor).
+                   :no-detail-click per DD-013 (parent owns click for history panel). -->
+              <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" class="shrink-0" />
+              <span>History</span>
             </button>
             <span
               v-if="specHistory.length > 0"
@@ -4737,10 +4758,11 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
                  transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
           aria-label="Get A Plan"
-          title="Get A Plan — `[*]→*` from vessel back out"
+          title="Get A Plan — load a saved Planguage plan into your workspace, or import new planning data"
           @click="planInputOpen = true"
         >
-          <GetGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
+          <!-- DD-011/DD-012: GetGlyph [*]→* — same fix as auth mode above. 2026-06-01. -->
+          <GetGlyph class="h-3 w-auto shrink-0" aria-hidden="true" />
           <span>Get A Plan</span>
         </button>
         <!-- Feature #17: Compare button in mock mode -->
@@ -4748,11 +4770,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
           type="button"
           class="h-9 px-2.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-medium
                  hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                 transition-colors duration-150 shrink-0"
+                 transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
           aria-label="Compare"
+          title="Compare — side-by-side view of two plan models. See which solution scores better against your Values and Constraints."
           @click="comparisonMode = true"
         >
-          ⇄ Compare
+          <PlTypeIcon pl-type="value" size="sm" :no-detail-click="true" class="shrink-0" />
+          <span>Compare</span>
         </button>
         <!-- Plan History — also in the persistent plan identity bar + in Actions menu -->
         <div class="relative shrink-0">
@@ -4760,11 +4784,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
             type="button"
             class="h-9 px-2.5 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium
                    hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                   transition-colors duration-150"
+                   transition-colors duration-150 inline-flex items-center gap-1.5"
             aria-label="Plan History"
+            title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
             @click="historyOpen = true"
           >
-            🕐 History
+            <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" class="shrink-0" />
+            <span>History</span>
           </button>
           <span
             v-if="specHistory.length > 0"
@@ -4866,7 +4892,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <img
               src="/icon-sem-app.svg"
               alt="SEM App"
-              title="SEM App icon — three levels of concern (Keeney, Value-Focused Thinking, 1992): TOP ROW = Fundamental level — objectives given from above (environment, parent org, regulations — we operate within these); MIDDLE ROW = Strategic level — our own plan (the Ends/Values we own and are accountable for); BOTTOM ROW = Means level — what supports us (Functions and Solutions that deliver our Strategic Ends). Each person = Stakeholder · each circle = End (Value/Constraint) · each arrow = Means (Function/Solution)."
+              :title="`SEM App — Keeney three-level hierarchy (Value-Focused Thinking, 1992)\n\n▲ FUNDAMENTAL · amber\n  Objectives given from above — environment, parent org, regulations\n  We operate within these; cannot unilaterally redesign them\n\n● STRATEGIC · violet  ← this level (the hero row)\n  Our own plan — the Ends and Values we own and are accountable for\n\n▼ MEANS · emerald\n  What supports us from below — Functions and Solutions\n  These deliver our Strategic Ends upward to the stakeholder\n\n──────────────────────────────\nperson / ¶  =  Stakeholder (animate or inanimate)\n←O←         =  End: target that receives and delivers value\nO←          =  Means: source that fires value into the target`"
               class="h-20 w-20 flex-shrink-0 rounded-2xl shadow-lg cursor-help"
             />
             <div>
@@ -4875,7 +4901,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <img
                 src="/symbol-sem.svg"
                 alt="Stakeholder fires means at ends"
-                title="S·E·M — Stakeholder (person with needs) fires Means (arrows = Functions and Solutions) at Ends (target circles = Values and Constraints). The result is a measurable Planguage plan. Tom Gilb, Competitive Engineering (2005)."
+                :title="`S · E · M\nStakeholder · Ends · Means\n\nThe stakeholder fires Means at Ends — value is then delivered to the one who needs it\n\nS  =  person (animate stakeholder)\n   or  ¶  (inanimate: law, data, standard, contract)\nE  =  ←O←  target — receives value from M, delivers it to S\nM  =  O←   source — fires value into the target\n\nTom Gilb, Competitive Engineering (2005)\nKeeney, Value-Focused Thinking (1992)`"
                 class="mt-2 h-8 opacity-60 cursor-help"
               />
             </div>
