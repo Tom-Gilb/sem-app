@@ -342,19 +342,48 @@ export function useEvoPlannerAPI() {
       }
       const clHours = CYCLE_HOURS[cycleLength]
       const clLabel = cycleLength.charAt(0).toUpperCase() + cycleLength.slice(1)
+      // Cycle compliance prompt (Tom 2026-06-03):
+      // Previously asked for "2–5 steps" REGARDLESS of cycle, and asked
+      // effortPercent values to "sum to 100" — both wrong for Planguage.
+      // The correct Planguage semantics:
+      //   • An Evo Step is one self-contained value delivery within ONE cycle.
+      //   • Step count = how much value-delivery work the spec requires
+      //     (not a fixed 2-5 target).
+      //   • effortPercent measures THIS step's share of ITS OWN cycle's
+      //     ~Nh, not the share of the whole plan. So values should not
+      //     sum to 100 across the plan; each step is roughly 100% of one
+      //     cycle's work envelope.
+      //   • Changing the cycle length (e.g. Week → Month) MUST change the
+      //     plan shape: smaller cycles → more, smaller steps; larger
+      //     cycles → fewer, larger steps. This makes regeneration after
+      //     a cycle change produce a genuinely different plan.
       const cycleContext = [
-        `EVO CYCLE LENGTH: ${clLabel} (~${clHours}h maximum per step).`,
-        `CONSTRAINT: Each Evo step MUST fit within ONE ${cycleLength} cycle.`,
-        `The effortPercent values across all steps should sum to 100.`,
-        `When estimating effort, ensure effortPercent × ${clHours}h ≈ that step's wall-clock time.`,
+        `EVO CYCLE LENGTH: ${clLabel} (~${clHours}h maximum per Evo Step).`,
+        ``,
+        `PLANGUAGE EVO RULE: each Evo Step is ONE self-contained value`,
+        `delivery that fits within ONE ${cycleLength} cycle (~${clHours}h).`,
+        `effortPercent for each step is its share of ITS OWN ~${clHours}h cycle`,
+        `(roughly 100 for a full-cycle step, 50 for a half-cycle step, etc.).`,
+        `DO NOT make the step effortPercent values sum to 100 across the plan —`,
+        `each step is independently sized to its own cycle.`,
+        ``,
+        `STEP COUNT GUIDANCE (scale with cycle, not fixed):`,
+        `  • Day cycle (~8h)      → 5–12 steps covering one short work-stream`,
+        `  • Week cycle (~40h)    → 3–8 steps covering the value-delivery sequence`,
+        `  • Month cycle (~160h)  → 2–5 larger steps`,
+        `  • Quarter cycle (~480h)→ 1–3 large strategic steps`,
+        `If the spec is small (1–2 solutions), prefer the lower bound;`,
+        `if it is rich (5+ solutions), prefer the upper bound. The goal is`,
+        `to cover ALL Values in the spec across the planned steps.`,
       ].join('\n')
 
       const userContent =
         `INPUT SPEC:\n${JSON.stringify(specBlock, null, 2)}\n\n` +
         `${cycleContext}\n\n` +
-        `TASK: Derive 2–5 ranked Evo implementation steps from the spec above.\n` +
+        `TASK: Derive a ranked list of Evo implementation steps from the spec above,\n` +
+        `following the STEP COUNT GUIDANCE for the chosen cycle.\n` +
         `Return ONLY this JSON — no prose, no markdown, no extra keys:\n` +
-        `{"steps":[{"name":"Evo 1 — Example Setup","description":"what is being implemented in this step","linkedValues":["Some Value"],"linkedSolutions":["Some Solution"],"effortPercent":25}]}`
+        `{"steps":[{"name":"Evo 1 — Example Setup","description":"what is being implemented in this step","linkedValues":["Some Value"],"linkedSolutions":["Some Solution"],"effortPercent":80}]}`
 
       const systemBlock: BetaTextBlockParam = {
         type: 'text',
