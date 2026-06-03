@@ -424,9 +424,19 @@ const evoPlannerPhases = computed(() => {
 // useVizThumbs derives real-data SVG mini-renders from the current specBlock.
 // Used by the tool strip below the plan so each button shows a live miniature
 // of the diagram it would open — matching the ActionsHub and Visualise tile standard.
+//
+// BUG FIX (Tom 2026-06-03): `confirmedSteps` was previously bound to `plan`
+// directly. But `plan` is an EvoStepPlan object (`{ steps: EvoStep[] }`), not
+// an EvoStep[]. useVizThumbs treats it as the latter and calls `.slice()` on
+// it, which crashed with "steps.slice is not a function" the moment a plan
+// actually resolved — silently freezing the loading UI at ~88% because the
+// render-cycle threw before loading could transition to false. The crash was
+// hidden BEFORE generation succeeded because `plan` was null and the `?? []`
+// default array rescued the call. Fix: pass `plan.value.steps ?? []` so
+// useVizThumbs sees the actual array contract it documents.
 const { liveThumbs: vizThumbs } = useVizThumbs({
   specBlock: computed(() => props.specBlock),
-  confirmedSteps: plan,
+  confirmedSteps: computed(() => plan.value?.steps ?? []),
 })
 
 // ── Tab state ─────────────────────────────────────────────────────────────────
