@@ -922,12 +922,15 @@ const headlineSentence = computed<string>(() => {
       <svg width="24" height="6"><line x1="0" y1="3" x2="24" y2="3" stroke="#60a5fa" stroke-width="0.7" opacity="0.6"/></svg>
       function → stakeholder fan
     </span>
-    <!-- Click affordance hints — verbose plain English per DD-009 Zero-Training UI.
-         Tom 2026-06-03: "I asked you to not have these letters at all or alone.
-         Nobody knows what they are." -->
+    <!-- Affordance hints — plain English per DD-009 Zero-Training UI.
+         Tom 2026-06-03 second pass: "click is wrong, hover your cursor (or say
+         name of spec) to focus on a spec and its relatives". Hover IS the
+         focus mechanism here (since 2026-05-18: "when we hover over a spec,
+         show its relationship with bigger arrows, hide all other arrows" —
+         see hoveredConnectedNodeIds computed). Click opens deeper details. -->
     <span class="inline-flex items-center gap-1 text-indigo-400 font-medium">
       <span aria-hidden="true">⬡</span>
-      Click on the rectangles in the diagram to focus on a particular specification and see its strength-of-relation arrows
+      Hover your cursor (or say the name of a spec) to focus on a spec and its relatives
     </span>
     <span class="inline-flex items-center gap-1 ml-auto text-amber-500 font-medium">
       <span aria-hidden="true">▶</span>
