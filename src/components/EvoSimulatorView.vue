@@ -240,30 +240,49 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
           </div>
 
           <!-- Cumulative value chart -->
+          <!--
+            BUG FIX (Tom 2026-06-03 — "the curve backtracks and is wrong"):
+            useEvoSimulation.cumulativeValuePath authors all coordinates in a
+            0..100 box. The previous viewBox was "0 0 100 40" and the consumer
+            tried to rescale Y via two regex string-replaces. The first
+            (`/100\.0/g → '40'`) blindly replaced "100.0" ANYWHERE in the path,
+            including X coordinates. Fully-delivered step end-points like
+            `L 100.0,0.0` got mangled to `L 40,0.0`, creating a geometrically
+            impossible backtrack (the triangle wedge in the screenshot — a
+            cumulative curve cannot decrease). Fix: use viewBox "0 0 100 100"
+            so the path's authored coordinates render verbatim. CSS height +
+            preserveAspectRatio="none" handle the visual sizing exactly as
+            before — same 80px tall, same w-full stretch, no maths required.
+            stroke-width scaled up proportionally (0.8 / 40 × 100 ≈ 2).
+            Grid lines moved to their equivalent positions (y=25 and y=62.5
+            in 100-tall = y=10 and y=25 in 40-tall).
+          -->
           <div class="px-5 pb-3">
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Cumulative Value Delivered</p>
             <svg
               class="w-full"
-              viewBox="0 0 100 40"
+              viewBox="0 0 100 100"
               preserveAspectRatio="none"
               aria-label="Cumulative value area chart"
               role="img"
               style="height: 80px;"
             >
-              <!-- Grid lines -->
-              <line x1="0" y1="10" x2="100" y2="10" stroke="#e2e8f0" stroke-width="0.5" />
-              <line x1="0" y1="25" x2="100" y2="25" stroke="#e2e8f0" stroke-width="0.5" />
+              <!-- Grid lines — quartile guides in the 0..100 coordinate space -->
+              <line x1="0" y1="25"   x2="100" y2="25"   stroke="#e2e8f0" stroke-width="1.25" />
+              <line x1="0" y1="62.5" x2="100" y2="62.5" stroke="#e2e8f0" stroke-width="1.25" />
 
-              <!-- Area chart — viewBox y is 0(top)→40(bottom); value grows upward -->
-              <!-- Scale internal y to 40-unit height: full = y=0, zero = y=40 -->
+              <!-- Area chart — path authored in 0..100 viewBox with y flipped:
+                   0 = top (full value), 100 = bottom (zero value). Renders
+                   verbatim, no string surgery, cannot mangle coordinates. -->
               <path
                 v-if="cumulativeValuePath"
-                :d="cumulativeValuePath.replace(/100\.0/g, '40').replace(/(\d+\.\d),(\d+\.\d)/g, (_, x, y) => `${x},${(parseFloat(y) * 40 / 100).toFixed(1)}`)"
+                :d="cumulativeValuePath"
                 :fill="CHART_FILL"
                 fill-opacity="0.15"
                 stroke="#7c3aed"
-                stroke-width="0.8"
+                stroke-width="2"
                 stroke-linejoin="round"
+                vector-effect="non-scaling-stroke"
               />
             </svg>
           </div>
