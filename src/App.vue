@@ -5938,6 +5938,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
       v-if="evoSimulatorOpen"
       :steps="_stepsForDiagram"
       :vc-ratios="capturedVCRatios"
+      :cycle-length="planModel?.evoCycleLength ?? 'week'"
       @close="evoSimulatorOpen = false"
     />
 

@@ -14,17 +14,21 @@
        close     — user closed the modal -->
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import { useEvoSimulation } from '../composables/useEvoSimulation'
 import type { EvoStep } from '../types/evo-plan'
 
 const props = withDefaults(defineProps<{
-  steps:    EvoStep[]
-  vcRatios: Record<string, number>
+  steps:        EvoStep[]
+  vcRatios:     Record<string, number>
+  /** Tom 2026-06-03 — the user's chosen Evo cycle length; drives totalWeeks
+   *  inside the simulation so a 2-step Week plan shows ~2 weeks, not 26. */
+  cycleLength?: 'day' | 'week' | 'month' | 'quarter'
 }>(), {
-  vcRatios: () => ({}),
+  vcRatios:    () => ({}),
+  cycleLength: 'week',
 })
 
 const emit = defineEmits<{ close: [] }>()
@@ -37,11 +41,13 @@ const {
   speed,
   stepFill,
   cumulativeValuePath,
+  totalWeeks,
+  cycleLength,
   play,
   pause,
   reset,
   dispose,
-} = useEvoSimulation(props.steps, props.vcRatios)
+} = useEvoSimulation(props.steps, props.vcRatios, props.cycleLength)
 
 // ── Tooltip ────────────────────────────────────────────────────────────────────
 
@@ -109,17 +115,58 @@ onUnmounted(() => {
   dispose()
 })
 
-// ── Helper: week → month label ──────────────────────────────────────────────
+// ── Adaptive time-axis labels (Tom 2026-06-03) ───────────────────────────────
+// Was: hard-coded 26-week span with month-name ticks every 4 weeks. Wrong for
+// a 2-step Week-cycle plan (showed "Jan…Jul" when actual span is 2 weeks) and
+// for any non-26-week plan. Now: choose unit by total span, pick 6 evenly-
+// spaced ticks across [0, totalWeeks], label each one in the chosen unit.
+
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function weekToMonth(week: number): string {
-  const monthIdx = Math.floor(week / 4.333) % 12
+/** Pick the most human-readable unit for this plan's total span. */
+const timeUnit = computed<'day' | 'week' | 'month'>(() => {
+  if (totalWeeks < 2)  return 'day'    // ≤ 1 week — days are most readable
+  if (totalWeeks < 12) return 'week'   // 2–11 weeks — show weeks
+  return 'month'                       // 12+ weeks — months
+})
+
+/** Human-readable total-span caption, e.g. "2 weeks", "16 weeks ≈ 4 months". */
+const totalSpanLabel = computed<string>(() => {
+  if (timeUnit.value === 'day') {
+    const d = Math.max(1, Math.round(totalWeeks * 5))   // 5 work-days per week
+    return `${d} ${d === 1 ? 'day' : 'days'}`
+  }
+  if (timeUnit.value === 'week') {
+    const w = Math.max(1, Math.round(totalWeeks))
+    return `${w} ${w === 1 ? 'week' : 'weeks'}`
+  }
+  const m = Math.max(1, Math.round(totalWeeks / 4.333))
+  const w = Math.round(totalWeeks)
+  return `${m} ${m === 1 ? 'month' : 'months'} (${w} weeks)`
+})
+
+/** 6 evenly-spaced X-axis tick positions in week-space, always including 0 and totalWeeks. */
+const axisTicks = computed<number[]>(() => {
+  const N = 6
+  const span = totalWeeks
+  return Array.from({ length: N }, (_, i) => +(i * span / (N - 1)).toFixed(2))
+})
+
+/** Label for an axis tick — adapts to the chosen unit. */
+function tickLabel(weeks: number): string {
+  if (timeUnit.value === 'day') {
+    const d = Math.round(weeks * 5)
+    return d === 0 ? 'Day 0' : `D${d}`
+  }
+  if (timeUnit.value === 'week') {
+    const w = Math.round(weeks)
+    return w === 0 ? 'Wk 0' : `Wk ${w}`
+  }
+  // month unit — use month-name based on weeks from "start" (Jan = month 0)
+  const monthIdx = Math.floor(weeks / 4.333) % 12
   return MONTH_LABELS[monthIdx] ?? ''
 }
-
-// Axis ticks every 4 weeks (≈ monthly)
-const axisTicks = [0, 4, 8, 13, 17, 22, 26]
 </script>
 
 <template>
@@ -130,7 +177,10 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
         <h2 class="text-base font-bold text-white flex items-center gap-2">
           <span aria-hidden="true">📈</span> Evo Value Animation
         </h2>
-        <p class="text-xs text-violet-200 mt-0.5">Cumulative value delivery animated across 26 weeks</p>
+        <p class="text-xs text-violet-200 mt-0.5">
+          Cumulative value delivery animated across {{ totalSpanLabel }}
+          <span class="opacity-75">· {{ steps.length }} Evo {{ steps.length === 1 ? 'step' : 'steps' }} × {{ cycleLength }} cycle</span>
+        </p>
       </div>
       <CloseDot
         variant="on-dark"
@@ -151,7 +201,7 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
         <template v-else>
           <!-- Timeline section -->
           <div class="px-5 pt-5 pb-3">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Delivery Timeline · 26 weeks</p>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Delivery Timeline · {{ totalSpanLabel }}</p>
 
             <!-- Step bars -->
             <div class="space-y-2" role="list" aria-label="Evo step delivery bars">
@@ -225,16 +275,17 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
               </div>
             </div>
 
-            <!-- Week axis -->
+            <!-- Time axis — adaptive: days for ≤1 week, weeks for ≤12 weeks, months above.
+                 Position uses dynamic totalWeeks (was hard-coded /26 — Tom 2026-06-03). -->
             <div class="relative mt-2 h-5">
               <div
                 v-for="tick in axisTicks"
                 :key="tick"
                 class="absolute flex flex-col items-center"
-                :style="{ left: `${(tick / 26) * 100}%`, transform: 'translateX(-50%)' }"
+                :style="{ left: `${(tick / totalWeeks) * 100}%`, transform: 'translateX(-50%)' }"
               >
                 <div class="w-px h-1.5 bg-slate-300" />
-                <span class="text-[9px] text-slate-400 mt-0.5">{{ weekToMonth(tick) }}</span>
+                <span class="text-[9px] text-slate-400 mt-0.5">{{ tickLabel(tick) }}</span>
               </div>
             </div>
           </div>
@@ -301,7 +352,7 @@ const axisTicks = [0, 4, 8, 13, 17, 22, 26]
             >
               <div>
                 <p class="text-sm font-bold text-violet-800">🎉 Plan complete!</p>
-                <p class="text-xs text-violet-600 mt-0.5">All {{ layouts.length }} steps delivered across 26 simulated weeks.</p>
+                <p class="text-xs text-violet-600 mt-0.5">All {{ layouts.length }} steps delivered across {{ totalSpanLabel }} of simulated time.</p>
               </div>
               <button
                 type="button"

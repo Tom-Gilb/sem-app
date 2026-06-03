@@ -6,7 +6,11 @@
 // Computes per-step layout (startWeek, endWeek, colour rank) and drives a frame-by-frame
 // animation where currentWeek advances over simulated calendar time.
 //
-// Step layout is proportional to effortPercent; total calendar span is N_WEEKS = 26.
+// Step layout is proportional to effortPercent; total calendar span derives from the
+// user's chosen Evo cycle length (Tom 2026-06-03 — was hard-coded to 26 weeks which
+// mismatched a Week cycle + 2 steps showing "Jan…Jul" timeline; the actual plan duration
+// should be ≈ 2 weeks). totalWeeks = (numSteps × cycleHours) / 40.
+//
 // Colour rank derives from vcRatios if available (top/mid/bottom thirds), otherwise equal.
 // Cumulative value chart accumulates each step's ratio contribution as it completes.
 
@@ -18,6 +22,17 @@ export type SpeedMultiplier = 1 | 2 | 4
 /** Colour bucket for a step bar, driven by V/C rank. */
 export type StepColour = 'violet' | 'indigo' | 'slate'
 
+export type EvoCycleLength = 'day' | 'week' | 'month' | 'quarter'
+
+/** Hours per Evo step for each canonical cycle length. Keep in sync with
+ *  the same map in useEvoPlannerAPI.ts. */
+export const CYCLE_HOURS_BY_LENGTH: Record<EvoCycleLength, number> = {
+  day:     8,
+  week:    40,
+  month:   160,
+  quarter: 480,
+}
+
 /** Per-step layout and colour — computed once from input, not reactive. */
 export interface StepLayout {
   step: EvoStep
@@ -27,9 +42,6 @@ export interface StepLayout {
   valueContrib: number // V/C contribution for cumulative chart (≥ 0)
 }
 
-/** Total simulated calendar weeks. */
-const N_WEEKS = 26
-
 /**
  * Builds the StepLayout[] from steps + optional vcRatios.
  *
@@ -37,7 +49,7 @@ const N_WEEKS = 26
  * Top third → violet, mid third → indigo, bottom/no-data → slate.
  * If vcRatios is empty, all steps are indigo (uniform).
  */
-function buildLayouts(steps: EvoStep[], vcRatios: Record<string, number>): StepLayout[] {
+function buildLayouts(steps: EvoStep[], vcRatios: Record<string, number>, totalWeeks: number): StepLayout[] {
   if (steps.length === 0) return []
 
   const totalEffort = steps.reduce((s, st) => s + Math.max(st.effortPercent, 1), 0)
@@ -67,7 +79,7 @@ function buildLayouts(steps: EvoStep[], vcRatios: Record<string, number>): StepL
   return steps.map((st) => {
     const frac  = Math.max(st.effortPercent, 1) / totalEffort
     const start = cursor
-    const end   = Math.min(cursor + frac * N_WEEKS, N_WEEKS)
+    const end   = Math.min(cursor + frac * totalWeeks, totalWeeks)
     cursor = end
     const ratio = Math.max(1, ...(st.linkedSolutions ?? []).map(id => vcRatios[id] ?? 1))
     return {
@@ -105,15 +117,23 @@ function buildLayouts(steps: EvoStep[], vcRatios: Record<string, number>): StepL
  * No Anthropic calls — purely frontend animation over confirmed plan state.
  */
 export function useEvoSimulation(
-  steps:    EvoStep[],
-  vcRatios: Record<string, number> = {},
+  steps:       EvoStep[],
+  vcRatios:    Record<string, number> = {},
+  cycleLength: EvoCycleLength = 'week',
 ) {
-  const layouts    = buildLayouts(steps, vcRatios)
+  // Total simulated calendar weeks derives from the user's chosen cycle
+  // length (Tom 2026-06-03 — was hard-coded 26). 2 steps × Week (40h) = 2
+  // weeks, 4 steps × Month (160h) = 16 weeks ≈ 4 months. Minimum 1 week so
+  // the chart never collapses to zero width for an empty / 1-step plan.
+  const cycleHours = CYCLE_HOURS_BY_LENGTH[cycleLength]
+  const totalWeeks = Math.max(1, (steps.length * cycleHours) / 40)
+
+  const layouts    = buildLayouts(steps, vcRatios, totalWeeks)
   const currentWeek = ref(0)
   const isPlaying   = ref(false)
   const speed       = ref<SpeedMultiplier>(1)
 
-  const isComplete = computed(() => currentWeek.value >= N_WEEKS)
+  const isComplete = computed(() => currentWeek.value >= totalWeeks)
 
   /**
    * Returns the fill fraction [0, 1] for a step at the current simulation week.
@@ -148,14 +168,14 @@ export function useEvoSimulation(
       if (currentWeek.value >= layout.endWeek) {
         // Step fully delivered — add contribution at its end week
         cumulative += layout.valueContrib
-        const x = (layout.endWeek / N_WEEKS) * 100
+        const x = (layout.endWeek / totalWeeks) * 100
         const y = (cumulative / maxCumulativeValue) * 100
         points.push({ x, y })
       } else if (currentWeek.value > layout.startWeek) {
         // Step partially delivered — interpolate partial contribution
         const frac = (currentWeek.value - layout.startWeek) / (layout.endWeek - layout.startWeek)
         const partialContrib = layout.valueContrib * frac
-        const x = (currentWeek.value / N_WEEKS) * 100
+        const x = (currentWeek.value / totalWeeks) * 100
         const y = ((cumulative + partialContrib) / maxCumulativeValue) * 100
         points.push({ x, y })
         break // only up to current week
@@ -175,8 +195,12 @@ export function useEvoSimulation(
   let _rafId: number | null = null
   let _lastTimestamp: number | null = null
 
-  /** Weeks advanced per second at 1× speed. */
-  const WEEKS_PER_SECOND = 2
+  /** Weeks advanced per second at 1× speed.
+   *  Tuned so the whole animation completes in ~13 seconds wall-clock at
+   *  1× regardless of the chosen cycle span — was hard-coded to 2 weeks/sec
+   *  when totalWeeks was always 26. Tom 2026-06-03: dynamic cycle scaling.
+   */
+  const WEEKS_PER_SECOND = totalWeeks / 13
 
   function _tick(timestamp: number): void {
     if (_lastTimestamp === null) {
@@ -187,10 +211,10 @@ export function useEvoSimulation(
 
     currentWeek.value = Math.min(
       currentWeek.value + elapsed * WEEKS_PER_SECOND * speed.value,
-      N_WEEKS,
+      totalWeeks,
     )
 
-    if (currentWeek.value < N_WEEKS) {
+    if (currentWeek.value < totalWeeks) {
       _rafId = requestAnimationFrame(_tick)
     } else {
       isPlaying.value = false
@@ -234,6 +258,12 @@ export function useEvoSimulation(
     stepFill,
     cumulativeValuePath,
     maxCumulativeValue,
+    /** Total simulated weeks for THIS plan — derives from cycleLength × steps.
+     *  Used by EvoSimulatorView for axis labels and the "across N weeks" caption. */
+    totalWeeks,
+    /** Echoed back so consumers can label units appropriately
+     *  (e.g. "26 weeks" vs "2 weeks" vs "9 months"). */
+    cycleLength,
     play,
     pause,
     reset,
