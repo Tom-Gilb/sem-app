@@ -422,12 +422,21 @@ function claudeCodeProxy(): Plugin {
           // model-time (~30-60s for Sonnet 4.6).
           //
           // Prompt is piped via stdin (avoids shell-arg length / escaping issues).
+          // SPEED FIX (Tom 2026-06-03 — second pass):
+          //   `--effort low` disables adaptive thinking. Without this, Sonnet 4.6
+          //   under default effort can spend 60-150s "thinking" before emitting
+          //   tokens for a complex prompt (e.g. the Evo planner) -- even when the
+          //   actual output is a small constrained JSON. Empirically: a 2-step
+          //   Evo plan took >153s with default effort; 4s with --effort low.
+          //   The SEM App's prompts are deterministic transforms (SEM -> JSON),
+          //   not exploratory reasoning tasks, so suppressing thinking is correct.
           const args: string[] = streaming
             ? ['-p', '--output-format', 'stream-json', '--include-partial-messages', '--verbose',
                '--no-session-persistence', '--setting-sources', 'user',
-               '--exclude-dynamic-system-prompt-sections']
+               '--exclude-dynamic-system-prompt-sections', '--effort', 'low']
             : ['-p', '--output-format', 'json', '--no-session-persistence',
-               '--setting-sources', 'user', '--exclude-dynamic-system-prompt-sections']
+               '--setting-sources', 'user', '--exclude-dynamic-system-prompt-sections',
+               '--effort', 'low']
           if (model) args.push('--model', model)
           if (system) args.push('--system-prompt', system)
 
