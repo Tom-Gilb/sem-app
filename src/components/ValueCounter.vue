@@ -85,12 +85,18 @@ const emit = defineEmits<{
 
 // ── Stage definitions ──────────────────────────────────────────────────────────
 
-const STAGES: Array<{
+// Exported so App.vue's Back/Next pin-pair (and any other stage-aware navigator)
+// can build buttons that visually match the pills here. Tom 2026-06-03:
+// "buttons should be identical to the stage pins". Single-source ensures the
+// next-stage label, number, and Planguage glyph type stay consistent.
+export interface PlanningStageDef {
   stage: number
   label: string
   plType: PlGlyphType
   title: string
-}> = [
+}
+
+export const STAGES: PlanningStageDef[] = [
   { stage: 1,  label: 'Stakes',     plType: 'stakeholder', title: 'Stage 1 · Stakes — Who and what needs results. Identify all stakeholders: people, systems, laws, data. Inanimate stakeholders (GDPR, databases) are equally valid. Their needs define success.' },
   { stage: 2,  label: 'Solutions',  plType: 'solution',    title: 'Stage 2 · Solutions — How we will deliver value. Define candidate designs, strategies, and means that address stakeholder needs. Solutions are evaluated against Values and Constraints.' },
   { stage: 3,  label: 'Sharpen',    plType: 'function',    title: 'Stage 3 · Sharpen — What the system does. Clarify functions — binary capabilities that are either present or absent. Sharpen each to a precise presence test with no thresholds inside.' },
@@ -270,9 +276,30 @@ const popoverStyle = computed((): Record<string, string> => {
   let left = rect.left + rect.width / 2 - popW / 2
   left = Math.max(margin, Math.min(left, vw - popW - margin))
 
-  // Prefer above the pill; fall back to below if not enough room
+  // Prefer above the pill; fall back to below if not enough room.
+  //
+  // CLEARANCE FIX (2026-06-02 r03): when the stage bar is fixed at top-0 (z-[250])
+  // and a plan is loaded, the Plan Crest bar sits at top-[124px] (z-[300]) with the
+  // breadcrumb strip directly below it (reaching to ~y=215). The popup is at z-[801].
+  // If the popup's top falls in this zone, it physically covers the breadcrumb buttons
+  // even though it has no backdrop — clicks on the breadcrumb area hit the popup body
+  // first (z-[801] > anything in the crest). The _onBodyClick capture handler sees
+  // e.target is inside the panel → doesn't close → click is silently absorbed.
+  // This makes the "Enter Stakes" breadcrumb button appear dead.
+  //
+  // Fix: enforce a minimum top (CREST_CLEARANCE) so the popup always clears
+  // the plan crest + breadcrumb region. The constant matches STAGE_BAR_H (124)
+  // + ~90px for plan crest header + breadcrumb strip = 215px total clearance.
+  const CREST_CLEARANCE = 215
+
   let top = rect.top - popH - 16
-  if (top < margin) top = Math.min(rect.bottom + 16, vh - popH - margin)
+  if (top < margin) {
+    top = rect.bottom + 16
+    // Clamp: don't push off the bottom of the viewport
+    top = Math.min(top, vh - popH - margin)
+    // Enforce clearance: popup must not overlap plan crest / breadcrumb strip
+    top = Math.max(top, CREST_CLEARANCE)
+  }
 
   return {
     left:  `${Math.round(left)}px`,
@@ -421,13 +448,13 @@ onUnmounted(() => {
           :title="`${step.title} · click for overview · dbl-click for INFO`"
           @click="handlePillClick(step.stage)"
         >
-          <!-- Stage Halo — pulsating dark ring on active stage (3s breathing animation).
-               Dark ring (rgba(0,0,0,0.55)) instead of white: bright teal pill L=50%
-               needs a dark border to be visible (white on light = poor contrast). -->
+          <!-- Stage Halo — bright white glowing ring, breathing 2s.
+               Tom 2026-06-02: "dark unreadable, unnecessary — halo, color bright, pulsating."
+               box-shadow animated entirely in @keyframes stage-halo (no inline style needed). -->
           <div
             v-if="step.stage === currentStage"
             class="stage-halo absolute inset-0 pointer-events-none"
-            style="border-radius: 16px; box-shadow: 0 0 0 3px rgba(0,0,0,0.55);"
+            style="border-radius: 16px;"
             aria-hidden="true"
           />
 
@@ -439,21 +466,15 @@ onUnmounted(() => {
             aria-hidden="true"
           >{{ step.stage }}</span>
 
-          <!-- Active stage label bar — floats over the glyph with slow animation.
-               Design log r07 · Tom Gilb 2026-05-27: "text in a bar on the step glyph…
-               slow movement of it and maybe some sort of halo around it."
-               z-20 ensures it renders above the halo ring (z-10). -->
+          <!-- Active beacon — bright white pulsating dot at top-centre of active pill.
+               Replaces dark "✦ ACTIVE" text (Tom 2026-06-02: "dark unreadable, unnecessary").
+               Offset to top-2 centre, clear of number badge (which is left-2). -->
           <div
             v-if="step.stage === currentStage"
-            class="active-label-bar absolute z-20 pointer-events-none inset-x-0 top-[30px] flex justify-center"
+            class="absolute z-20 pointer-events-none inset-x-0 top-2 flex justify-center"
             aria-hidden="true"
           >
-            <!-- Dark text + dark-tinted bg on the bright current-stage pill for legibility. -->
-            <span
-              class="text-[8px] font-extrabold uppercase tracking-[0.12em] text-gray-900
-                     bg-black/20 rounded-full px-2 py-0.5 whitespace-nowrap
-                     ring-1 ring-black/30"
-            >✦ ACTIVE</span>
+            <span class="active-beacon block w-2.5 h-2.5 rounded-full bg-white" />
           </div>
 
           <!-- Planguage type glyph — bob wrapper active only, translated r18 -->
@@ -663,26 +684,28 @@ onUnmounted(() => {
    Tom Gilb 2026-05-24: "slow relaxing pulsating halo."
    Design log r06 · Visual Treatments table (SEMappHandbook p.33).
    scale 1.00 → 1.12 → 1.00, opacity 0.70 → 0.15 → 0.70, 3s ease-in-out. */
+/* Stage halo — bright white glowing ring expands/contracts around the active pill.
+   Tom 2026-06-02: "halo, color bright, pulsating." box-shadow animated directly;
+   inner ring (0 0 0 Npx) is the solid border; outer spread is the soft glow. */
 @keyframes stage-halo {
-  0%   { transform: scale(1.00); opacity: 0.70; }
-  50%  { transform: scale(1.12); opacity: 0.15; }
-  100% { transform: scale(1.00); opacity: 0.70; }
+  0%   { box-shadow: 0 0 0 3px rgba(255,255,255,0.90), 0 0 10px 4px rgba(255,255,255,0.35); }
+  50%  { box-shadow: 0 0 0 5px rgba(255,255,255,1.00), 0 0 24px 9px rgba(255,255,255,0.65); }
+  100% { box-shadow: 0 0 0 3px rgba(255,255,255,0.90), 0 0 10px 4px rgba(255,255,255,0.35); }
 }
 .stage-halo {
-  animation: stage-halo 3s ease-in-out infinite;
+  animation: stage-halo 2s ease-in-out infinite;
 }
 
-/* Active label bar — slow float over the glyph (Design log r07).
-   Tom Gilb 2026-05-27: "text in a bar on the step glyph … slow movement."
-   translateX(-50%) centres the pill horizontally; translateY bobs ±5px over 3s.
-   Phase offset from stage-halo (2.5s) to avoid synchronised motion. */
-@keyframes active-bar-float {
-  0%   { transform: translateX(-50%) translateY(0px); }
-  50%  { transform: translateX(-50%) translateY(-5px); }
-  100% { transform: translateX(-50%) translateY(0px); }
+/* Active beacon — bright white pulsating dot at top of active stage pill.
+   Pulses at 1.5s (offset from halo's 2s) for a staggered breathing feel.
+   scale 1.0→1.4 + opacity 1.0→0.6 + glow spread 5px→14px. */
+@keyframes active-beacon {
+  0%   { opacity: 1.0; transform: scale(1.0); box-shadow: 0 0 5px 2px rgba(255,255,255,0.80); }
+  50%  { opacity: 0.6; transform: scale(1.4); box-shadow: 0 0 12px 6px rgba(255,255,255,0.50); }
+  100% { opacity: 1.0; transform: scale(1.0); box-shadow: 0 0 5px 2px rgba(255,255,255,0.80); }
 }
-.active-label-bar {
-  animation: active-bar-float 3s ease-in-out infinite;
+.active-beacon {
+  animation: active-beacon 1.5s ease-in-out infinite;
 }
 
 /* Glyph bob — gentle vertical bob on active stage glyph (Design log r07).

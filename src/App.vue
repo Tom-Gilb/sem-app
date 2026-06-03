@@ -30,7 +30,7 @@ import PrioritisedPlanView from './components/PrioritisedPlanView.vue'
 import ClarifyView from './components/ClarifyView.vue'
 import ThinkingIndicator from './components/ThinkingIndicator.vue'
 import CelebrationEffect from './components/CelebrationEffect.vue'
-import ValueCounter from './components/ValueCounter.vue'
+import ValueCounter, { STAGES as PLANNING_STAGES } from './components/ValueCounter.vue'
 // PlanningStageBar superseded by ValueCounter rebuild 2026-05-27 (design log r37)
 // import PlanningStageBar from './components/PlanningStageBar.vue'
 import CollaborationCursors from './components/CollaborationCursors.vue'
@@ -1087,6 +1087,21 @@ const stage = ref<Stage>(1)
 // Separate from the 5-stage app machine. ValueCounter uses this for its
 // 11-stage display. DD-007: stages are never locked — navigation always proceeds.
 const planningStage = ref<number>(1)
+
+/**
+ * Previous / next stage descriptors used by the Back / Next pin-pair in the
+ * breadcrumb (Tom 2026-06-03: "buttons should be identical to the stage pins").
+ * Returns null at the boundaries (stage 1 has no prev; stage 11 has no next)
+ * so the corresponding pin can be hidden cleanly via v-if.
+ */
+const prevStageInfo = computed(() => {
+  const n = planningStage.value
+  return n > 1 ? (PLANNING_STAGES.find(s => s.stage === n - 1) ?? null) : null
+})
+const nextStageInfo = computed(() => {
+  const n = planningStage.value
+  return n < PLANNING_STAGES.length ? (PLANNING_STAGES.find(s => s.stage === n + 1) ?? null) : null
+})
 
 /**
  * Called when user clicks a stage pill in ValueCounter, or navigates via SpecEditorPanel breadcrumb.
@@ -4507,59 +4522,83 @@ function handleApertureLoadPlan(model: PlanModel): void {
            Tom 2026-05-28: "There is a universal rule. We need clear navigation
            back to previous screen, and possibly other origins. There is no back
            (to actions)."
-           Two persistent control pins (top rule): ← Back (when not at stage 1)
-           + ⚡ Actions shortcut. ← Back decrements planningStage so the user can
-           step backwards through the planning cycle without hunting for the right
-           pill in the stage bar. ⚡ Actions surfaces the tile hub from anywhere.
-           Shown only in 'app' view when a spec exists or the user is active. -->
-      <div class="flex items-center gap-2 mb-1 px-0.5 flex-wrap">
-        <!-- ← Back to previous stage -->
-        <button
-          v-if="planningStage > 1"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
-                 text-sm font-medium text-slate-500 hover:text-slate-800
-                 bg-white/60 hover:bg-white border border-slate-200 hover:border-slate-300
-                 shadow-sm transition-all duration-150 select-none"
-          :title="`Go back to Stage ${planningStage - 1}`"
-          :aria-label="`Go back to stage ${planningStage - 1}`"
-          @click="handleStageBarNav(planningStage - 1)"
-        >
-          ← Back
-        </button>
+           Persistent control pins (top rule): ← Back pin + stage-action button
+           + → Next pin + ⚡ Actions + 🤖 Agents shortcuts. Tom 2026-06-03:
+           "Next (and Back) are terribly small, can be missed, but this is a
+           major decision point" — Back/Next are now full pin-style buttons
+           matching the ValueCounter stage tiles (same number badge + Planguage
+           type glyph + label), coloured by the destination stage's glyph. -->
+      <div class="flex flex-col gap-1 mb-1 px-0.5">
+        <div class="flex items-center gap-2 flex-wrap">
 
-        <!-- Stage-specific primary action button (Tom 2026-05-28: "repeat that step / do step actions") -->
-        <button
-          v-if="planningStageAction"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
-                 text-sm font-semibold text-white
-                 bg-gradient-to-r from-indigo-500 to-violet-500
-                 hover:from-indigo-600 hover:to-violet-600
-                 shadow-sm hover:shadow-md transition-all duration-150 select-none"
-          :title="`${planningStageAction.label} — primary action for Stage ${planningStage}`"
-          :aria-label="planningStageAction.label"
-          @click="planningStageAction.handler()"
-        >
-          {{ planningStageAction.label }}
-        </button>
+          <!-- ← Back pin — shows the PREVIOUS stage with its glyph + number + label -->
+          <button
+            v-if="prevStageInfo"
+            type="button"
+            class="group inline-flex items-center gap-2.5 rounded-2xl
+                   pl-2.5 pr-4 py-2 select-none
+                   bg-white border-2 border-slate-300
+                   hover:border-indigo-400 hover:bg-indigo-50 hover:shadow-md
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400
+                   transition-all duration-150 active:scale-95"
+            :title="`← Back to Stage ${prevStageInfo.stage} · ${prevStageInfo.label} — ${prevStageInfo.title}`"
+            :aria-label="`Go back to Stage ${prevStageInfo.stage}: ${prevStageInfo.label}`"
+            @click="handleStageBarNav(prevStageInfo.stage)"
+          >
+            <span class="text-base font-bold text-slate-500 group-hover:text-indigo-700 leading-none" aria-hidden="true">←</span>
+            <span class="text-[10px] font-extrabold leading-none bg-slate-700 text-white rounded-md px-1.5 py-1"
+                  aria-hidden="true">{{ prevStageInfo.stage }}</span>
+            <PlTypeIcon :pl-type="prevStageInfo.plType" size="md" :no-detail-click="true" />
+            <span class="flex flex-col items-start leading-tight">
+              <span class="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Back to</span>
+              <span class="text-sm font-bold text-slate-800">{{ prevStageInfo.label }}</span>
+            </span>
+          </button>
 
-        <div class="flex-1" aria-hidden="true" />
+          <!-- Stage-specific primary action button (Tom 2026-05-28: "repeat that step / do step actions") -->
+          <button
+            v-if="planningStageAction"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5
+                   text-sm font-semibold text-white
+                   bg-gradient-to-r from-indigo-500 to-violet-500
+                   hover:from-indigo-600 hover:to-violet-600
+                   shadow-md hover:shadow-lg transition-all duration-150 select-none
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+            :title="`${planningStageAction.label} — primary action for Stage ${planningStage}`"
+            :aria-label="planningStageAction.label"
+            @click="planningStageAction.handler()"
+          >
+            {{ planningStageAction.label }}
+          </button>
 
-        <!-- → Next stage -->
-        <button
-          v-if="planningStage < 11"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5
-                 text-sm font-medium text-slate-500 hover:text-slate-800
-                 bg-white/60 hover:bg-white border border-slate-200 hover:border-slate-300
-                 shadow-sm transition-all duration-150 select-none"
-          :title="`Go to Stage ${planningStage + 1}`"
-          :aria-label="`Go to Stage ${planningStage + 1}`"
-          @click="handleStageBarNav(planningStage + 1)"
-        >
-          Next →
-        </button>
+          <div class="flex-1" aria-hidden="true" />
+
+          <!-- → Next pin — shows the NEXT stage with its glyph + number + label.
+               Gradient emphasises that this is the forward / advance action. -->
+          <button
+            v-if="nextStageInfo"
+            type="button"
+            class="group inline-flex items-center gap-2.5 rounded-2xl
+                   pl-4 pr-2.5 py-2 select-none
+                   bg-gradient-to-r from-indigo-600 to-violet-600 text-white
+                   border-2 border-indigo-700
+                   hover:from-indigo-700 hover:to-violet-700 hover:shadow-lg
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-1
+                   transition-all duration-150 active:scale-95 shadow-md"
+            :title="`Next → Stage ${nextStageInfo.stage} · ${nextStageInfo.label} — ${nextStageInfo.title}`"
+            :aria-label="`Go to Stage ${nextStageInfo.stage}: ${nextStageInfo.label}`"
+            @click="handleStageBarNav(nextStageInfo.stage)"
+          >
+            <span class="flex flex-col items-end leading-tight">
+              <span class="text-[9px] font-semibold uppercase tracking-wider text-indigo-200">Next →</span>
+              <span class="text-sm font-bold text-white">{{ nextStageInfo.label }}</span>
+            </span>
+            <PlTypeIcon :pl-type="nextStageInfo.plType" size="md" :no-detail-click="true" />
+            <span class="text-[10px] font-extrabold leading-none bg-black/60 text-white rounded-md px-1.5 py-1"
+                  aria-hidden="true">{{ nextStageInfo.stage }}</span>
+            <span class="text-base font-bold text-white leading-none" aria-hidden="true">→</span>
+          </button>
 
         <!-- ⚡ Actions hub -->
         <button
@@ -4590,6 +4629,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
         >
           🦾 Agents
         </button>
+        </div>
+
+        <!-- Tip caption — Tom 2026-06-03: "a text explaining that we can skip
+             further back and forth by clicking on the Stage steps". Italic +
+             small so it does not compete with the pin buttons above. Hidden
+             at the boundaries where neither Back nor Next exist. -->
+        <p
+          v-if="prevStageInfo || nextStageInfo"
+          class="text-[10px] italic text-slate-500 px-1 leading-snug"
+        >
+          Tip — click any numbered stage tile above to jump anywhere
+          in the planning cycle, forward or back.
+        </p>
       </div>
 
       <!-- Session restore banner — shown when no auth nav bar (Supabase not configured) -->
