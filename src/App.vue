@@ -2682,12 +2682,21 @@ function goToPlanStage(fromFreshGeneration = false): void {
   }
 }
 
-/** Called when EvoPlanView emits 'confirmed' — plan is ready, move to tasks stage */
+/** Called when EvoPlanView emits 'confirmed' — plan is ready, move to Evo Impact stage */
 function onPlanConfirmed(steps: EvoStep[]): void {
   confirmedSteps.value = steps
   evoPlanConfirmed.value = true
   if (currentSpec.value) _ensurePlanModel(currentSpec.value) // keep bar visible on stage 3
   stage.value = 3
+  // Tom 2026-06-03 — "we are clearly in the stage after evo steps, the impact,
+  // but the step indicator has not moved on". The app view advanced (stage=3,
+  // renders ImpactEstimationView) but the planning-bar indicator stayed on
+  // Stage 6 (Evo Steps). Confirming the Evo Plan logically advances to Stage
+  // 7 (Evo Impact, the V × S impact-estimation table — r15 ratified that
+  // semantic). Sync the indicator. Only forward-advance — if the user is
+  // already past Stage 7 (e.g. came back from Tasks to re-confirm), do not
+  // demote them.
+  if (planningStage.value < 7) planningStage.value = 7
   // Evo Step 10: log evo_plan_confirmed event (3P.V.EvoStepPlanQuality / 2S.V.PlannerPlanningTrust)
   analytics.logEvoPlanConfirmed(steps.length)
   survey.triggerPostPlanning()
