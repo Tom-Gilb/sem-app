@@ -114,6 +114,7 @@ import PlanImporterPanel from './components/PlanImporterPanel.vue'
 import DecisionMapperPanel from './components/DecisionMapperPanel.vue'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
+import ValueFlowDiagram from './components/ValueFlowDiagram.vue'
 import SystemModelDashboard from './components/SystemModelDashboard.vue'
 import ModelHistory from './components/ModelHistory.vue'
 import GlyphDataPanel from './components/GlyphDataPanel.vue'
@@ -5354,6 +5355,52 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span>Value Flow</span>
           </button>
         </div>
+        <!-- ── Embedded Value Flow (Tom 2026-06-03) ────────────────────────────
+             "WHAT IF, AT THIS STAGE (EVO JUST DONE) WE COULD ALSO DISPLAY THE
+             STAGE OF EVO AS IN VALUE FLOW, JUST SIMLY INSERT THE MAIN VALUE
+             FLOW ON THAT PAGE, THAT WOULD BE VISUALLY EXCITING AND DARAMATIC
+             AND INFORMATIVE, PLEASE MAKE IT SO". Embeds the 6-column causal
+             diagram (T → Evo → S → V → F → K) inline above the IET so the
+             user sees what they just designed at the very moment they start
+             estimating impact. The "Value Flow" button above still opens the
+             full-screen modal for deeper inspection. Uses _stepsForDiagram
+             (same source as the modal) so confirmed-or-draft steps both show.
+        -->
+        <div
+          v-if="currentSpec"
+          class="w-full max-w-5xl mb-6 rounded-2xl border-2 border-indigo-200
+                 bg-gradient-to-br from-white to-indigo-50/30 shadow-lg overflow-hidden"
+        >
+          <div class="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <span aria-hidden="true">⛢</span> Value Flow — what you just designed
+              </h3>
+              <p class="text-[11px] text-indigo-100 mt-0.5">
+                Tasks → Evo Steps → Solutions → Values → Functions → Stakeholders ·
+                click any node for relations · click ⬢ Value Flow above for full-screen
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-[11px] font-semibold text-white/90 bg-white/15 hover:bg-white/25
+                     border border-white/30 rounded-lg px-3 py-1.5 transition-colors"
+              title="Open the full-screen Value Flow diagram"
+              @click="valueFlowOpen = true"
+            >Expand ↗</button>
+          </div>
+          <div class="p-4 bg-white">
+            <ValueFlowDiagram
+              :spec="currentSpec"
+              :evo-steps="_stepsForDiagram"
+              :tasks-by-step="tasksByStep"
+              :impact-matrix="capturedImpactMatrix"
+              @open-editor="({ tab, entryId }) => _openSpecEditor({ tab, entryId, returnTo: 'valueFlow' })"
+              @node-relations-click="({ tab, entryId }) => _openSdr(tab, entryId, 'valueFlow')"
+            />
+          </div>
+        </div>
+
         <ImpactEstimationView
           ref="ietRef"
           :values="currentSpec.values"
