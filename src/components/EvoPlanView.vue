@@ -92,6 +92,7 @@ import ConceptHint from './ConceptHint.vue'
 import { CONCEPT_HINTS } from '../data/conceptHints'
 import EditGlyph from './icons/EditGlyph.vue'
 import CancelEmptyGlyph from './icons/CancelEmptyGlyph.vue'
+import CopyGlyph from './icons/CopyGlyph.vue'
 import PinMenuPreview from './PinMenuPreview.vue'
 import EvoCycleLengthPicker from './EvoCycleLengthPicker.vue'
 import { VIZ_STRIP_ITEMS } from '../constants/vizThumbs'
@@ -4794,15 +4795,27 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
                 ✕
               </button>
 
-              <!-- Copy step — admin action; separated from plan content -->
+              <!-- Copy step — admin action; separated from plan content.
+                   Uses CopyGlyph ([*]=[*]) per Planguage-Glyph-First Rule 9
+                   / DD-011 (Tom 2026-06-01). Previously used a 📋 emoji
+                   which violates DD-010/DD-011 (no stock icons, no emoji
+                   surrogates for canonical glyphs). On copy success the
+                   button briefly shows a checkmark + green border so the
+                   feedback is unmistakable. -->
               <button
                 type="button"
-                class="flex items-center justify-center min-w-[44px] min-h-[44px] rounded border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 shrink-0 transition-colors"
+                class="flex items-center justify-center min-w-[44px] min-h-[44px] rounded border shrink-0 transition-colors"
+                :class="stepCardCopied[index]
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                  : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'"
                 :aria-label="`Copy step ${index + 1} details`"
                 :data-testid="`step-copy-${index}`"
-                :title="stepCardCopied[index] ? 'Copied!' : 'Copy step details'"
+                :title="stepCardCopied[index] ? 'Copied!' : 'Copy step details — [*]=[*]'"
                 @click="copyStepCard(step, index)"
-              >{{ stepCardCopied[index] ? '✅' : '📋' }}</button>
+              >
+                <span v-if="stepCardCopied[index]" aria-hidden="true" class="text-base leading-none font-bold">✓</span>
+                <CopyGlyph v-else size="compact" class="h-3.5 w-auto" aria-hidden="true" />
+              </button>
 
               <!-- Feature #27: Risk expand button — dramatic colour-coded pill -->
               <button

@@ -119,7 +119,7 @@ import ModelHistory from './components/ModelHistory.vue'
 import GlyphDataPanel from './components/GlyphDataPanel.vue'
 import PlTypeIcon from './components/icons/PlTypeIcon.vue'
 import type { PlGlyphType } from './components/icons/PlTypeIcon.vue'
-import { useGlyphPanel } from './composables/useGlyphPanel'
+import { GLYPH_PANEL_OPEN_EVENT, GLYPH_PANEL_CLOSE_EVENT, GLYPH_PANEL_NAVIGATE_EVENT, glyphTypeFromDblClick } from './composables/useGlyphPanel'
 import SaveGlyph from './components/icons/SaveGlyph.vue'
 import EditGlyph from './components/icons/EditGlyph.vue'
 import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
@@ -158,7 +158,7 @@ import { defineCurrentSelection, openDefineSearch } from './composables/useDefin
 import SpecWizard from './components/SpecWizard.vue'
 import SpecPresentation from './components/SpecPresentation.vue'
 import BullockPanel from './components/BullockPanel.vue'
-import AmuseMeButton from './components/AmuseMeButton.vue'
+// AmuseMeButton is used inside SpecOutput.vue directly — not imported at App level
 import OnboardingTour from './components/OnboardingTour.vue'
 import type { SpecBlock } from './types/spec'
 import GlobalSearch from './components/GlobalSearch.vue'
@@ -166,6 +166,7 @@ import { useGlobalSearch, type SearchEntry } from './composables/useGlobalSearch
 import { useToolInfo } from './composables/useToolInfo'
 import { useCopyright } from './composables/useCopyright'
 import { useSpecEditor } from './composables/useSpecEditor'
+import { resolveStageNavAction, STAGE_TOAST_MESSAGES } from './composables/useStageNavigation'
 import {
   initEntriesFromSpec,
   recordSharpenProvenance,
@@ -731,10 +732,26 @@ const modelDashboardOpen = ref(false)
 const modelHistoryOpen = ref(false)
 
 // P2 (2026-05-27): GlyphDataPanel — full reference card for any Planguage glyph.
-// z-[494/495] — above ModelHistory (492/493).
-// DD-013 (2026-06-01): openGlyphPanel now sourced from useGlyphPanel composable so
-// PlTypeIcon can call it directly on dblclick without event-bubbling chains.
-const { glyphPanelOpen, glyphPanelType, openGlyphPanel, closeGlyphPanel, navigateGlyphPanel } = useGlyphPanel()
+// z-[650/651] — above all other panels.
+//
+// DD-013 (2026-06-01): universal double-click rule. PlTypeIcon dispatches a DOM
+// CustomEvent ('glyph-panel:open') on dblclick. State lives HERE (App.vue local
+// refs), not in useGlyphPanel composable. CustomEvent bus eliminates all module-
+// singleton HMR fragility — the document is always the same object, no module
+// re-evaluation can create a split. Listener is registered in onMounted below.
+const glyphPanelOpen = ref(false)
+const glyphPanelType = ref<PlGlyphType | null>(null)
+
+function openGlyphPanel(type: PlGlyphType): void {
+  glyphPanelType.value = type
+  glyphPanelOpen.value = true
+}
+function closeGlyphPanel(): void {
+  glyphPanelOpen.value = false
+}
+function navigateGlyphPanel(type: PlGlyphType): void {
+  glyphPanelType.value = type
+}
 
 /** True when the active plan model is in 'model' mode (not plan mode). */
 const isModelMode = computed(() => planModel.value?.workingMode === 'model')
@@ -1071,37 +1088,50 @@ const stage = ref<Stage>(1)
 // 11-stage display. DD-007: stages are never locked — navigation always proceeds.
 const planningStage = ref<number>(1)
 
-/** Called when user clicks a stage pill in ValueCounter. */
+/**
+ * Called when user clicks a stage pill in ValueCounter, or navigates via SpecEditorPanel breadcrumb.
+ *
+ * r19 (2026-06-02): Routing logic extracted to useStageNavigation.resolveStageNavAction()
+ * so every branch is unit-tested. This function is now a thin dispatcher — it updates
+ * state and calls the right view-transition function based on the resolved action.
+ * See src/composables/useStageNavigation.ts for the full routing contract and tests.
+ */
 function handleStageBarNav(n: number): void {
-  if (n >= 2 && !currentSpec.value) {
-    showToast('💡 Add a spec at Stakes first to get the most from later stages — but you can always explore ahead', 4000)
-  } else if (n >= 7 && confirmedSteps.value.length === 0) {
-    showToast('💡 Define Evo Steps (stage 6) first to measure value impact — but feel free to look ahead', 4000)
-  }
   planningStage.value = n  // stages never locked (DD-007)
 
-  // Navigate the main view (stage 1–5) to match the clicked planning stage.
-  // Pill clicks express navigation intent — not action intent (the CTA button handles actions).
-  // handleStageAction calls this first, then fires the action; double-navigation is idempotent.
-  switch (n) {
-    case 1: case 2: case 3: case 4:
-      goToStage1()      // Specify phase (Values / Solutions / Sharpen) → spec entry
+  const { action, toast } = resolveStageNavAction(
+    n,
+    specEditorOpen.value,
+    !!currentSpec.value,
+    confirmedSteps.value.length > 0,
+  )
+
+  if (toast !== null) {
+    showToast(STAGE_TOAST_MESSAGES[toast], 4000)
+  }
+
+  switch (action) {
+    case 'editor-stay':
+      // Spec editor is actively rendering stages 1–4 — breadcrumb already updated above.
+      // Do NOT call goToStage1() which chains to _closeAllOverlays() → closes the editor.
       break
-    case 5:
-      goToImpactStage() // Estimate Impacts → stage 3
+    case 'to-spec':
+      goToStage1()
       break
-    case 6: case 7:
-      goToStage2()      // Evo Steps / Evo Simulator → stage 2
+    case 'to-impact':
+      goToImpactStage()
       break
-    case 8:
-      goToTasksStage()  // Plan Tasks → stage 4
+    case 'to-evo':
+      goToStage2()
       break
-    // 9 (Study-Act): no dedicated main stage — toast is sufficient for now
-    case 10:
-      goToImpactStage() // Resources — V/C cost ratios + resource budgets live in Impact view
+    case 'to-tasks':
+      goToTasksStage()
       break
-    case 11:
-      exportFull()      // Export Plan → stage 5, auto-computes matrix if empty
+    case 'to-export':
+      exportFull()
+      break
+    case 'stay':
+      // Stage 9 (Study-Act): no dedicated main-stage view; toast guidance is sufficient.
       break
   }
 }
@@ -2980,16 +3010,45 @@ function _onGlobalKeydown(e: KeyboardEvent) {
     }
   }
 }
+// DD-013 (Architecture v3 — capture-phase global listener, 2026-06-02):
+// Layer A: document dblclick in CAPTURE phase — fires before any child handler,
+// cannot be blocked by stopPropagation on buttons/cells wrapping the icon.
+// glyphTypeFromDblClick() walks up the DOM via closest('[data-pl-type]') to
+// find whether any PlTypeIcon was double-clicked.
+// Layer B: CustomEvent bus — PlTypeIcon's @dblclick also dispatches 'glyph-panel:open'
+// (belt-and-suspenders; fires if bubbling reaches the span).
+// Both layers call the same local openGlyphPanel(), so double-open is harmless
+// (idempotent: type stays the same, panel stays open).
+const _onGlyphPanelOpen = (e: Event) => openGlyphPanel((e as CustomEvent<PlGlyphType>).detail)
+const _onGlyphPanelClose = () => closeGlyphPanel()
+const _onGlyphPanelNavigate = (e: Event) => navigateGlyphPanel((e as CustomEvent<PlGlyphType>).detail)
+
+/** Layer A — capture-phase global handler for PlTypeIcon double-click (DD-013). */
+function _onDocumentDblClick(e: MouseEvent): void {
+  const type = glyphTypeFromDblClick(e)
+  if (type) openGlyphPanel(type)
+}
+
 onMounted(() => {
   window.addEventListener('keydown', _onGlobalKeydown)
   // Pre-unload save — fires synchronously before any page reload/kill.
   // Tom 2026-05-18: covers Cmd+R (browser reload) and any other unload event.
   // _saveNow() is a no-op when currentSpec is null, so safe to fire always.
   window.addEventListener('beforeunload', _saveNow)
+  // Layer A: capture-phase dblclick — intercepts before any button/cell handler
+  document.addEventListener('dblclick', _onDocumentDblClick, true)
+  // Layer B: CustomEvent bridge — wired here so state is in App.vue
+  document.addEventListener(GLYPH_PANEL_OPEN_EVENT, _onGlyphPanelOpen)
+  document.addEventListener(GLYPH_PANEL_CLOSE_EVENT, _onGlyphPanelClose)
+  document.addEventListener(GLYPH_PANEL_NAVIGATE_EVENT, _onGlyphPanelNavigate)
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', _onGlobalKeydown)
   window.removeEventListener('beforeunload', _saveNow)
+  document.removeEventListener('dblclick', _onDocumentDblClick, true)
+  document.removeEventListener(GLYPH_PANEL_OPEN_EVENT, _onGlyphPanelOpen)
+  document.removeEventListener(GLYPH_PANEL_CLOSE_EVENT, _onGlyphPanelClose)
+  document.removeEventListener(GLYPH_PANEL_NAVIGATE_EVENT, _onGlyphPanelNavigate)
 })
 
 /**
@@ -4274,10 +4333,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <!-- Spec Direct Relations — right-side drawer (Tom 2026-05-16) -->
+  <!--
+    BUG FIX (Tom 2026-06-03 — "the evo steps are in the overview value flow but
+    are missing in the near relations view"): used to pass confirmedSteps which
+    is empty until the user clicks Confirm Plan. The overview Value Flow already
+    falls back to the draft plan via _stepsForDiagram, so the relations were
+    visible there but absent in SDR for the same node. Aligned both call sites.
+  -->
   <SpecDirectRelations
     v-if="sdrOpen && currentSpec"
     :spec="currentSpec"
-    :evo-steps="confirmedSteps"
+    :evo-steps="_stepsForDiagram"
     :tasks-by-step="tasksByStep"
     :impact-matrix="capturedImpactMatrix"
     :entry-id="_sdrEntryId"
@@ -4933,13 +4999,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 @open-edit-info="editInfoOpen = true"
               />
             </div>
-            <!-- AmuseMeButton — spec regeneration loading (sdkLoading true while re-generating) -->
-            <AmuseMeButton
-              :is-loading="sdkLoading"
-              :spec-block="currentSpec"
-              :planning-stage="planningStage"
-              class="w-full max-w-xl"
-            />
+            <!-- AmuseMeButton now lives inside SpecOutput.vue (line 55) so it is not
+                 duplicated here. SpecOutput renders it whenever :loading is true. -->
 
             <!-- Dark `PlanModelBar` removed 2026-05-12 per Tom: it duplicated
                  the persistent purple Plan Identity Bar at the top of the page
@@ -5113,13 +5174,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
               />
             </div>
 
-            <!-- AmuseMeButton — first spec generation loading (sdkLoading true while generating) -->
-            <AmuseMeButton
-              :is-loading="sdkLoading"
-              :spec-block="currentSpec"
-              :planning-stage="planningStage"
-              class="w-full max-w-xl"
-            />
+            <!-- AmuseMeButton now lives inside SpecOutput.vue (line 55) so it is not
+                 duplicated here. SpecOutput renders it whenever :loading is true. -->
 
             <!-- Copyright footer — always visible at the bottom of Stage 1 -->
             <div class="w-full max-w-xl mt-8 mb-2 flex justify-center">
