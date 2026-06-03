@@ -923,18 +923,18 @@ const headlineSentence = computed<string>(() => {
       function → stakeholder fan
     </span>
     <!-- Affordance hints — plain English per DD-009 Zero-Training UI.
-         Tom 2026-06-03 second pass: "click is wrong, hover your cursor (or say
-         name of spec) to focus on a spec and its relatives". Hover IS the
-         focus mechanism here (since 2026-05-18: "when we hover over a spec,
+         Tom 2026-06-03 third pass: HOVER (not click) is the focus mechanism
+         (since 2026-05-18 quote in the source: "when we hover over a spec,
          show its relationship with bigger arrows, hide all other arrows" —
-         see hoveredConnectedNodeIds computed). Click opens deeper details. -->
+         see hoveredConnectedNodeIds computed). The earlier "Click an Evo
+         Step to see its Tasks" hint was REMOVED because at the Evo planning
+         stage, Tasks do not yet exist as entries — they are produced at
+         Stage 8 (Tasks). Showing a Tasks-related hint here was misleading
+         users into looking for content that has not been generated. -->
     <span class="inline-flex items-center gap-1 text-indigo-400 font-medium">
       <span aria-hidden="true">⬡</span>
-      Hover your cursor (or say the name of a spec) to focus on a spec and its relatives
-    </span>
-    <span class="inline-flex items-center gap-1 ml-auto text-amber-500 font-medium">
-      <span aria-hidden="true">▶</span>
-      Click an Evo Step to see its Tasks · click again to see its relations
+      Hover your cursor over a rectangle (or say the name of a spec) to focus
+      on a spec and its relatives — connecting arrows light up, the rest dim.
     </span>
   </div>
 
