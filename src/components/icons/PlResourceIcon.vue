@@ -16,39 +16,42 @@
 <script setup lang="ts">
 // UNIT_TYPE=Widget
 withDefaults(defineProps<{
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-}>(), { size: 'lg' })
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
+  /** Override stroke colour. Default: canonical dark green #166534 (Kai: "green for money").
+   *  Pass 'white' / 'rgba(255,255,255,0.9)' / etc. when used on a dark/coloured background. */
+  color?: string
+}>(), { size: 'lg', color: '#166534' })
 </script>
 
 <template>
   <!--
-    xl: 42×56  lg: 33×44  md: 24×32  (viewBox 36×48, narrower)
+    2xl: 72×96  xl: 42×56  lg: 33×44  md: 24×32  sm: 15×20  (viewBox 36×48, narrower)
+    color prop overrides canonical dark-green so the glyph is usable on any background.
+    Canonical colour for Planguage Resource type: #166534 (dark green — Kai "green for money").
   -->
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 36 48"
-    width="36"
-    height="48"
-    :width="size === 'xl' ? 42 : size === 'lg' ? 33 : size === 'md' ? 24 : 15"
-    :height="size === 'xl' ? 56 : size === 'lg' ? 44 : size === 'md' ? 32 : 20"
+    :width="size === '2xl' ? 72 : size === 'xl' ? 42 : size === 'lg' ? 33 : size === 'md' ? 24 : 15"
+    :height="size === '2xl' ? 96 : size === 'xl' ? 56 : size === 'lg' ? 44 : size === 'md' ? 32 : 20"
     fill="none"
     aria-label="Resource glyph — →O (cost enters, nothing comes out)"
     role="img"
   >
-    <!-- Resource arrows IN — dark green dashed (Kai: "green for money") -->
+    <!-- Resource arrows IN — dashed (Kai: "green for money" — canonical #166534; override via color prop) -->
     <line x1="1" y1="18" x2="10" y2="18"
-      stroke="#166534" stroke-width="2" stroke-dasharray="3 2.2" stroke-linecap="round" />
+      :stroke="color" stroke-width="2.2" stroke-dasharray="3 2.2" stroke-linecap="round" />
     <polyline points="8,15 12,18 8,21"
-      stroke="#166534" stroke-width="2" fill="none"
+      :stroke="color" stroke-width="2.2" fill="none"
       stroke-linecap="round" stroke-linejoin="round" />
     <line x1="1" y1="30" x2="10" y2="30"
-      stroke="#166534" stroke-width="2" stroke-dasharray="3 2.2" stroke-linecap="round" />
+      :stroke="color" stroke-width="2.2" stroke-dasharray="3 2.2" stroke-linecap="round" />
     <polyline points="8,27 12,30 8,33"
-      stroke="#166534" stroke-width="2" fill="none"
+      :stroke="color" stroke-width="2.2" fill="none"
       stroke-linecap="round" stroke-linejoin="round" />
-    <!-- Oval — system boundary, dark green -->
+    <!-- Oval — system boundary -->
     <ellipse cx="23" cy="24" rx="10" ry="9"
-      stroke="#166534" stroke-width="2.5" />
+      :stroke="color" stroke-width="2.5" />
     <!-- No output arrow — INTENTIONAL. Resource is consumed, not produced. -->
   </svg>
 </template>

@@ -6725,8 +6725,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <div>
                 <h2 class="text-lg font-extrabold text-emerald-900">Resources Stage</h2>
                 <p class="text-[12px] text-emerald-800/80 leading-snug max-w-md">
-                  Estimate and allocate resource budgets (R. entries).  Review V/C ratios, assign capital and calendar
-                  budgets, confirm all Constraints are respected before Export.
+                  Estimate and allocate Resources (time, people, money, and other budgets).
+                  Review Value-to-Resource ratios, assign calendar and capital budgets,
+                  confirm all Constraints are respected before Export.
                 </p>
               </div>
             </div>
@@ -6736,8 +6737,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
                … Improve Plan Resources / Analyze Planned Resources / Visualize Planned Resources
                … in a Rectangle with great Pin Icons" -->
           <div class="rounded-2xl border-2 border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-md">
-            <div class="flex items-center gap-2 mb-4">
-              <PlResourceIcon class="w-5 h-5" />
+            <div class="flex items-center gap-3 mb-4">
+              <!-- Section header icon — bigger, hover + dblclick for glyph panel -->
+              <button
+                type="button"
+                class="flex-none focus:outline-none focus:ring-2 focus:ring-violet-400 rounded-lg"
+                title="Planguage type glyph R. — Resource entry (time, people, money, other budgets) · Double-click for glyph history and details"
+                @dblclick.stop="openGlyphPanel('resource')"
+              >
+                <PlResourceIcon class="w-8 h-8" />
+              </button>
               <h3 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Resources Stage Tools</h3>
             </div>
 
@@ -6746,13 +6755,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <!-- ── Pin 1: Improve Plan Resources ─────────────────────────── -->
               <div class="rounded-xl border-2 border-emerald-300 overflow-hidden shadow-sm">
                 <!-- Pin header -->
-                <div class="bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-3 text-white">
-                  <div class="flex items-center gap-2 mb-1">
-                    <EditGlyph class="w-6 h-6 text-white" />
+                <div class="bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-6 text-white">
+                  <!-- EditGlyph [*]→[**] spans full pin width — horizontal glyph designed
+                       for wide display, not square. w-full h-12 renders at full card width,
+                       48px tall — much more dramatic than a small square icon. -->
+                  <button
+                    type="button"
+                    class="w-full focus:outline-none focus:ring-2 focus:ring-white/60 rounded-lg
+                           hover:bg-white/10 transition-colors duration-100 px-1 py-2"
+                    title="Planguage keyed action glyph [*]→[**] — existing item transformed to improved version · Improve / Augment / Edit · Double-click for glyph history and details"
+                    @dblclick.stop="openGlyphPanel('resource')"
+                  >
+                    <EditGlyph class="w-full text-white" style="height:48px" />
+                  </button>
+                  <div class="text-center mt-3">
                     <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">Improve</span>
+                    <div class="text-[14px] font-extrabold leading-tight mt-0.5">Plan Resources</div>
+                    <div class="text-[10px] opacity-75 mt-0.5">time · people · money</div>
                   </div>
-                  <div class="text-[13px] font-extrabold leading-tight">Plan Resources</div>
-                  <div class="text-[10px] opacity-75 mt-0.5">time · people · money</div>
                 </div>
                 <!-- Sub-option buttons -->
                 <div class="bg-emerald-50 p-2.5 flex flex-col gap-1.5">
@@ -6783,7 +6803,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            hover:border-emerald-500 hover:bg-emerald-50 hover:shadow-sm
                            focus:outline-none focus:ring-2 focus:ring-emerald-400
                            transition-all duration-100"
-                    title="Paste Claudian analysis JSON to apply R. entry improvements"
+                    title="Paste Claudian analysis JSON to apply Resource entry improvements"
                     @click="resourcesSharpenOpen = true"
                   >Apply Claudian Analysis</button>
                 </div>
@@ -6792,18 +6812,28 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <!-- ── Pin 2: Analyze Planned Resources ──────────────────────── -->
               <div class="rounded-xl border-2 border-blue-300 overflow-hidden shadow-sm">
                 <!-- Pin header — [R.]→[?] keyed glyph -->
-                <div class="bg-gradient-to-br from-blue-500 to-indigo-600 px-4 py-3 text-white">
-                  <div class="flex items-center gap-2 mb-1">
-                    <!-- Keyed notation [R.]→[?] — DD-015 international, DD-016 drawn -->
-                    <svg viewBox="0 0 58 18" class="h-[18px] w-[58px]" aria-hidden="true">
-                      <text x="0" y="13" font-family="'Courier New',monospace" font-size="11" font-weight="700" fill="white">[R.]</text>
-                      <text x="26" y="13" font-family="'Courier New',monospace" font-size="11" fill="rgba(255,255,255,0.85)">→</text>
-                      <text x="35" y="13" font-family="'Courier New',monospace" font-size="11" font-weight="700" fill="white">[?]</text>
+                <div class="bg-gradient-to-br from-blue-500 to-indigo-600 px-4 py-6 text-white">
+                  <!-- [R.]→[?] spans full pin width — scaled up to match EditGlyph height -->
+                  <button
+                    type="button"
+                    class="w-full focus:outline-none focus:ring-2 focus:ring-white/60 rounded-lg
+                           hover:bg-white/10 transition-colors duration-100 px-1 py-2"
+                    title="Planguage keyed notation [R.]→[?] — Resource entry queried for analytical questions and insights · Double-click for Resource glyph history and details"
+                    @dblclick.stop="openGlyphPanel('resource')"
+                  >
+                    <!-- viewBox width 200 gives room for 3 token groups at font-size 30;
+                         h-12 matches EditGlyph display height for visual consistency -->
+                    <svg viewBox="0 0 200 48" class="w-full" style="height:48px" aria-hidden="true">
+                      <text x="4"   y="36" font-family="'Courier New',monospace" font-size="30" font-weight="700" fill="white">[R.]</text>
+                      <text x="82"  y="36" font-family="'Courier New',monospace" font-size="30" fill="rgba(255,255,255,0.85)">→</text>
+                      <text x="112" y="36" font-family="'Courier New',monospace" font-size="30" font-weight="700" fill="white">[?]</text>
                     </svg>
+                  </button>
+                  <div class="text-center mt-3">
                     <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">Analyze</span>
+                    <div class="text-[14px] font-extrabold leading-tight mt-0.5">Planned Resources</div>
+                    <div class="text-[10px] opacity-75 mt-0.5">dimensions · ratios · budgets</div>
                   </div>
-                  <div class="text-[13px] font-extrabold leading-tight">Planned Resources</div>
-                  <div class="text-[10px] opacity-75 mt-0.5">dimensions · ratios · costs</div>
                 </div>
                 <!-- Sub-option buttons -->
                 <div class="bg-blue-50 p-2.5 flex flex-col gap-1.5">
@@ -6833,21 +6863,33 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            hover:border-blue-500 hover:bg-blue-50 hover:shadow-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-400
                            transition-all duration-100"
-                    title="Value/Cost ratio analysis — efficiency per Evo Step"
-                  >V/C Ratio Analysis</button>
+                    title="Value-to-Resource ratio analysis — how much Value each Resource budget delivers per Evo Step"
+                  >Value / Resource Ratio Analysis</button>
                 </div>
               </div>
 
               <!-- ── Pin 3: Visualize Planned Resources ────────────────────── -->
               <div class="rounded-xl border-2 border-violet-300 overflow-hidden shadow-sm">
                 <!-- Pin header -->
-                <div class="bg-gradient-to-br from-violet-500 to-purple-700 px-4 py-3 text-white">
-                  <div class="flex items-center gap-2 mb-1">
-                    <PlResourceIcon class="w-6 h-6 text-white" />
+                <div class="bg-gradient-to-br from-violet-500 to-purple-700 px-4 py-6 text-white">
+                  <!-- Official PlResourceIcon at 2xl (72×96) with white strokes
+                       so it is visible on the violet/purple gradient.
+                       color prop added 2026-06-05 — canonical dark green is the default;
+                       white is the override for dark/coloured backgrounds. -->
+                  <button
+                    type="button"
+                    class="w-full flex justify-center focus:outline-none focus:ring-2 focus:ring-white/60
+                           rounded-lg hover:bg-white/10 transition-colors duration-100 py-2"
+                    title="Planguage type glyph →O — Resource entry (time, people, money, other budgets) · Scale / Meter / Tolerable / Goal define your resource targets · Double-click for glyph history and details"
+                    @dblclick.stop="openGlyphPanel('resource')"
+                  >
+                    <PlResourceIcon size="2xl" color="rgba(255,255,255,0.9)" />
+                  </button>
+                  <div class="text-center mt-3">
                     <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">Visualize</span>
+                    <div class="text-[14px] font-extrabold leading-tight mt-0.5">Planned Resources</div>
+                    <div class="text-[10px] opacity-75 mt-0.5">entries · budgets · charts</div>
                   </div>
-                  <div class="text-[13px] font-extrabold leading-tight">Planned Resources</div>
-                  <div class="text-[10px] opacity-75 mt-0.5">entries · budgets · charts</div>
                 </div>
                 <!-- Sub-option buttons -->
                 <div class="bg-violet-50 p-2.5 flex flex-col gap-1.5">
@@ -6858,8 +6900,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
                            focus:outline-none focus:ring-2 focus:ring-violet-400
                            transition-all duration-100"
-                    title="View all R. entries in this Spec — shown in the section below"
-                  >R. Entries List</button>
+                    title="View all Resource entries in this Spec — shown in the section below"
+                  >Resource Entries List</button>
                   <button
                     type="button"
                     class="text-left text-[11px] font-semibold text-violet-900
@@ -6867,7 +6909,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
                            focus:outline-none focus:ring-2 focus:ring-violet-400
                            transition-all duration-100"
-                    title="Cost summary — Calendar, Capital, V/C ratios — shown below"
+                    title="Resource summary — Calendar budgets, Capital budgets, Value-to-Resource ratios — shown below"
                   >Cost Summary Cards</button>
                   <button
                     type="button"
@@ -6901,13 +6943,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <div class="text-[10px] text-violet-700/70 mt-1 italic">from prior Impact Estimation stage</div>
             </div>
             <div class="rounded-xl border-2 border-blue-200 bg-blue-50 p-3">
-              <div class="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Top V/C ratios (efficiency)</div>
+              <div class="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Top Value / Resource ratios (efficiency)</div>
               <ul class="text-[11px] text-blue-900 mt-1 space-y-0.5">
                 <li
                   v-for="[k, v] in Object.entries(capturedVCRatios).sort((a, b) => b[1] - a[1]).slice(0, 4)"
                   :key="k"
                 ><b>{{ k }}</b>: {{ v.toFixed(2) }}</li>
-                <li v-if="Object.keys(capturedVCRatios).length === 0" class="italic opacity-70">No V/C data yet — complete Impact Estimation first.</li>
+                <li v-if="Object.keys(capturedVCRatios).length === 0" class="italic opacity-70">No Value / Resource ratio data yet — complete Impact Estimation first.</li>
               </ul>
             </div>
           </div>
