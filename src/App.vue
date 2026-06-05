@@ -154,6 +154,14 @@ import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
 import GetGlyph from './components/icons/GetGlyph.vue'
 import CopyGlyph from './components/icons/CopyGlyph.vue'
 import EmailGlyph from './components/icons/EmailGlyph.vue'
+import AnalyzeResourceGlyph    from './components/icons/AnalyzeResourceGlyph.vue'
+import AnalyzeGenericGlyph     from './components/icons/AnalyzeGenericGlyph.vue'
+import AnalyzeFunctionGlyph    from './components/icons/AnalyzeFunctionGlyph.vue'
+import AnalyzeValueGlyph       from './components/icons/AnalyzeValueGlyph.vue'
+import AnalyzeStakeholderGlyph from './components/icons/AnalyzeStakeholderGlyph.vue'
+import AnalyzeTaskGlyph        from './components/icons/AnalyzeTaskGlyph.vue'
+import AnalyzeEvoStepGlyph     from './components/icons/AnalyzeEvoStepGlyph.vue'
+import AnalyzeTypeIcon         from './components/icons/AnalyzeTypeIcon.vue'
 import { useTaskSuggestions } from './composables/useTaskSuggestions'
 import ResourcesSharpenPanel from './components/ResourcesSharpenPanel.vue'
 import ScrollContainer from './components/ScrollContainer.vue'
@@ -6739,6 +6747,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
             </div>
           </div>
 
+          <!-- Cost Engineering reference — Tom 2026-06-05: "read and refer to cost engineering book" -->
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+            <span class="text-xl flex-shrink-0 mt-0.5">📚</span>
+            <div>
+              <span class="font-bold text-amber-900 text-sm">Cost Engineering</span>
+              <span class="text-amber-700 text-xs ml-2">— Gilb · canonical reference for this stage</span>
+              <p class="text-amber-800/70 text-xs mt-1 leading-relaxed">
+                Resource planning is grounded in Cost Engineering: Budget types (Calendar, Capital, Effort),
+                Performance-to-Cost Ratio, Design-to-Cost, and Value-to-Cost scoring.
+                Planguage Glossary: Cost-Budget · Cost-Level · Value-to-Cost-Ratio · Performance-to-Cost-Ratio · Design-to-Cost.
+                Companion books: OPTIMA (Balancing Critical Values) · SEA · DEEP.
+              </p>
+            </div>
+          </div>
+
           <!-- Resources Stage Tool Pins — Tom 2026-06-05: "clustered pins showing tool options
                … Improve Plan Resources / Analyze Planned Resources / Visualize Planned Resources
                … in a Rectangle with great Pin Icons" -->
@@ -6914,32 +6937,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 </div>
                 <!-- Sub-option buttons -->
                 <div class="bg-violet-50 p-2.5 flex flex-col gap-1.5">
-                  <button
-                    type="button"
-                    class="text-left text-[11px] font-semibold text-violet-900
-                           bg-white rounded-lg px-3 py-2 border border-violet-200
-                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
-                           focus:outline-none focus:ring-2 focus:ring-violet-400
-                           transition-all duration-100"
-                    title="View all Resource entries in this Spec — shown in the section below"
-                  >Resource Entries List</button>
-                  <button
-                    type="button"
-                    class="text-left text-[11px] font-semibold text-violet-900
-                           bg-white rounded-lg px-3 py-2 border border-violet-200
-                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
-                           focus:outline-none focus:ring-2 focus:ring-violet-400
-                           transition-all duration-100"
-                    title="Resource summary — Calendar budgets, Capital budgets, Value-to-Resource ratios — shown below"
-                  >Cost Summary Cards</button>
-                  <button
-                    type="button"
-                    disabled
-                    class="text-left text-[11px] font-medium text-violet-400
-                           bg-white rounded-lg px-3 py-2 border border-violet-100
-                           cursor-not-allowed select-none"
-                    title="Resource charts — coming in a future release"
-                  >Resource Charts <span class="text-[9px] font-normal opacity-60">(soon)</span></button>
+                  <button @click="valueFlowOpen = true"
+                    title="Open the Value Flow Diagram — see how Resources connect to Value delivery"
+                    class="w-full text-left px-3 py-2 rounded-lg border border-white/30 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                    Value Flow Diagram
+                    <span class="block text-white/60 text-xs mt-0.5">visual · values · stakeholders</span>
+                  </button>
+                  <button @click="resourcesSharpenOpen = true"
+                    title="Open Resource Spec entries — view and sharpen all R. entries in the Spec"
+                    class="w-full text-left px-3 py-2 rounded-lg border border-white/30 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                    Spec Resource Entries
+                    <span class="block text-white/60 text-xs mt-0.5">entries · sharpen · cost</span>
+                  </button>
+                  <button disabled
+                    title="Coming soon — visual cost-vs-value charts per Evo Step"
+                    class="w-full text-left px-3 py-2 rounded-lg border border-white/20 text-white/40 text-sm font-medium cursor-not-allowed">
+                    Resource Charts
+                    <span class="block text-white/40 text-xs mt-0.5">soon · charts · budgets</span>
+                  </button>
                 </div>
               </div>
 

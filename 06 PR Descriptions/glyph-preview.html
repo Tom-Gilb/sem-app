@@ -556,11 +556,11 @@
   </tbody>
 </table>
 
-<h2 id="analyze-compounds" style="background:#ede9fe;padding:8px 12px;border-radius:8px;border:2px solid #7c3aed;margin-top:36px;">▶ Analyze-Spec Compound Glyphs — <code>[TYPE]→?</code> — 7 PROPOSED (2026-06-05)</h2>
+<h2 id="analyze-compounds" style="background:#ede9fe;padding:8px 12px;border-radius:8px;border:2px solid #7c3aed;margin-top:36px;">▶ Analyze-Spec Compound Glyphs — <code>[TYPE]→?</code> — 7 SHIPPED (2026-06-05)</h2>
 <p class="caption">
   The pattern <code>[*]→?</code> means "analyze a spec entry" — a spec item inside brackets, a transformation arrow, and a question mark (insight/analysis result).
   The <code>*</code> can be replaced with the specific type icon.  These are <b>compound glyphs</b> — the outer <code>[ ]</code> brackets (slate) act as the entry-type container; the inner mini icon identifies WHICH type is being analyzed; the cyan <code>→</code> is the transformation (analysis happening); the violet <code>?</code> is the result (insight, question answered).<br>
-  <b>Resources compound installed in Stage 10 Pin 2.</b>  Others are PROPOSALS — awaiting Tom's approval before shipping as <code>.vue</code> components.
+  <b>ALL 7 SHIPPED.</b>  Master dispatcher: <code>AnalyzeTypeIcon.vue</code> (<code>plType</code> prop → correct compound glyph).  Tom approved 2026-06-05.
 </p>
 <table>
   <thead>
@@ -595,7 +595,7 @@
         </svg>
       </td>
       <td>Analyze any spec entry (generic).  Use when the entry type is unknown or mixed.  <code>*</code> = any Planguage entry.</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL — base pattern</td>
+      <td style="color:#16a34a;font-weight:bold;font-size:12px;">✅ SHIPPED — <code>AnalyzeGenericGlyph.vue</code></td>
     </tr>
 
     <!-- ── 2. Resources [→O]→? ───────────────────────────── -->
@@ -651,7 +651,7 @@
         </svg>
       </td>
       <td>Analyze Function entries.  "Is this function present?  Is it delivering value?  Are resources adequate?"  Inner <code>→O→</code> = full Function icon (orange dashed resource arrows in, blue oval capability, cyan solid value arrows out).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
+      <td style="color:#16a34a;font-weight:bold;font-size:12px;">✅ SHIPPED — <code>AnalyzeFunctionGlyph.vue</code></td>
     </tr>
 
     <!-- ── 4. Value [O--*→]→? ────────────────────────────── -->
@@ -676,7 +676,7 @@
         </svg>
       </td>
       <td>Analyze Value entries.  "Are Goals being reached?  What is the current Status vs Tolerable?"  Inner <code>O--*→</code> = Value icon (blue source-Function circle, cyan scale axis, data-instance dot, delivery arrow).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
+      <td style="color:#16a34a;font-weight:bold;font-size:12px;">✅ SHIPPED — <code>AnalyzeValueGlyph.vue</code></td>
     </tr>
 
     <!-- ── 5. Stakeholder [←§→]→? ────────────────────────── -->
@@ -705,7 +705,7 @@
         </svg>
       </td>
       <td>Analyze Stakeholder entries.  "Are stakeholder interests accounted for?  Who is missing?  Are value + resource flows to/from this stakeholder correct?"  Inner <code>←§→</code> = Stakeholder icon (violet value IN arrow, blue hand-drawn §, green dashed resource OUT arrow).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
+      <td style="color:#16a34a;font-weight:bold;font-size:12px;">✅ SHIPPED — <code>AnalyzeStakeholderGlyph.vue</code></td>
     </tr>
 
     <!-- ── 6. Task [→O→*]→? ──────────────────────────────── -->
@@ -738,7 +738,7 @@
         </svg>
       </td>
       <td>Analyze Task entries.  "Are tasks properly scoped?  Do they trace to an Evo Step?  Are effort estimates realistic?"  Inner <code>→O→*</code> = Task icon (dashed effort in, circle task process, solid output arrow, dim asterisk for sub-level output).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
+      <td style="color:#16a34a;font-weight:bold;font-size:12px;">✅ SHIPPED — <code>AnalyzeTaskGlyph.vue</code></td>
     </tr>
 
     <!-- ── 7. Evo Step [<→+→]→? ──────────────────────────── -->
@@ -773,7 +773,7 @@
         </svg>
       </td>
       <td>Analyze Evo Step entries.  "Is this step delivering its committed Value Goal?  Are the Resources on budget?  Has it been measured (Stage 8)?"  Inner <code>&lt;→+→</code> = Evo Step icon (amber chevron = past anchor, yellow dots = value delivered, plus = accumulation).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
+      <td style="color:#16a34a;font-weight:bold;font-size:12px;">✅ SHIPPED — <code>AnalyzeEvoStepGlyph.vue</code></td>
     </tr>
 
   </tbody>
@@ -788,7 +788,7 @@
 <p class="footnote">
   Open this file in Safari: <code>open /Users/Tomgilbs/Documents/MyVault/.claude/glyph-preview.html</code><br>
   Future workflow: Claudian updates the SVG markup in this file BEFORE applying changes to <code>src/components/icons/*Glyph.vue</code>.  Tom opens the file in Safari to preview, approves or rejects, and only then does the code change get committed.<br>
-  Artistic synonyms (above) are PROPOSALS — nothing in <code>src/components/icons/</code> has been changed.
+  <b>Status 2026-06-05:</b> All Analyze-Spec Compound Glyphs shipped (7/7).  All Color Artsy Icons shipped (6/6).  OptimaGlyph shipped.  ResourceArtsyGlyph shipped.  AnalyzeTypeIcon.vue master dispatcher shipped.
 </p>
 
 <h2 id="optima-glyph" style="background:#fefce8;padding:8px 12px;border-radius:8px;border:2px solid #ca8a04;margin-top:36px;">▶ OptimaGlyph — Balancing Critical Values (SHIPPED 2026-06-05)</h2>
