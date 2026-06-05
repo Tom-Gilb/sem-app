@@ -162,6 +162,7 @@ import AnalyzeValueGlyph       from './components/icons/AnalyzeValueGlyph.vue'
 import AnalyzeStakeholderGlyph from './components/icons/AnalyzeStakeholderGlyph.vue'
 import AnalyzeTaskGlyph        from './components/icons/AnalyzeTaskGlyph.vue'
 import AnalyzeEvoStepGlyph     from './components/icons/AnalyzeEvoStepGlyph.vue'
+import ExportSpecPin from './components/ExportSpecPin.vue'
 import AnalyzeTypeIcon         from './components/icons/AnalyzeTypeIcon.vue'
 import { useTaskSuggestions } from './composables/useTaskSuggestions'
 import ResourcesSharpenPanel from './components/ResourcesSharpenPanel.vue'
@@ -3836,6 +3837,22 @@ function messagePlan(): void {
   showToast('Messages opening — paste or edit in the compose field, then Send.', 6000)
 }
 
+// ── Copy plain text for AI / chat apps ───────────────────────────────────────
+// Companion to ExportSpecPin "Copy for Chat" channel.
+// Puts ONLY plain text on the clipboard — no HTML — so pasting into Claude,
+// ChatGPT, or any browser chat input gives clean readable text without stray
+// HTML tags that some chat UIs surface as literal markup.
+async function copyPlanForChat(): Promise<void> {
+  if (!currentSpec.value) return
+  try {
+    const text = serialisePlainText(currentSpec.value)
+    await navigator.clipboard.writeText(text)
+    showToast('📋 Copied as plain text — paste into Claude, ChatGPT, or any AI chat.', 5000)
+  } catch {
+    showToast('Copy failed — try the Copy Spec button instead.', 5000)
+  }
+}
+
 async function handleSignOut() {
   startLoading('auth:signOut', 'Signing out…')
   try {
@@ -6748,83 +6765,18 @@ function handleApertureLoadPlan(model: PlanModel): void {
            is live and Phase 2 (Claudian write-back) is queued.  Top + bottom
            share mirrors (Copy / Email) + forward → Stage 11 button. -->
       <template v-else-if="planningStage === 10 && currentSpec">
-        <!-- Top share bar — explicitly names Spec being copied (Tom 2026-06-05) -->
-        <div class="w-full max-w-3xl mb-4 flex flex-wrap items-center gap-3">
-          <span class="text-[11px] text-slate-500 font-medium mr-1 select-none">
-            Spec: <span class="text-slate-700 font-semibold">{{ specModel?.name || 'Unnamed Spec' }}</span>
-          </span>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
-                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Copy this Spec to clipboard"
-            title="COPY THIS SPEC — copies the full Spec including Resources to your clipboard.&#10;Paste into Notes, Mail, Keynote, anywhere."
-            @click="autoCopyPlan()"
-          >
-            <CopyGlyph size="standard" />
-            <span class="flex flex-col items-start leading-tight">
-              <span>Copy Spec</span>
-              <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
-            </span>
-          </button>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
-                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Email this Spec via default mail client"
-            title="EMAIL THIS SPEC — opens Mail with the colourful Spec ready to paste.&#10;Includes full spec · Resources stage content."
-            @click="emailPlan()"
-          >
-            <EmailGlyph size="standard" />
-            <span class="flex flex-col items-start leading-tight">
-              <span>Email Spec</span>
-              <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
-            </span>
-          </button>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-slate-50 border-2 border-slate-400 text-slate-700 text-sm font-semibold
-                   hover:bg-slate-100 hover:border-slate-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Download this Spec as a text file"
-            title="DOWNLOAD SPEC — saves full spec as a .txt file to your Downloads folder.&#10;Includes full spec · Resources stage content."
-            @click="downloadPlan()"
-          >
-            <GetGlyph size="standard" />
-            <span class="flex flex-col items-start leading-tight">
-              <span>Download</span>
-              <span class="text-[10px] font-normal opacity-70">full spec · .txt file</span>
-            </span>
-          </button>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-green-50 border-2 border-green-400 text-green-700 text-sm font-semibold
-                   hover:bg-green-100 hover:border-green-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Send this Spec via Apple Messages / iMessage"
-            title="MESSAGE SPEC — opens Messages.app with the Spec in the compose field.&#10;iMessage or SMS · Resources stage content."
-            @click="messagePlan()"
-          >
-            <MessageGlyph size="standard" />
-            <span class="flex flex-col items-start leading-tight">
-              <span>Message</span>
-              <span class="text-[10px] font-normal opacity-70">via iMessage / SMS</span>
-            </span>
-          </button>
+        <!-- Top export bar — single ExportSpecPin (Tom 2026-06-05: "single initial pin called
+             'Export Specs'... copy to clipboard is automatic... 20 seconds the menu fades") -->
+        <div class="w-full max-w-3xl mb-4">
+          <ExportSpecPin
+            :has-spec="!!currentSpec"
+            :spec-name="specModel?.name || 'Spec'"
+            @copy="autoCopyPlan()"
+            @email="emailPlan()"
+            @download="downloadPlan()"
+            @message="messagePlan()"
+            @copy-for-chat="copyPlanForChat()"
+          />
         </div>
 
         <div class="w-full max-w-3xl flex flex-col gap-5">
@@ -7457,121 +7409,54 @@ function handleApertureLoadPlan(model: PlanModel): void {
           </div>
         </div>
 
-        <!-- Bottom mirror -->
-        <div class="w-full max-w-3xl mt-8 pt-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
-          <div class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-3 select-none
-                      text-base font-bold text-white
-                      bg-gradient-to-r from-emerald-500 to-teal-500
-                      shadow-lg ring-2 ring-emerald-300/40">
-            <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
-                  aria-hidden="true">10</span>
-            <span class="flex flex-col items-start leading-tight">
-              <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">Stage Now</span>
-              <span class="text-base font-extrabold text-white">Resources</span>
-            </span>
-          </div>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
-                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Copy this Spec to clipboard (bottom mirror)"
-            title="COPY THIS SPEC — copies full spec including Resources to clipboard"
-            @click="autoCopyPlan()"
-          >
-            <CopyGlyph size="standard" />
-            <span class="flex flex-col items-start leading-tight">
-              <span>Copy Spec</span>
-              <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
-            </span>
-          </button>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
-                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Email this Spec via default mail client (bottom mirror)"
-            title="EMAIL THIS SPEC — opens Mail with colourful Spec ready to paste"
-            @click="emailPlan()"
-          >
-            <EmailGlyph size="standard" />
-            <span class="flex flex-col items-start leading-tight">
-              <span>Email Spec</span>
-              <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
-            </span>
-          </button>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-slate-50 border-2 border-slate-400 text-slate-700 text-sm font-semibold
-                   hover:bg-slate-100 hover:border-slate-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Download this Spec as a text file (bottom mirror)"
-            title="DOWNLOAD SPEC — saves full spec as a .txt file to your Downloads folder"
-            @click="downloadPlan()"
-          >
-            <GetGlyph size="standard" />
-            <span class="flex flex-col items-start leading-tight">
-              <span>Download</span>
-              <span class="text-[10px] font-normal opacity-70">full spec · .txt file</span>
-            </span>
-          </button>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-green-50 border-2 border-green-400 text-green-700 text-sm font-semibold
-                   hover:bg-green-100 hover:border-green-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Send this Spec via Apple Messages / iMessage (bottom mirror)"
-            title="MESSAGE SPEC — opens Messages.app with the Spec in the compose field"
-            @click="messagePlan()"
-          >
-            <MessageGlyph size="standard" />
-            <span class="flex flex-col items-start leading-tight">
-              <span>Message</span>
-              <span class="text-[10px] font-normal opacity-70">via iMessage / SMS</span>
-            </span>
-          </button>
-          <!-- Tom 2026-06-04 r83 — STAGE-AWARE forward button.  The stage===3
-               body renders for several planningStages (5 Refine routed via
-               STAGE_ACTION_MAP[5]='to-impact'; 7 Evo Impact; 10 Resources via
-               legacy routing — though planningStage===10 now has its own
-               template that takes precedence).  The previous hardcoded
-               "Next → Stage 11 · Export" was correct ONLY at Stage 10.  At
-               Stage 5 it should advance to Stage 6 Evo Steps, at Stage 7 to
-               Stage 8 Tasks, etc.  Now nextStageInfo drives both label and
-               click target: when nextStageInfo.stage===11 fire exportFull()
-               (the only stage with a side-effect, not a pure navigation);
-               otherwise handleStageBarNav(nextStageInfo.stage). -->
-          <button
-            v-if="currentSpec && nextStageInfo"
-            type="button"
-            class="ml-auto flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
-                   bg-gradient-to-r from-amber-500 to-orange-500 text-white
-                   font-bold text-sm shadow-md shadow-amber-200/70
-                   hover:from-amber-600 hover:to-orange-600 hover:shadow-lg
-                   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
-                   transition-all duration-200 active:scale-[0.98]"
-            :aria-label="`Next: Stage ${nextStageInfo.stage} · ${nextStageInfo.label}`"
-            :title="`Advance to Stage ${nextStageInfo.stage} · ${nextStageInfo.label} — ${nextStageInfo.title}`"
-            @click="nextStageInfo.stage === 11 ? exportFull() : handleStageBarNav(nextStageInfo.stage)"
-          >
-            <div class="text-right leading-tight">
-              <div class="text-[10px] font-normal opacity-85 uppercase tracking-wide">Next → Stage {{ nextStageInfo.stage }}</div>
-              <div class="font-extrabold leading-tight">{{ nextStageInfo.label }}</div>
+        <!-- Bottom mirror — ExportSpecPin (DD-014 Top-and-Bottom mirror) + Next → Stage 11 -->
+        <div class="w-full max-w-3xl mt-8 pt-4 border-t border-slate-200">
+          <!-- Stage identity badge -->
+          <div class="flex flex-wrap items-center gap-3 mb-3">
+            <div class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-3 select-none
+                        text-base font-bold text-white
+                        bg-gradient-to-r from-emerald-500 to-teal-500
+                        shadow-lg ring-2 ring-emerald-300/40">
+              <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
+                    aria-hidden="true">10</span>
+              <span class="flex flex-col items-start leading-tight">
+                <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">Stage Now</span>
+                <span class="text-base font-extrabold text-white">Resources</span>
+              </span>
             </div>
-            <span class="text-xl leading-none" aria-hidden="true">→</span>
-          </button>
+          </div>
+          <!-- Export pin mirror -->
+          <ExportSpecPin
+            :has-spec="!!currentSpec"
+            :spec-name="specModel?.name || 'Spec'"
+            @copy="autoCopyPlan()"
+            @email="emailPlan()"
+            @download="downloadPlan()"
+            @message="messagePlan()"
+            @copy-for-chat="copyPlanForChat()"
+          />
+          <!-- Next → Stage 11 (on its own row below the export pin) -->
+          <!-- Tom 2026-06-04 r83 — STAGE-AWARE forward button. -->
+          <div v-if="currentSpec && nextStageInfo" class="flex justify-end mt-3">
+            <button
+              type="button"
+              class="flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
+                     bg-gradient-to-r from-amber-500 to-orange-500 text-white
+                     font-bold text-sm shadow-md shadow-amber-200/70
+                     hover:from-amber-600 hover:to-orange-600 hover:shadow-lg
+                     focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
+                     transition-all duration-200 active:scale-[0.98]"
+              :aria-label="`Next: Stage ${nextStageInfo.stage} · ${nextStageInfo.label}`"
+              :title="`Advance to Stage ${nextStageInfo.stage} · ${nextStageInfo.label} — ${nextStageInfo.title}`"
+              @click="nextStageInfo.stage === 11 ? exportFull() : handleStageBarNav(nextStageInfo.stage)"
+            >
+              <div class="text-right leading-tight">
+                <div class="text-[10px] font-normal opacity-85 uppercase tracking-wide">Next → Stage {{ nextStageInfo.stage }}</div>
+                <div class="font-extrabold leading-tight">{{ nextStageInfo.label }}</div>
+              </div>
+              <span class="text-xl leading-none" aria-hidden="true">→</span>
+            </button>
+          </div>
         </div>
       </template>
 
