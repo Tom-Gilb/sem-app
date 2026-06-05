@@ -114,7 +114,7 @@ const plannedCount = computed<number>(() => EVO_TOOLS.filter(t => t.status === '
         </header>
 
         <!-- Body — ScrollContainer wraps the category sections -->
-        <ScrollContainer class="flex-1" inner-class="p-5 space-y-6">
+        <ScrollContainer class="flex-1 min-h-0" inner-class="p-5 space-y-6">
 
           <!-- Empty-state -->
           <div v-if="noResults" class="text-center py-12 text-slate-500">

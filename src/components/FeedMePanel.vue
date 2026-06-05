@@ -214,7 +214,7 @@ function fmtDateTime(ms: number): string {
         </nav>
 
         <!-- Body -->
-        <ScrollContainer class="flex-1" inner-class="p-5 space-y-4">
+        <ScrollContainer class="flex-1 min-h-0" inner-class="p-5 space-y-4">
 
           <!-- Empty state — no set yet -->
           <div

@@ -160,8 +160,11 @@ const props = withDefaults(defineProps<{
  * now enforces itself.
  */
 const resolvedInnerClass = computed(() => {
+  // Check both outerClass prop AND the class attr (some callers pass class= instead
+  // of outer-class=; both arrive on the outer div via v-bind="attrs")
+  const callerClass = (attrs.class as string | undefined) ?? ''
   const needsHFull =
-    props.outerClass.includes('min-h-0') &&
+    (props.outerClass.includes('min-h-0') || callerClass.includes('min-h-0')) &&
     !props.innerClass.includes('h-full') &&
     !props.innerStyle.includes('max-height') &&
     !props.innerStyle.includes('height:')

@@ -366,7 +366,7 @@ const violationCount  = computed(() => violating.value.size)
     </Transition>
 
     <!-- ── Scrollable content ─────────────────────────────────────────────── -->
-    <ScrollContainer class="flex-1 bg-slate-950">
+    <ScrollContainer class="flex-1 min-h-0 bg-slate-950 relative">
       <div class="p-6 space-y-8">
 
         <!-- ── Values (Fundamental + Strategic Attributes) ─────────────────── -->

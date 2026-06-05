@@ -171,7 +171,7 @@ function categoryBadge(idea: ImprovementIdea): { label: string; classes: string 
         </header>
 
         <!-- Body -->
-        <ScrollContainer class="flex-1" inner-class="p-5 space-y-5">
+        <ScrollContainer class="flex-1 min-h-0" inner-class="p-5 space-y-5">
 
           <!-- No-step empty state -->
           <div v-if="!selectedStep" class="text-center text-slate-500 py-12">

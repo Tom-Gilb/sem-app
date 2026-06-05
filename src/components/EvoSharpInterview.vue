@@ -258,7 +258,7 @@ function onClearConfirm(): void {
           </ScrollContainer>
 
           <!-- Main pane — questions for active category -->
-          <ScrollContainer class="flex-1" inner-class="p-6 space-y-5">
+          <ScrollContainer class="flex-1 min-h-0" inner-class="p-6 space-y-5">
             <div v-if="!selectedStep" class="text-center text-slate-500 py-12">
               <p>No Evo Step selected — pick one from the dropdown above, or generate an Evo plan first.</p>
             </div>
@@ -411,7 +411,7 @@ function onClearConfirm(): void {
             <div class="flex-1" />
             <CloseDot @click="showExport = false" />
           </header>
-          <ScrollContainer class="flex-1" inner-class="p-3">
+          <ScrollContainer class="flex-1 min-h-0" inner-class="p-3">
             <pre class="text-[11px] font-mono text-slate-700 whitespace-pre-wrap">{{ exportedText }}</pre>
           </ScrollContainer>
         </div>
