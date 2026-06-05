@@ -6811,22 +6811,37 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
               <!-- ── Pin 2: Analyze Planned Resources ──────────────────────── -->
               <div class="rounded-xl border-2 border-blue-300 overflow-hidden shadow-sm">
-                <!-- Pin header — [R.]→[?] keyed glyph -->
+                <!-- Pin header — [→O]→? compound glyph (2026-06-05):
+                     outer slate brackets [  ] + mini Resource →O icon (white) +
+                     transformation arrow → (white) + analytical question ? (white/tinted).
+                     Replaces the banned [R.]→[?] English-letter abbreviation (DD-015). -->
                 <div class="bg-gradient-to-br from-blue-500 to-indigo-600 px-4 py-6 text-white">
-                  <!-- [R.]→[?] spans full pin width — scaled up to match EditGlyph height -->
+                  <!-- [→O]→? compound glyph — the official analyze-Resource keyed form.
+                       Displayed at 2× canonical size for a bold, unmistakable pin icon. -->
                   <button
                     type="button"
-                    class="w-full focus:outline-none focus:ring-2 focus:ring-white/60 rounded-lg
-                           hover:bg-white/10 transition-colors duration-100 px-1 py-2"
-                    title="Planguage keyed notation [R.]→[?] — Resource entry queried for analytical questions and insights · Double-click for Resource glyph history and details"
+                    class="w-full flex justify-center focus:outline-none focus:ring-2 focus:ring-white/60
+                           rounded-lg hover:bg-white/10 transition-colors duration-100 py-2"
+                    title="Planguage compound keyed form [→O]→? — Resource entries analyzed for insights and questions · [→O] = Resource glyph (dashed arrows in, oval boundary) · → = analysis transformation · ? = insight/question result · Double-click for Resource glyph details"
                     @dblclick.stop="openGlyphPanel('resource')"
                   >
-                    <!-- viewBox width 200 gives room for 3 token groups at font-size 30;
-                         h-12 matches EditGlyph display height for visual consistency -->
-                    <svg viewBox="0 0 200 48" class="w-full" style="height:48px" aria-hidden="true">
-                      <text x="4"   y="36" font-family="'Courier New',monospace" font-size="30" font-weight="700" fill="white">[R.]</text>
-                      <text x="82"  y="36" font-family="'Courier New',monospace" font-size="30" fill="rgba(255,255,255,0.85)">→</text>
-                      <text x="112" y="36" font-family="'Courier New',monospace" font-size="30" font-weight="700" fill="white">[?]</text>
+                    <svg viewBox="0 0 100 48" width="200" height="96" fill="none"
+                         aria-label="Analyze Resource entries — compound glyph [→O]→?" role="img">
+                      <!-- Outer container brackets — white on dark background -->
+                      <path d="M 8,7 L 3,7 L 3,41 L 8,41" stroke="rgba(255,255,255,0.8)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                      <!-- Mini →O Resource glyph — white strokes (canonical color #166534 invisible on blue) -->
+                      <line x1="10" y1="17" x2="25" y2="17" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-dasharray="3 2" stroke-linecap="round" />
+                      <polyline points="22,14 26,17 22,20" stroke="rgba(255,255,255,0.9)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                      <line x1="10" y1="31" x2="25" y2="31" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-dasharray="3 2" stroke-linecap="round" />
+                      <polyline points="22,28 26,31 22,34" stroke="rgba(255,255,255,0.9)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                      <ellipse cx="40" cy="24" rx="12" ry="9" stroke="rgba(255,255,255,0.9)" stroke-width="2.2" />
+                      <!-- Right bracket -->
+                      <path d="M 57,7 L 62,7 L 62,41 L 57,41" stroke="rgba(255,255,255,0.8)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                      <!-- Transformation arrow — slightly brighter white -->
+                      <line x1="65" y1="24" x2="76" y2="24" stroke="rgba(255,255,255,0.95)" stroke-width="2.2" stroke-linecap="round" />
+                      <polyline points="73,21 78,24 73,27" stroke="rgba(255,255,255,0.95)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                      <!-- Analytical question mark — pure white, slightly bold -->
+                      <text x="82" y="32" font-size="17" font-family="Georgia,serif" font-weight="bold" fill="rgba(255,255,255,0.97)">?</text>
                     </svg>
                   </button>
                   <div class="text-center mt-3">
