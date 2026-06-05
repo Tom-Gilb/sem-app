@@ -20,6 +20,7 @@ import {
   _setAnnotationsForPlan,
   type SpecAnnotation,
 } from './useSpecAnnotations'
+import { readMigrated, writeBoth, oldKeyFor } from './useSpecKeyMigration'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ import {
  *             In Mob Planning the scribe role rotates; multiple Scribes with overlapping
  *             date ranges record who was empowered at any given time.
  */
-export interface PlanOwner {
+export interface SpecPerson {
   /** Auto-generated UUID for list management */
   id: string
   /** Full name */
@@ -73,6 +74,9 @@ export interface PlanOwner {
   isDefault?: boolean
 }
 
+/** @deprecated Use SpecPerson instead */
+export type PlanOwner = SpecPerson
+
 /**
  * A Spec Owner is accountable for a specific Specification Area of the plan
  * (e.g. Product, Quality, Financials, Innovation, Technical).
@@ -99,7 +103,7 @@ export interface SpecOwner {
  * project commitments (Goal Level). Governance assigns Spec Owners to
  * cover distinct specification areas of the plan.
  */
-export interface PlanGovernance {
+export interface SpecGovernance {
   /**
    * Wish Level — all known and acknowledged stakeholder needs.
    * Free-form Planguage Wish statements ("stakeholders wish for…").
@@ -114,7 +118,10 @@ export interface PlanGovernance {
   specOwners: SpecOwner[]
 }
 
-export interface PlanModel {
+/** @deprecated Use SpecGovernance instead */
+export type PlanGovernance = SpecGovernance
+
+export interface SpecModel {
   /** Unique identifier (crypto.randomUUID) */
   id: string
   /** Human-readable name, e.g. "SEM App Plan" */
@@ -146,27 +153,27 @@ export interface PlanModel {
   manualEditCount: number
   /**
    * Responsible owners — the Planguage stakeholders accountable for the whole
-   * plan (approval authority, change sign-off). Multiple owners each cover a
+   * spec (approval authority, change sign-off). Multiple owners each cover a
    * named responsibility domain. Replaces the former singular `owner` field.
    */
-  owners: PlanOwner[]
+  owners: SpecPerson[]
   /**
-   * Planners — the people who conceived and own the ideas in this plan.
+   * Planners — the people who conceived and own the ideas in this spec.
    * Distinct from Scribes: Planners think and direct; Scribes type.
    * Multiple planners each cover a named idea/authoring domain.
    */
-  planners: PlanOwner[]
+  planners: SpecPerson[]
   /**
    * Scribes — the people doing the actual keying/dictation to enter ideas into the app.
    * In Mob Planning the scribe role rotates; record each person with their empowerment
    * date range so you know who was in the chair at any point.
    */
-  scribes: PlanOwner[]
+  scribes: SpecPerson[]
   /**
-   * Plan Governance — "Plan Itself" as Stakeholder, including Wish/Goal levels
+   * Spec Governance — "Spec Itself" as Stakeholder, including Wish/Goal levels
    * and the list of Spec Owners (area-specific accountability assignments).
    */
-  governance: PlanGovernance
+  governance: SpecGovernance
   /**
    * Working mode for this model.
    * 'plan'  = directed improvement planning (default, current behaviour)
@@ -188,8 +195,8 @@ export interface PlanModel {
    *
    * Tom 2026-06-02 (SEM App Book p.179): "Evo steps are designed to fit a
    * specified cycle maximum." Reference hours per cycle:
-   *   day     ~8 h   (daily sprint)
-   *   week    ~40 h  (default — weekly sprint, the most common Evo cadence)
+   *   day     ~8 h   (daily Evo cycle)
+   *   week    ~40 h  (default — weekly Evo cycle, the most common Evo cadence)
    *   month   ~160 h (monthly release cycle)
    *   quarter ~480 h (quarterly programme increment)
    *
@@ -197,6 +204,9 @@ export interface PlanModel {
    */
   evoCycleLength?: 'day' | 'week' | 'month' | 'quarter'
 }
+
+/** @deprecated Use SpecModel instead */
+export type PlanModel = SpecModel
 
 /**
  * Self-documenting Plan Story snapshot embedded in every .json export
@@ -208,7 +218,7 @@ export interface PlanModel {
  * NOT used to drive the UI on import (the UI always recomputes from live
  * data) — it is purely documentation.
  */
-export interface PlanStorySnapshot {
+export interface SpecStorySnapshot {
   /** ISO timestamp when the export was produced */
   exportedAt: string
   /** Hand-Tuned authorship — your share (0–100) */
@@ -217,7 +227,7 @@ export interface PlanStorySnapshot {
   aiPct: number
   /** Plain-English narrative, e.g. "AI drafted from your prompt · sharpened 2× · 5 decisions" */
   narrative: string
-  /** Per-chapter snapshot string, mirroring what the Plan Story strip shows */
+  /** Per-chapter snapshot string, mirroring what the Spec Story strip shows */
   chapters: {
     origin: string
     handTuned: string
@@ -236,6 +246,9 @@ export interface PlanStorySnapshot {
   }
 }
 
+/** @deprecated Use SpecStorySnapshot instead */
+export type PlanStorySnapshot = SpecStorySnapshot
+
 /**
  * Sidecar block embedded at the top level of an exported .json file
  * (Option B of the Plan Story export brief, Tom 2026-05-13). Carries the
@@ -245,10 +258,13 @@ export interface PlanStorySnapshot {
  * authorship provenance. On import, these are written back into the
  * separate stores via `_setPriorityRecordsForPlan` / `_setAnnotationsForPlan`.
  */
-export interface PlanStorySidecar {
+export interface SpecStorySidecar {
   priorityRecords: PriorityRecord[]
   annotations: Record<string, SpecAnnotation>
 }
+
+/** @deprecated Use SpecStorySidecar instead */
+export type PlanStorySidecar = SpecStorySidecar
 
 /**
  * The full exported-plan payload: the PlanModel itself, plus the sidecar
@@ -256,14 +272,17 @@ export interface PlanStorySidecar {
  * root) so older importers that read only `name` / `version` / `spec` still
  * succeed; the new fields are opportunistically picked up when present.
  */
-export type ExportedPlanFile = PlanModel & {
-  _planStorySidecar?: PlanStorySidecar
-  _planStorySnapshot?: PlanStorySnapshot
+export type ExportedSpecFile = SpecModel & {
+  _planStorySidecar?: SpecStorySidecar
+  _planStorySnapshot?: SpecStorySnapshot
 }
+
+/** @deprecated Use ExportedSpecFile instead */
+export type ExportedPlanFile = ExportedSpecFile
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
-function _emptyPerson(): PlanOwner {
+function _emptyPerson(): SpecPerson {
   return {
     id: crypto.randomUUID(),
     name: '', email: '', phone: '', organization: '', location: '', responsibility: '',
@@ -272,7 +291,7 @@ function _emptyPerson(): PlanOwner {
   }
 }
 
-const DEFAULT_GOVERNANCE: PlanGovernance = {
+const DEFAULT_GOVERNANCE: SpecGovernance = {
   wishLevel: '',
   goalLevel: '',
   specOwners: [],
@@ -280,8 +299,8 @@ const DEFAULT_GOVERNANCE: PlanGovernance = {
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
-const STORAGE_KEY      = 'sem-plan-models'
-const CURRENT_KEY      = 'sem-current-plan-model'
+const STORAGE_KEY      = 'sem-specs'             // Phase A rename; shim reads old 'sem-plan-models' as fallback
+const CURRENT_KEY      = 'sem-current-spec'      // Phase A rename; shim reads old 'sem-current-plan-model' as fallback
 const DEVICE_USER_KEY  = 'sem-device-user-name'
 
 // ── Device-user name (used as default Scribe) ─────────────────────────────────
@@ -303,8 +322,8 @@ export function setDeviceUserName(name: string): void {
   try { localStorage.setItem(DEVICE_USER_KEY, name) } catch { /* ignore */ }
 }
 
-/** Build the auto-populated default Scribe entry for a new plan. */
-function _defaultScribe(): PlanOwner {
+/** Build the auto-populated default Scribe entry for a new spec. */
+function _defaultScribe(): SpecPerson {
   return {
     ..._emptyPerson(),
     name: getDeviceUserName(),
@@ -320,7 +339,7 @@ function _defaultScribe(): PlanOwner {
  * Handles models saved before the PlanOwner / PlanGovernance fields existed.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function _migrate(raw: any): PlanModel {
+function _migrate(raw: any): SpecModel {
   // owners: migrate from legacy singular `owner` field
   if (!Array.isArray(raw.owners)) {
     if (raw.owner && typeof raw.owner === 'object' && raw.owner.name) {
@@ -333,7 +352,7 @@ function _migrate(raw: any): PlanModel {
     }
   } else {
     // Ensure each owner has an id
-    raw.owners = (raw.owners as PlanOwner[]).map((o) =>
+    raw.owners = (raw.owners as SpecPerson[]).map((o) =>
       ({ ..._emptyPerson(), ...o, id: o.id ?? crypto.randomUUID() }),
     )
   }
@@ -342,7 +361,7 @@ function _migrate(raw: any): PlanModel {
   if (!Array.isArray(raw.planners)) {
     raw.planners = []
   } else {
-    raw.planners = (raw.planners as PlanOwner[]).map((p) =>
+    raw.planners = (raw.planners as SpecPerson[]).map((p) =>
       ({ ..._emptyPerson(), ...p, id: p.id ?? crypto.randomUUID() }),
     )
   }
@@ -355,7 +374,7 @@ function _migrate(raw: any): PlanModel {
   if (!Array.isArray(raw.scribes)) {
     raw.scribes = []
   } else {
-    raw.scribes = (raw.scribes as PlanOwner[]).map((s) =>
+    raw.scribes = (raw.scribes as SpecPerson[]).map((s) =>
       ({ ..._emptyPerson(), ...s, id: s.id ?? crypto.randomUUID() }),
     )
   }
@@ -398,7 +417,7 @@ function _migrate(raw: any): PlanModel {
     }
   }
 
-  return raw as PlanModel
+  return raw as SpecModel
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -424,9 +443,9 @@ function _bumpVersion(v: string): string {
   return next >= 10 ? `${major + 1}.0` : `${major}.${next}`
 }
 
-function _loadAll(): PlanModel[] {
+function _loadAll(): SpecModel[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = readMigrated(STORAGE_KEY)   // reads 'sem-specs', falls back to 'sem-plan-models'
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
@@ -436,8 +455,8 @@ function _loadAll(): PlanModel[] {
   }
 }
 
-function _saveAll(models: PlanModel[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(models))
+function _saveAll(models: SpecModel[]): void {
+  writeBoth(STORAGE_KEY, JSON.stringify(models))  // writes 'sem-specs' + 'sem-plan-models' during transition
 }
 
 /**
@@ -446,7 +465,7 @@ function _saveAll(models: PlanModel[]): void {
  * Returns newest-first (sorted by updatedAt descending).
  * Twin-portable: pure data transform, no Vue dependency.
  */
-export function listRecentPlans(): { tag: string; version: string; name: string; updatedAt: string }[] {
+export function listRecentSpecs(): { tag: string; version: string; name: string; updatedAt: string }[] {
   const all = _loadAll()
   return all
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -502,7 +521,7 @@ function _nameFromSpec(spec: SpecBlock): string {
 
 function _readCurrentFromStorage(): PlanModel | null {
   try {
-    const raw = localStorage.getItem(CURRENT_KEY)
+    const raw = readMigrated(CURRENT_KEY)   // reads 'sem-current-spec', falls back to 'sem-current-plan-model'
     if (!raw) return null
     return _migrate(JSON.parse(raw))
   } catch {
@@ -510,32 +529,35 @@ function _readCurrentFromStorage(): PlanModel | null {
   }
 }
 
-const _current = ref<PlanModel | null>(_readCurrentFromStorage())
+const _current = ref<SpecModel | null>(_readCurrentFromStorage())
 
 function _persistCurrent(): void {
   if (_current.value) {
-    localStorage.setItem(CURRENT_KEY, JSON.stringify(_current.value))
+    writeBoth(CURRENT_KEY, JSON.stringify(_current.value))  // writes both keys during transition
   } else {
-    localStorage.removeItem(CURRENT_KEY)
+    // Remove both keys so readMigrated can't resurrect stale data from the old key
+    try { localStorage.removeItem(CURRENT_KEY) } catch { /* quota */ }
+    const legacyKey = oldKeyFor(CURRENT_KEY)
+    if (legacyKey) { try { localStorage.removeItem(legacyKey) } catch { /* quota */ } }
   }
 }
 
 // ── Reactive all-models list ──────────────────────────────────────────────────
 // Kept in sync whenever any model is written so components can watch it.
 
-function _sortedModels(raw: PlanModel[]): PlanModel[] {
+function _sortedModels(raw: SpecModel[]): SpecModel[] {
   return [...raw].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   )
 }
 
-const _allModels = ref<PlanModel[]>(_sortedModels(_loadAll()))
+const _allModels = ref<SpecModel[]>(_sortedModels(_loadAll()))
 
 function _syncAllModels(): void {
   _allModels.value = _sortedModels(_loadAll())
 }
 
-function _upsertHistory(model: PlanModel): void {
+function _upsertHistory(model: SpecModel): void {
   const all = _loadAll()
   const idx = all.findIndex((m) => m.id === model.id)
   if (idx >= 0) {
@@ -565,7 +587,7 @@ function _upsertHistory(model: PlanModel): void {
  * plan had a named default scribe, that name is promoted to the device-user store
  * automatically so future plans pick it up.
  */
-export function initPlanModel(spec: SpecBlock, name?: string): PlanModel {
+export function initSpecModel(spec: SpecBlock, name?: string): SpecModel {
   const modelName = name ?? _nameFromSpec(spec)
   const now = new Date().toISOString()
 
@@ -579,7 +601,7 @@ export function initPlanModel(spec: SpecBlock, name?: string): PlanModel {
     if (prevDefaultName) setDeviceUserName(prevDefaultName)
   }
 
-  const model: PlanModel = {
+  const model: SpecModel = {
     id: crypto.randomUUID(),
     name: modelName,
     version: '0.1',
@@ -629,10 +651,10 @@ function _modelNameFromSpec(spec: SpecBlock): string {
  * Similar to initPlanModel() but sets the working mode to 'model'
  * and uses "Model: " prefix in the auto-generated name.
  */
-export function initModelRecord(spec: SpecBlock, name?: string, systemDescription?: string): PlanModel {
-  // Reuse the existing initPlanModel logic, then patch the mode
-  const model = initPlanModel(spec, name ?? _modelNameFromSpec(spec))
-  const patched: PlanModel = {
+export function initModelRecord(spec: SpecBlock, name?: string, systemDescription?: string): SpecModel {
+  // Reuse the existing initSpecModel logic, then patch the mode
+  const model = initSpecModel(spec, name ?? _modelNameFromSpec(spec))
+  const patched: SpecModel = {
     ...model,
     workingMode: 'model',
     specSource: 'ai-generated',
@@ -663,7 +685,7 @@ export const EVO_CYCLE_HOURS: Record<'day' | 'week' | 'month' | 'quarter', numbe
  */
 export function setEvoCycleLength(length: 'day' | 'week' | 'month' | 'quarter'): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     evoCycleLength: length,
     updatedAt: new Date().toISOString(),
@@ -679,7 +701,7 @@ export function setEvoCycleLength(length: 'day' | 'week' | 'month' | 'quarter'):
  */
 export function setWorkingMode(mode: 'plan' | 'model'): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     workingMode: mode,
     updatedAt: new Date().toISOString(),
@@ -693,9 +715,9 @@ export function setWorkingMode(mode: 'plan' | 'model'): void {
  * Bump the version by 0.1. Call this after each successful sharpening round.
  * Also increments sharpenRounds and updates the spec snapshot.
  */
-export function bumpPlanVersion(updatedSpec?: SpecBlock): void {
+export function bumpSpecVersion(updatedSpec?: SpecBlock): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     version: _bumpVersion(_current.value.version),
     sharpenRounds: _current.value.sharpenRounds + 1,
@@ -712,9 +734,9 @@ export function bumpPlanVersion(updatedSpec?: SpecBlock): void {
  * Updates updatedAt and persists to storage.
  * Use for periodic auto-save or explicit "Save now" actions.
  */
-export function savePlanSnapshot(spec: SpecBlock): void {
+export function saveSpecSnapshot(spec: SpecBlock): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     spec,
     updatedAt: new Date().toISOString(),
@@ -727,9 +749,9 @@ export function savePlanSnapshot(spec: SpecBlock): void {
 /**
  * Override the version with a user-stipulated string (e.g. "1.0", "2.0-beta").
  */
-export function setPlanVersion(v: string): void {
+export function setSpecVersion(v: string): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     version: v,
     updatedAt: new Date().toISOString(),
@@ -739,10 +761,10 @@ export function setPlanVersion(v: string): void {
   _upsertHistory(updated)
 }
 
-/** Rename the plan model. Regenerates the tag slug. */
-export function setPlanName(name: string): void {
+/** Rename the spec model. Regenerates the tag slug. */
+export function setSpecName(name: string): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     name,
     tag: _slugify(name),
@@ -763,10 +785,10 @@ export function setPlanName(name: string): void {
 // below now bumps `manualEditCount` so the strip moves visibly with each save.
 
 /** Add a new owner. Returns the new record (with generated id). */
-export function addOwner(data: Omit<PlanOwner, 'id'>): PlanOwner {
-  if (!_current.value) throw new Error('No active plan model')
-  const person: PlanOwner = { id: crypto.randomUUID(), ..._emptyPerson(), ...data }
-  const updated: PlanModel = {
+export function addOwner(data: Omit<SpecPerson, 'id'>): SpecPerson {
+  if (!_current.value) throw new Error('No active spec model')
+  const person: SpecPerson = { id: crypto.randomUUID(), ..._emptyPerson(), ...data }
+  const updated: SpecModel = {
     ..._current.value,
     owners: [..._current.value.owners, person],
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -777,9 +799,9 @@ export function addOwner(data: Omit<PlanOwner, 'id'>): PlanOwner {
 }
 
 /** Update an owner's fields by id. */
-export function updateOwner(id: string, data: Partial<Omit<PlanOwner, 'id'>>): void {
+export function updateOwner(id: string, data: Partial<Omit<SpecPerson, 'id'>>): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     owners: _current.value.owners.map((o) => o.id === id ? { ...o, ...data } : o),
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -791,7 +813,7 @@ export function updateOwner(id: string, data: Partial<Omit<PlanOwner, 'id'>>): v
 /** Remove an owner by id. */
 export function removeOwner(id: string): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     owners: _current.value.owners.filter((o) => o.id !== id),
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -803,10 +825,10 @@ export function removeOwner(id: string): void {
 // ── Planners CRUD ─────────────────────────────────────────────────────────────
 
 /** Add a new planner (scribe/author). Returns the new record. */
-export function addPlanner(data: Omit<PlanOwner, 'id'>): PlanOwner {
-  if (!_current.value) throw new Error('No active plan model')
-  const person: PlanOwner = { id: crypto.randomUUID(), ..._emptyPerson(), ...data }
-  const updated: PlanModel = {
+export function addPlanner(data: Omit<SpecPerson, 'id'>): SpecPerson {
+  if (!_current.value) throw new Error('No active spec model')
+  const person: SpecPerson = { id: crypto.randomUUID(), ..._emptyPerson(), ...data }
+  const updated: SpecModel = {
     ..._current.value,
     planners: [..._current.value.planners, person],
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -817,9 +839,9 @@ export function addPlanner(data: Omit<PlanOwner, 'id'>): PlanOwner {
 }
 
 /** Update a planner's fields by id. */
-export function updatePlanner(id: string, data: Partial<Omit<PlanOwner, 'id'>>): void {
+export function updatePlanner(id: string, data: Partial<Omit<SpecPerson, 'id'>>): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     planners: _current.value.planners.map((p) => p.id === id ? { ...p, ...data } : p),
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -831,7 +853,7 @@ export function updatePlanner(id: string, data: Partial<Omit<PlanOwner, 'id'>>):
 /** Remove a planner by id. */
 export function removePlanner(id: string): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     planners: _current.value.planners.filter((p) => p.id !== id),
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -843,10 +865,10 @@ export function removePlanner(id: string): void {
 // ── Scribes CRUD ──────────────────────────────────────────────────────────────
 
 /** Add a new scribe (the person doing the actual keying/dictation). Returns the new record. */
-export function addScribe(data: Omit<PlanOwner, 'id'>): PlanOwner {
-  if (!_current.value) throw new Error('No active plan model')
-  const person: PlanOwner = { id: crypto.randomUUID(), ..._emptyPerson(), ...data }
-  const updated: PlanModel = {
+export function addScribe(data: Omit<SpecPerson, 'id'>): SpecPerson {
+  if (!_current.value) throw new Error('No active spec model')
+  const person: SpecPerson = { id: crypto.randomUUID(), ..._emptyPerson(), ...data }
+  const updated: SpecModel = {
     ..._current.value,
     scribes: [...(_current.value.scribes ?? []), person],
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -857,9 +879,9 @@ export function addScribe(data: Omit<PlanOwner, 'id'>): PlanOwner {
 }
 
 /** Update a scribe's fields by id. */
-export function updateScribe(id: string, data: Partial<Omit<PlanOwner, 'id'>>): void {
+export function updateScribe(id: string, data: Partial<Omit<SpecPerson, 'id'>>): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     scribes: (_current.value.scribes ?? []).map((s) => s.id === id ? { ...s, ...data } : s),
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -871,7 +893,7 @@ export function updateScribe(id: string, data: Partial<Omit<PlanOwner, 'id'>>): 
 /** Remove a scribe by id. */
 export function removeScribe(id: string): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     scribes: (_current.value.scribes ?? []).filter((s) => s.id !== id),
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
@@ -889,7 +911,7 @@ export function removeScribe(id: string): void {
  */
 export function incrementManualEditCount(): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
     updatedAt: new Date().toISOString(),
@@ -902,7 +924,7 @@ export function incrementManualEditCount(): void {
  * Thin shim kept for legacy callers (quick-rename popover sets owner name).
  * Upserts owners[0] with the given fields; creates an entry if owners is empty.
  */
-export function updatePlanOwner(data: Partial<Omit<PlanOwner, 'id'>>): void {
+export function updatePlanOwner(data: Partial<Omit<SpecPerson, 'id'>>): void {
   if (!_current.value) return
   if (_current.value.owners.length === 0) {
     addOwner({ ..._emptyPerson(), ...data })
@@ -915,9 +937,9 @@ export function updatePlanOwner(data: Partial<Omit<PlanOwner, 'id'>>): void {
  * Update the Plan-as-Stakeholder governance fields (wishLevel, goalLevel).
  * Does NOT touch the specOwners list.
  */
-export function updateGovernance(data: Partial<Pick<PlanGovernance, 'wishLevel' | 'goalLevel'>>): void {
+export function updateGovernance(data: Partial<Pick<SpecGovernance, 'wishLevel' | 'goalLevel'>>): void {
   if (!_current.value) return
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     governance: { ..._current.value.governance, ...data },
     updatedAt: new Date().toISOString(),
@@ -932,9 +954,9 @@ export function updateGovernance(data: Partial<Pick<PlanGovernance, 'wishLevel' 
  * Returns the newly created SpecOwner (with generated id).
  */
 export function addSpecOwner(data: Omit<SpecOwner, 'id'>): SpecOwner {
-  if (!_current.value) throw new Error('No active plan model')
+  if (!_current.value) throw new Error('No active spec model')
   const newOwner: SpecOwner = { id: crypto.randomUUID(), ...data }
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     governance: {
       ..._current.value.governance,
@@ -957,7 +979,7 @@ export function updateSpecOwner(id: string, data: Partial<Omit<SpecOwner, 'id'>>
   const specOwners = _current.value.governance.specOwners.map((o) =>
     o.id === id ? { ...o, ...data } : o,
   )
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     governance: { ..._current.value.governance, specOwners },
     updatedAt: new Date().toISOString(),
@@ -971,7 +993,7 @@ export function updateSpecOwner(id: string, data: Partial<Omit<SpecOwner, 'id'>>
 export function removeSpecOwner(id: string): void {
   if (!_current.value) return
   const specOwners = _current.value.governance.specOwners.filter((o) => o.id !== id)
-  const updated: PlanModel = {
+  const updated: SpecModel = {
     ..._current.value,
     governance: { ..._current.value.governance, specOwners },
     updatedAt: new Date().toISOString(),
@@ -986,7 +1008,7 @@ export function removeSpecOwner(id: string): void {
  * If version is omitted, returns the most recent model with that tag.
  * Returns null when not found.
  */
-export function loadPlanByTag(tag: string, version?: string): PlanModel | null {
+export function loadPlanByTag(tag: string, version?: string): SpecModel | null {
   const all = _loadAll()
   const matching = all.filter((m) => m.tag === tag)
   if (matching.length === 0) return null
@@ -1003,7 +1025,7 @@ export function loadPlanByTag(tag: string, version?: string): PlanModel | null {
  * Recall a model by tag + date (YYYY-MM-DD).
  * Matches against createdAt or updatedAt. Returns the most recent match.
  */
-export function loadPlanByDate(tag: string, date: string): PlanModel | null {
+export function loadPlanByDate(tag: string, date: string): SpecModel | null {
   const all = _loadAll()
   const prefix = date.slice(0, 10) // "YYYY-MM-DD"
   const matching = all.filter(
@@ -1022,15 +1044,15 @@ export function loadPlanByDate(tag: string, date: string): PlanModel | null {
  * Import a PlanModel from a parsed JSON object (e.g. from a .json file import).
  * Validates minimal required fields. Returns the loaded model, or null on failure.
  */
-export function importPlanModel(data: unknown): PlanModel | null {
+export function importPlanModel(data: unknown): SpecModel | null {
   try {
-    const m = data as Partial<ExportedPlanFile>
+    const m = data as Partial<ExportedSpecFile>
     if (!m.name || !m.version || !m.spec) return null
 
-    // Pull off the non-PlanModel fields BEFORE constructing the model — they
-    // must not end up persisted in `sem-plan-models` localStorage. The
-    // snapshot is documentary only; we drop it. The sidecar collections get
-    // routed back to their own composables' stores below.
+    // Pull off the non-SpecModel fields BEFORE constructing the model — they
+    // must not end up persisted in localStorage. The snapshot is documentary only;
+    // we drop it. The sidecar collections get routed back to their own composables'
+    // stores below.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { _planStorySidecar, _planStorySnapshot: _snapshot, ...rawPlan } = data as any
     void _snapshot  // intentionally discarded — UI always recomputes live
@@ -1059,7 +1081,7 @@ export function importPlanModel(data: unknown): PlanModel | null {
     // every live `usePriorityRecord(id)` / `useSpecAnnotations(id)`
     // subscriber re-renders without a page reload.
     if (_planStorySidecar && typeof _planStorySidecar === 'object') {
-      const sc = _planStorySidecar as Partial<PlanStorySidecar>
+      const sc = _planStorySidecar as Partial<SpecStorySidecar>
       if (Array.isArray(sc.priorityRecords) && sc.priorityRecords.length > 0) {
         _setPriorityRecordsForPlan(model.id, sc.priorityRecords as PriorityRecord[])
       }
@@ -1099,11 +1121,11 @@ export function importPlanModel(data: unknown): PlanModel | null {
  *
  * Capped [0, 100].
  */
-function _computePlanStorySnapshot(
-  model: PlanModel,
+function _computeSpecStorySnapshot(
+  model: SpecModel,
   priorityRecordCount: number,
   annotationCount: number,
-): PlanStorySnapshot {
+): SpecStorySnapshot {
   const baseline =
     model.specSource === 'manual'   ? 80
   : model.specSource === 'imported' ? 30
@@ -1197,13 +1219,13 @@ export function exportPlanModel(): void {
 
   const priorityRecords = _getPriorityRecordsForPlan(m.id)
   const annotations     = _getAnnotationsForPlan(m.id)
-  const snapshot        = _computePlanStorySnapshot(
+  const snapshot        = _computeSpecStorySnapshot(
     m,
     priorityRecords.length,
     Object.keys(annotations).length,
   )
 
-  const payload: ExportedPlanFile = {
+  const payload: ExportedSpecFile = {
     ...m,
     _planStorySidecar:  { priorityRecords, annotations },
     _planStorySnapshot: snapshot,
@@ -1272,7 +1294,7 @@ export function importPlanModelsBackup(data: unknown): number {
     let count = 0
 
     for (const raw of backup.models as unknown[]) {
-      const m = raw as Partial<PlanModel>
+      const m = raw as Partial<SpecModel>
       if (!m.name || !m.version || !m.spec) continue
       if (m.id && existingIds.has(m.id)) continue  // already present — skip
 
@@ -1309,7 +1331,7 @@ export function allPlanTags(): string[] {
 }
 
 /** All saved versions for a given tag, oldest first. */
-export function planVersionsForTag(tag: string): PlanModel[] {
+export function specVersionsForTag(tag: string): SpecModel[] {
   return _loadAll().filter((m) => m.tag === tag)
 }
 
@@ -1322,12 +1344,12 @@ export function clearPlanModel(): void {
 // ── New model-management helpers ──────────────────────────────────────────────
 
 /** All saved models, newest-first (reactive ref — updates whenever any model is written). */
-export function getAllPlanModels(): ReadonlyArray<PlanModel> {
+export function getAllPlanModels(): ReadonlyArray<SpecModel> {
   return _allModels.value
 }
 
 /** The most recently updated saved model, or null if none are saved. */
-export function latestPlanModel(): PlanModel | null {
+export function latestPlanModel(): SpecModel | null {
   return _allModels.value[0] ?? null
 }
 
@@ -1343,7 +1365,7 @@ export function deletePlanModel(id: string): void {
 }
 
 /** Rename any saved model by ID. Also updates current if it matches. */
-export function renamePlanModel(id: string, name: string): void {
+export function renameSpecModel(id: string, name: string): void {
   const all = _loadAll()
   const idx = all.findIndex((m) => m.id === id)
   if (idx < 0) return
@@ -1359,23 +1381,44 @@ export function renamePlanModel(id: string, name: string): void {
 }
 
 /** Make a saved model the active current model without modifying its data. */
-export function activatePlanModel(model: PlanModel): void {
+export function activatePlanModel(model: SpecModel): void {
   _current.value = model
   _persistCurrent()
 }
 
 // ── Composable export ─────────────────────────────────────────────────────────
 
+// ── Backward-compat top-level exports ────────────────────────────────────────
+// Kept so test files and any external callers that import by old name still work.
+// These are direct references to the renamed functions — no wrapping, no overhead.
+
+/** @deprecated Use initSpecModel */
+export const initPlanModel = initSpecModel
+/** @deprecated Use bumpSpecVersion */
+export const bumpPlanVersion = bumpSpecVersion
+/** @deprecated Use saveSpecSnapshot */
+export const savePlanSnapshot = saveSpecSnapshot
+/** @deprecated Use renameSpecModel */
+export const renamePlanModel = renameSpecModel
+/** @deprecated Use setSpecVersion */
+export const setPlanVersion = setSpecVersion
+/** @deprecated Use setSpecName */
+export const setPlanName = setSpecName
+/** @deprecated Use specVersionsForTag */
+export const planVersionsForTag = specVersionsForTag
+/** @deprecated Use listRecentSpecs */
+export const listRecentPlans = listRecentSpecs
+
 export function useSpecModel() {
   return {
-    /** The currently active Plan Model (reactive, readonly). */
+    /** The currently active Spec Model (reactive, readonly). */
     currentModel: readonly(_current),
     /** All saved models, newest-first (reactive). */
     allModels: readonly(_allModels),
-    initPlanModel,
-    bumpPlanVersion,
-    setPlanVersion,
-    setPlanName,
+    initSpecModel,
+    bumpSpecVersion,
+    setSpecVersion,
+    setSpecName,
     addOwner,
     updateOwner,
     removeOwner,
@@ -1394,16 +1437,25 @@ export function useSpecModel() {
     exportAllPlanModelsBackup,
     importPlanModelsBackup,
     allPlanTags,
-    planVersionsForTag,
+    specVersionsForTag,
     getAllPlanModels,
     latestPlanModel,
     deletePlanModel,
-    renamePlanModel,
+    renameSpecModel,
     activatePlanModel,
-    savePlanSnapshot,
+    saveSpecSnapshot,
     clearPlanModel,
     initModelRecord,
     setWorkingMode,
     setEvoCycleLength,
+    // Backward-compat aliases (deprecated — use new names above)
+    initPlanModel: initSpecModel,
+    bumpPlanVersion: bumpSpecVersion,
+    setPlanVersion: setSpecVersion,
+    setPlanName: setSpecName,
+    savePlanSnapshot: saveSpecSnapshot,
+    planVersionsForTag: specVersionsForTag,
+    renamePlanModel: renameSpecModel,
+    listRecentPlans: listRecentSpecs,
   }
 }

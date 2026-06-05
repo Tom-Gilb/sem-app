@@ -68,7 +68,7 @@ const AGENTS: AgentDef[] = [
     id: 'models',
     emoji: '🗂️',
     label: 'Models',
-    subtitle: 'Plan Model Library',
+    subtitle: 'Spec Model Library',
     blurb: 'Browse 18 built-in domain models across 6 categories — Organizational, Project, Product, National, International, and Software. View Planguage F./V./C./R. entries, copy any model, and add your own.',
     color: 'blue',
     status: 'live',
@@ -253,7 +253,7 @@ function selectAgent(agent: AgentDef): void {
                   <svg width="72" height="53" viewBox="0 0 72 53" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <!-- Blue header -->
                     <rect width="72" height="11" fill="#1d4ed8"/>
-                    <text x="4" y="8" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">Plan Models</text>
+                    <text x="4" y="8" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">Spec Models</text>
                     <!-- Active model row (blue accent) -->
                     <rect x="0" y="11" width="72" height="11" fill="#eff6ff"/>
                     <rect x="2" y="13" width="3" height="7" rx="1" fill="#3b82f6"/>

@@ -358,7 +358,7 @@ const _meta = useSemMetadata()
   <svg v-else-if="thumb === 'renamePlan'" viewBox="0 0 56 56" class="w-full h-full">
     <rect width="56" height="56" fill="#fefce8"/>
     <!-- Label -->
-    <text x="6" y="16" font-size="5" fill="#92400e" font-weight="600">Plan Title</text>
+    <text x="6" y="16" font-size="5" fill="#92400e" font-weight="600">Spec Title</text>
     <!-- Text input field with current plan name -->
     <rect x="4" y="20" width="48" height="14" rx="3" fill="white" stroke="#ca8a04" stroke-width="1.5"/>
     <rect x="7" y="25" width="24" height="3" rx="1" fill="#92400e"/>
@@ -397,7 +397,7 @@ const _meta = useSemMetadata()
     <circle cx="45" cy="24" r="9" fill="#0ea5e9" stroke="white" stroke-width="1.5"/>
     <text x="45" y="28" font-size="7" font-weight="bold" text-anchor="middle" fill="white">+1</text>
     <!-- Role label -->
-    <text x="28" y="44" font-size="5.5" font-weight="600" text-anchor="middle" fill="#3b82f6">Plan Owners</text>
+    <text x="28" y="44" font-size="5.5" font-weight="600" text-anchor="middle" fill="#3b82f6">Spec Owners</text>
   </svg>
 
   <!-- specOwners — S. stakeholder entry ownership badge (Thumbnail Reality Rule: GLYPH) -->

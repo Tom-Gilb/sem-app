@@ -258,7 +258,7 @@ Sharpen rounds count strongly (+5 each) because each round is many human decisio
     ref="rootEl"
     class="flex flex-wrap items-stretch justify-around gap-x-3 gap-y-2 py-2 mt-1
            border-t border-white/15 select-none"
-    aria-label="Plan Story — origin, hand-tuning, sharpening, stewards, age"
+    aria-label="Spec Story — origin, hand-tuning, sharpening, stewards, age"
   >
     <!-- ── Chapter 1: ORIGIN ─────────────────────────────────────────── -->
     <div class="flex items-center gap-2.5 min-w-[10rem]" :title="origin.subtitle">
@@ -387,7 +387,7 @@ Sharpen rounds count strongly (+5 each) because each round is many human decisio
              hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-300/60
              transition-colors text-left cursor-pointer"
       :title="stewards.subtitle + ' — click to add or edit Stewards'"
-      aria-label="Manage Plan Stewards (Owners, Planners, Scribes)"
+      aria-label="Manage Spec Stewards (Owners, Planners, Scribes)"
       @click="emit('edit-stewards')"
     >
       <span class="text-2xl leading-none shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" aria-hidden="true">👥</span>

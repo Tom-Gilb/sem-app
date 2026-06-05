@@ -23,7 +23,7 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import SpecOwnerPanel from '../SpecOwnerPanel.vue'
 import {
-  initPlanModel,
+  initSpecModel as initPlanModel,
   clearPlanModel,
   deletePlanModel,
   getAllPlanModels,

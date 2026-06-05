@@ -252,8 +252,12 @@ async function copyAnalysisRequest(): Promise<void> {
             <CloseDot size="lg" @click="emit('close')" />
           </header>
 
-          <!-- Body -->
-          <ScrollContainer class="flex-1 px-6 py-5">
+          <!-- Body — ScrollContainer rule: outer must have min-h-0 (flex child can't
+               shrink below content-size without it) + relative (absolute overlay
+               indicator needs a positioning context); inner gets h-full so the
+               overflow-y-auto div is height-constrained and actually scrolls.
+               Padding lives on inner-class so it's inside the scroll area. -->
+          <ScrollContainer class="flex-1 min-h-0 relative" inner-class="h-full px-6 py-5">
             <!-- Derived cost summary -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
               <div class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3">

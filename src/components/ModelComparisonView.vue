@@ -32,12 +32,12 @@ import {
   importPlanModel,
   loadPlanByTag,
   allPlanTags,
-  planVersionsForTag,
+  specVersionsForTag,
 } from '../composables/useSpecModel'
-import type { PlanModel } from '../composables/useSpecModel'
+import type { SpecModel } from '../composables/useSpecModel'
 
 const props = defineProps<{
-  initialModel?: PlanModel
+  initialModel?: SpecModel
 }>()
 
 const emit = defineEmits<{ close: [] }>()
@@ -65,7 +65,7 @@ const addTag         = ref('')
 const addVer         = ref('')
 const addError       = ref('')
 const availableTags  = computed(() => allPlanTags())
-const addVerOptions  = computed(() => addTag.value ? planVersionsForTag(addTag.value) : [])
+const addVerOptions  = computed(() => addTag.value ? specVersionsForTag(addTag.value) : [])
 
 function handleAddRecall(): void {
   addError.value = ''
@@ -285,7 +285,7 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
               <label class="flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-slate-300
                             cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm text-slate-600">
                 <GetGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" />
-                <span>Choose Plan Model .json</span>
+                <span>Choose Spec Model .json</span>
                 <input type="file" accept=".json,application/json" class="sr-only" @change="handleAddFile" />
               </label>
             </div>

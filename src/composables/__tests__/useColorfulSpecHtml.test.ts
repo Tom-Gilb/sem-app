@@ -109,6 +109,30 @@ describe('renderColorfulSpecHtml — soft-wrap data preservation', () => {
     expect(html).not.toContain('undefined')
   })
 
+  it('preserves every word of a long entry description (descender-clip fix 2026-06-05)', () => {
+    // Descriptions longer than 80 chars are split into multiple <tr> rows.
+    // Every word must survive into the rendered HTML — Tom 2026-06-05.
+    const longDesc = 'Must handle all assignment submission data and student personal information in full compliance with applicable student data privacy legislation and institutional data governance policy at all times'
+    const html = renderColorfulSpecHtml(makeSpec({
+      constraints: [{ id: 'C.Privacy', type: 'Constraint', level: 'Regulatory', description: longDesc, scope: 'all data', rationale: 'legal requirement' }],
+    }), 'TestSpec', undefined)
+    const text = htmlToText(html)
+    for (const w of longDesc.split(/\s+/).filter(Boolean)) {
+      expect(text, `word "${w}" must survive description split`).toContain(w)
+    }
+  })
+
+  it('preserves every word of a long sub-field value (descender-clip fix 2026-06-05)', () => {
+    const longScope = 'All collection storage processing transmission and retention of assignment submission records student identifiers academic performance data reminder interaction logs and peer group communication records'
+    const html = renderColorfulSpecHtml(makeSpec({
+      constraints: [{ id: 'C.P', type: 'Constraint', level: 'Regulatory', description: 'desc', scope: longScope, rationale: '' }],
+    }), 'TestSpec', undefined)
+    const text = htmlToText(html)
+    for (const w of longScope.split(/\s+/).filter(Boolean)) {
+      expect(text, `word "${w}" must survive scope split`).toContain(w)
+    }
+  })
+
   it('omits sub-field rows whose value is empty (no orphan label-only rows)', () => {
     const html = renderColorfulSpecHtml(makeSpec({
       functions: [{ id: 'F.A', type: 'Function', level: 'Product', description: 'd', presenceTest: '', functionOfValue: '' }],

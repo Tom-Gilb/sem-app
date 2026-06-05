@@ -69,7 +69,14 @@ function esc(s: string | undefined | null): string {
 const SPACER_ROW =
   `<tr><td colspan="3" bgcolor="#ffffff" height="6" style="background:#ffffff;height:6px;line-height:6px;font-size:1px;padding:0;">&nbsp;</td></tr>`
 
-// ── Sub-field row: stripe + label + value (always three flat cells) ──────────
+// ── Sub-field row: stripe + label + value ────────────────────────────────────
+// Each LINE of the value gets its own <tr> so Keynote never sees wrappable
+// text (it calculates row height up-front and clips extra lines).
+// Stripe + label appear only on the first row; subsequent rows carry a blank
+// same-colour filler in those positions — visually seamless since the fill
+// colour matches. Same softWrap() pattern used for title rows.
+// Tom 2026-06-05: "the lowest line of text is half hidden".
+const SUBFIELD_VALUE_WRAP = 80  // safe chars per line at 12px in ~696px wide cell
 function subFieldRow(
   stripeColour: string,
   softFill:     string,
@@ -78,19 +85,43 @@ function subFieldRow(
   value:        string,
 ): string {
   if (!value || value.trim() === '' || value.trim() === '—') return ''
-  return `<tr>
+  const lines = softWrap(value, SUBFIELD_VALUE_WRAP)
+  return lines.map((ln, idx) => {
+    const isFirst = idx === 0
+    const isLast  = idx === lines.length - 1
+    const padTop  = isFirst ? '6px' : '0'
+    const padBot  = isLast  ? '8px' : '0'
+    const labelCell = isFirst
+      ? `<td bgcolor="${softFill}" width="110" style="background:${softFill};color:${textColour};font-weight:700;font-size:11px;padding:6px 10px;white-space:nowrap;vertical-align:top;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${esc(label)}</td>`
+      : `<td bgcolor="${softFill}" width="110" style="background:${softFill};padding:0 10px;">&nbsp;</td>`
+    return `<tr>
     <td bgcolor="${stripeColour}" width="14" style="background:${stripeColour};width:14px;padding:0;">&nbsp;</td>
-    <td bgcolor="${softFill}" width="110" style="background:${softFill};color:${textColour};font-weight:700;font-size:11px;padding:6px 10px;white-space:nowrap;vertical-align:top;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${esc(label)}</td>
-    <td bgcolor="${softFill}" style="background:${softFill};color:#0f172a;font-size:12px;padding:6px 10px;white-space:normal;vertical-align:top;line-height:1.5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${descenderSafe(esc(value))}</td>
+    ${labelCell}
+    <td bgcolor="${softFill}" style="background:${softFill};color:#0f172a;font-size:12px;padding:${padTop} 10px ${padBot} 10px;white-space:normal;vertical-align:top;line-height:1.5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${esc(ln)}</td>
   </tr>`
+  }).join('')
 }
 
 // ── Entry-ID + description row (the "headline" row for one spec entry) ───────
+// Description is pre-split into per-line rows — same clipping prevention as
+// subFieldRow. ID cell appears only on first row; remaining rows carry a
+// same-colour filler so the coloured left column stays visually continuous.
+const ENTRY_DESC_WRAP = 80  // safe chars per line at 13px in ~696px wide cell
 function entryHeadRow(c: TypeColour, id: string, description: string): string {
-  return `<tr>
-    <td colspan="2" bgcolor="${c.mid}" width="124" style="background:${c.mid};color:#ffffff;font-weight:700;font-size:12px;padding:8px 10px;vertical-align:top;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.4;">${descenderSafe(esc(id))}</td>
-    <td bgcolor="#ffffff" style="background:#ffffff;color:#0f172a;font-size:13px;line-height:1.5;padding:8px 12px;vertical-align:top;white-space:normal;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${descenderSafe(esc(description))}</td>
+  const lines = softWrap(description, ENTRY_DESC_WRAP)
+  return lines.map((ln, idx) => {
+    const isFirst = idx === 0
+    const isLast  = idx === lines.length - 1
+    const padTop  = isFirst ? '8px' : '0'
+    const padBot  = isLast  ? '10px' : '0'
+    const idCell = isFirst
+      ? `<td colspan="2" bgcolor="${c.mid}" width="124" style="background:${c.mid};color:#ffffff;font-weight:700;font-size:12px;padding:8px 10px;vertical-align:top;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.4;">${descenderSafe(esc(id))}</td>`
+      : `<td colspan="2" bgcolor="${c.mid}" width="124" style="background:${c.mid};padding:0 10px;">&nbsp;</td>`
+    return `<tr>
+    ${idCell}
+    <td bgcolor="#ffffff" style="background:#ffffff;color:#0f172a;font-size:13px;line-height:1.5;padding:${padTop} 12px ${padBot} 12px;vertical-align:top;white-space:normal;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${esc(ln)}</td>
   </tr>`
+  }).join('')
 }
 
 // ── Per-type renderers (each returns a string of <tr> rows for one entry) ────

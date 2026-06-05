@@ -29,6 +29,8 @@ import {
   ASPECT_GROUPS,
   type AspectGroupId,
   type IndexBreakdown,
+  type SpecHealthContext,
+  type SpecHealthSnapshot,
   type PlanHealthContext,
   type PlanHealthSnapshot,
 } from '../composables/useSpecHealth'
@@ -43,14 +45,15 @@ const props = defineProps<{
   planModelId: string
   spec: SpecBlock
   specOwnerCount: number
-  hasPlanOwner: boolean
-  /** Plan version label for Expert reviews (e.g. "v0.7"). When omitted, '' is used. */
+  hasSpecOwner: boolean
+  hasPlanOwner?: boolean  // @deprecated: use hasSpecOwner
+  /** Spec version label for Expert reviews (e.g. "v0.7"). When omitted, '' is used. */
   planVersion?: string
   /** Who is invoking — used in audit log for expert runs */
   by?: string
-  /** Plan display name — included in copy/email subject and header */
+  /** Spec display name — included in copy/email subject and header */
   planName?: string
-  /** Plan Owner records — used to pre-fill mailto: recipients */
+  /** Spec Owner records — used to pre-fill mailto: recipients */
   planOwners?: Array<{ id: string; name: string; email?: string }>
 }>()
 
@@ -58,15 +61,15 @@ const emit = defineEmits<{ close: []; 'open-admin': [] }>()
 
 const ph = useSpecHealth(props.planModelId)
 
-const ctx = computed<PlanHealthContext>(() => ({
+const ctx = computed<SpecHealthContext>(() => ({
   spec: props.spec,
   specOwnerCount: props.specOwnerCount,
-  hasPlanOwner: props.hasPlanOwner,
+  hasSpecOwner: props.hasSpecOwner ?? props.hasPlanOwner ?? false,
 }))
 
 const breakdown = computed<IndexBreakdown>(() => ph.computeBreakdown(ctx.value))
 
-const snapshots = computed<PlanHealthSnapshot[]>(() => ph.custom.value.snapshots)
+const snapshots = computed<SpecHealthSnapshot[]>(() => ph.custom.value.snapshots)
 
 // ── Series picker ──────────────────────────────────────────────────────────
 //
@@ -95,7 +98,7 @@ const seriesOptions = computed(() => {
 })
 
 /** Pull the y-value (-100..+100) for the selected series from a snapshot. */
-function valueAt(s: PlanHealthSnapshot): number | null {
+function valueAt(s: SpecHealthSnapshot): number | null {
   if (selectedSeries.value === 'overall') return s.index
   if (selectedSeries.value.startsWith('group:')) {
     const gid = selectedSeries.value.slice('group:'.length) as AspectGroupId
@@ -251,7 +254,7 @@ function shortLinkLabel(url: string): string {
 <template>
   <RightPanel
     class="z-[491] w-[clamp(560px,46vw,800px)] flex flex-col bg-white shadow-2xl border-l border-slate-200"
-    :aria-label="`Plan Health Status — ${breakdown.index >= 0 ? '+' : ''}${breakdown.index}%`"
+    :aria-label="`Spec Health Status — ${breakdown.index >= 0 ? '+' : ''}${breakdown.index}%`"
   >
     <!-- ── Header ────────────────────────────────────────────────────────── -->
     <div class="px-5 py-3 flex items-center gap-3 shrink-0
@@ -264,7 +267,7 @@ function shortLinkLabel(url: string): string {
         :alert-count="pending.length"
       />
       <div class="flex-1 min-w-0">
-        <h2 class="text-sm font-bold tracking-wide">📊 Plan Health Status</h2>
+        <h2 class="text-sm font-bold tracking-wide">📊 Spec Health Status</h2>
         <p class="text-[11px] text-white/85 mt-0.5">
           {{ breakdown.groups.length }} active group{{ breakdown.groups.length === 1 ? '' : 's' }} ·
           {{ snapshots.length }} snapshot{{ snapshots.length === 1 ? '' : 's' }} ·
@@ -281,8 +284,8 @@ function shortLinkLabel(url: string): string {
         type="button"
         class="text-[11px] px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-white font-semibold transition-colors"
         :title="(props.planOwners ?? []).filter(o => o.email).length
-          ? `Open mailto: pre-filled to ${(props.planOwners ?? []).filter(o => o.email).length} Plan Owner${(props.planOwners ?? []).filter(o => o.email).length === 1 ? '' : 's'}`
-          : 'Open mailto: with the PHI report pre-filled (no Plan Owner emails on file — pick recipient in mail client)'"
+          ? `Open mailto: pre-filled to ${(props.planOwners ?? []).filter(o => o.email).length} Spec Owner${(props.planOwners ?? []).filter(o => o.email).length === 1 ? '' : 's'}`
+          : 'Open mailto: with the PHI report pre-filled (no Spec Owner emails on file — pick recipient in mail client)'"
         @click="emailReport"
       >✉️ Email</button>
       <button
@@ -300,7 +303,7 @@ function shortLinkLabel(url: string): string {
       <!-- ── Pending notifications ── -->
       <div v-if="pending.length" class="rounded-lg border border-rose-200 bg-rose-50 p-3 space-y-1.5">
         <div class="flex items-center gap-2">
-          <span class="text-[12px] font-bold text-rose-800">🔔 {{ pending.length }} Plan Health alert{{ pending.length === 1 ? '' : 's' }}</span>
+          <span class="text-[12px] font-bold text-rose-800">🔔 {{ pending.length }} Spec Health alert{{ pending.length === 1 ? '' : 's' }}</span>
           <button
             type="button"
             class="ml-auto text-[10px] text-rose-700 hover:underline"
@@ -351,7 +354,7 @@ function shortLinkLabel(url: string): string {
             :viewBox="`0 0 ${W} ${H}`"
             class="w-full h-auto block"
             role="img"
-            :aria-label="`Plan Health history graph — ${snapshots.length} snapshots`"
+            :aria-label="`Spec Health history graph — ${snapshots.length} snapshots`"
           >
             <!-- Y gridlines + labels -->
             <g>
@@ -575,7 +578,7 @@ function shortLinkLabel(url: string): string {
 
     <div class="px-5 py-2 border-t border-slate-100 bg-slate-50 shrink-0">
       <p class="text-[10px] text-slate-400 italic">
-        Snapshots are taken automatically on every spec version bump. Plan Owner(s) are notified when PHI drops by ≥ {{ ph.custom.value.admin.dropThresholdPct }}%.
+        Snapshots are taken automatically on every spec version bump. Spec Owner(s) are notified when PHI drops by ≥ {{ ph.custom.value.admin.dropThresholdPct }}%.
       </p>
     </div>
   </RightPanel>

@@ -66,7 +66,7 @@ const fontSize = computed(() => `${Math.round(props.size * 0.27)}px`)
  *  "1 Plan Health alert pending — click to review" so the user knows
  *  exactly what the attention signal means. */
 const composedTitle = computed<string>(() => {
-  const base = props.title ?? `Plan Health: ${displayValue.value} — click for details`
+  const base = props.title ?? `Spec Health: ${displayValue.value} — click for details`
   if (props.hasAlert && props.alertHint) return `${base} · ${props.alertHint}`
   return base
 })
@@ -75,7 +75,7 @@ const composedAria = computed<string>(() => {
   const alertTag  = props.hasAlert
     ? ` — ${props.alertHint || `${props.alertCount} alert${props.alertCount === 1 ? '' : 's'} pending`}`
     : ''
-  return `Plan Health Index ${displayValue.value}${threshTag}${alertTag}`
+  return `Spec Health Index ${displayValue.value}${threshTag}${alertTag}`
 })
 </script>
 

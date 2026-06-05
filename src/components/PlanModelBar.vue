@@ -20,14 +20,15 @@ import SaveGetActionButton from './SaveGetActionButton.vue'
 import {
   useSpecModel,
   exportPlanModel,
-  setPlanName,
-  setPlanVersion,
+  setSpecName,
+  setSpecVersion,
   importPlanModel,
+  type SpecModel,
   type PlanModel,
 } from '../composables/useSpecModel'
 
 const emit = defineEmits<{
-  load: [model: PlanModel]
+  load: [model: SpecModel]
   compare: []
   save: []
   /**
@@ -66,7 +67,7 @@ function startEditName(): void {
 
 function commitName(): void {
   const v = nameInput.value.trim()
-  if (v) setPlanName(v)
+  if (v) setSpecName(v)
   editingName.value = false
 }
 
@@ -86,7 +87,7 @@ function startEditVersion(): void {
 
 function commitVersion(): void {
   const v = versionInput.value.trim()
-  if (v) setPlanVersion(v)
+  if (v) setSpecVersion(v)
   editingVersion.value = false
 }
 

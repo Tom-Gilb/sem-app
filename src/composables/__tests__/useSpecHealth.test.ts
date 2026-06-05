@@ -11,6 +11,7 @@ import {
   ASPECT_GROUPS,
   getDefaultAspects,
   applySpecPatch,
+  type SpecHealthContext,
   type PlanHealthContext,
   type SpecPatch,
 } from '../useSpecHealth'
@@ -47,11 +48,11 @@ function spec(parts: { functions?: FEntry[]; values?: VEntry[]; solutions?: SEnt
   return { functions: parts.functions ?? [], values: parts.values ?? [], solutions: parts.solutions ?? [] }
 }
 
-function ctx(overrides: Partial<PlanHealthContext> = {}): PlanHealthContext {
+function ctx(overrides: Partial<SpecHealthContext> = {}): SpecHealthContext {
   return {
     spec: overrides.spec ?? spec(),
     specOwnerCount: overrides.specOwnerCount ?? 0,
-    hasPlanOwner: overrides.hasPlanOwner ?? false,
+    hasSpecOwner: (overrides as SpecHealthContext).hasSpecOwner ?? (overrides as Record<string, unknown>).hasPlanOwner as boolean ?? false,
     signals: overrides.signals,
   }
 }
@@ -156,8 +157,8 @@ describe('Default aspects — Rule Violations', () => {
   const get = (id: string) => getDefaultAspects().find(a => a.id === id)!
 
   it('rv-no-plan-owner: -1 when missing, +1 when present', () => {
-    expect(get('rv-no-plan-owner').evaluate(ctx({ hasPlanOwner: false })).score).toBe(-1)
-    expect(get('rv-no-plan-owner').evaluate(ctx({ hasPlanOwner: true })).score).toBe(1)
+    expect(get('rv-no-plan-owner').evaluate(ctx({ hasSpecOwner: false })).score).toBe(-1)
+    expect(get('rv-no-plan-owner').evaluate(ctx({ hasSpecOwner: true })).score).toBe(1)
   })
 
   it('rv-no-spec-owners: scales 0→-1, 1→0, 3+→+1', () => {
@@ -236,7 +237,7 @@ describe('Default aspects — Risks & Coverage', () => {
 describe('computeBreakdown aggregation', () => {
   it('returns a -100..+100 index for a perfect spec', () => {
     const perfect = ctx({
-      hasPlanOwner: true, specOwnerCount: 5,
+      hasSpecOwner: true, specOwnerCount: 5,
       spec: spec({
         functions: [f('F.A')],
         values: [v('V.A', {
@@ -259,7 +260,7 @@ describe('computeBreakdown aggregation', () => {
 
   it('returns a deeply negative index for a catastrophic spec', () => {
     const cata = ctx({
-      hasPlanOwner: false, specOwnerCount: 0,
+      hasSpecOwner: false, specOwnerCount: 0,
       spec: spec({
         values: [v('V.A'), v('V.B')], // no scale, meter, goal, etc
         solutions: [s('S.X', { impact: 'V.NotReal ~50%' })],
@@ -271,7 +272,7 @@ describe('computeBreakdown aggregation', () => {
   })
 
   it('groupIndex matches the corresponding row in computeBreakdown', () => {
-    const c = ctx({ hasPlanOwner: true, specOwnerCount: 2 })
+    const c = ctx({ hasSpecOwner: true, specOwnerCount: 2 })
     const ph = useSpecHealth('ph-test-group-index')
     const breakdown = ph.computeBreakdown(c)
     const target = breakdown.groups.find(g => g.groupId === 'rule-violations')!
@@ -360,7 +361,7 @@ describe('Snapshots — recordSnapshot + history', () => {
   it('appends a snapshot capturing overall PHI + per-group + per-aspect', () => {
     const id = `ph-snap-basic-${Date.now()}`
     const ph = useSpecHealth(id)
-    const c = ctx({ hasPlanOwner: true, specOwnerCount: 2 })
+    const c = ctx({ hasSpecOwner: true, specOwnerCount: 2 })
     const snap = ph.recordSnapshot(c, { trigger: 'inception', planVersion: 'v0.1', versionLabel: 'Generated' })
     expect(snap.trigger).toBe('inception')
     expect(snap.planVersion).toBe('v0.1')
@@ -375,7 +376,7 @@ describe('Snapshots — recordSnapshot + history', () => {
   it('is idempotent for version-bump triggers with the same planVersion', () => {
     const id = `ph-snap-idem-${Date.now()}`
     const ph = useSpecHealth(id)
-    const c = ctx({ hasPlanOwner: true, specOwnerCount: 2 })
+    const c = ctx({ hasSpecOwner: true, specOwnerCount: 2 })
     ph.recordSnapshot(c, { trigger: 'inception', planVersion: 'v0.1' })
     ph.recordSnapshot(c, { trigger: 'version-bump', planVersion: 'v0.2' })
     ph.recordSnapshot(c, { trigger: 'version-bump', planVersion: 'v0.2' }) // duplicate
@@ -388,7 +389,7 @@ describe('Snapshots — recordSnapshot + history', () => {
     const id = `ph-snap-cap-${Date.now()}`
     const ph = useSpecHealth(id)
     ph.setAdminSpec({ maxSnapshots: 3 }, 'kai', 'tight cap for test')
-    const c = ctx({ hasPlanOwner: true, specOwnerCount: 2 })
+    const c = ctx({ hasSpecOwner: true, specOwnerCount: 2 })
     for (let i = 0; i < 6; i++) {
       ph.recordSnapshot(c, { trigger: 'manual', planVersion: `v0.${i}` })
     }
@@ -400,7 +401,7 @@ describe('Snapshots — recordSnapshot + history', () => {
   it('clearSnapshots wipes history and logs the reason', () => {
     const id = `ph-snap-clear-${Date.now()}`
     const ph = useSpecHealth(id)
-    const c = ctx({ hasPlanOwner: true, specOwnerCount: 2 })
+    const c = ctx({ hasSpecOwner: true, specOwnerCount: 2 })
     ph.recordSnapshot(c, { trigger: 'manual', planVersion: 'v0.1' })
     ph.recordSnapshot(c, { trigger: 'manual', planVersion: 'v0.2' })
     expect(ph.custom.value.snapshots.length).toBe(2)

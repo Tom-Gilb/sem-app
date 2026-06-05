@@ -158,7 +158,7 @@ const allUserModels = computed(() =>
         <!-- ── PLANS TAB ──────────────────────────────────────────────── -->
         <template v-if="activeTab === 'plans'">
           <p v-if="plans.length === 0" class="text-sm text-gray-400 text-center py-6">
-            No plans yet — use the Plan Importer to create one.
+            No specs yet — use the Spec Importer to create one.
           </p>
           <div
             v-for="plan in plans"

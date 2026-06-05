@@ -110,10 +110,12 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
 
       <!--
         Body — fills all remaining height after the header.
-        overflow-hidden: the SVG scales to fit (fitContainer=true), no scrollbars.
-        p-4: breathing room around the diagram on all sides.
+        overflow-y-auto: when the diagram is taller than the viewport (e.g. many
+        stakeholders), scroll vertically rather than shrink the whole diagram.
+        overflow-x-hidden: the SVG always fills 100% width — no horizontal bar.
+        p-0: no padding — diagram fills the full available space (Tom 2026-06-05).
       -->
-      <div class="flex-1 min-h-0 bg-slate-50 overflow-hidden p-4">
+      <div class="flex-1 min-h-0 bg-slate-50 overflow-y-auto overflow-x-hidden p-0">
         <ValueFlowDiagram
           :spec="props.spec"
           :evo-steps="props.evoSteps"

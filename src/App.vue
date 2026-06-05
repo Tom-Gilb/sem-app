@@ -121,7 +121,7 @@ import PlannerGlyph from './components/icons/PlannerGlyph.vue'
 import ScribeGlyph from './components/icons/ScribeGlyph.vue'
 import SpecStoryGlyph from './components/icons/SpecStoryGlyph.vue'
 import SpecHealthBadge from './components/SpecHealthBadge.vue'
-import { useSpecHealth, type PlanHealthContext } from './composables/useSpecHealth'
+import { useSpecHealth, type SpecHealthContext, type PlanHealthContext } from './composables/useSpecHealth'
 import CopyrightPanel from './components/CopyrightPanel.vue'
 import SaveGlyphHistoryPanel from './components/SaveGlyphHistoryPanel.vue'
 import SymbolFamilyPanel from './components/SymbolFamilyPanel.vue'
@@ -146,6 +146,7 @@ import type { PlGlyphType } from './components/icons/PlTypeIcon.vue'
 import { GLYPH_PANEL_OPEN_EVENT, GLYPH_PANEL_CLOSE_EVENT, GLYPH_PANEL_NAVIGATE_EVENT, glyphTypeFromDblClick } from './composables/useGlyphPanel'
 import SaveGlyph from './components/icons/SaveGlyph.vue'
 import EditGlyph from './components/icons/EditGlyph.vue'
+import PlResourceIcon from './components/icons/PlResourceIcon.vue'
 import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
 import GetGlyph from './components/icons/GetGlyph.vue'
 import CopyGlyph from './components/icons/CopyGlyph.vue'
@@ -155,14 +156,14 @@ import ResourcesSharpenPanel from './components/ResourcesSharpenPanel.vue'
 import ScrollContainer from './components/ScrollContainer.vue'
 import {
   useSpecModel,
-  initPlanModel,
-  bumpPlanVersion,
+  initSpecModel,
+  bumpSpecVersion,
   clearPlanModel,
   activatePlanModel,
   latestPlanModel,
   getAllPlanModels,
-  savePlanSnapshot,
-  renamePlanModel,
+  saveSpecSnapshot,
+  renameSpecModel,
   updatePlanOwner,
   addOwner,
   addPlanner,
@@ -172,6 +173,7 @@ import {
   getDeviceUserName,
   setDeviceUserName,
   setWorkingMode,
+  type SpecModel,
   type PlanModel,
 } from './composables/useSpecModel'
 import { clearComparison } from './composables/useModelComparison'
@@ -195,7 +197,7 @@ import { useToolInfo } from './composables/useToolInfo'
 import { useCopyright } from './composables/useCopyright'
 import { useSpecEditor } from './composables/useSpecEditor'
 import { backfillSpecKeysFromPlanKeys } from './composables/useSpecKeyMigration'
-import { resolveStageNavAction, STAGE_TOAST_MESSAGES } from './composables/useStageNavigation'
+import { resolveStageNavAction, STAGE_TOAST_MESSAGES, getStageAdvisory } from './composables/useStageNavigation'
 import {
   initEntriesFromSpec,
   recordSharpenProvenance,
@@ -266,14 +268,15 @@ const sharpenModalOpen = ref(false)
 // resourcesSharpenOpen: true when Stage 10 · Resources Sharpening panel is open.
 const resourcesSharpenOpen = ref(false)
 
+
 // Tom 2026-06-04 r88 — Phase 2 of Resources beef-up: write-back from
 // Claudian analysis.  The panel emits `apply-analysis` with an updated
 // SpecBlock after the user ticks per-finding approval.  We replace
-// currentSpec.value, persist the snapshot to the active planModel, and
+// currentSpec.value, persist the snapshot to the active specModel, and
 // log a one-line provenance breadcrumb.
 function _onResourcesAnalysisApplied(updatedSpec: SpecBlock): void {
   currentSpec.value = updatedSpec
-  if (planModel.value) savePlanSnapshot(updatedSpec)
+  if (specModel.value) saveSpecSnapshot(updatedSpec)
   console.log('[ResourcesAnalysis] applied — spec now has',
     updatedSpec.resources?.length ?? 0, 'R.,',
     updatedSpec.solutions?.length ?? 0, 'S.,',
@@ -306,7 +309,7 @@ const specGeneratedAt = ref<Date | null>(null)
 // --- Plan Model ---
 // Named, versioned model tracking for each spec/plan pair.
 // Initialised in doTranslate(); bumped in onSpecSharpened().
-const { currentModel: planModel, allModels: _allPlanModels } = useSpecModel()
+const { currentModel: specModel, allModels: _allSpecModels } = useSpecModel()
 
 // Live "now" tick for the top bar's save-time label (refreshed every 30 s)
 const _topBarNow = ref(Date.now())
@@ -315,7 +318,7 @@ onUnmounted(() => clearInterval(_topBarTimer))
 
 /** "Saved 4:32 PM" or "Saved 3 min ago" label for the persistent plan bar. */
 const specBarSavedLabel = computed((): string => {
-  const ts = planModel.value?.updatedAt
+  const ts = specModel.value?.updatedAt
   if (!ts) return ''
   const elapsed = Math.floor((_topBarNow.value - new Date(ts).getTime()) / 60_000)
   if (elapsed < 1) return 'Saved just now'
@@ -328,7 +331,7 @@ const specBarSavedLabel = computed((): string => {
 
 /** True when ≥2 minutes have elapsed since the last save — prompts a Save button in the top bar. */
 const specBarUnsaved = computed((): boolean => {
-  const ts = planModel.value?.updatedAt
+  const ts = specModel.value?.updatedAt
   if (!ts) return false
   return Math.floor((_topBarNow.value - new Date(ts).getTime()) / 60_000) >= 2
 })
@@ -378,7 +381,7 @@ const titleDraft    = ref('')
 const titleInputEl  = ref<HTMLInputElement | null>(null)
 
 function startTitleEdit(): void {
-  titleDraft.value   = planModel.value?.name ?? ''
+  titleDraft.value   = specModel.value?.name ?? ''
   titleEditing.value = true
   nextTick(() => {
     titleInputEl.value?.focus()
@@ -387,8 +390,8 @@ function startTitleEdit(): void {
 }
 function commitTitleEdit(): void {
   const trimmed = titleDraft.value.trim()
-  if (trimmed && planModel.value && trimmed !== planModel.value.name) {
-    renamePlanModel(planModel.value.id, trimmed)
+  if (trimmed && specModel.value && trimmed !== specModel.value.name) {
+    renameSpecModel(specModel.value.id, trimmed)
   }
   titleEditing.value = false
 }
@@ -484,15 +487,15 @@ onMounted(() => window.addEventListener('keydown', _onKeydown))
 onUnmounted(() => window.removeEventListener('keydown', _onKeydown))
 
 function openRenamePopover(): void {
-  renameInputVal.value  = planModel.value?.name ?? ''
-  renameOwnerVal.value  = planModel.value?.owners?.[0]?.name ?? ''
+  renameInputVal.value  = specModel.value?.name ?? ''
+  renameOwnerVal.value  = specModel.value?.owners?.[0]?.name ?? ''
   renamePopoverOpen.value = true
 }
 
 function submitRename(): void {
   const trimmed = renameInputVal.value.trim()
-  if (trimmed && planModel.value) {
-    renamePlanModel(planModel.value.id, trimmed)
+  if (trimmed && specModel.value) {
+    renameSpecModel(specModel.value.id, trimmed)
   }
   // Update just the owner name from the quick-rename popover
   // (full contact details are edited via PlanOwnerPanel)
@@ -603,7 +606,7 @@ const comparisonMode = ref(false)
 
 // --- Spec Owner panel + Spec Owners / Governance panel ---
 const specOwnerPanelOpen  = ref(false)
-const planPeopleTab       = ref<'owners' | 'planners' | 'scribes'>('owners')
+const specPeopleTab       = ref<'owners' | 'planners' | 'scribes'>('owners')
 const govPanelOpen        = ref(false)
 // --- Spec Story / Planner Consequences strip ---
 const specStoryOpen         = ref(false)
@@ -618,26 +621,26 @@ function _togglePlanStory(): void {
 // ResizeObserver tracks Plan Crest height so toggling the DNA strip
 // automatically adjusts content padding-top — no hardcoded crest height needed.
 const STAGE_BAR_H  = 124    // ValueCounter nav: py-3(12px) + pill(96px) + pb-1(4px) + py-3(12px) = 124px
-const planCrestEl  = ref<HTMLElement | null>(null)
-const planCrestH   = ref(0)
-let _planCrestRO: ResizeObserver | null = null
-watch(planCrestEl, (el) => {
-  _planCrestRO?.disconnect()
-  _planCrestRO = null
-  if (!el) { planCrestH.value = 0; return }
-  _planCrestRO = new ResizeObserver(() => {
-    planCrestH.value = Math.round(el.getBoundingClientRect().height)
+const specCrestEl  = ref<HTMLElement | null>(null)
+const specCrestH   = ref(0)
+let _specCrestRO: ResizeObserver | null = null
+watch(specCrestEl, (el) => {
+  _specCrestRO?.disconnect()
+  _specCrestRO = null
+  if (!el) { specCrestH.value = 0; return }
+  _specCrestRO = new ResizeObserver(() => {
+    specCrestH.value = Math.round(el.getBoundingClientRect().height)
   })
-  _planCrestRO.observe(el)
-  planCrestH.value = Math.round(el.getBoundingClientRect().height)
+  _specCrestRO.observe(el)
+  specCrestH.value = Math.round(el.getBoundingClientRect().height)
 })
-onUnmounted(() => _planCrestRO?.disconnect())
+onUnmounted(() => _specCrestRO?.disconnect())
 // contentTopPad: padding-top on the main content div.
 // When plan loaded: stage bar (STAGE_BAR_H) + Plan Crest (live height) cleared.
 // When no plan: stage bar is in document flow (not fixed), pt-8 static used.
 const contentTopPad = computed(() =>
-  (view.value === 'app' && planModel.value)
-    ? STAGE_BAR_H + planCrestH.value
+  (view.value === 'app' && specModel.value)
+    ? STAGE_BAR_H + specCrestH.value
     : undefined
 )
 // --- Feature #195: Spec Targets ---
@@ -823,7 +826,7 @@ function navigateGlyphPanel(type: PlGlyphType): void {
 }
 
 /** True when the active plan model is in 'model' mode (not plan mode). */
-const isModelMode = computed(() => planModel.value?.workingMode === 'model')
+const isModelMode = computed(() => specModel.value?.workingMode === 'model')
 
 // --- Feature #202: Plan Health (PHI badge + Status + Administration) ---
 // Two sister panels per Tom's design:
@@ -851,23 +854,23 @@ const internetContextOpen = ref(false)
  * Recomputes whenever spec or governance changes (computed dependency tracking).
  * The PHI is in [-100..+100]; below planHealthThreshold the badge vibrates.
  */
-const specHealthCtx = computed<PlanHealthContext>(() => ({
+const specHealthCtx = computed<SpecHealthContext>(() => ({
   spec: currentSpec.value ?? { functions: [], values: [], solutions: [] },
-  specOwnerCount: planModel.value?.governance?.specOwners?.length ?? 0,
-  hasPlanOwner: (planModel.value?.owners?.length ?? 0) > 0,
+  specOwnerCount: specModel.value?.governance?.specOwners?.length ?? 0,
+  hasSpecOwner: (specModel.value?.owners?.length ?? 0) > 0,
 }))
 const specHealthIndexValue = computed<number>(() => {
-  if (!planModel.value || !currentSpec.value) return 0
-  return useSpecHealth(planModel.value.id).planHealthIndex(specHealthCtx.value)
+  if (!specModel.value || !currentSpec.value) return 0
+  return useSpecHealth(specModel.value.id).planHealthIndex(specHealthCtx.value)
 })
 const specHealthThresholdValue = computed<number>(() => {
-  if (!planModel.value) return 50
-  return useSpecHealth(planModel.value.id).custom.value.threshold
+  if (!specModel.value) return 50
+  return useSpecHealth(specModel.value.id).custom.value.threshold
 })
 /** Pending notification count drives the rose dot on the Plan ID bar badge. */
 const specHealthAlertCount = computed<number>(() => {
-  if (!planModel.value) return 0
-  return useSpecHealth(planModel.value.id).pendingNotifications.value.length
+  if (!specModel.value) return 0
+  return useSpecHealth(specModel.value.id).pendingNotifications.value.length
 })
 
 // --- Feature #29: Spec Version History ---
@@ -887,8 +890,8 @@ const freshStartOpen = ref(false)
  * model or no owners set. Centralised here so every `addVersion(...)` call
  * site stays one-liner clean and the History search can match owner names.
  */
-function _planOwnerNames(): string[] {
-  return planModel.value?.owners?.map(o => o.name).filter(Boolean) ?? []
+function _specOwnerNames(): string[] {
+  return specModel.value?.owners?.map(o => o.name).filter(Boolean) ?? []
 }
 
 // --- Feature #202: Plan Health Auto-Snapshot watcher ---------------------
@@ -905,14 +908,14 @@ watch(
   () => specHistory.value[0]?.id,
   (newestId, oldId) => {
     if (!newestId || newestId === oldId) return
-    if (!planModel.value || !currentSpec.value) return
-    const ph = useSpecHealth(planModel.value.id)
+    if (!specModel.value || !currentSpec.value) return
+    const ph = useSpecHealth(specModel.value.id)
     if (!ph.custom.value.admin.autoSnapshotOnVersionBump) return
     const v = specHistory.value[0]
     const isFirst = ph.custom.value.snapshots.length === 0
     ph.recordSnapshot(specHealthCtx.value, {
       trigger: isFirst ? 'inception' : 'version-bump',
-      planVersion: planModel.value.version ? `v${planModel.value.version}` : '',
+      planVersion: specModel.value.version ? `v${specModel.value.version}` : '',
       versionLabel: v?.label ?? '',
     })
   },
@@ -970,11 +973,11 @@ function onHistoryRestore(
         // Re-activate the existing model AND sync its stored spec to the
         // restored snapshot so the bar, exports, and search all line up.
         activatePlanModel(match as Parameters<typeof activatePlanModel>[0])
-        savePlanSnapshot(spec)
+        saveSpecSnapshot(spec)
       } else {
         // No saved model with this historical name — start a fresh one so
         // the identity bar shows the correct plan title immediately.
-        initPlanModel(spec, wantedName)
+        initSpecModel(spec, wantedName)
       }
     } else {
       // Snapshot has no plan name (very old entry) — fall back to legacy behaviour
@@ -989,7 +992,7 @@ function onHistoryRestore(
     // can fill them in via Plan Owner Panel). Guard: never overwrites existing
     // owners so a subsequent load of the same plan name doesn't clobber
     // owners that were manually set after the snapshot was taken.
-    if (historyOwners.length > 0 && planModel.value && planModel.value.owners.length === 0) {
+    if (historyOwners.length > 0 && specModel.value && specModel.value.owners.length === 0) {
       const today = new Date().toISOString().slice(0, 10)
       for (const name of historyOwners) {
         if (name.trim()) {
@@ -1013,7 +1016,7 @@ function onHistoryRestore(
       stage.value = 1          // stay at Spec view; user decides when to advance
     }
 
-    addVersion(spec, 'Restored', plan, planModel.value?.name ?? '', _planOwnerNames())
+    addVersion(spec, 'Restored', plan, specModel.value?.name ?? '', _specOwnerNames())
   } catch (err) {
     // Don't swallow silently — log so we can diagnose. History is already
     // closed (we set historyOpen=false at the top of this function), so the
@@ -1040,26 +1043,26 @@ function onSpecFileImport(spec: SpecBlock): void {
 
 function onAmbitiousSpec(spec: SpecBlock): void {
   currentSpec.value = spec
-  addVersion(spec, 'Make Ambitious', _evoPlan.value as EvoStepPlan | null, planModel.value?.name ?? '', _planOwnerNames())
+  addVersion(spec, 'Make Ambitious', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
 }
 
 function onLeanSpecSelected(spec: SpecBlock): void {
   currentSpec.value = spec
-  addVersion(spec, 'Lean Plan', _evoPlan.value as EvoStepPlan | null, planModel.value?.name ?? '', _planOwnerNames())
+  addVersion(spec, 'Lean Plan', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
 }
 
 /** Feature #57b — Whole-spec rewrite saved as a copy version (current spec unchanged). */
 function onRewriteCopy(rewritten: SpecBlock): void {
-  addVersion(rewritten, 'Rewrite: Copy', _evoPlan.value as EvoStepPlan | null, planModel.value?.name ?? '', _planOwnerNames())
+  addVersion(rewritten, 'Rewrite: Copy', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
 }
 
 /** Feature #57b — Whole-spec rewrite replaces master; old spec saved to history first. */
 function onRewriteReplace(rewritten: SpecBlock): void {
   if (currentSpec.value) {
-    addVersion(currentSpec.value, 'Pre-Rewrite', _evoPlan.value as EvoStepPlan | null, planModel.value?.name ?? '', _planOwnerNames())
+    addVersion(currentSpec.value, 'Pre-Rewrite', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
   }
   currentSpec.value = rewritten
-  addVersion(rewritten, 'Rewrite: Applied', _evoPlan.value as EvoStepPlan | null, planModel.value?.name ?? '', _planOwnerNames())
+  addVersion(rewritten, 'Rewrite: Applied', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
 }
 
 /** Feature #57b — Single entry rewrite accepted; patches description in master spec. */
@@ -1072,7 +1075,7 @@ function onRewriteEntry(payload: { id: string; type: 'F' | 'V' | 'S'; descriptio
     values:    spec.values.map(v    => v.id === payload.id ? { ...v, description: payload.description } : v),
     solutions: spec.solutions.map(s => s.id === payload.id ? { ...s, description: payload.description } : s),
   }
-  addVersion(patched, `Rewrite: ${payload.id}`, _evoPlan.value as EvoStepPlan | null, planModel.value?.name ?? '', _planOwnerNames())
+  addVersion(patched, `Rewrite: ${payload.id}`, _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
   currentSpec.value = patched
 }
 
@@ -1221,7 +1224,8 @@ function handleStageBarNav(n: number): void {
   )
 
   if (toast !== null) {
-    showToast(STAGE_TOAST_MESSAGES[toast], 4000)
+    // Use per-stage advisory (explicit reason + what to do) — Tom 2026-06-05
+    showToast(getStageAdvisory(n, toast), 5500)
   }
 
   switch (action) {
@@ -1287,7 +1291,7 @@ const planningStageAction = computed<{ label: string; handler: () => void } | nu
     case 5:  return { label: '📊 Estimate Impacts',     handler: () => goToImpactStage() }
     case 6:  return { label: '⚡ Generate Evo Steps',   handler: () => { void _triggerEvoGeneration() } }
     case 7:  return { label: '📈 Evo Simulator',        handler: () => { evoSimulatorOpen.value = true } }
-    case 8:  return { label: '✅ Plan Tasks',            handler: () => goToTasksStage() }
+    case 8:  return { label: '✅ Spec Tasks',             handler: () => goToTasksStage() }
     case 9:  return { label: '📋 Study Results',        handler: () => showToast('💡 Study-Act: measure actual value delivered vs your Goals, then loop back to update the spec', 4500) }
     case 10: return { label: 'Sharpen Resources',         handler: () => { resourcesSharpenOpen.value = true } }
     case 11: return { label: '📤 Export Plan',          handler: () => exportFull() }
@@ -1616,8 +1620,8 @@ function _tryRestoreSession(): void {
   // is confusing — the user's intent on returning is to continue planning.
   const restoredStage = (saved.stage ?? 1) as typeof stage.value
   if (restoredStage === 1 && saved.currentSpec) {
-    // Auto-advancing to stage 2 — guarantee planModel is set so the
-    // Plan Identity Bar (v-if="planModel") renders correctly.
+    // Auto-advancing to stage 2 — guarantee specModel is set so the
+    // Plan Identity Bar (v-if="specModel") renders correctly.
     _ensurePlanModel(saved.currentSpec)
     // Suppress auto-generation: the session was saved with a spec already
     // present. The user's intent on resuming is to continue planning, not to
@@ -1629,7 +1633,7 @@ function _tryRestoreSession(): void {
     // advance it to 6 (Evo Steps) to match the view the user lands on.
     if (planningStage.value < 6) planningStage.value = 6
   } else {
-    // Staying at the restored stage — still ensure planModel if spec exists,
+    // Staying at the restored stage — still ensure specModel if spec exists,
     // because the user may have a spec at stage 1 and navigate to stage 2.
     if (saved.currentSpec) _ensurePlanModel(saved.currentSpec)
     // Same protection: if the session was saved at stage 2, EvoPlanView will
@@ -1990,9 +1994,9 @@ function launchDemo(): void {
         currentSpec.value = spec
         markdown.value = serialise(spec)
         specGeneratedAt.value = new Date()
-        try { initPlanModel(spec) } catch { /* non-fatal in demo path */ }
+        try { initSpecModel(spec) } catch { /* non-fatal in demo path */ }
         try {
-          addVersion(spec, 'Generated', null, planModel.value?.name ?? '', _planOwnerNames())
+          addVersion(spec, 'Generated', null, specModel.value?.name ?? '', _specOwnerNames())
         } catch { /* history is best-effort in demo */ }
         stage.value = 1
         stage1Sub.value = 'form'
@@ -2436,7 +2440,7 @@ const nextActionLabel = computed<string | null>(() => {
     if (!_evoPlan.value || _evoPlan.value.steps.length === 0) return null
     return 'Confirm Plan'
   }
-  if (stage.value === 3) return 'Plan Tasks'   // Impact (stage 3) → Tasks (stage 4)
+  if (stage.value === 3) return 'Spec Tasks'   // Impact (stage 3) → Tasks (stage 4)
   if (stage.value === 4) return 'Study-Act'    // Tasks (8) → Study-Act (9) — Tom 2026-06-03 (no longer skip to Export)
   return null   // stage 5: done
 })
@@ -2472,7 +2476,7 @@ function handleSpeak(text: string): void {
  */
 function onSpecSharpened(refined: SpecBlock): void {
   // Phase 1 (Sources of Specs) — capture before-spec and round Q&A before state changes
-  const planModelId = planModel.value?.id
+  const specModelId = specModel.value?.id
   const beforeSpec  = currentSpec.value
   const lastRound   = sharpenRounds.value[sharpenRounds.value.length - 1]
   const inputWords  = lastRound
@@ -2481,13 +2485,13 @@ function onSpecSharpened(refined: SpecBlock): void {
   const sharpenLabel = lastRound?.category.label
 
   currentSpec.value = refined
-  addVersion(refined, 'Sharpened', _evoPlan.value as EvoStepPlan | null, planModel.value?.name ?? '', _planOwnerNames())
+  addVersion(refined, 'Sharpened', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
   markdown.value = serialise(refined)
-  bumpPlanVersion(refined)   // bump plan model version (0.1 → 0.2 → …) after each sharpen round
+  bumpSpecVersion(refined)   // bump spec model version (0.1 → 0.2 → …) after each sharpen round
 
   // Record which entries changed — diff silently, no UI impact
-  if (planModelId && beforeSpec) {
-    recordSharpenProvenance(planModelId, beforeSpec, refined, {
+  if (specModelId && beforeSpec) {
+    recordSharpenProvenance(specModelId, beforeSpec, refined, {
       humanInputWords: inputWords,
       label:           sharpenLabel,
     })
@@ -2571,8 +2575,8 @@ async function handleSharpenPlan(): Promise<void> {
 function handlePlanImported(spec: SpecBlock): void {
   currentSpec.value      = spec
   specGeneratedAt.value  = new Date()
-  initPlanModel(spec)
-  addVersion(spec, 'Imported', null, planModel.value?.name ?? '', _planOwnerNames())
+  initSpecModel(spec)
+  addVersion(spec, 'Imported', null, specModel.value?.name ?? '', _specOwnerNames())
   markdown.value    = serialise(spec)
   specInputOpen.value = false
   stage.value       = 2
@@ -2613,8 +2617,8 @@ function handlePlanAddTo(imported: SpecBlock): void {
 
   currentSpec.value = merged
   markdown.value    = serialise(merged)
-  addVersion(merged, 'Added from import', _evoPlan.value, planModel.value?.name ?? '', _planOwnerNames())
-  if (planModel.value) savePlanSnapshot(merged)
+  addVersion(merged, 'Added from import', _evoPlan.value, specModel.value?.name ?? '', _specOwnerNames())
+  if (specModel.value) saveSpecSnapshot(merged)
   specInputOpen.value = false
   stage.value = 1
   scrollToSpec()
@@ -2632,8 +2636,8 @@ function _applyLoadedModel(model: PlanModel): void {
   // ── Save the outgoing plan before switching ───────────────────────────────
   // Only save when there IS a current model AND it is a different model from
   // the one being loaded (loading the same model again should be a no-op save).
-  if (planModel.value && planModel.value.id !== model.id && currentSpec.value) {
-    savePlanSnapshot(currentSpec.value)
+  if (specModel.value && specModel.value.id !== model.id && currentSpec.value) {
+    saveSpecSnapshot(currentSpec.value)
   }
 
   currentSpec.value     = model.spec
@@ -2715,7 +2719,7 @@ function resumeLastModel(): void {
  */
 function savePlanNow(): void {
   if (currentSpec.value) {
-    savePlanSnapshot(currentSpec.value)
+    saveSpecSnapshot(currentSpec.value)
     showToast('💾 Version checkpoint saved to Plan History', 2500)
   }
 }
@@ -2757,10 +2761,10 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
   // (Tom 2026-05-29: "all parse lost as I added solutions" — spec cleared before
   //  new generation succeeded, leaving the user with nothing on failure.)
   const _specBeforeSubmit  = currentSpec.value
-  const _planModelBeforeSubmit = planModel.value  // for failure-restore symmetry
+  const _specModelBeforeSubmit = specModel.value  // for failure-restore symmetry
   currentSpec.value = null
   // Tom 2026-06-04 verbatim: *"I started a new parse but the old project monitor
-  // persisted"*.  Root cause: planModel.value held the previous project ("MONITOR
+  // persisted"*.  Root cause: specModel.value held the previous project ("MONITOR
   // CONTRACT — Improve Vessel's Speed Under & Vessel's Speed v0.1") across the
   // new-parse flow.  initPlanModel() runs only AFTER generation completes (line
   // ~2691), so during the 30-60s generation window the title bar still showed
@@ -2768,7 +2772,7 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
   // into my new parse".  Fix: clearPlanModel() at parse-start so the title bar
   // reflects "fresh parse" immediately.  Old model is preserved in history (via
   // earlier _upsertHistory calls) so it remains recallable.  On generation
-  // FAILURE the spec-restore safety net below also restores planModel so the
+  // FAILURE the spec-restore safety net below also restores specModel so the
   // user isn't left empty-handed.
   clearPlanModel()
   // Tom 2026-06-04 r86: also reset planningStage to 1.  Without this the
@@ -2794,14 +2798,14 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
     await doTranslate({ stakes: payload.stakes, ends: payload.ends, means: payload.means })
   }
   // Spec restore safety net: if the generation failed (currentSpec still null),
-  // put the previous spec AND its planModel back so the user is never left
-  // empty-handed.  Tom 2026-06-04 fix r82: planModel was being cleared at
+  // put the previous spec AND its specModel back so the user is never left
+  // empty-handed.  Tom 2026-06-04 fix r82: specModel was being cleared at
   // parse-start to fix the "old project persisted" bug; on failure we restore
   // both so the failed parse doesn't ALSO lose the prior project context.
   if (!currentSpec.value && _specBeforeSubmit) {
     currentSpec.value = _specBeforeSubmit
-    if (_planModelBeforeSubmit) {
-      activatePlanModel(_planModelBeforeSubmit as Parameters<typeof activatePlanModel>[0])
+    if (_specModelBeforeSubmit) {
+      activatePlanModel(_specModelBeforeSubmit as Parameters<typeof activatePlanModel>[0])
     }
     showToast('⚠️ Generation failed — your previous spec has been restored. Try again.', 5000)
   }
@@ -2853,28 +2857,28 @@ async function doTranslate(
       // Preserve stewards across re-generation — Tom 2026-05-28: "save stewards were delete."
       // initPlanModel() creates a blank team (owners:[], planners:[], scribes:[default]).
       // Capture before the call; restore after so the team persists across spec iterations.
-      const _prevOwners   = planModel.value?.owners.map(o => ({ ...o })) ?? []
-      const _prevPlanners = planModel.value?.planners.map(p => ({ ...p })) ?? []
+      const _prevOwners   = specModel.value?.owners.map(o => ({ ...o })) ?? []
+      const _prevPlanners = specModel.value?.planners.map(p => ({ ...p })) ?? []
       // Non-default scribes only — initPlanModel re-creates the default device-user scribe.
-      const _prevScribes  = (planModel.value?.scribes ?? []).filter(s => !s.isDefault).map(s => ({ ...s }))
+      const _prevScribes  = (specModel.value?.scribes ?? []).filter(s => !s.isDefault).map(s => ({ ...s }))
 
-      initPlanModel(annotatedSpec)         // Plan Model — auto-name from first F. entry, version 0.1
+      initSpecModel(annotatedSpec)          // Spec Model — auto-name from first F. entry, version 0.1
 
       // Restore team (new IDs generated; all contact + role fields preserved).
       for (const { id: _o, ...ownerData }   of _prevOwners)   addOwner(ownerData)
       for (const { id: _p, ...plannerData } of _prevPlanners) addPlanner(plannerData)
       for (const { id: _s, ...scribeData }  of _prevScribes)  addScribe(scribeData)
       // Phase 1 (Sources of Specs) — record initial AI-generation provenance for all entries
-      if (planModel.value?.id) {
+      if (specModel.value?.id) {
         const inputWords = countWords(`${payload.stakes} ${payload.ends} ${payload.means}`)
-        initEntriesFromSpec(planModel.value.id, annotatedSpec, {
+        initEntriesFromSpec(specModel.value.id, annotatedSpec, {
           actor:           'ai',
           changeType:      'generate',
           humanInputWords: inputWords,
           label:           'initial translation',
         })
       }
-      addVersion(annotatedSpec, 'Generated', null, planModel.value?.name ?? '', _planOwnerNames())
+      addVersion(annotatedSpec, 'Generated', null, specModel.value?.name ?? '', _specOwnerNames())
       markdown.value = serialise(annotatedSpec)
       succeeded = true
       // Stay at stage 1 after spec generation so the user can review the spec,
@@ -2956,12 +2960,12 @@ function handleClarifyBack(): void {
  * new one from the current spec so the bar is never blank.
  */
 function _ensurePlanModel(spec: SpecBlock): void {
-  if (planModel.value) return            // already active — nothing to do
+  if (specModel.value) return            // already active — nothing to do
   const latest = latestPlanModel()
   if (latest) {
     activatePlanModel(latest)            // re-activate the most recent saved model
   } else {
-    initPlanModel(spec)                  // no saved models at all — create one
+    initSpecModel(spec)                  // no saved models at all — create one
   }
 }
 
@@ -3147,8 +3151,8 @@ function downloadPlan(): void {
   const date     = now.toISOString().slice(0, 10)
   const hh       = now.getHours().toString().padStart(2, '0')
   const mm       = now.getMinutes().toString().padStart(2, '0')
-  const modelName = planModel.value?.name ?? 'Planning Spec'
-  const version   = planModel.value ? `  v${planModel.value.version}` : ''
+  const modelName = specModel.value?.name ?? 'Planning Spec'
+  const version   = specModel.value ? `  v${specModel.value.version}` : ''
 
   // Plain-text header — no Markdown
   const HR = '═'.repeat(48)
@@ -3169,8 +3173,8 @@ function downloadPlan(): void {
     .replace(/[/\\?%*:|"<>]/g, '')
     .replace(/\s+/g, '-')
     .slice(0, 40)
-  const filename = planModel.value
-    ? `${safeName}-v${planModel.value.version}-${date}-${hh}${mm}.txt`
+  const filename = specModel.value
+    ? `${safeName}-v${specModel.value.version}-${date}-${hh}${mm}.txt`
     : `plan-${date}-${hh}${mm}.txt`
 
   const blob = new Blob([header + body], { type: 'text/plain;charset=utf-8' })
@@ -3182,6 +3186,287 @@ function downloadPlan(): void {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// ── Value Flow SVG download (Evo Impact stage per-diagram export) ─────────────
+// Tom 2026-06-05: "each diagram needs copy, email, download buttons."
+// Queries the SVG element rendered inside the embedded VF card and serializes it.
+const _vfEmbedBodyRef = ref<HTMLElement | null>(null)
+
+function downloadValueFlowSvg(): void {
+  const svgEl = _vfEmbedBodyRef.value?.querySelector('svg')
+  if (!svgEl) {
+    showToast('Value Flow SVG not found — try Enlarge ↗ to render the full diagram first', 3500)
+    return
+  }
+  const svgString = new XMLSerializer().serializeToString(svgEl)
+  const date = new Date().toISOString().slice(0, 10)
+  const safeName = (specModel.value?.name ?? 'ValueFlow')
+    .replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40)
+  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `${safeName}-value-flow-${date}.svg`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  showToast('Value Flow downloaded as SVG', 3000)
+}
+
+// ── Per-impact-table export helpers (Tom 2026-06-05) ─────────────────────────
+// Tom: "I do not seem to get that evo step table with copy, i get a set of
+// planguage specs." — these functions export TABLE-SPECIFIC colorful HTML,
+// not the full Planguage spec.  Color scheme mirrors the traffic-light
+// scheme used inside ImpactEstimationStepView / ImpactEstimationView.
+
+function _impactCellBg(v: number): string {
+  if (v === 0) return '#ffffff'
+  if (v < 0)   return '#fca5a5'
+  if (v >= 80) return '#86efac'
+  if (v >= 60) return '#bbf7d0'
+  if (v >= 30) return '#fde68a'
+  return '#fecaca'
+}
+function _impactCellFg(v: number): string { return v === 0 ? '#9ca3af' : '#0f172a' }
+function _impactCellText(v: number): string { return v === 0 ? '–' : String(v) }
+
+// ── V × Evo Step HTML builder ─────────────────────────────────────────────────
+// Replicates ImpactEstimationStepView's cell aggregation logic as a pure
+// function so Copy/Email/Download can export just this table.
+
+function _buildImpactStepTableHtml(): string {
+  const spec   = currentSpec.value
+  const steps  = _stepsForDiagram.value
+  const matrix = capturedImpactMatrix.value
+  if (!spec || steps.length === 0) return ''
+  const values    = spec.values
+  const solutions = spec.solutions
+
+  // Resolve LLM linkedSolution refs → solution.id (mirrors component logic)
+  const solLookup = new Map<string, string>()
+  for (const sol of solutions) {
+    solLookup.set(sol.id, sol.id)
+    solLookup.set(sol.description.trim().toLowerCase(), sol.id)
+  }
+  const resolveRef = (ref: string): string =>
+    solLookup.get(ref.trim().toLowerCase()) ?? solLookup.get(ref.trim()) ?? ref
+  const stepCell = (valueId: string, step: EvoStep): number => {
+    const row = matrix[valueId]
+    if (!row) return 0
+    return step.linkedSolutions.reduce((s, r) => s + (row[resolveRef(r)] ?? 0), 0)
+  }
+  const rowTotal = (valueId: string): number =>
+    steps.reduce((s, st) => s + stepCell(valueId, st), 0)
+  const colTotal = (step: EvoStep): number =>
+    values.reduce((s, v) => s + stepCell(v.id, step), 0)
+
+  const date  = new Date().toISOString().slice(0, 10)
+  const name  = specModel.value?.name ?? 'Evo Impact'
+  const cols  = steps.length + 2
+  const H_BG  = '#059669'   // emerald-600 — matches ImpactEstimationStepView header
+  const SH_BG = '#e2e8f0'
+  const SH_FG = '#374151'
+
+  let h = `<table border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin:0 0 14px 0;">`
+  h += `<tr><td colspan="${cols}" bgcolor="${H_BG}" style="background:${H_BG};color:#ffffff;font-weight:bold;font-size:13px;padding:10px 14px;">V × Evo Step Impact — ${name} · ${date}</td></tr>`
+  h += `<tr bgcolor="${SH_BG}" style="background:${SH_BG};">`
+  h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;min-width:160px;">Value \\ Evo Step</td>`
+  for (const st of steps) h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;min-width:100px;" title="${st.description}">${st.name}</td>`
+  h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;text-align:right;background:#cbd5e1;">Σ Value</td>`
+  h += `</tr>`
+  for (const v of values) {
+    h += `<tr>`
+    h += `<td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><span style="font-weight:bold;color:#047857;">${v.id}</span><span style="color:#64748b;margin-left:6px;">${v.description}</span></td>`
+    for (const st of steps) {
+      const cv = stepCell(v.id, st)
+      h += `<td bgcolor="${_impactCellBg(cv)}" style="background:${_impactCellBg(cv)};color:${_impactCellFg(cv)};font-weight:bold;text-align:center;padding:6px 10px;border-bottom:1px solid #e2e8f0;">${_impactCellText(cv)}</td>`
+    }
+    h += `<td style="background:#f8fafc;font-weight:bold;color:#1e293b;text-align:right;padding:6px 10px;border-bottom:1px solid #e2e8f0;">${_impactCellText(rowTotal(v.id))}</td>`
+    h += `</tr>`
+  }
+  h += `<tr bgcolor="#eef2ff" style="background:#eef2ff;border-top:2px solid #c7d2fe;">`
+  h += `<td style="padding:5px 10px;font-weight:600;color:#4338ca;text-align:right;">Effort %</td>`
+  for (const st of steps) h += `<td bgcolor="#eef2ff" style="background:#eef2ff;color:#4338ca;font-weight:bold;text-align:center;padding:5px 10px;">${st.effortPercent}%</td>`
+  h += `<td bgcolor="#eef2ff" style="background:#eef2ff;"></td></tr>`
+  h += `<tr bgcolor="${SH_BG}" style="background:${SH_BG};border-top:2px solid #94a3b8;">`
+  h += `<td style="padding:5px 10px;font-weight:bold;color:${SH_FG};text-align:right;">Σ Impact (this step)</td>`
+  for (const st of steps) h += `<td bgcolor="${SH_BG}" style="background:${SH_BG};font-weight:800;color:#0f172a;text-align:center;padding:5px 10px;">${_impactCellText(colTotal(st))}</td>`
+  h += `<td bgcolor="#94a3b8" style="background:#94a3b8;font-weight:bold;color:#0f172a;text-align:right;padding:5px 10px;">Σ Σ</td></tr>`
+  h += `</table>`
+  return h
+}
+
+// ── V × Solution HTML builder ─────────────────────────────────────────────────
+// Reads capturedImpactMatrix directly (keyed by [valueId][solutionId]).
+
+function _buildImpactSolutionTableHtml(): string {
+  const spec   = currentSpec.value
+  const matrix = capturedImpactMatrix.value
+  if (!spec || spec.values.length === 0 || spec.solutions.length === 0) return ''
+  const values    = spec.values
+  const solutions = spec.solutions
+
+  const cellV    = (vid: string, sid: string): number => matrix[vid]?.[sid] ?? 0
+  const rowTotal = (vid: string): number => solutions.reduce((s, sol) => s + cellV(vid, sol.id), 0)
+  const colTotal = (sid: string): number => values.reduce((s, v) => s + cellV(v.id, sid), 0)
+
+  const date  = new Date().toISOString().slice(0, 10)
+  const name  = specModel.value?.name ?? 'Evo Impact'
+  const cols  = solutions.length + 2
+  const H_BG  = '#4f46e5'   // indigo-600 — matches V×S panel style
+  const SH_BG = '#e2e8f0'
+  const SH_FG = '#374151'
+
+  let h = `<table border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin:0 0 14px 0;">`
+  h += `<tr><td colspan="${cols}" bgcolor="${H_BG}" style="background:${H_BG};color:#ffffff;font-weight:bold;font-size:13px;padding:10px 14px;">V × Solution Impact — ${name} · ${date}</td></tr>`
+  h += `<tr bgcolor="${SH_BG}" style="background:${SH_BG};">`
+  h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;min-width:160px;">Value \\ Solution</td>`
+  for (const sol of solutions) h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;min-width:100px;" title="${sol.description}">${sol.id}</td>`
+  h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;text-align:right;background:#cbd5e1;">Σ Value</td></tr>`
+  for (const v of values) {
+    h += `<tr>`
+    h += `<td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><span style="font-weight:bold;color:#6d28d9;">${v.id}</span><span style="color:#64748b;margin-left:6px;">${v.description}</span></td>`
+    for (const sol of solutions) {
+      const cv = cellV(v.id, sol.id)
+      h += `<td bgcolor="${_impactCellBg(cv)}" style="background:${_impactCellBg(cv)};color:${_impactCellFg(cv)};font-weight:bold;text-align:center;padding:6px 10px;border-bottom:1px solid #e2e8f0;">${_impactCellText(cv)}</td>`
+    }
+    h += `<td style="background:#f8fafc;font-weight:bold;color:#1e293b;text-align:right;padding:6px 10px;border-bottom:1px solid #e2e8f0;">${_impactCellText(rowTotal(v.id))}</td>`
+    h += `</tr>`
+  }
+  h += `<tr bgcolor="${SH_BG}" style="background:${SH_BG};border-top:2px solid #94a3b8;">`
+  h += `<td style="padding:5px 10px;font-weight:bold;color:${SH_FG};text-align:right;">Σ Impact (this solution)</td>`
+  for (const sol of solutions) h += `<td bgcolor="${SH_BG}" style="background:${SH_BG};font-weight:800;color:#0f172a;text-align:center;padding:5px 10px;">${_impactCellText(colTotal(sol.id))}</td>`
+  h += `<td bgcolor="#94a3b8" style="background:#94a3b8;font-weight:bold;color:#0f172a;text-align:right;padding:5px 10px;">Σ Σ</td></tr>`
+  h += `</table>`
+  return h
+}
+
+// ── V × Evo Step — copy / email / download ────────────────────────────────────
+
+async function copyImpactStepTable(): Promise<void> {
+  showToast('Building V × Evo Step table…', 1500)
+  try {
+    const html = _buildImpactStepTableHtml()
+    if (!html) { showToast('No V × Step data yet — generate an Evo Plan and fill V × S first', 4000); return }
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html':  new Blob([html],                         { type: 'text/html'  }),
+        'text/plain': new Blob(['V × Evo Step Impact table'],  { type: 'text/plain' }),
+      })])
+      showToast('📋 V × Evo Step table copied — paste into Keynote, Mail, or Notes', 5000)
+    } else {
+      await navigator.clipboard.writeText('V × Evo Step Impact table — use Email or Download for the colourful version')
+      showToast('📋 Copied (plain fallback) — use Email or Download for the colourful table', 5000)
+    }
+  } catch (err) { showToast(`Copy failed: ${String(err).slice(0, 80)}`, 7000) }
+}
+
+async function emailImpactStepTable(): Promise<void> {
+  showToast('Building V × Evo Step email…', 1500)
+  try {
+    const html = _buildImpactStepTableHtml()
+    if (!html) { showToast('No V × Step data yet — generate an Evo Plan and fill V × S first', 4000); return }
+    const date    = new Date().toISOString().slice(0, 10)
+    const name    = specModel.value?.name ?? 'Evo Impact'
+    const subject = `V × Evo Step Impact — ${name} · ${date}`
+    let clipOk = false
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html':  new Blob([html],                         { type: 'text/html'  }),
+          'text/plain': new Blob(['V × Evo Step Impact table'],  { type: 'text/plain' }),
+        })])
+        clipOk = true
+      }
+    } catch { /* mail still opens */ }
+    const cue  = clipOk ? 'PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION' : '(Auto-copy failed — use Copy first, then ⌘V here.)'
+    const HR   = '────────────────────────────────────────────────────────'
+    const body = `${cue}\nExported: ${date}\n${HR}\n\nV × Evo Step Impact — ${name}\nPaste ⌘V above for the colourful table.`
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    showToast('Mail opening — press ⌘V in the body to paste the colourful table, then Send', 6000)
+  } catch (err) { showToast(`Email failed: ${String(err).slice(0, 80)}`, 7000) }
+}
+
+function downloadImpactStepTable(): void {
+  const html = _buildImpactStepTableHtml()
+  if (!html) { showToast('No V × Step data yet — generate an Evo Plan and fill V × S first', 4000); return }
+  const date = new Date().toISOString().slice(0, 10)
+  const name = specModel.value?.name ?? 'Evo Impact'
+  const safe = name.replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40)
+  const doc  = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>V × Evo Step Impact — ${name}</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`
+  const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `${safe}-impact-step-${date}.html`
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  showToast('V × Evo Step table downloaded as HTML', 3000)
+}
+
+// ── V × Solution — copy / email / download ────────────────────────────────────
+
+async function copyImpactSolutionTable(): Promise<void> {
+  showToast('Building V × Solution table…', 1500)
+  try {
+    const html = _buildImpactSolutionTableHtml()
+    if (!html) { showToast('No V × Solution data yet — fill the impact table first', 4000); return }
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html':  new Blob([html],                           { type: 'text/html'  }),
+        'text/plain': new Blob(['V × Solution Impact table'],    { type: 'text/plain' }),
+      })])
+      showToast('📋 V × Solution table copied — paste into Keynote, Mail, or Notes', 5000)
+    } else {
+      await navigator.clipboard.writeText('V × Solution Impact table — use Email or Download for the colourful version')
+      showToast('📋 Copied (plain fallback) — use Email or Download for the colourful table', 5000)
+    }
+  } catch (err) { showToast(`Copy failed: ${String(err).slice(0, 80)}`, 7000) }
+}
+
+async function emailImpactSolutionTable(): Promise<void> {
+  showToast('Building V × Solution email…', 1500)
+  try {
+    const html = _buildImpactSolutionTableHtml()
+    if (!html) { showToast('No V × Solution data yet — fill the impact table first', 4000); return }
+    const date    = new Date().toISOString().slice(0, 10)
+    const name    = specModel.value?.name ?? 'Evo Impact'
+    const subject = `V × Solution Impact — ${name} · ${date}`
+    let clipOk = false
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html':  new Blob([html],                           { type: 'text/html'  }),
+          'text/plain': new Blob(['V × Solution Impact table'],    { type: 'text/plain' }),
+        })])
+        clipOk = true
+      }
+    } catch { /* mail still opens */ }
+    const cue  = clipOk ? 'PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION' : '(Auto-copy failed — use Copy first, then ⌘V here.)'
+    const HR   = '────────────────────────────────────────────────────────'
+    const body = `${cue}\nExported: ${date}\n${HR}\n\nV × Solution Impact — ${name}\nPaste ⌘V above for the colourful table.`
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    showToast('Mail opening — press ⌘V in the body to paste the colourful table, then Send', 6000)
+  } catch (err) { showToast(`Email failed: ${String(err).slice(0, 80)}`, 7000) }
+}
+
+function downloadImpactSolutionTable(): void {
+  const html = _buildImpactSolutionTableHtml()
+  if (!html) { showToast('No V × Solution data yet — fill the impact table first', 4000); return }
+  const date = new Date().toISOString().slice(0, 10)
+  const name = specModel.value?.name ?? 'Evo Impact'
+  const safe = name.replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40)
+  const doc  = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>V × Solution Impact — ${name}</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`
+  const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `${safe}-impact-solution-${date}.html`
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  showToast('V × Solution table downloaded as HTML', 3000)
 }
 
 // ── Auto-copy plan to clipboard on stage 5 entry ──────────────────────────────
@@ -3205,8 +3490,8 @@ async function autoCopyPlan(): Promise<void> {
     const now       = new Date()
     const hh        = now.getHours().toString().padStart(2, '0')
     const mm        = now.getMinutes().toString().padStart(2, '0')
-    const modelName = planModel.value?.name ?? 'Planning Spec'
-    const version   = planModel.value ? `  v${planModel.value.version}` : ''
+    const modelName = specModel.value?.name ?? 'Planning Spec'
+    const version   = specModel.value ? `  v${specModel.value.version}` : ''
     const HR        = '═'.repeat(48)
 
     const fileHeader = [
@@ -3357,12 +3642,12 @@ async function emailPlan(): Promise<void> {
     }
 
     _saveNow()
-    if (planModel.value) savePlanSnapshot(currentSpec.value)
+    if (specModel.value) savePlanSnapshot(currentSpec.value)
 
     const now       = new Date()
     const date      = now.toISOString().slice(0, 10)
-    const modelName = planModel.value?.name ?? 'Planning Spec'
-    const versTxt   = planModel.value ? `v${planModel.value.version}` : ''
+    const modelName = specModel.value?.name ?? 'Planning Spec'
+    const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
     const subject   = `Spec: ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`
 
     let htmlBody = ''
@@ -3508,7 +3793,7 @@ const { active: dictationActive, supported: dictationSupported, toggle: toggleDi
     'Plan Evo Steps':             () => { goToPlanStage() },
     'Confirm Plan':               () => { document.querySelector<HTMLButtonElement>('button[aria-label="Confirm Plan"]:not([disabled])')?.click() },
     'Estimate Impact':            () => { goToImpactStage() },   // navigate to Impact (stage 3)
-    'Plan Tasks':                 () => { goToTasksStage() },    // navigate from Impact → Tasks (stage 4)
+    'Spec Tasks':                 () => { goToTasksStage() },    // navigate from Impact → Tasks (stage 4)
     'Export Prioritised Plan':    () => { exportFull() },
     // Back nav
     'Back to spec':               () => { stage.value = 1 },
@@ -3679,7 +3964,7 @@ onUnmounted(() => {
  */
 const searchEntries = computed((): SearchEntry[] => {
   const hasSpec  = !!currentSpec.value
-  const hasModel = !!planModel.value
+  const hasModel = !!specModel.value
   const hasSteps = confirmedSteps.value.length > 0
 
   return [
@@ -3859,33 +4144,33 @@ const searchEntries = computed((): SearchEntry[] => {
       id: 'save-plan', icon: '✱', name: 'Save Plan',
       description: 'Export the current plan model as a .json file',
       keywords: ['save', 'export', 'download', 'json', 'backup plan'],
-      context: 'Plan Models', action: () => { downloadPlan() },
+      context: 'Spec Models', action: () => { downloadPlan() },
       disabled: !hasSpec,
     },
     {
       id: 'email-plan', icon: '✉️', name: 'Email Plan',
       description: 'Copy rich HTML to clipboard and open Mail',
       keywords: ['email', 'mail', 'send', 'share', 'clipboard'],
-      context: 'Plan Models', action: () => { emailPlan() },
+      context: 'Spec Models', action: () => { emailPlan() },
       disabled: !hasSpec,
     },
     {
       id: 'restore-plans', icon: '↑', name: 'Restore Plans',
       description: 'Import a previously saved plan model from a .json file',
       keywords: ['restore', 'import', 'load', 'previous plan', 'json import'],
-      context: 'Plan Models', action: () => { openRestorePicker() },
+      context: 'Spec Models', action: () => { openRestorePicker() },
     },
     {
       id: 'previous-plan', icon: '✱', name: 'Start with a Previous Plan',
       description: 'Switch to a different saved plan model',
       keywords: ['previous plan', 'load plan', 'switch plan', 'all models', 'plans'],
-      context: 'Plan Models', action: () => { modelsOpen.value = true },
+      context: 'Spec Models', action: () => { modelsOpen.value = true },
     },
     {
       id: 'backup', icon: '🛡', name: 'Backup SEM App',
       description: 'Download a backup of all saved plan models',
       keywords: ['backup', 'all plans', 'export all', 'archive'],
-      context: 'Plan Models', action: () => { backupAllModels() },
+      context: 'Spec Models', action: () => { backupAllModels() },
       disabled: !hasModel,
     },
 
@@ -3974,7 +4259,7 @@ const searchEntries = computed((): SearchEntry[] => {
       description: 'Add or edit the people accountable for this spec (approval authority + change sign-off)',
       keywords: ['owner', 'owners', 'contact', 'accountability', 'approval', 'authority', 'responsible'],
       context: 'Plan',
-      action: () => { planPeopleTab.value = 'owners'; specOwnerPanelOpen.value = true },
+      action: () => { specPeopleTab.value = 'owners'; specOwnerPanelOpen.value = true },
       disabled: !hasModel,
     },
     {
@@ -3982,7 +4267,7 @@ const searchEntries = computed((): SearchEntry[] => {
       description: 'Add or edit the people who conceived and directed the spec ideas',
       keywords: ['planner', 'planners', 'author', 'strategist', 'ideas', 'director'],
       context: 'Plan',
-      action: () => { planPeopleTab.value = 'planners'; specOwnerPanelOpen.value = true },
+      action: () => { specPeopleTab.value = 'planners'; specOwnerPanelOpen.value = true },
       disabled: !hasModel,
     },
     {
@@ -3990,7 +4275,7 @@ const searchEntries = computed((): SearchEntry[] => {
       description: 'Add or edit the people who did the actual keying/dictation to enter ideas into the app',
       keywords: ['scribe', 'scribes', 'typist', 'keyboard', 'dictation', 'mob', 'rotate', 'keying'],
       context: 'Plan',
-      action: () => { planPeopleTab.value = 'scribes'; specOwnerPanelOpen.value = true },
+      action: () => { specPeopleTab.value = 'scribes'; specOwnerPanelOpen.value = true },
       disabled: !hasModel,
     },
 
@@ -4137,9 +4422,9 @@ function handleAction(id: string): void {
     // ── PLANNING ───────────────────────────────────────────────────────────
     case 'planTargets':      specTargetsOpen.value      = true; break
     case 'globalPriority':   globalPriorityOpen.value   = true; break
-    case 'planOwners':       planPeopleTab.value = 'owners';   specOwnerPanelOpen.value = true; break
-    case 'planners':         planPeopleTab.value = 'planners'; specOwnerPanelOpen.value = true; break
-    case 'scribes':          planPeopleTab.value = 'scribes';  specOwnerPanelOpen.value = true; break
+    case 'planOwners':       specPeopleTab.value = 'owners';   specOwnerPanelOpen.value = true; break
+    case 'planners':         specPeopleTab.value = 'planners'; specOwnerPanelOpen.value = true; break
+    case 'scribes':          specPeopleTab.value = 'scribes';  specOwnerPanelOpen.value = true; break
     case 'specOwners':       govPanelOpen.value         = true; break
     // ── EXPLORE ────────────────────────────────────────────────────────────
     case 'evoSim':           evoSimulatorOpen.value     = true; break
@@ -4208,8 +4493,8 @@ function _backupCurrentSpec(reason: string): void {
     currentSpec.value,
     `${reason} backup at ${ts}`,
     _evoPlan.value ?? null,
-    planModel.value?.name ?? '',
-    _planOwnerNames(),
+    specModel.value?.name ?? '',
+    _specOwnerNames(),
   )
 }
 
@@ -4473,12 +4758,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
        sharpen rounds, manual edits, days active).
        z-[300] sits above normal content and below the demo bar (z-50+).  -->
   <div
-    ref="planCrestEl"
-    v-if="view === 'app' && planModel"
+    ref="specCrestEl"
+    v-if="view === 'app' && specModel"
     class="fixed top-[124px] left-0 right-0 z-[300] flex flex-col px-4 py-1.5
            bg-gradient-to-r from-indigo-800 via-indigo-600 to-violet-600
            text-white shadow-lg ring-1 ring-black/10 select-none"
-    aria-label="Plan Crest — active plan"
+    aria-label="Spec Crest — active spec"
   >
     <!-- ── Row 1: HERO TITLE ───────────────────────────────────────────────
          Tom 2026-05-12 (third pass): "the title is still not what I asked
@@ -4502,14 +4787,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
       <div class="absolute top-1.5 left-1 flex items-center gap-1 pl-0.5">
         <!-- Edit Plan -->
         <button
-          v-if="planModel"
+          v-if="specModel"
           type="button"
           class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
                  bg-white text-violet-700 hover:bg-violet-50 shadow-sm
                  focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
           aria-label="Edit Plan"
           title="Open Spec Editor"
-          @click="currentSpec = currentSpec ?? planModel.spec; specEditorOpen = true"
+          @click="currentSpec = currentSpec ?? specModel.spec; specEditorOpen = true"
         >Edit Plan</button>
         <!-- Find ⌘F -->
         <button
@@ -4625,8 +4910,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
         type="button"
         class="group inline-flex items-center gap-3 min-w-0 max-w-[40%] flex-1 pl-2 pr-3 py-1 -my-1 rounded-lg
                hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-300/80 transition-colors"
-        :title="`${planModel.name} — click to rename`"
-        :aria-label="`Plan: ${planModel.name}. Click to rename in place.`"
+        :title="`${specModel.name} — click to rename`"
+        :aria-label="`Plan: ${specModel.name}. Click to rename in place.`"
         @click="startTitleEdit"
       >
         <!-- Amber crest stripe — gives the title an unmistakable left anchor -->
@@ -4648,7 +4933,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  bg-gradient-to-r from-amber-300 via-yellow-100 via-white to-amber-300
                  bg-clip-text text-transparent
                  drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)]"
-        >{{ planModel.name }}</span>
+        >{{ specModel.name }}</span>
         <svg
           class="h-4 w-4 shrink-0 opacity-0 group-hover:opacity-80 transition-opacity text-amber-200"
           viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
@@ -4675,29 +4960,29 @@ function handleApertureLoadPlan(model: PlanModel): void {
                bg-amber-500/15 hover:bg-amber-500/30 border border-amber-300/40 hover:border-amber-300/80
                text-amber-100 hover:text-white text-xs font-semibold
                focus:outline-none focus:ring-2 focus:ring-amber-300 transition-colors"
-        :title="planModel.owners && planModel.owners.length > 0
-          ? `🔑 Plan owner: ${planModel.owners[0].name}.  Click to open Plan Stewards panel (Owners / Planners / Scribes — all roles preserved per the original 3-chip design).`
-          : `No plan owner set.  Click to open Plan Stewards panel and add owners, planners, and scribes.`"
-        :aria-label="planModel.owners && planModel.owners.length > 0
-          ? `Plan owner: ${planModel.owners[0].name}. Click for full Stewards panel.`
-          : `Add plan owner. Click for Stewards panel.`"
-        @click="planPeopleTab = 'owners'; specOwnerPanelOpen = true"
+        :title="specModel.owners && specModel.owners.length > 0
+          ? `🔑 Spec owner: ${specModel.owners[0].name}.  Click to open Spec Stewards panel (Owners / Planners / Scribes — all roles preserved per the original 3-chip design).`
+          : `No spec owner set.  Click to open Spec Stewards panel and add owners, planners, and scribes.`"
+        :aria-label="specModel.owners && specModel.owners.length > 0
+          ? `Spec owner: ${specModel.owners[0].name}. Click for full Stewards panel.`
+          : `Add spec owner. Click for Stewards panel.`"
+        @click="specPeopleTab = 'owners'; specOwnerPanelOpen = true"
       >
         <!-- OwnerGlyph `[*]!` — Tom 2026-06-04 approved Planguage-family
              replacement for the dated 🔑 emoji. -->
         <OwnerGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
         <span class="truncate max-w-[140px]">
-          {{ planModel.owners && planModel.owners.length > 0
-            ? planModel.owners[0].name
+          {{ specModel.owners && specModel.owners.length > 0
+            ? specModel.owners[0].name
             : 'Add owner' }}
         </span>
         <!-- Subtle additional-roles hint when planners/scribes also populated -->
         <span
-          v-if="planModel.planners && planModel.planners.length > 0 || planModel.scribes && planModel.scribes.length > 0"
+          v-if="specModel.planners && specModel.planners.length > 0 || specModel.scribes && specModel.scribes.length > 0"
           class="text-[10px] text-amber-200/80 font-normal"
           aria-hidden="true"
         >
-          +{{ (planModel.planners?.length ?? 0) + (planModel.scribes?.length ?? 0) }}
+          +{{ (specModel.planners?.length ?? 0) + (specModel.scribes?.length ?? 0) }}
         </span>
       </button>
 
@@ -4839,7 +5124,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
          truncating.  Subtle indigo tint distinguishes meta from the title
          row above. -->
     <div
-      v-if="planModel"
+      v-if="specModel"
       class="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-indigo-900/40 border-t border-white/10"
       aria-label="Plan meta — Spec Health Index, version, sharpening, save status, story toggle, stewards"
     >
@@ -4876,23 +5161,23 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
       <!-- Version pill (v0.1, v1.0, …) -->
       <span
-        v-if="planModel.version"
+        v-if="specModel.version"
         class="shrink-0 px-1.5 py-0.5 rounded bg-white/15 ring-1 ring-white/25
                font-mono text-[10px] font-bold text-white/90 tracking-tight"
-        :title="`Plan version ${planModel.version}`"
-      >v{{ planModel.version }}</span>
+        :title="`Plan version ${specModel.version}`"
+      >v{{ specModel.version }}</span>
 
       <!-- Sharpen-rounds badge — 🔪 N -->
       <span
-        v-if="planModel.sharpenRounds && planModel.sharpenRounds > 0"
+        v-if="specModel.sharpenRounds && specModel.sharpenRounds > 0"
         class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md
                bg-amber-400/90 text-amber-950 text-[11px] font-bold"
-        :title="`${planModel.sharpenRounds} sharpening round${planModel.sharpenRounds !== 1 ? 's' : ''} applied`"
-      ><span class="text-base leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" aria-hidden="true">🔪</span><span class="leading-none">{{ planModel.sharpenRounds }}</span></span>
+        :title="`${specModel.sharpenRounds} sharpening round${specModel.sharpenRounds !== 1 ? 's' : ''} applied`"
+      ><span class="text-base leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" aria-hidden="true">🔪</span><span class="leading-none">{{ specModel.sharpenRounds }}</span></span>
 
       <!-- "Saved N min ago" pill — IS the Save Now button (dual-coded). -->
       <button
-        v-if="specBarSavedLabel || planModel"
+        v-if="specBarSavedLabel || specModel"
         type="button"
         class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md
                text-[11px] font-semibold transition-all duration-150
@@ -4961,22 +5246,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
         :class="[
           'shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-white/60',
-          planModel.planners?.length
+          specModel.planners?.length
             ? 'bg-white/15 text-white hover:bg-white/25'
             : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
         ]"
-        :title="planModel.planners?.length
-          ? `Planners: ${planModel.planners.map(p => p.name).join(', ')} — click to edit`
+        :title="specModel.planners?.length
+          ? `Planners: ${specModel.planners.map(p => p.name).join(', ')} — click to edit`
           : 'Add a Spec Planner'"
         aria-label="Spec Planners"
-        @click="planPeopleTab = 'planners'; specOwnerPanelOpen = true"
+        @click="specPeopleTab = 'planners'; specOwnerPanelOpen = true"
       >
         <!-- PlannerGlyph `[?]→[*]` — Tom 2026-06-04 approved replacement for 💡. -->
         <PlannerGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
         <span class="text-[9px] uppercase tracking-wider opacity-70">Planner</span>
-        <template v-if="planModel.planners?.length">
-          <span class="truncate max-w-[90px]">{{ planModel.planners[0].name }}</span>
-          <span v-if="planModel.planners.length > 1" class="text-white/70">+{{ planModel.planners.length - 1 }}</span>
+        <template v-if="specModel.planners?.length">
+          <span class="truncate max-w-[90px]">{{ specModel.planners[0].name }}</span>
+          <span v-if="specModel.planners.length > 1" class="text-white/70">+{{ specModel.planners.length - 1 }}</span>
         </template>
         <span v-else aria-hidden="true">+</span>
       </button>
@@ -4987,24 +5272,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
         :class="[
           'shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-white/60',
-          planModel.scribes?.length && planModel.scribes[0]?.name
+          specModel.scribes?.length && specModel.scribes[0]?.name
             ? 'bg-white/15 text-white hover:bg-white/25'
             : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
         ]"
-        :title="!planModel.scribes?.length
+        :title="!specModel.scribes?.length
           ? 'Add a Spec Scribe'
-          : planModel.scribes[0]?.isDefault
-            ? `Scribe (default — ${planModel.scribes[0].name || 'tap to set your name'}) — click to edit`
-            : `Scribes: ${planModel.scribes.map(s => s.name).join(', ')} — click to edit`"
+          : specModel.scribes[0]?.isDefault
+            ? `Scribe (default — ${specModel.scribes[0].name || 'tap to set your name'}) — click to edit`
+            : `Scribes: ${specModel.scribes.map(s => s.name).join(', ')} — click to edit`"
         aria-label="Spec Scribes"
-        @click="planPeopleTab = 'scribes'; specOwnerPanelOpen = true"
+        @click="specPeopleTab = 'scribes'; specOwnerPanelOpen = true"
       >
         <!-- ScribeGlyph `[ ]→[*]` — Tom 2026-06-04 approved replacement for ⌨. -->
         <ScribeGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
         <span class="text-[9px] uppercase tracking-wider opacity-70">Scribe</span>
-        <template v-if="planModel.scribes?.length">
-          <span v-if="planModel.scribes[0].name" class="truncate max-w-[90px]">{{ planModel.scribes[0].name }}</span>
-          <span v-if="planModel.scribes.length > 1" class="text-white/70">+{{ planModel.scribes.length - 1 }}</span>
+        <template v-if="specModel.scribes?.length">
+          <span v-if="specModel.scribes[0].name" class="truncate max-w-[90px]">{{ specModel.scribes[0].name }}</span>
+          <span v-if="specModel.scribes.length > 1" class="text-white/70">+{{ specModel.scribes.length - 1 }}</span>
         </template>
         <span v-else aria-hidden="true">+</span>
       </button>
@@ -5013,25 +5298,25 @@ function handleApertureLoadPlan(model: PlanModel): void {
     <!-- Row 3: Plan Story strip (toggled by the bright 📖 Plan Story button) -->
     <SpecStoryStrip
       v-if="specStoryOpen"
-      :plan-model="planModel"
+      :plan-model="specModel"
       @close="specStoryOpen = false"
-      @edit-stewards="planPeopleTab = 'owners'; specOwnerPanelOpen = true"
+      @edit-stewards="specPeopleTab = 'owners'; specOwnerPanelOpen = true"
     />
 
   </div>
 
   <!-- Plan Owner Data panel — pinned below the plan bar when open -->
   <SpecOwnerPanel
-    v-if="view === 'app' && planModel && specOwnerPanelOpen"
-    :initial-tab="planPeopleTab"
-    :plan-model="planModel"
+    v-if="view === 'app' && specModel && specOwnerPanelOpen"
+    :initial-tab="specPeopleTab"
+    :plan-model="specModel"
     @close="specOwnerPanelOpen = false"
   />
 
   <!-- Plan Governance / Spec Owners drawer -->
   <SpecOwnersPanel
-    v-if="view === 'app' && planModel && govPanelOpen"
-    :plan-model="planModel"
+    v-if="view === 'app' && specModel && govPanelOpen"
+    :plan-model="specModel"
     @close="govPanelOpen = false"
   />
 
@@ -5071,9 +5356,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
   <!-- Feature #197: Tool Info panel — right drawer, z-[490] -->
   <ToolInfoPanel
-    v-if="view === 'app' && planModel && toolInfoPanelOpen"
-    :plan-model-id="planModel.id"
-    :plan-model="planModel"
+    v-if="view === 'app' && specModel && toolInfoPanelOpen"
+    :plan-model-id="specModel.id"
+    :plan-model="specModel"
     :spec="currentSpec"
     @close="toolInfoPanelOpen = false"
   />
@@ -5089,10 +5374,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
        The old inline dropdown block has been removed from the Teleport cluster. -->
   <ActionsHubPanel
     v-if="view === 'app' && menuOpen"
-    :has-plan="!!planModel"
+    :has-plan="!!specModel"
     :has-spec="!!currentSpec"
     :has-confirmed-steps="confirmedSteps.length > 0"
-    :has-multiple-models="_allPlanModels.length > 0"
+    :has-multiple-models="_allSpecModels.length > 0"
     :has-spec-history="specHistory.length > 0"
     :has-dashboard-entries="dashboardEntries.length > 0"
     :dictation-active="dictationActive"
@@ -5171,51 +5456,51 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->
   <PriorityRecordPanel
-    v-if="view === 'app' && planModel && priorityPanelOpen && _priorityEntryId"
-    :plan-model-id="planModel.id"
+    v-if="view === 'app' && specModel && priorityPanelOpen && _priorityEntryId"
+    :plan-model-id="specModel.id"
     :entry-id="_priorityEntryId"
     :entry-type="_priorityEntryType"
     :entry-description="_priorityEntryDesc"
-    :spec-owners="planModel.governance?.specOwners"
+    :spec-owners="specModel.governance?.specOwners"
     @close="priorityPanelOpen = false"
   />
 
   <!-- Feature #201: Global Priority panel — right drawer, z-[493], 3 layers + Review -->
   <GlobalPriorityPanel
-    v-if="view === 'app' && planModel && currentSpec && globalPriorityOpen"
-    :plan-model-id="planModel.id"
+    v-if="view === 'app' && specModel && currentSpec && globalPriorityOpen"
+    :plan-model-id="specModel.id"
     :spec="currentSpec"
-    :spec-owners="planModel.governance?.specOwners ?? []"
+    :spec-owners="specModel.governance?.specOwners ?? []"
     @close="globalPriorityOpen = false"
     @open-priority-info="priorityInfoOpen = true"
   />
 
   <!-- Feature #202: Plan Health Status — read-only PHI + history graph + notifications -->
   <SpecHealthStatusPanel
-    v-if="view === 'app' && planModel && currentSpec && specHealthStatusOpen"
-    :plan-model-id="planModel.id"
+    v-if="view === 'app' && specModel && currentSpec && specHealthStatusOpen"
+    :plan-model-id="specModel.id"
     :spec="currentSpec"
-    :spec-owner-count="planModel.governance?.specOwners?.length ?? 0"
-    :has-plan-owner="(planModel.owners?.length ?? 0) > 0"
-    :plan-version="planModel.version ? `v${planModel.version}` : ''"
+    :spec-owner-count="specModel.governance?.specOwners?.length ?? 0"
+    :has-spec-owner="(specModel.owners?.length ?? 0) > 0"
+    :plan-version="specModel.version ? `v${specModel.version}` : ''"
     :by="user?.email ?? 'unknown'"
-    :plan-name="planModel.name"
-    :plan-owners="planModel.owners ?? []"
+    :plan-name="specModel.name"
+    :plan-owners="specModel.owners ?? []"
     @close="specHealthStatusOpen = false"
     @open-admin="specHealthAdminOpen = true"
   />
 
   <!-- Feature #202.b: Plan Health Administration — weights, notification policy, audit log -->
   <SpecHealthAdminPanel
-    v-if="view === 'app' && planModel && currentSpec && specHealthAdminOpen"
-    :plan-model-id="planModel.id"
+    v-if="view === 'app' && specModel && currentSpec && specHealthAdminOpen"
+    :plan-model-id="specModel.id"
     :spec="currentSpec"
-    :spec-owner-count="planModel.governance?.specOwners?.length ?? 0"
-    :has-plan-owner="(planModel.owners?.length ?? 0) > 0"
-    :plan-owners="planModel.owners ?? []"
-    :plan-version="planModel.version ? `v${planModel.version}` : ''"
+    :spec-owner-count="specModel.governance?.specOwners?.length ?? 0"
+    :has-spec-owner="(specModel.owners?.length ?? 0) > 0"
+    :plan-owners="specModel.owners ?? []"
+    :plan-version="specModel.version ? `v${specModel.version}` : ''"
     :by="user?.email ?? 'unknown'"
-    :plan-name="planModel.name"
+    :plan-name="specModel.name"
     @close="specHealthAdminOpen = false"
     @open-status="specHealthAdminOpen = false; specHealthStatusOpen = true"
   />
@@ -5225,12 +5510,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
        of Status (live PHI) + Admin (threshold setter).  Answers "where are
        we aiming + how big is the gap" via per-V.entry target progress. -->
   <SpecHealthTargetPanel
-    v-if="view === 'app' && planModel && currentSpec && specHealthTargetOpen"
-    :plan-model-id="planModel.id"
+    v-if="view === 'app' && specModel && currentSpec && specHealthTargetOpen"
+    :plan-model-id="specModel.id"
     :spec="currentSpec"
-    :spec-owner-count="planModel.owners?.length ?? 0"
-    :has-plan-owner="(planModel.owners?.length ?? 0) > 0"
-    :plan-name="planModel.name"
+    :spec-owner-count="specModel.owners?.length ?? 0"
+    :has-spec-owner="(specModel.owners?.length ?? 0) > 0"
+    :plan-name="specModel.name"
     @close="specHealthTargetOpen = false"
     @open-admin="specHealthTargetOpen = false; specHealthAdminOpen = true"
     @open-status="specHealthTargetOpen = false; specHealthStatusOpen = true"
@@ -5244,7 +5529,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <EvoHealthPanel
     v-if="view === 'app' && evoHealthOpen"
     :steps="_stepsForDiagram"
-    :plan-id="planModel?.name ?? 'default'"
+    :plan-id="specModel?.name ?? 'default'"
     @close="evoHealthOpen = false"
   />
 
@@ -5253,7 +5538,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <StandardsAuditorPanel
     v-if="view === 'app' && currentSpec && standardsAuditorOpen"
     :spec="currentSpec"
-    :plan-id="planModel?.name ?? 'default'"
+    :plan-id="specModel?.name ?? 'default'"
     @close="standardsAuditorOpen = false"
   />
 
@@ -5262,7 +5547,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <PlanguageAnalyzerPanel
     v-if="view === 'app' && currentSpec && planguageAnalyzerOpen"
     :spec="currentSpec"
-    :plan-id="planModel?.name ?? 'default'"
+    :plan-id="specModel?.name ?? 'default'"
     :step-names="_stepsForDiagram.map(s => s.name)"
     @close="planguageAnalyzerOpen = false"
   />
@@ -5274,7 +5559,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <InternetContextPanel
     v-if="view === 'app' && currentSpec && internetContextOpen"
     :spec="currentSpec"
-    :plan-id="planModel?.name ?? 'default'"
+    :plan-id="specModel?.name ?? 'default'"
     @close="internetContextOpen = false"
   />
 
@@ -5330,9 +5615,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
   <!-- System Model Dashboard (2026-05-19) — full-screen model health panel z-[488/489]. -->
   <SystemModelDashboard
-    v-if="modelDashboardOpen && currentSpec && planModel"
+    v-if="modelDashboardOpen && currentSpec && specModel"
     :spec="currentSpec"
-    :model="planModel"
+    :model="specModel"
     @close="modelDashboardOpen = false"
     @derive-plan="(_ids) => { modelDashboardOpen = false; setWorkingMode('plan') }"
     @switch-to-plan="modelDashboardOpen = false; setWorkingMode('plan')"
@@ -5382,13 +5667,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
   <!-- Main content wrapper.
        When plan loaded: padding-top = STAGE_BAR_H (124px, stage bar fixed at
-       top-0) + planCrestH (live ResizeObserver, tracks Plan Crest including
+       top-0) + specCrestH (live ResizeObserver, tracks Plan Crest including
        DNA strip open/closed so content never starts under either fixed header).
        When no plan: pt-8 static (stage bar is in-flow, not fixed). -->
   <div
     class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-16 px-4 md:pr-40
            overflow-x-clip"
-    :class="!(view === 'app' && planModel) ? 'pt-8' : ''"
+    :class="!(view === 'app' && specModel) ? 'pt-8' : ''"
     :style="contentTopPad !== undefined ? { paddingTop: contentTopPad + 'px' } : undefined"
   >
 
@@ -5511,16 +5796,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
            top-0 (2026-06-01 rethink): Tom "wouldn't it be better to put it at the
            very top and everything below it scrolls" — stage bar now always anchors
            at top-0; Plan Crest sits below at top-[124px]. Simpler than the earlier
-           planCrestH-driven top offset. z-[250] stays below the Plan Crest z-[300]
+           specCrestH-driven top offset. z-[250] stays below the Plan Crest z-[300]
            and below all modals/panels (≥z-[380]). -->
       <div
-        :class="planModel
+        :class="specModel
           ? 'fixed top-0 left-0 right-0 z-[250]'
           : 'self-start -ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]'"
       >
         <ValueCounter
           :current-stage="planningStage"
-          :extra-right-pad="!planModel ? 440 : 0"
+          :extra-right-pad="!specModel ? 440 : 0"
           @go-to-stage="handleStageBarNav"
           @open-glyph="openGlyphPanel"
           @stage-action="handleStageAction"
@@ -6148,7 +6433,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 <span class="text-amber-500 text-sm" aria-hidden="true">✅</span>
                 <span class="text-xs text-slate-500">
                   {{ sharpenRounds.length }} sharpening round{{ sharpenRounds.length !== 1 ? 's' : '' }} complete
-                  — plan version {{ planModel?.version ?? '—' }}
+                  — plan version {{ specModel?.version ?? '—' }}
                 </span>
               </div>
 
@@ -6381,7 +6666,11 @@ function handleApertureLoadPlan(model: PlanModel): void {
            is live and Phase 2 (Claudian write-back) is queued.  Top + bottom
            share mirrors (Copy / Email) + forward → Stage 11 button. -->
       <template v-else-if="planningStage === 10 && currentSpec">
+        <!-- Top share bar — explicitly names Spec being copied (Tom 2026-06-05) -->
         <div class="w-full max-w-3xl mb-4 flex flex-wrap items-center gap-3">
+          <span class="text-[11px] text-slate-500 font-medium mr-1 select-none">
+            Spec: <span class="text-slate-700 font-semibold">{{ specModel?.name || 'Unnamed Spec' }}</span>
+          </span>
           <button
             v-if="currentSpec"
             type="button"
@@ -6390,10 +6679,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
                    focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
                    transition-all duration-150 shadow-sm"
-            aria-label="Copy Spec to clipboard"
-            title="COPY — duplicate this Spec to your clipboard.&#10;Paste into Notes, Mail, Keynote, anywhere."
+            aria-label="Copy this Spec to clipboard"
+            title="COPY THIS SPEC — copies the full Spec including Resources to your clipboard.&#10;Paste into Notes, Mail, Keynote, anywhere."
             @click="autoCopyPlan()"
-          ><CopyGlyph size="standard" /><span>Copy</span></button>
+          >
+            <CopyGlyph size="standard" />
+            <span class="flex flex-col items-start leading-tight">
+              <span>Copy Spec</span>
+              <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
+            </span>
+          </button>
           <button
             v-if="currentSpec"
             type="button"
@@ -6402,42 +6697,189 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
                    focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
                    transition-all duration-150 shadow-sm"
-            aria-label="Email Spec via default mail client"
-            title="EMAIL — open your default mail client with the colourful Spec ready to paste."
+            aria-label="Email this Spec via default mail client"
+            title="EMAIL THIS SPEC — opens Mail with the colourful Spec ready to paste.&#10;Includes full spec · Resources stage content."
             @click="emailPlan()"
-          ><EmailGlyph size="standard" /><span>Email</span></button>
+          >
+            <EmailGlyph size="standard" />
+            <span class="flex flex-col items-start leading-tight">
+              <span>Email Spec</span>
+              <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
+            </span>
+          </button>
         </div>
 
         <div class="w-full max-w-3xl flex flex-col gap-5">
-          <!-- Header banner -->
+          <!-- Header banner (info only — CTA moved below as large centred button) -->
           <div class="rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
-            <div class="flex items-start justify-between gap-4 flex-wrap">
-              <div class="flex items-center gap-3">
-                <div class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-2 select-none
-                            bg-gradient-to-r from-emerald-500 to-teal-500 shadow ring-2 ring-emerald-300/40">
-                  <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
-                        aria-hidden="true">10</span>
-                  <span class="flex flex-col items-start leading-tight">
-                    <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">Stage Now</span>
-                    <span class="text-base font-extrabold text-white">Resources</span>
-                  </span>
+            <div class="flex items-center gap-3">
+              <div class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-2 select-none
+                          bg-gradient-to-r from-emerald-500 to-teal-500 shadow ring-2 ring-emerald-300/40">
+                <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
+                      aria-hidden="true">10</span>
+                <span class="flex flex-col items-start leading-tight">
+                  <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">Stage Now</span>
+                  <span class="text-base font-extrabold text-white">Resources</span>
+                </span>
+              </div>
+              <div>
+                <h2 class="text-lg font-extrabold text-emerald-900">Resources Stage</h2>
+                <p class="text-[12px] text-emerald-800/80 leading-snug max-w-md">
+                  Estimate and allocate resource budgets (R. entries).  Review V/C ratios, assign capital and calendar
+                  budgets, confirm all Constraints are respected before Export.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resources Stage Tool Pins — Tom 2026-06-05: "clustered pins showing tool options
+               … Improve Plan Resources / Analyze Planned Resources / Visualize Planned Resources
+               … in a Rectangle with great Pin Icons" -->
+          <div class="rounded-2xl border-2 border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-md">
+            <div class="flex items-center gap-2 mb-4">
+              <PlResourceIcon class="w-5 h-5" />
+              <h3 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Resources Stage Tools</h3>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+              <!-- ── Pin 1: Improve Plan Resources ─────────────────────────── -->
+              <div class="rounded-xl border-2 border-emerald-300 overflow-hidden shadow-sm">
+                <!-- Pin header -->
+                <div class="bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-3 text-white">
+                  <div class="flex items-center gap-2 mb-1">
+                    <EditGlyph class="w-6 h-6 text-white" />
+                    <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">Improve</span>
+                  </div>
+                  <div class="text-[13px] font-extrabold leading-tight">Plan Resources</div>
+                  <div class="text-[10px] opacity-75 mt-0.5">time · people · money</div>
                 </div>
-                <div>
-                  <h2 class="text-lg font-extrabold text-emerald-900">Resources Stage</h2>
-                  <p class="text-[12px] text-emerald-800/80 leading-snug max-w-md">
-                    Estimate and allocate resource budgets (R. entries).  Review V/C ratios, assign capital and calendar
-                    budgets, confirm all Constraints are respected before Export.
-                  </p>
+                <!-- Sub-option buttons -->
+                <div class="bg-emerald-50 p-2.5 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-emerald-900
+                           bg-white rounded-lg px-3 py-2 border border-emerald-200
+                           hover:border-emerald-500 hover:bg-emerald-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-emerald-400
+                           transition-all duration-100"
+                    title="Open Resources Sharpening — walk through 9 Gilb-cited analytical dimensions"
+                    @click="resourcesSharpenOpen = true"
+                  >Sharpen 9 Dimensions</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-emerald-900
+                           bg-white rounded-lg px-3 py-2 border border-emerald-200
+                           hover:border-emerald-500 hover:bg-emerald-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-emerald-400
+                           transition-all duration-100"
+                    title="5 generative Advanced Resource Tools"
+                    @click="resourcesSharpenOpen = true"
+                  >Advanced Tools (5)</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-emerald-900
+                           bg-white rounded-lg px-3 py-2 border border-emerald-200
+                           hover:border-emerald-500 hover:bg-emerald-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-emerald-400
+                           transition-all duration-100"
+                    title="Paste Claudian analysis JSON to apply R. entry improvements"
+                    @click="resourcesSharpenOpen = true"
+                  >Apply Claudian Analysis</button>
                 </div>
               </div>
-              <button
-                type="button"
-                class="px-5 py-3 rounded-xl bg-violet-600 text-white font-bold text-sm shadow
-                       hover:bg-violet-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-violet-400
-                       transition-all"
-                title="Open Resources Sharpening — 9 Gilb-cited analytical dimensions + 5 generative tools (Tom 2026-06-04 r69/r70)"
-                @click="resourcesSharpenOpen = true"
-              >⚙ Open Resources Sharpening</button>
+
+              <!-- ── Pin 2: Analyze Planned Resources ──────────────────────── -->
+              <div class="rounded-xl border-2 border-blue-300 overflow-hidden shadow-sm">
+                <!-- Pin header — [R.]→[?] keyed glyph -->
+                <div class="bg-gradient-to-br from-blue-500 to-indigo-600 px-4 py-3 text-white">
+                  <div class="flex items-center gap-2 mb-1">
+                    <!-- Keyed notation [R.]→[?] — DD-015 international, DD-016 drawn -->
+                    <svg viewBox="0 0 58 18" class="h-[18px] w-[58px]" aria-hidden="true">
+                      <text x="0" y="13" font-family="'Courier New',monospace" font-size="11" font-weight="700" fill="white">[R.]</text>
+                      <text x="26" y="13" font-family="'Courier New',monospace" font-size="11" fill="rgba(255,255,255,0.85)">→</text>
+                      <text x="35" y="13" font-family="'Courier New',monospace" font-size="11" font-weight="700" fill="white">[?]</text>
+                    </svg>
+                    <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">Analyze</span>
+                  </div>
+                  <div class="text-[13px] font-extrabold leading-tight">Planned Resources</div>
+                  <div class="text-[10px] opacity-75 mt-0.5">dimensions · ratios · costs</div>
+                </div>
+                <!-- Sub-option buttons -->
+                <div class="bg-blue-50 p-2.5 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-blue-900
+                           bg-white rounded-lg px-3 py-2 border border-blue-200
+                           hover:border-blue-500 hover:bg-blue-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-400
+                           transition-all duration-100"
+                    title="Walk through 9 Gilb-cited resource analytical dimensions"
+                    @click="resourcesSharpenOpen = true"
+                  >9 Gilb Dimensions</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-blue-900
+                           bg-white rounded-lg px-3 py-2 border border-blue-200
+                           hover:border-blue-500 hover:bg-blue-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-400
+                           transition-all duration-100"
+                    title="Review calendar and capital cost estimates from the Impact stage"
+                  >Calendar &amp; Capital Cost</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-blue-900
+                           bg-white rounded-lg px-3 py-2 border border-blue-200
+                           hover:border-blue-500 hover:bg-blue-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-400
+                           transition-all duration-100"
+                    title="Value/Cost ratio analysis — efficiency per Evo Step"
+                  >V/C Ratio Analysis</button>
+                </div>
+              </div>
+
+              <!-- ── Pin 3: Visualize Planned Resources ────────────────────── -->
+              <div class="rounded-xl border-2 border-violet-300 overflow-hidden shadow-sm">
+                <!-- Pin header -->
+                <div class="bg-gradient-to-br from-violet-500 to-purple-700 px-4 py-3 text-white">
+                  <div class="flex items-center gap-2 mb-1">
+                    <PlResourceIcon class="w-6 h-6 text-white" />
+                    <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">Visualize</span>
+                  </div>
+                  <div class="text-[13px] font-extrabold leading-tight">Planned Resources</div>
+                  <div class="text-[10px] opacity-75 mt-0.5">entries · budgets · charts</div>
+                </div>
+                <!-- Sub-option buttons -->
+                <div class="bg-violet-50 p-2.5 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
+                    title="View all R. entries in this Spec — shown in the section below"
+                  >R. Entries List</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
+                    title="Cost summary — Calendar, Capital, V/C ratios — shown below"
+                  >Cost Summary Cards</button>
+                  <button
+                    type="button"
+                    disabled
+                    class="text-left text-[11px] font-medium text-violet-400
+                           bg-white rounded-lg px-3 py-2 border border-violet-100
+                           cursor-not-allowed select-none"
+                    title="Resource charts — coming in a future release"
+                  >Resource Charts <span class="text-[9px] font-normal opacity-60">(soon)</span></button>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -6520,9 +6962,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
                    focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
                    transition-all duration-150 shadow-sm"
-            aria-label="Copy Spec to clipboard (bottom)"
+            aria-label="Copy this Spec to clipboard (bottom mirror)"
+            title="COPY THIS SPEC — copies full spec including Resources to clipboard"
             @click="autoCopyPlan()"
-          ><CopyGlyph size="standard" /><span>Copy</span></button>
+          >
+            <CopyGlyph size="standard" />
+            <span class="flex flex-col items-start leading-tight">
+              <span>Copy Spec</span>
+              <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
+            </span>
+          </button>
           <button
             v-if="currentSpec"
             type="button"
@@ -6531,9 +6980,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
                    focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
                    transition-all duration-150 shadow-sm"
-            aria-label="Email Spec via default mail client (bottom)"
+            aria-label="Email this Spec via default mail client (bottom mirror)"
+            title="EMAIL THIS SPEC — opens Mail with colourful Spec ready to paste"
             @click="emailPlan()"
-          ><EmailGlyph size="standard" /><span>Email</span></button>
+          >
+            <EmailGlyph size="standard" />
+            <span class="flex flex-col items-start leading-tight">
+              <span>Email Spec</span>
+              <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
+            </span>
+          </button>
           <!-- Tom 2026-06-04 r83 — STAGE-AWARE forward button.  The stage===3
                body renders for several planningStages (5 Refine routed via
                STAGE_ACTION_MAP[5]='to-impact'; 7 Evo Impact; 10 Resources via
@@ -6695,7 +7151,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                container so the diagram renders at its native pixel size.
                If we want auto-fit again, the parent needs `h-[640px]` (fixed),
                not min-h — a v2 follow-on. -->
-          <div class="p-3 bg-white overflow-x-auto">
+          <div ref="_vfEmbedBodyRef" class="p-3 bg-white overflow-x-auto">
             <ValueFlowDiagram
               :spec="currentSpec"
               :evo-steps="_stepsForDiagram"
@@ -6704,6 +7160,47 @@ function handleApertureLoadPlan(model: PlanModel): void {
               @open-editor="({ tab, entryId }) => _openSpecEditor({ tab, entryId, returnTo: 'valueFlow' })"
               @node-relations-click="({ tab, entryId }) => _openSdr(tab, entryId, 'valueFlow')"
             />
+          </div>
+          <!-- Footer: Copy + Email + Download SVG + Enlarge — DD-014 bottom mirror.
+               Tom 2026-06-05: "each diagram needs copy, email, download buttons" +
+               "the enlarge button now needs to be visible when we scroll down." -->
+          <div class="flex items-center flex-wrap gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 border-t border-indigo-500/40">
+            <!-- Copy -->
+            <button
+              type="button"
+              class="flex items-center gap-1.5 text-[11px] font-semibold text-white/90
+                     bg-white/15 hover:bg-white/25 border border-white/30
+                     rounded-lg px-3 py-1.5 transition-colors"
+              title="Copy the full Spec as colourful HTML to clipboard (⌘V to paste)"
+              @click="autoCopyPlan()"
+            ><CopyGlyph size="compact" />Copy</button>
+            <!-- Email -->
+            <button
+              type="button"
+              class="flex items-center gap-1.5 text-[11px] font-semibold text-white/90
+                     bg-white/15 hover:bg-white/25 border border-white/30
+                     rounded-lg px-3 py-1.5 transition-colors"
+              title="Email the Spec — opens Mail, ⌘V to paste the colourful version"
+              @click="emailPlan()"
+            ><EmailGlyph size="compact" />Email</button>
+            <!-- Download SVG -->
+            <button
+              type="button"
+              class="flex items-center gap-1.5 text-[11px] font-semibold text-white/90
+                     bg-white/15 hover:bg-white/25 border border-white/30
+                     rounded-lg px-3 py-1.5 transition-colors"
+              title="Download the Value Flow diagram as an SVG file"
+              @click="downloadValueFlowSvg()"
+            ><GetGlyph size="compact" />Download SVG</button>
+            <!-- Enlarge (spacer + right-aligned) -->
+            <span class="flex-1" />
+            <button
+              type="button"
+              class="text-[11px] font-semibold text-white/90 bg-white/15 hover:bg-white/25
+                     border border-white/30 rounded-lg px-3 py-1.5 transition-colors"
+              title="Open the full-screen Value Flow diagram"
+              @click="valueFlowOpen = true"
+            >Enlarge ↗</button>
           </div>
         </div>
 
@@ -6724,6 +7221,39 @@ function handleApertureLoadPlan(model: PlanModel): void {
           :solutions="currentSpec.solutions"
           :impact-matrix="capturedImpactMatrix"
         />
+        <!-- V × Evo Step table actions — Tom 2026-06-05: "each diagram needs copy, email, download buttons"
+             These buttons export THIS TABLE specifically, not the full Planguage spec. -->
+        <div
+          v-if="_stepsForDiagram.length > 0 && currentSpec"
+          class="flex flex-wrap items-center gap-2 px-4 py-2.5 mb-6 rounded-b-xl
+                 bg-amber-50 border border-t-0 border-amber-200"
+        >
+          <span class="text-[11px] text-amber-700 font-semibold mr-auto">V × Evo Step Impact</span>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                   bg-emerald-50 border border-emerald-400 text-emerald-700
+                   hover:bg-emerald-100 transition-colors"
+            title="Copy this V × Evo Step table as colourful HTML — paste into Keynote, Mail, or Notes"
+            @click="copyImpactStepTable()"
+          ><CopyGlyph size="compact" />Copy</button>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                   bg-blue-50 border border-blue-400 text-blue-700
+                   hover:bg-blue-100 transition-colors"
+            title="Email this V × Evo Step table — opens Mail, ⌘V to paste colourful version"
+            @click="emailImpactStepTable()"
+          ><EmailGlyph size="compact" />Email</button>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                   bg-violet-50 border border-violet-400 text-violet-700
+                   hover:bg-violet-100 transition-colors"
+            title="Download this V × Evo Step table as an HTML file"
+            @click="downloadImpactStepTable()"
+          ><GetGlyph size="compact" />Download</button>
+        </div>
 
         <!-- ── V × Solution editor (SECONDARY here — feeds the V × Step view above)
              Kept on this page so users can sharpen the underlying V × S estimates
@@ -6735,6 +7265,39 @@ function handleApertureLoadPlan(model: PlanModel): void {
           :resource-claims="{}"
           @matrix-updated="(matrix, efficiency, cal, cap) => _onMatrixUpdated(matrix, efficiency, cal, cap)"
         />
+        <!-- V × Solution table actions — Tom 2026-06-05: "each diagram needs copy, email, download buttons"
+             These buttons export THIS TABLE specifically, not the full Planguage spec. -->
+        <div
+          v-if="currentSpec"
+          class="flex flex-wrap items-center gap-2 px-4 py-2.5 mb-6 rounded-b-xl
+                 bg-indigo-50 border border-t-0 border-indigo-200"
+        >
+          <span class="text-[11px] text-indigo-700 font-semibold mr-auto">V × Solution Impact</span>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                   bg-emerald-50 border border-emerald-400 text-emerald-700
+                   hover:bg-emerald-100 transition-colors"
+            title="Copy this V × Solution table as colourful HTML — paste into Keynote, Mail, or Notes"
+            @click="copyImpactSolutionTable()"
+          ><CopyGlyph size="compact" />Copy</button>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                   bg-blue-50 border border-blue-400 text-blue-700
+                   hover:bg-blue-100 transition-colors"
+            title="Email this V × Solution table — opens Mail, ⌘V to paste colourful version"
+            @click="emailImpactSolutionTable()"
+          ><EmailGlyph size="compact" />Email</button>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                   bg-violet-50 border border-violet-400 text-violet-700
+                   hover:bg-violet-100 transition-colors"
+            title="Download this V × Solution table as an HTML file"
+            @click="downloadImpactSolutionTable()"
+          ><GetGlyph size="compact" />Download</button>
+        </div>
         <!-- Bottom mirror — Tom 2026-06-04 DD-014 (Top-and-Bottom Navigation
              Mirror): top has Return + Value Flow + Copy + Email; bottom
              mirrors with the LARGE current-stage pin + Return + Copy + Email
@@ -6893,7 +7456,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
         <StudyActDataCollection
           :spec="currentSpec"
           :steps="_stepsForDiagram"
-          :plan-id="planModel?.name ?? 'default'"
+          :plan-id="specModel?.name ?? 'default'"
           @close="handleStageBarNav(8)"
         />
 
@@ -7053,16 +7616,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
           :spec="currentSpec"
           @update:tasks-by-step="tasksByStep = $event"
         />
+        <!-- DD-014 bottom nav mirror — Tasks (stage 4) → Study-Act (stage 9).
+             Bug fixed 2026-06-05: was "NEXT → STAGE 11 · Export" calling exportFull(),
+             which skipped Study-Act (9) and Resources (10).  Correct next step from
+             Tasks is Stage 9 (Study-Act), matching the primaryActionLabel logic at
+             stage===4 above (handleStageBarNav(9)). -->
         <div class="w-full max-w-2xl mt-4">
           <button
             type="button"
             class="w-full flex items-center justify-center gap-2 min-h-[52px] rounded-lg bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-            aria-label="Next: Stage 11 · Export — Export Prioritised Plan"
-            title="Advance to Stage 11 · Export — share and publish the prioritised plan"
-            @click="exportFull"
+            aria-label="Next: Stage 9 · Study-Act — measure delivered value and learn"
+            title="Advance to Stage 9 · Study-Act — deliver the Evo Step, measure actual value, loop back to update the spec"
+            @click="handleStageBarNav(9)"
           >
-            <span class="text-[10px] font-semibold uppercase tracking-[0.15em] opacity-85">Next → Stage 11</span>
-            <span>· Export Prioritised Plan</span>
+            <span class="text-[10px] font-semibold uppercase tracking-[0.15em] opacity-85">Next → Stage 9</span>
+            <span>· Study-Act →</span>
             <span aria-hidden="true">→</span>
           </button>
         </div>
@@ -7136,7 +7704,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    transition-all duration-150 shadow-sm"
             aria-label="Save Spec now (snapshot to local storage)"
             title="SAVE — snapshot the current Spec now.&#10;Planguage glyph *→[*] reads &quot;asterisk to vessel&quot;: content stored."
-            @click="_saveNow(); currentSpec && planModel && savePlanSnapshot(currentSpec); showToast('💾 Spec saved', 3000)"
+            @click="_saveNow(); currentSpec && specModel && saveSpecSnapshot(currentSpec); showToast('💾 Spec saved', 3000)"
           >
             <SaveGlyph size="standard" />
             <span>Save</span>
@@ -7152,9 +7720,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
           :vc-ratios="capturedVCRatios"
           :calendar-costs="capturedCalendarCosts"
           :capital-costs="capturedCapitalCosts"
-          :plan-name="planModel?.name"
-          :plan-version="planModel?.version"
-          :plan-saved-at="planModel?.updatedAt"
+          :plan-name="specModel?.name"
+          :plan-version="specModel?.version"
+          :plan-saved-at="specModel?.updatedAt"
           :sharpened-entry-ids="sharpenedEntryIds"
           :sharpen-summary="sharpenSummary"
           :is-model-mode="isModelMode"
@@ -7252,7 +7820,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    transition-all duration-150 shadow-sm"
             aria-label="Save Spec now (bottom)"
             title="SAVE — snapshot the current Spec now."
-            @click="_saveNow(); currentSpec && planModel && savePlanSnapshot(currentSpec); showToast('💾 Spec saved', 3000)"
+            @click="_saveNow(); currentSpec && specModel && saveSpecSnapshot(currentSpec); showToast('💾 Spec saved', 3000)"
           >
             <SaveGlyph size="standard" />
             <span>Save</span>
@@ -7333,27 +7901,27 @@ function handleApertureLoadPlan(model: PlanModel): void {
            Buttons row appears first; popovers (menu, rename) drop DOWN below the row.
            Container sits at z-[9999] — above the z-[375] click-outside backdrop.
            Hidden when any full-screen modal is open (comparison, plan-input, plan-models). -->
-      <!-- Design log r08 2026-05-27: Moved outside !planModel guard so the menu
-           dropdown renders when planModel exists (compact Plan Crest bar case).
-           Previously: cluster was v-if="!planModel" so clicking the compact
+      <!-- Design log r08 2026-05-27: Moved outside !specModel guard so the menu
+           dropdown renders when specModel exists (compact Plan Crest bar case).
+           Previously: cluster was v-if="!specModel" so clicking the compact
            ⚡ button in the Plan Crest bar toggled menuOpen but the dropdown
-           never rendered (it was hidden inside the !planModel cluster). Fix:
+           never rendered (it was hidden inside the !specModel cluster). Fix:
            allow cluster to render when menuOpen||renamePopoverOpen even if
-           planModel exists. Buttons row is v-if="!planModel" to prevent
+           specModel exists. Buttons row is v-if="!specModel" to prevent
            duplication (they're already in the Plan Crest bar when plan loaded). -->
       <div
-        v-if="view === 'app' && (!planModel || menuOpen || renamePopoverOpen) && !comparisonOpen && !specInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
-        :class="['fixed z-[9999] flex flex-col items-end gap-2', planModel ? 'top-10 right-4' : 'top-4 right-4']"
+        v-if="view === 'app' && (!specModel || menuOpen || renamePopoverOpen) && !comparisonOpen && !specInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
+        :class="['fixed z-[9999] flex flex-col items-end gap-2', specModel ? 'top-10 right-4' : 'top-4 right-4']"
       >
 
       <!-- 🎤 Mic + 🔊 Speaker + ⚡ Actions + 🆘 SOS — control pins (no-plan state only).
-           When planModel exists these buttons live in the Plan Crest bar instead.
+           When specModel exists these buttons live in the Plan Crest bar instead.
            Tom 2026-05-13: "mic and speaker need to be on the surface at all times."
            Tom 2026-05-26: control-pins rule — at TOP, never bottom-left or -right.
-           SOS added here 2026-05-29: after startFresh() planModel=null hides the
+           SOS added here 2026-05-29: after startFresh() specModel=null hides the
            Plan Crest, removing the SOS button. Tom was stuck with no escape. SOS
            must always be reachable regardless of plan state. -->
-      <div v-if="!planModel" class="flex items-center gap-2">
+      <div v-if="!specModel" class="flex items-center gap-2">
         <!-- 🆘 SOS — always red, always present even with no plan loaded -->
         <button
           type="button"
@@ -7402,9 +7970,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
         v-if="renamePopoverOpen"
         class="w-72 rounded-xl bg-white shadow-2xl border border-indigo-100 p-3 space-y-2"
         role="dialog"
-        aria-label="Edit plan name and owner"
+        aria-label="Edit spec name and owner"
       >
-        <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Plan Identity</p>
+        <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Spec Identity</p>
 
         <!-- Plan name -->
         <div class="space-y-0.5">
@@ -7551,8 +8119,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <!-- Body -->
           <div class="flex-1 overflow-hidden">
             <SpecHistory
-              :current-plan-owners="planModel?.owners?.map(o => o.name) ?? []"
-              :current-plan-name="planModel?.name ?? ''"
+              :current-plan-owners="specModel?.owners?.map(o => o.name) ?? []"
+              :current-plan-name="specModel?.name ?? ''"
               @restore="onHistoryRestore"
               @open-save-glyph-history="saveGlyphHistoryOpen = true"
               @load-plan="(model) => { handleRestoreModel(model); historyOpen = false }"
@@ -7671,7 +8239,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <EvoSimulatorView
             :steps="_stepsForDiagram"
             :vc-ratios="capturedVCRatios"
-            :cycle-length="planModel?.evoCycleLength ?? 'week'"
+            :cycle-length="specModel?.evoCycleLength ?? 'week'"
             @close="evoSimulatorOpen = false"
           />
         </div>
@@ -7695,7 +8263,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     <EvoSharpInterview
       v-if="evoSharpOpen"
       :steps="_stepsForDiagram"
-      :plan-id="planModel?.name ?? 'default'"
+      :plan-id="specModel?.name ?? 'default'"
       @close="evoSharpOpen = false"
     />
 
@@ -7709,7 +8277,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     <EvoStepImprovement
       v-if="evoStepImprovementOpen"
       :steps="_stepsForDiagram"
-      :plan-id="planModel?.name ?? 'default'"
+      :plan-id="specModel?.name ?? 'default'"
       @close="evoStepImprovementOpen = false"
     />
 
@@ -7722,7 +8290,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     <FeedMePanel
       v-if="feedMeOpen"
       :steps="_stepsForDiagram"
-      :plan-id="planModel?.name ?? 'default'"
+      :plan-id="specModel?.name ?? 'default'"
       @close="feedMeOpen = false"
     />
 
@@ -7773,7 +8341,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     <!-- Model Comparison — full-screen modal triggered from PlanModelBar "📊 Compare" -->
     <ModelComparisonView
       v-if="comparisonOpen"
-      :initial-model="planModel ?? undefined"
+      :initial-model="specModel ?? undefined"
       @close="comparisonOpen = false"
     />
 

@@ -16,12 +16,16 @@ export interface SpecVersion {
   timestamp: number     // Date.now()
   label: string         // "Generated" | "Make Ambitious" | "Lean Plan" | "Restored"
   summary: string       // First V. entry description, truncated to 60 chars
-  /** Plan model name at the time of snapshot — empty string when no plan model exists yet.
+  /** Spec model name at the time of snapshot — empty string when no spec model exists yet.
    * Optional for backward compatibility with pre-2026-05-11 localStorage entries. */
-  planName?: string
-  /** Plan model owner names at the time of snapshot (joined into a single
+  specName?: string
+  /** Spec model owner names at the time of snapshot (joined into a single
    *  searchable string). Optional for backward compatibility with
    *  pre-2026-05-12 localStorage entries — older versions get an empty array. */
+  specOwners?: string[]
+  /** @deprecated Use specName instead (kept for backward-compat reads from old localStorage entries) */
+  planName?: string
+  /** @deprecated Use specOwners instead (kept for backward-compat reads from old localStorage entries) */
   planOwners?: string[]
 }
 
@@ -73,18 +77,18 @@ export function useSpecHistory() {
    * @param spec        — the SpecBlock to snapshot (deep-cloned)
    * @param label       — human label for the version
    * @param plan        — the active EvoStepPlan at this moment (null if not yet generated)
-   * @param planName    — the active plan model name (empty string if no plan model)
-   * @param planOwners  — owner names from the active plan model (empty array if none).
+   * @param specName    — the active spec model name (empty string if no spec model)
+   * @param specOwners  — owner names from the active spec model (empty array if none).
    *                      Stored on the snapshot so the History search can match
    *                      "owner / planner" keywords against the original team for
-   *                      historical entries — even after the plan model has changed.
+   *                      historical entries — even after the spec model has changed.
    */
   function addVersion(
     spec: SpecBlock,
     label: string,
     plan: EvoStepPlan | null = null,
-    planName: string = '',
-    planOwners: string[] = [],
+    specName: string = '',
+    specOwners: string[] = [],
   ): void {
     const version: SpecVersion = {
       id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -95,8 +99,8 @@ export function useSpecHistory() {
       timestamp: Date.now(),
       label,
       summary: buildSummary(spec),
-      planName,
-      planOwners: [...planOwners],
+      specName,
+      specOwners: [...specOwners],
     }
     history.value = [version, ...history.value].slice(0, MAX_HISTORY)
     _saveToStorage(history.value)
@@ -190,8 +194,8 @@ export function useSpecHistory() {
       timestamp: ts,
       label: fallbackLabel,
       summary: buildSummary(p.spec),
-      planName: p.name ?? '',
-      planOwners: (p.owners ?? []).map(o => o?.name ?? '').filter(Boolean),
+      specName: p.name ?? '',
+      specOwners: (p.owners ?? []).map(o => o?.name ?? '').filter(Boolean),
     }
   }
 
@@ -199,7 +203,8 @@ export function useSpecHistory() {
     const fn  = v.spec?.functions?.[0]?.description ?? ''
     const val = v.spec?.values?.[0]?.description ?? ''
     const ts  = Math.floor((v.timestamp ?? 0) / 60_000)
-    return `${(v.planName ?? '').trim()}|${fn}|${val}|${ts}`
+    // Support both old (planName) and new (specName) field names
+    return `${(v.specName ?? v.planName ?? '').trim()}|${fn}|${val}|${ts}`
   }
 
   /**

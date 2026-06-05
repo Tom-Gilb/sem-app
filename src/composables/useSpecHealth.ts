@@ -24,6 +24,7 @@
 import { ref, computed } from 'vue'
 import type { SpecBlock } from '../types/spec'
 import { runAIExpertReview } from './useAIExpertReview'
+import { readMigrated, writeBoth } from './useSpecKeyMigration'
 
 // ── Aspect groups ────────────────────────────────────────────────────────────
 
@@ -94,7 +95,7 @@ export interface PlanHealthAspectDef {
   /** Aspect weight WITHIN its group (0..1). Group's aspects should sum to 1. */
   defaultWeight: number
   /** Pure function — takes whatever context the panel has and returns score + detail */
-  evaluate: (ctx: PlanHealthContext) => AspectEvaluation
+  evaluate: (ctx: SpecHealthContext) => AspectEvaluation
   /** True for the seeded defaults; user-added aspects are false */
   builtin: boolean
   /**
@@ -140,18 +141,21 @@ export interface AspectFix {
    * context and the specific finding id (typically an F./V./S. entry id from
    * the AspectEvaluation.findings array), returns the patch ops to apply.
    */
-  applyDeterministic?: (ctx: PlanHealthContext, finding: string) => SpecPatch
+  applyDeterministic?: (ctx: SpecHealthContext, finding: string) => SpecPatch
 }
 
-export interface PlanHealthContext {
+export interface SpecHealthContext {
   spec: SpecBlock
-  /** From planModel.governance.specOwners */
+  /** From specModel.governance.specOwners */
   specOwnerCount: number
-  /** True when planModel.governance has at least one Plan Owner */
-  hasPlanOwner: boolean
+  /** True when specModel.owners has at least one Owner */
+  hasSpecOwner: boolean
   /** Free-form key/value bag for incremental additions (actuals MAE, budgets, …) */
   signals?: Record<string, number | string | boolean>
 }
+
+/** @deprecated Use SpecHealthContext instead */
+export type PlanHealthContext = SpecHealthContext
 
 // ── Default aspect catalog (the seeded 16) ──────────────────────────────────
 
@@ -288,7 +292,7 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
     id: 'rv-no-plan-owner', group: 'rule-violations', builtin: true,
     name: 'No Plan Owner set', description: 'Governance rule: every Plan needs an accountable Owner.',
     defaultWeight: 0.5,
-    evaluate: ({ hasPlanOwner }) => ({ score: hasPlanOwner ? 1 : -1, detail: hasPlanOwner ? 'Plan Owner is set' : 'No Plan Owner — single point of accountability missing' }),
+    evaluate: ({ hasSpecOwner }) => ({ score: hasSpecOwner ? 1 : -1, detail: hasSpecOwner ? 'Spec Owner is set' : 'No Spec Owner — single point of accountability missing' }),
     fix: {
       kind: 'manual',
       description: 'Plan Owner identity must be set by a human — AI cannot guess who is accountable.',
@@ -547,7 +551,7 @@ export interface PlanHealthCustom {
   /** Plan Health Record Administration Specification — automatic-loop knobs */
   admin: PlanHealthAdminSpec
   /** Append-only history of PHI snapshots (one per version-bump or interval) */
-  snapshots: PlanHealthSnapshot[]
+  snapshots: SpecHealthSnapshot[]
   /** Outstanding notifications to the Plan Owner(s) — dismissable */
   notifications: PlanHealthNotification[]
   /** AI Expert Reviewers — named personas (Security / ROI / Quality / Risk / Usability / …)
@@ -695,11 +699,11 @@ export interface PlanHealthAdminSpec {
  * watched spec version changes (or via the periodic timer). Plotted in the
  * Status panel along the Version + Date axis.
  */
-export interface PlanHealthSnapshot {
+export interface SpecHealthSnapshot {
   /** Stable id — used by graph keys + dismissNotification cross-reference */
   id: string
   at: string                              // ISO timestamp
-  /** Plan model version label at this snapshot, e.g. "v0.7" — empty when unknown */
+  /** Spec model version label at this snapshot, e.g. "v0.7" — empty when unknown */
   planVersion: string
   /** Optional human label from the version (e.g. "Sharpen", "Restore", "Replan") */
   versionLabel: string
@@ -711,6 +715,9 @@ export interface PlanHealthSnapshot {
   trigger: 'version-bump' | 'interval' | 'manual' | 'replan' | 'inception'
   reason?: string
 }
+
+/** @deprecated Use SpecHealthSnapshot instead */
+export type PlanHealthSnapshot = SpecHealthSnapshot
 
 export interface PlanHealthNotification {
   id: string
@@ -754,15 +761,15 @@ function _seedExperts(): AIExpert[] {
   }))
 }
 
-const STORAGE_KEY = 'sem-plan-health-custom'
+const STORAGE_KEY = 'sem-spec-health-custom'   // Phase A rename; shim reads old 'sem-plan-health-custom' as fallback
 
 const _store = ref<Record<string, PlanHealthCustom>>(
   (() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') }
+    try { return JSON.parse(readMigrated(STORAGE_KEY) ?? '{}') }   // reads new key, falls back to old
     catch { return {} }
   })(),
 )
-function _persist(): void { localStorage.setItem(STORAGE_KEY, JSON.stringify(_store.value)) }
+function _persist(): void { writeBoth(STORAGE_KEY, JSON.stringify(_store.value)) }  // dual-write during transition
 
 function _empty(planModelId: string): PlanHealthCustom {
   return {
@@ -895,7 +902,7 @@ export function useSpecHealth(planModelId: string) {
 
   // ── Index computation ─────────────────────────────────────────────────────
 
-  function computeBreakdown(ctx: PlanHealthContext): IndexBreakdown {
+  function computeBreakdown(ctx: SpecHealthContext): IndexBreakdown {
     const aspects = allAspects()
     const groupIds = (Object.keys(ASPECT_GROUPS) as AspectGroupId[])
 
@@ -945,12 +952,12 @@ export function useSpecHealth(planModelId: string) {
   }
 
   /** Convenience — returns just the −100…+100 number */
-  function planHealthIndex(ctx: PlanHealthContext): number {
+  function planHealthIndex(ctx: SpecHealthContext): number {
     return computeBreakdown(ctx).index
   }
 
   /** Per-group sub-index, for entry/exit gating */
-  function groupIndex(groupId: AspectGroupId, ctx: PlanHealthContext): number {
+  function groupIndex(groupId: AspectGroupId, ctx: SpecHealthContext): number {
     return computeBreakdown(ctx).groups.find(g => g.groupId === groupId)?.groupIndex ?? 0
   }
 
@@ -1083,9 +1090,9 @@ export function useSpecHealth(planModelId: string) {
    * Returns the recorded (or updated) snapshot.
    */
   function recordSnapshot(
-    ctx: PlanHealthContext,
-    opts: { trigger: PlanHealthSnapshot['trigger']; planVersion?: string; versionLabel?: string; reason?: string },
-  ): PlanHealthSnapshot {
+    ctx: SpecHealthContext,
+    opts: { trigger: SpecHealthSnapshot['trigger']; planVersion?: string; versionLabel?: string; reason?: string },
+  ): SpecHealthSnapshot {
     const breakdown = computeBreakdown(ctx)
     const groupIndices: Partial<Record<AspectGroupId, number>> = {}
     for (const g of breakdown.groups) groupIndices[g.groupId] = g.groupIndex
@@ -1095,7 +1102,7 @@ export function useSpecHealth(planModelId: string) {
     }
 
     const id = `snap-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
-    const snap: PlanHealthSnapshot = {
+    const snap: SpecHealthSnapshot = {
       id, at: new Date().toISOString(),
       planVersion: opts.planVersion ?? '',
       versionLabel: opts.versionLabel ?? '',
@@ -1107,7 +1114,7 @@ export function useSpecHealth(planModelId: string) {
     const last = existing.at(-1)
 
     // Idempotent for version-bump — replace the matching tail row instead of duplicating
-    let snapshots: PlanHealthSnapshot[]
+    let snapshots: SpecHealthSnapshot[]
     if (opts.trigger === 'version-bump' && last && last.planVersion && last.planVersion === snap.planVersion) {
       snapshots = [...existing.slice(0, -1), { ...snap, id: last.id }]
     } else {

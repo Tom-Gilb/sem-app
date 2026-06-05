@@ -2602,7 +2602,7 @@ function faceStyle(transform: string): Record<string, string> {
                       :class="(selectedModel.owners && selectedModel.owners.length > 0) ? 'text-indigo-600' : 'text-slate-400 italic'"
                       :title="(selectedModel.owners && selectedModel.owners.length > 0)
                         ? `Owners: ${selectedModel.owners.map(o => o.name).join(', ')}`
-                        : 'No owner recorded for this model — add via the 🔑 chip on the Plan Title.'"
+                        : 'No owner recorded for this model — add via the 🔑 chip on the Spec Title.'"
                     >
                       {{ (selectedModel.owners && selectedModel.owners.length > 0)
                         ? `🔑 ${selectedModel.owners.map(o => o.name).join(', ')}`

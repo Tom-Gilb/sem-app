@@ -23,6 +23,7 @@ import {
   ASPECT_GROUPS,
   type AspectGroupId,
   type IndexBreakdown,
+  type SpecHealthContext,
   type PlanHealthContext,
   type AIExpert,
 } from '../composables/useSpecHealth'
@@ -40,8 +41,9 @@ const props = defineProps<{
   planModelId: string
   spec: SpecBlock
   specOwnerCount: number
-  hasPlanOwner: boolean
-  /** Plan Owner records — used to render per-Owner notification subset toggles
+  hasSpecOwner: boolean
+  hasPlanOwner?: boolean  // @deprecated: use hasSpecOwner
+  /** Spec Owner records — used to render per-Owner notification subset toggles
    *  AND pre-fill mailto: recipients when the user clicks ✉️ Email. */
   planOwners?: Array<{ id: string; name: string; email?: string }>
   /** Current plan version label (e.g. "v0.7") — passed to expert reviews so
@@ -57,10 +59,10 @@ const emit = defineEmits<{ close: []; 'open-status': [] }>()
 
 const ph = useSpecHealth(props.planModelId)
 
-const ctx = computed<PlanHealthContext>(() => ({
+const ctx = computed<SpecHealthContext>(() => ({
   spec: props.spec,
   specOwnerCount: props.specOwnerCount,
-  hasPlanOwner: props.hasPlanOwner,
+  hasSpecOwner: props.hasSpecOwner ?? props.hasPlanOwner ?? false,
 }))
 
 const breakdown = computed<IndexBreakdown>(() => ph.computeBreakdown(ctx.value))
@@ -287,7 +289,7 @@ function toggleOwnerNotify(ownerId: string, on: boolean): void {
 <template>
   <RightPanel
     class="z-[491] w-[clamp(560px,44vw,760px)] flex flex-col bg-white shadow-2xl border-l border-slate-200"
-    :aria-label="`Plan Health Factors — ${breakdown.index >= 0 ? '+' : ''}${breakdown.index}%`"
+    :aria-label="`Spec Health Factors — ${breakdown.index >= 0 ? '+' : ''}${breakdown.index}%`"
   >
     <!-- ── Header ────────────────────────────────────────────────────────── -->
     <div class="px-5 py-3 flex items-center gap-3 shrink-0
@@ -313,14 +315,14 @@ function toggleOwnerNotify(ownerId: string, on: boolean): void {
         type="button"
         class="text-[11px] px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-white font-semibold transition-colors"
         :title="(props.planOwners ?? []).filter(o => o.email).length
-          ? `Open mailto: pre-filled to ${(props.planOwners ?? []).filter(o => o.email).length} Plan Owner${(props.planOwners ?? []).filter(o => o.email).length === 1 ? '' : 's'}`
-          : 'Open mailto: with the PHI report pre-filled (no Plan Owner emails on file — pick recipient in mail client)'"
+          ? `Open mailto: pre-filled to ${(props.planOwners ?? []).filter(o => o.email).length} Spec Owner${(props.planOwners ?? []).filter(o => o.email).length === 1 ? '' : 's'}`
+          : 'Open mailto: with the PHI report pre-filled (no Spec Owner emails on file — pick recipient in mail client)'"
         @click="emailReport"
       >✉️ Email</button>
       <button
         type="button"
         class="text-[11px] px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-white font-semibold transition-colors"
-        title="Open the read-only Plan Health Status window (PHI breakdown + history graph)"
+        title="Open the read-only Spec Health Status window (PHI breakdown + history graph)"
         @click="emit('open-status')"
       >📊 Status</button>
       <CloseDot variant="on-dark" aria-label="Close Spec Health Administration" @click="emit('close')" />
@@ -494,7 +496,7 @@ function toggleOwnerNotify(ownerId: string, on: boolean): void {
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-700">
               "Significant" drop threshold
-              <span class="font-normal text-slate-500">— notify Plan Owner(s) when PHI drops by this many percentage points (default 5%)</span>
+              <span class="font-normal text-slate-500">— notify Spec Owner(s) when PHI drops by this many percentage points (default 5%)</span>
             </label>
             <div class="flex items-center gap-2">
               <input
@@ -515,7 +517,7 @@ function toggleOwnerNotify(ownerId: string, on: boolean): void {
                 :checked="adminSpec.notifyOnDrop"
                 @change="(e: any) => patchAdmin({ notifyOnDrop: !!e.target.checked }, 'notifyOnDrop')"
               />
-              <span class="font-semibold text-slate-700">Auto-notify Plan Owner(s)</span>
+              <span class="font-semibold text-slate-700">Auto-notify Spec Owner(s)</span>
             </label>
             <label class="flex items-center gap-2">
               <span class="font-semibold text-slate-700">Frequency:</span>
@@ -610,7 +612,7 @@ function toggleOwnerNotify(ownerId: string, on: boolean): void {
               type="button"
               class="w-full text-left text-[11px] font-bold text-slate-700 hover:underline"
               @click="showOwnerNotify = !showOwnerNotify"
-            >{{ showOwnerNotify ? '▾' : '▸' }} Notify these Plan Owners ({{ adminSpec.notifyOwnerIds.length === 0 ? 'all' : adminSpec.notifyOwnerIds.length }})</button>
+            >{{ showOwnerNotify ? '▾' : '▸' }} Notify these Spec Owners ({{ adminSpec.notifyOwnerIds.length === 0 ? 'all' : adminSpec.notifyOwnerIds.length }})</button>
             <ul v-if="showOwnerNotify" class="space-y-1 mt-1.5">
               <li v-for="o in props.planOwners" :key="o.id" class="flex items-center gap-2 text-[11px]">
                 <input

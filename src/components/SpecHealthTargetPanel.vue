@@ -40,6 +40,7 @@ import { computed } from 'vue'
 import {
   useSpecHealth,
   type IndexBreakdown,
+  type SpecHealthContext,
   type PlanHealthContext,
 } from '../composables/useSpecHealth'
 import type { SpecBlock, VEntry } from '../types/spec'
@@ -50,8 +51,9 @@ const props = defineProps<{
   planModelId: string
   spec: SpecBlock
   specOwnerCount: number
-  hasPlanOwner: boolean
-  /** Plan display name — header */
+  hasSpecOwner: boolean
+  hasPlanOwner?: boolean  // @deprecated: use hasSpecOwner
+  /** Spec display name — header */
   planName?: string
 }>()
 
@@ -67,10 +69,10 @@ const emit = defineEmits<{
 
 const ph = useSpecHealth(props.planModelId)
 
-const ctx = computed<PlanHealthContext>(() => ({
+const ctx = computed<SpecHealthContext>(() => ({
   spec: props.spec,
   specOwnerCount: props.specOwnerCount,
-  hasPlanOwner: props.hasPlanOwner,
+  hasSpecOwner: props.hasSpecOwner ?? props.hasPlanOwner ?? false,
 }))
 
 const breakdown = computed<IndexBreakdown>(() => ph.computeBreakdown(ctx.value))
@@ -188,14 +190,14 @@ const atWishCount = computed<number>(() => targetRows.value.filter(r => r.state 
           <span class="text-2xl leading-none" aria-hidden="true">🎯</span>
           <div class="flex-1 min-w-0">
             <h2 id="phi-target-title" class="text-base font-bold">
-              Plan Health Target
+              Spec Health Target
               <span v-if="planName" class="text-[11px] font-normal text-emerald-100 ml-1">· {{ planName }}</span>
             </h2>
             <p class="text-[11px] text-emerald-100 mt-0.5">
               Where you're aiming · gap to threshold · V.-by-V. target progress
             </p>
           </div>
-          <CloseDot variant="on-dark" aria-label="Close Plan Health Target" @click="emit('close')" />
+          <CloseDot variant="on-dark" aria-label="Close Spec Health Target" @click="emit('close')" />
         </header>
 
         <!-- Body -->
@@ -207,7 +209,7 @@ const atWishCount = computed<number>(() => targetRows.value.filter(r => r.state 
             :class="gapColour.tint"
           >
             <p class="text-[10px] font-bold uppercase tracking-wider mb-1" :class="gapColour.text">
-              Plan Health Index vs Threshold
+              Spec Health Index vs Threshold
             </p>
             <div class="flex items-baseline gap-3 flex-wrap">
               <span class="text-3xl font-extrabold text-slate-900">{{ breakdown.index }}%</span>
@@ -222,10 +224,10 @@ const atWishCount = computed<number>(() => targetRows.value.filter(r => r.state 
               </div>
             </div>
             <p class="text-[11px] text-slate-600 mt-2">
-              Threshold is the line below which the Plan Health Badge starts vibrating.  Edit in
-              <button type="button" class="text-emerald-700 underline hover:text-emerald-900 font-semibold" title="Open Plan Health Administration to change the threshold" @click="emit('open-admin')">⚙️ Plan Health Administration</button>.
+              Threshold is the line below which the Spec Health Badge starts vibrating.  Edit in
+              <button type="button" class="text-emerald-700 underline hover:text-emerald-900 font-semibold" title="Open Spec Health Administration to change the threshold" @click="emit('open-admin')">⚙️ Spec Health Administration</button>.
               Current PHI lives in
-              <button type="button" class="text-emerald-700 underline hover:text-emerald-900 font-semibold" title="Open Plan Health Status to see the live PHI + history graph" @click="emit('open-status')">📊 Plan Health Status</button>.
+              <button type="button" class="text-emerald-700 underline hover:text-emerald-900 font-semibold" title="Open Spec Health Status to see the live PHI + history graph" @click="emit('open-status')">📊 Spec Health Status</button>.
             </p>
           </section>
 

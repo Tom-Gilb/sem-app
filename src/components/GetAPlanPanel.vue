@@ -663,7 +663,7 @@ async function emailMerge(): Promise<void> {
         <div
           class="flex border-b border-slate-200 bg-slate-50 flex-shrink-0 px-2 pt-2 gap-1"
           role="tablist"
-          aria-label="Plan source"
+          aria-label="Spec source"
         >
           <button
             v-for="tab in ([
@@ -1169,7 +1169,7 @@ async function emailMerge(): Promise<void> {
 
             <!-- Plan Models section -->
             <div>
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-3">Plan Models</p>
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-3">Spec Models</p>
               <div v-if="allModels.length === 0" class="text-sm text-slate-400 italic">No saved plan models yet.</div>
               <div v-else class="space-y-2">
                 <div
@@ -1250,7 +1250,7 @@ async function emailMerge(): Promise<void> {
 
             <!-- Plan Models selection -->
             <div v-if="allModels.length > 0">
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Plan Models</p>
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Spec Models</p>
               <div class="space-y-1.5">
                 <label
                   v-for="model in allModels"

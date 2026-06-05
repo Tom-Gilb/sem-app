@@ -104,7 +104,7 @@ const STAGE_CTAS: Record<number, string> = {
   5:  '📊 Estimate Impacts',
   6:  '⚡ Generate Evo Steps',
   7:  '📈 Evo Simulator',
-  8:  '✅ Plan Tasks',
+  8:  '✅ Spec Tasks',
   9:  '📋 Study Results',
   10: '📦 Resources',
   11: '📤 Export Plan',

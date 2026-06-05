@@ -882,16 +882,18 @@ const headlineSentence = computed<string>(() => {
 <template>
   <!--
     Outer wrapper — single root element required for flex-fill mode (fitContainer).
-    When fitContainer=true:  flex column fills the full parent height.
-                             The SVG lives inside an absolutely-positioned sub-div
-                             (see below) to avoid SVG-in-flex-item intrinsic-size
-                             conflicts (breaks in Safari when flex-1+min-h-0 battles
-                             the SVG's viewBox-derived intrinsic height).
+    When fitContainer=true:  block, full width. The SVG wrapper inside uses the
+                             intrinsic-ratio padding-bottom trick (see below) so the
+                             diagram always fills 100% of the panel width and the
+                             parent panel scrolls vertically when needed.
+                             This replaces the old flex-1 absolute-fill approach
+                             which shrank the diagram when svgHeight > panel height
+                             (e.g. 25+ stakeholders). 2026-06-05 fix.
     When fitContainer=false: plain block; SVG uses fixed pixel width × height.
     Tom 2026-05-18: "enlarge the diagram to fit the screen."
     Tom 2026-05-19: "make sure the arrows point correctly — they got lost in space."
   -->
-  <div :class="props.fitContainer ? 'flex flex-col w-full h-full' : ''">
+  <div :class="props.fitContainer ? 'w-full' : ''">
 
   <!-- ── Primary Value banner — REMOVED 2026-06-03 (Tom: *"says sprint plan!
        delete whole message. Enlarge the value flow map"*).
@@ -946,39 +948,53 @@ const headlineSentence = computed<string>(() => {
     controls, not prose content — the CLAUDE.md "no select-none on body content"
     rule does not apply here.
 
-    fitContainer layout (two-element approach):
-      1. Wrapper div — flex-1 min-h-0 relative overflow-hidden
-         Takes all remaining height in the flex column above. overflow-hidden clips
-         any SVG overflow (fallback safety).
+    fitContainer layout (intrinsic-ratio approach, 2026-06-05):
+      1. Wrapper div — relative w-full, padding-bottom = (svgHeight/svgWidth)*100%
+         The padding-bottom percentage is relative to the div's OWN width, so the
+         div's height is always (svgHeight/svgWidth) × its width — i.e. it maintains
+         the SVG's exact aspect ratio regardless of screen size.
+         The parent (ValueFlowPanel body, overflow-y-auto) scrolls vertically when
+         the height exceeds the viewport.
       2. SVG — position: absolute; inset: 0; width: 100%; height: 100%
-         Fills the wrapper exactly using absolute positioning. This sidesteps the
-         SVG-in-flex-item intrinsic-size conflict where Safari uses the viewBox
-         aspect ratio to compute the SVG's minimum height, fighting flex-1's
-         height assignment and causing the diagram to overflow or misproportion.
+         Fills the wrapper exactly.
+
+      WHY NOT THE OLD flex-1 + meet APPROACH (changed 2026-06-05):
+      The old approach set the SVG to fill a fixed-size flex-1 container, then used
+      preserveAspectRatio="xMinYMin meet" to scale the viewBox to fit. When the
+      viewBox was taller than the container (e.g. 25 stakeholders → svgHeight ≈ 1362
+      vs panel height ≈ 790), "meet" scaled the entire diagram down to 58% to fit
+      the height — leaving half the width blank. Tom: "it actually got smaller!"
+      The intrinsic-ratio approach always uses the full panel width; scrolling handles
+      diagrams taller than the viewport.
 
     preserveAspectRatio="xMinYMin meet":
-      "meet" — keep aspect ratio, fit entire viewBox inside the SVG element.
-      "xMinYMin" — anchor content to top-left corner (NOT centred with xMidYMid).
-      Previously xMidYMid caused the diagram to float in the vertical middle of a
-      tall SVG element with grey empty space above AND below — the "arrows in space"
-      effect Tom reported. xMinYMin places the diagram at the top so empty space
-      (if any) falls below the diagram, not around it.
+      "meet" — keep aspect ratio (no distortion).
+      "xMinYMin" — anchor content to top-left corner. Previously xMidYMid caused
+      the diagram to float in the vertical middle with empty space above and below.
       Tom 2026-05-19: "make sure the arrows point correctly — they got lost in space."
   -->
   <!--
     SVG positioning wrapper:
-    • fitContainer mode — flex-1 min-h-0 relative overflow-hidden. The SVG inside
-      uses position:absolute inset:0 to fill this exact slot. Sidesteps the
-      SVG-in-flex-item intrinsic-size conflict (Safari uses viewBox aspect ratio
-      to compute SVG min-height, fighting flex-1; absolute positioning removes it
-      from the flex algorithm entirely so the wrapper controls the space).
+    • fitContainer mode — intrinsic-ratio padding-bottom trick.
+        padding-bottom = (svgHeight / svgWidth) * 100% creates a div that is
+        always proportionally as tall as it is wide. The SVG inside is absolutely
+        positioned to fill this div exactly.
+        The parent (ValueFlowPanel body, overflow-y-auto) scrolls vertically when
+        the proportionally-scaled height exceeds the viewport — e.g. a spec with
+        25 stakeholders produces svgHeight ≈ 1362 and the diagram renders at
+        full panel width with natural proportions, scrolling for the tail.
+        Replaces the old "flex-1 min-h-0 relative overflow-hidden / absolute inset-0"
+        approach that shrank the entire diagram when svgHeight > panel height.
+        2026-06-05 fix (Tom: "it actually got smaller!").
     • non-fitContainer mode — display:contents makes this div invisible to the
-      layout engine; SVG renders as a direct child of the outer wrapper.
-      (display:contents: Chrome 58+, Firefox 37+, Safari 11.1+ — safe.)
+        layout engine; SVG renders as a direct child of the outer wrapper.
+        (display:contents: Chrome 58+, Firefox 37+, Safari 11.1+ — safe.)
   -->
   <div
-    :class="props.fitContainer ? 'flex-1 min-h-0 relative overflow-hidden' : ''"
-    :style="!props.fitContainer ? 'display: contents' : ''"
+    :class="props.fitContainer ? 'relative w-full' : ''"
+    :style="props.fitContainer
+      ? `padding-bottom: ${(svgHeight / svgWidth) * 100}%`
+      : 'display: contents'"
   >
     <svg
       :width="props.fitContainer ? '100%' : svgWidth"

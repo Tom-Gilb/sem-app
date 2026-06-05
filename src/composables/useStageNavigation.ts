@@ -158,10 +158,44 @@ export function resolveStageNavAction(
 
 // ── Toast message strings (single source of truth for App.vue) ───────────────
 
-/** Human-readable advisory messages keyed by StageToastKind. */
+/** Fallback human-readable advisory messages keyed by StageToastKind. */
 export const STAGE_TOAST_MESSAGES: Record<NonNullable<StageToastKind>, string> = {
   'spec-missing':
     '💡 Add a spec at Stakes first to get the most from later stages — but you can always explore ahead',
   'steps-missing':
     '💡 Define Evo Steps (stage 6) first to measure value impact — but feel free to look ahead',
+}
+
+/** Per-stage requirement descriptions.
+ *  `need` = what is missing.  `fix` = exact stage + action to remedy it. */
+const STAGE_PREREQ: Partial<Record<number, { need: string; fix: string }>> = {
+  2:  { need: 'a Spec with Stakeholders defined',      fix: 'Go to Stage 1 (Stakes) to create or import a Spec' },
+  3:  { need: 'a Spec with Values defined',            fix: 'Go to Stage 1 (Stakes) then add V. entries for your goals' },
+  4:  { need: 'a Spec with Functions defined',         fix: 'Go to Stage 2 (Solutions / Functions) to add F. entries' },
+  5:  { need: 'a Spec with Constraints ready to refine', fix: 'Go to Stage 1 (Stakes) to define your Spec first' },
+  6:  { need: 'a Spec before defining Evo Steps',      fix: 'Go to Stage 1 (Stakes) — a Spec is required before Evo Steps' },
+  7:  { need: 'Evo Steps to estimate Value Impact',    fix: 'Go to Stage 6 (Evo Steps) to define your delivery Evo Steps first' },
+  8:  { need: 'Evo Steps before assigning Tasks',      fix: 'Go to Stage 6 (Evo Steps) to create Evo Steps, then Stage 7 (Evo Impact) for estimates' },
+  9:  { need: 'a completed Evo Step to Study-Act on',  fix: 'Run at least one Evo Step (Stages 6–8) before studying results' },
+  10: { need: 'a Spec before sharpening Resources',    fix: 'Go to Stage 1 (Stakes) to build your Spec — then Resources analysis will be grounded' },
+  11: { need: 'a complete Spec before Exporting',      fix: 'Complete Stages 1–5 (Stakes → Refine) to fill your Spec before Export' },
+}
+
+/**
+ * Returns a rich, stage-specific advisory message naming EXACTLY what is missing
+ * and WHAT TO DO — replacing the previous generic fallbacks.
+ *
+ * @param n     Stage number the user is navigating to.
+ * @param kind  Toast kind from resolveStageNavAction.
+ */
+export function getStageAdvisory(n: number, kind: NonNullable<StageToastKind>): string {
+  const prereq = STAGE_PREREQ[n]
+  if (kind === 'spec-missing' && prereq) {
+    return `⚠️ Stage ${n} needs ${prereq.need}.\n${prereq.fix} — but you can explore any stage freely`
+  }
+  if (kind === 'steps-missing' && prereq) {
+    return `⚠️ Stage ${n} needs ${prereq.need}.\n${prereq.fix} — but you can look ahead freely`
+  }
+  // Fallback to legacy messages
+  return STAGE_TOAST_MESSAGES[kind]
 }

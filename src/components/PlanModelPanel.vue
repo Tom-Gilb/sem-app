@@ -27,17 +27,18 @@ import GetGlyph from './icons/GetGlyph.vue'
 import EditGlyph from './icons/EditGlyph.vue'
 import {
   useSpecModel,
-  renamePlanModel,
+  renameSpecModel,
   deletePlanModel,
   importPlanModel,
   importPlanModelsBackup,
   exportPlanModel,
+  type SpecModel,
   type PlanModel,
 } from '../composables/useSpecModel'
 
 const emit = defineEmits<{
   close: []
-  load: [model: PlanModel]
+  load: [model: SpecModel]
 }>()
 
 const { currentModel, allModels } = useSpecModel()
@@ -48,7 +49,7 @@ const editingId      = ref<string | null>(null)
 const editingName    = ref('')
 const renameInputEl  = ref<HTMLInputElement | null>(null)
 
-function startRename(model: PlanModel): void {
+function startRename(model: SpecModel): void {
   editingId.value    = model.id
   editingName.value  = model.name
   // Same pattern as startTitleEdit() in App.vue — explicit nextTick focus so
@@ -61,7 +62,7 @@ function startRename(model: PlanModel): void {
 
 function commitRename(id: string): void {
   const v = editingName.value.trim()
-  if (v) renamePlanModel(id, v)
+  if (v) renameSpecModel(id, v)
   editingId.value = null
 }
 

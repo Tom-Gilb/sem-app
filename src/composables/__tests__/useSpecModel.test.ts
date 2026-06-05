@@ -21,10 +21,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { SpecBlock } from '../../types/spec'
 import {
-  initPlanModel,
-  bumpPlanVersion,
-  savePlanSnapshot,
-  renamePlanModel,
+  initSpecModel as initPlanModel,
+  bumpSpecVersion as bumpPlanVersion,
+  saveSpecSnapshot as savePlanSnapshot,
+  renameSpecModel as renamePlanModel,
   deletePlanModel,
   importPlanModel,
   importPlanModelsBackup,

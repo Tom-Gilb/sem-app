@@ -141,7 +141,7 @@ function areaChip(area: string): string {
     <RightPanel
       class="w-[26rem] bg-white shadow-2xl z-[200] flex flex-col"
       role="dialog"
-      aria-label="Plan Governance — Spec Owners"
+      aria-label="Spec Governance — Spec Owners"
     >
       <!-- Header -->
       <div
@@ -149,14 +149,15 @@ function areaChip(area: string): string {
                bg-gradient-to-r from-indigo-50 to-violet-50"
       >
         <div>
-          <h2 class="text-sm font-bold text-gray-900">Plan Governance</h2>
-          <p class="text-[10px] text-indigo-500 font-medium">Plan as Stakeholder · Spec Owners</p>
+          <h2 class="text-sm font-bold text-gray-900">Spec Governance</h2>
+          <p class="text-[10px] text-indigo-500 font-medium">Spec as Stakeholder · Spec Owners</p>
         </div>
         <CloseDot
-        title="Close"
-        aria-label="Close"
-        @click="emit('close')"
-      />
+          size="lg"
+          title="Close"
+          aria-label="Close Spec Governance panel"
+          @click="emit('close')"
+        />
       </div>
 
       <!-- Scrollable content -->
@@ -166,7 +167,7 @@ function areaChip(area: string): string {
         <section class="px-5 py-4 border-b border-gray-100">
           <div class="flex items-center gap-2 mb-3">
             <span class="text-base" aria-hidden="true">📋</span>
-            <h3 class="text-xs font-bold text-gray-800 uppercase tracking-widest">Plan as Stakeholder</h3>
+            <h3 class="text-xs font-bold text-gray-800 uppercase tracking-widest">Spec as Stakeholder</h3>
           </div>
           <p class="text-[11px] text-gray-500 mb-3 leading-snug">
             The Plan Itself is a stakeholder — it expresses all known and acknowledged

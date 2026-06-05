@@ -4,6 +4,7 @@
 // and HOW the content is framed. Default "Any Instance" is always present.
 
 import { ref, computed } from 'vue'
+import { readMigrated, writeBoth } from './useSpecKeyMigration'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -216,11 +217,11 @@ function makeDefaultTarget(): PlanTarget {
 
 // ── Module-level singletons (same pattern as usePlanModel) ───────────────────
 
-const STORAGE_KEY = 'sem-plan-targets'
+const STORAGE_KEY = 'sem-spec-targets'          // Phase A rename; shim reads old 'sem-plan-targets' as fallback
 
 function _load(): PlanTarget[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = readMigrated(STORAGE_KEY)         // reads 'sem-spec-targets', falls back to 'sem-plan-targets'
     if (!raw) return [makeDefaultTarget()]
     const parsed: PlanTarget[] = JSON.parse(raw)
     // Ensure the default target is always present as first entry
@@ -234,7 +235,7 @@ function _load(): PlanTarget[] {
 }
 
 function _save(targets: PlanTarget[]): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(targets)) } catch { /* quota */ }
+  try { writeBoth(STORAGE_KEY, JSON.stringify(targets)) } catch { /* quota */ }  // dual-write during transition
 }
 
 const _targets = ref<PlanTarget[]>(_load())

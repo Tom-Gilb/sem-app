@@ -368,8 +368,8 @@ function summaryTopic(summary: string): string {
 /** Concatenate every searchable field of a version into one lowercase blob. */
 function _searchBlob(v: SpecVersion): string {
   return [
-    v.planName ?? '',
-    (v.planOwners ?? []).join(' '),
+    v.specName ?? v.planName ?? '',
+    (v.specOwners ?? v.planOwners ?? []).join(' '),
     v.label,
     v.summary,
     formatTs(v.timestamp),
@@ -439,7 +439,7 @@ const peopleFound = computed<FoundPerson[]>(() => {
 
   // Scan every history snapshot for owner names saved at snapshot time
   for (const v of history.value) {
-    for (const name of (v.planOwners ?? [])) push(name, 'owner')
+    for (const name of (v.specOwners ?? v.planOwners ?? [])) push(name, 'owner')
   }
 
   return out
@@ -454,25 +454,27 @@ const peopleFound = computed<FoundPerson[]>(() => {
 //   3. Otherwise → return '' and the template renders an explicit placeholder
 //      ("🔑 owner not recorded") rather than hiding the line.
 function ownerLabel(v: SpecVersion): string {
-  if (v.planOwners && v.planOwners.length > 0) {
-    return `🔑 ${v.planOwners.join(', ')}`
+  const owners = v.specOwners ?? v.planOwners
+  if (owners && owners.length > 0) {
+    return `🔑 ${owners.join(', ')}`
   }
-  // Fallback to current plan owners when snapshot has no data AND the names
-  // match (so we don't mis-attribute someone else's plan to current owner).
+  // Fallback to current spec owners when snapshot has no data AND the names
+  // match (so we don't mis-attribute someone else's spec to current owner).
+  const snapName = (v.specName ?? v.planName ?? '').trim()
   if (
     props.currentPlanOwners
     && props.currentPlanOwners.length > 0
     && props.currentPlanName
-    && (v.planName ?? '').trim() === props.currentPlanName.trim()
+    && snapName === props.currentPlanName.trim()
   ) {
     return `🔑 ${props.currentPlanOwners.join(', ')}  (from current plan)`
   }
   return ''
 }
 
-/** Plan name to display (or "Untitled" when none was attached). */
+/** Spec name to display (or "Untitled" when none was attached). */
 function planLabel(v: SpecVersion): string {
-  const n = (v.planName ?? '').trim()
+  const n = (v.specName ?? v.planName ?? '').trim()
   return n.length > 0 ? n : 'Untitled'
 }
 
@@ -488,8 +490,8 @@ function handleRestore(id: string): void {
     'restore',
     result.spec,
     result.plan,
-    ver?.planName ?? '',
-    ver?.planOwners ?? [],
+    ver?.specName ?? ver?.planName ?? '',
+    ver?.specOwners ?? ver?.planOwners ?? [],
   )
 }
 </script>
