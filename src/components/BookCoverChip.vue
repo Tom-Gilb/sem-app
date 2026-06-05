@@ -50,6 +50,14 @@ const props = withDefaults(defineProps<{
   coverColor?: string
   /** Tailwind text-color class for cover text — default 'text-white' */
   coverTextColor?: string
+  /** Real book cover image URL — when provided, renders <img> instead of the CSS block.
+   *  Source must be a public distribution channel (Leanpub CDN, ResearchGate, etc.).
+   *  TwinPod pdfUri / mdUri are AI-internal only and must NEVER be passed here. */
+  coverImageUrl?: string
+  /** Cover display width in px (standard mode only) — default 72 when using a real image, 56 for CSS cover */
+  coverWidth?: number
+  /** Cover display height in px (standard mode only) — default 108 when using a real image, 84 for CSS cover */
+  coverHeight?: number
   /** ResearchGate / free PDF URL */
   researchGateUrl?: string
   /** Leanpub purchase URL */
@@ -76,6 +84,10 @@ const primaryUrl = computed(
 const coverLabel = computed(() =>
   props.shortTitle.length > 10 ? props.shortTitle.slice(0, 9) + '…' : props.shortTitle
 )
+
+/** Resolved cover dimensions — real image gets a larger default than the CSS block */
+const resolvedWidth  = computed(() => props.coverWidth  ?? (props.coverImageUrl ? 80  : 56))
+const resolvedHeight = computed(() => props.coverHeight ?? (props.coverImageUrl ? 120 : 84))
 
 /** Inline style for the cover div — uses coverColor + 3D spine shadow */
 const coverStyle = computed(() => ({
@@ -161,34 +173,56 @@ function shadeColor(color: string, amount: number): string {
     v-else
     class="inline-flex flex-shrink-0 items-start gap-2.5"
   >
-    <!-- Book cover: 56×84px — visible ~1 inch symbolic cover -->
+    <!-- Book cover block — real image if coverImageUrl provided, CSS fallback otherwise -->
     <div
-      class="relative flex-shrink-0 rounded-[4px] overflow-hidden flex flex-col"
-      :style="{ ...coverStyle, width: '56px', height: '84px' }"
-      aria-hidden="true"
+      class="relative flex-shrink-0 rounded-[4px] overflow-hidden shadow-md"
+      :style="{
+        width:  resolvedWidth  + 'px',
+        height: resolvedHeight + 'px',
+        boxShadow: '2px 3px 8px rgba(0,0,0,0.35), -1px 0 0 rgba(0,0,0,0.2)',
+      }"
+      :aria-label="`Book cover: ${title}`"
     >
-      <!-- Spine stripe (darker left edge) -->
-      <span
-        class="absolute left-0 top-0 bottom-0"
-        :style="{ ...spineStyle, width: '6px' }"
+      <!-- ── Real cover image ── -->
+      <img
+        v-if="coverImageUrl"
+        :src="coverImageUrl"
+        :alt="`${title} book cover`"
+        class="absolute inset-0 w-full h-full object-cover object-center"
+        loading="lazy"
+        @error="($event.target as HTMLImageElement).style.display = 'none'"
       />
-      <!-- Cover title text -->
-      <span
-        class="relative z-10 w-full px-1 mt-2 text-center leading-snug font-bold text-white"
-        :style="{ fontSize: '9px', lineHeight: '1.2' }"
-      >{{ coverLabel }}</span>
-      <!-- Spacer -->
-      <span class="flex-1" />
-      <!-- Author at bottom -->
-      <span
-        class="relative z-10 w-full px-1 mb-1.5 text-center text-white/70"
-        :style="{ fontSize: '7px' }"
-      >{{ authorShort }}</span>
-      <!-- Year strip at very bottom -->
-      <span
-        class="relative z-10 w-full text-center text-white/50 pb-1"
-        :style="{ fontSize: '6px' }"
-      >{{ year }}</span>
+
+      <!-- ── CSS cover fallback (shown when no image or image fails to load) ── -->
+      <div
+        class="absolute inset-0 flex flex-col"
+        :style="coverStyle"
+        :class="coverImageUrl ? 'opacity-0 pointer-events-none' : ''"
+        aria-hidden="true"
+      >
+        <!-- Spine stripe (darker left edge) -->
+        <span
+          class="absolute left-0 top-0 bottom-0"
+          :style="{ ...spineStyle, width: '6px' }"
+        />
+        <!-- Cover title text -->
+        <span
+          class="relative z-10 w-full px-1 mt-2 text-center leading-snug font-bold text-white"
+          :style="{ fontSize: '9px', lineHeight: '1.2' }"
+        >{{ coverLabel }}</span>
+        <!-- Spacer -->
+        <span class="flex-1" />
+        <!-- Author at bottom -->
+        <span
+          class="relative z-10 w-full px-1 mb-1.5 text-center text-white/70"
+          :style="{ fontSize: '7px' }"
+        >{{ authorShort }}</span>
+        <!-- Year strip at very bottom -->
+        <span
+          class="relative z-10 w-full text-center text-white/50 pb-1"
+          :style="{ fontSize: '6px' }"
+        >{{ year }}</span>
+      </div>
     </div>
 
     <!-- Text block: title + author/year + download links -->
