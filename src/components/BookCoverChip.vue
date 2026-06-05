@@ -154,72 +154,78 @@ function shadeColor(color: string, amount: number): string {
   </span>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       STANDARD MODE — horizontal card
+       STANDARD MODE — flex-shrink-0 chip (auto-width, never w-full)
+       Cover: 56×84 px ≈ 1 inch tall on a typical Mac screen.
        ═══════════════════════════════════════════════════════════════ -->
   <div
     v-else
-    class="flex items-start gap-3 w-full"
+    class="inline-flex flex-shrink-0 items-start gap-2.5"
   >
-    <!-- Mini book cover: 32×48px -->
+    <!-- Book cover: 56×84px — visible ~1 inch symbolic cover -->
     <div
-      class="relative flex-shrink-0 rounded-[3px] overflow-hidden flex flex-col items-end"
-      :style="{ ...coverStyle, width: '32px', height: '48px' }"
+      class="relative flex-shrink-0 rounded-[4px] overflow-hidden flex flex-col"
+      :style="{ ...coverStyle, width: '56px', height: '84px' }"
       aria-hidden="true"
     >
       <!-- Spine stripe (darker left edge) -->
       <span
         class="absolute left-0 top-0 bottom-0"
-        :style="{ ...spineStyle, width: '4px' }"
+        :style="{ ...spineStyle, width: '6px' }"
       />
-      <!-- Cover title text — max ~10 chars, truncated -->
+      <!-- Cover title text -->
       <span
-        class="relative z-10 w-full px-0.5 mt-1.5 text-center leading-snug font-bold text-white"
-        :style="{ fontSize: '7px', lineHeight: '1.15' }"
+        class="relative z-10 w-full px-1 mt-2 text-center leading-snug font-bold text-white"
+        :style="{ fontSize: '9px', lineHeight: '1.2' }"
       >{{ coverLabel }}</span>
-      <!-- Spacer pushes author label to bottom -->
+      <!-- Spacer -->
       <span class="flex-1" />
-      <!-- Author label at bottom of cover -->
+      <!-- Author at bottom -->
       <span
-        class="relative z-10 w-full px-0.5 mb-1 text-center text-white/60"
-        :style="{ fontSize: '6px' }"
+        class="relative z-10 w-full px-1 mb-1.5 text-center text-white/70"
+        :style="{ fontSize: '7px' }"
       >{{ authorShort }}</span>
+      <!-- Year strip at very bottom -->
+      <span
+        class="relative z-10 w-full text-center text-white/50 pb-1"
+        :style="{ fontSize: '6px' }"
+      >{{ year }}</span>
     </div>
 
     <!-- Text block: title + author/year + download links -->
     <div class="flex flex-col gap-0.5 min-w-0">
       <!-- Title -->
-      <span class="text-[12px] font-bold text-slate-800 leading-snug">{{ title }}</span>
+      <span class="text-[13px] font-bold text-slate-800 leading-snug">{{ title }}</span>
 
       <!-- Author · Year -->
-      <span class="text-[10px] text-slate-500">
+      <span class="text-[11px] text-slate-500">
         {{ author }}<template v-if="year"> · {{ year }}</template>
       </span>
 
       <!-- Download links row — only render links with non-empty URLs -->
       <div
         v-if="researchGateUrl || leanpubUrl || dropboxUrl"
-        class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5"
+        class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1"
       >
         <a
           v-if="researchGateUrl"
           :href="researchGateUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-[10px] font-semibold text-emerald-700 hover:text-emerald-800 underline underline-offset-2"
+          class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline underline-offset-2"
         >Free PDF →</a>
         <a
           v-if="leanpubUrl"
           :href="leanpubUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 underline underline-offset-2"
+          class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 underline underline-offset-2"
         >Leanpub →</a>
         <a
           v-if="dropboxUrl"
           :href="dropboxUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-[10px] font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2"
+          class="text-[11px] font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2"
         >Dropbox →</a>
       </div>
     </div>

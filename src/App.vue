@@ -6759,36 +6759,39 @@ function handleApertureLoadPlan(model: PlanModel): void {
             </div>
           </div>
 
-          <!-- Cost Engineering reference — Tom 2026-06-05: "read and refer to cost engineering book" -->
-          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <div class="flex items-start gap-3">
+          <!-- Cost Engineering reference — book cover chip + description + CTA button -->
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+            <div class="flex items-start gap-4">
+              <!-- 56×84 px symbolic cover — auto-width, never stretches -->
               <BookCoverChip
                 title="Cost Engineering"
                 short-title="Cost Eng"
                 year="2005"
                 cover-color="#1e3a5f"
                 research-gate-url="https://www.researchgate.net/profile/Tom-Gilb"
-                :compact="false"
               />
-              <div class="flex-1 min-w-0">
-                <span class="font-bold text-amber-900 text-sm">Cost Engineering</span>
-                <span class="text-amber-700 text-xs ml-2">— Gilb · canonical reference for this stage</span>
-                <p class="text-amber-800/70 text-xs mt-1 leading-relaxed">
+              <!-- Description — takes remaining space, always has room to wrap -->
+              <div class="flex-1 min-w-0 pt-0.5">
+                <p class="font-bold text-amber-900 text-sm leading-snug">Cost Engineering</p>
+                <p class="text-amber-700/80 text-[11px] mt-0.5">Gilb · canonical reference for this stage</p>
+                <p class="text-amber-800/70 text-[11px] mt-1.5 leading-relaxed">
                   Resource planning is grounded in Cost Engineering: Budget types (Calendar, Capital, Effort),
                   Performance-to-Cost Ratio, Design-to-Cost, and Value-to-Cost scoring.
-                  Planguage Glossary: Cost-Budget · Cost-Level · Value-to-Cost-Ratio · Performance-to-Cost-Ratio · Design-to-Cost.
-                  Companion books: OPTIMA (Balancing Critical Values) · SEA · DEEP.
                 </p>
+                <p class="text-amber-800/60 text-[10px] mt-1 leading-relaxed">
+                  Planguage Glossary: Cost-Budget · Cost-Level · V/C-Ratio · Performance-to-Cost-Ratio.
+                  Companion books: OPTIMA · SEA · DEEP.
+                </p>
+                <div class="mt-2">
+                  <button
+                    type="button"
+                    class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300
+                           rounded-lg px-3 py-1.5 hover:bg-amber-200 hover:border-amber-400 transition-all"
+                    title="Open Cost Engineering Tool — Design to Cost / Value / Constraint, static and dynamic (Evo Step) modes"
+                    @click="costEngineeringOpen = true"
+                  >📐 Open Cost Engineering Tool →</button>
+                </div>
               </div>
-            </div>
-            <div class="mt-3 border-t border-amber-200 pt-2">
-              <button
-                type="button"
-                class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300
-                       rounded-lg px-3 py-1.5 hover:bg-amber-200 hover:border-amber-400 transition-all"
-                title="Open Cost Engineering Tool — Design to Cost / Value / Constraint, static and dynamic (Evo Step) modes"
-                @click="costEngineeringOpen = true"
-              >📐 Open Cost Engineering Tool →</button>
             </div>
           </div>
 
