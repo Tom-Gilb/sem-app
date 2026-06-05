@@ -86,8 +86,8 @@ const coverLabel = computed(() =>
 )
 
 /** Resolved cover dimensions — real image gets a larger default than the CSS block */
-const resolvedWidth  = computed(() => props.coverWidth  ?? (props.coverImageUrl ? 80  : 56))
-const resolvedHeight = computed(() => props.coverHeight ?? (props.coverImageUrl ? 120 : 84))
+const resolvedWidth  = computed(() => props.coverWidth  ?? (props.coverImageUrl ? 120 : 56))
+const resolvedHeight = computed(() => props.coverHeight ?? (props.coverImageUrl ? 180 : 84))
 
 /** Inline style for the cover div — uses coverColor + 3D spine shadow */
 const coverStyle = computed(() => ({
@@ -171,7 +171,8 @@ function shadeColor(color: string, amount: number): string {
        ═══════════════════════════════════════════════════════════════ -->
   <div
     v-else
-    class="inline-flex flex-shrink-0 items-start gap-2.5"
+    class="inline-flex flex-shrink-0 gap-3"
+    :class="coverImageUrl ? 'items-center' : 'items-start'"
   >
     <!-- Book cover block — real image if coverImageUrl provided, CSS fallback otherwise -->
     <div
@@ -188,7 +189,7 @@ function shadeColor(color: string, amount: number): string {
         v-if="coverImageUrl"
         :src="coverImageUrl"
         :alt="`${title} book cover`"
-        class="absolute inset-0 w-full h-full object-cover object-center"
+        class="absolute inset-0 w-full h-full object-contain object-center"
         loading="lazy"
         @error="($event.target as HTMLImageElement).style.display = 'none'"
       />

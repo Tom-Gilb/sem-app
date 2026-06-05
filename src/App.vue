@@ -6806,15 +6806,15 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <!-- Cost Engineering reference — book cover chip + description + CTA button -->
           <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
             <div class="flex items-start gap-4">
-              <!-- Real Leanpub cover — 96×144px; CSS fallback if image fails to load -->
+              <!-- Real Leanpub cover — 130×195px; object-contain shows full cover unclipped -->
               <BookCoverChip
                 title="Cost Engineering"
                 short-title="Cost Eng"
                 year="2023"
                 cover-color="#1e3a5f"
                 cover-image-url="https://d2sofvawe08yqg.cloudfront.net/costengineering/s_featured2x?1719929333"
-                :cover-width="96"
-                :cover-height="144"
+                :cover-width="130"
+                :cover-height="195"
                 leanpub-url="https://leanpub.com/costengineering"
               />
               <!-- Description — takes remaining space, always has room to wrap -->
