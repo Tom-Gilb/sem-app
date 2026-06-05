@@ -154,6 +154,7 @@ import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
 import GetGlyph from './components/icons/GetGlyph.vue'
 import CopyGlyph from './components/icons/CopyGlyph.vue'
 import EmailGlyph from './components/icons/EmailGlyph.vue'
+import MessageGlyph from './components/icons/MessageGlyph.vue'
 import AnalyzeResourceGlyph    from './components/icons/AnalyzeResourceGlyph.vue'
 import AnalyzeGenericGlyph     from './components/icons/AnalyzeGenericGlyph.vue'
 import AnalyzeFunctionGlyph    from './components/icons/AnalyzeFunctionGlyph.vue'
@@ -3780,6 +3781,61 @@ async function emailPlan(): Promise<void> {
   }
 }
 
+// ── Send entire plan as iMessage / SMS via Messages.app ───────────────────────
+// Uses the `sms:` URL scheme which opens Apple Messages on macOS with the body
+// pre-filled.  iMessage handles long content; SMS is 160-char per segment but
+// Messages.app concatenates — we still cap at ~2 000 chars in the sms: URL to
+// stay within browser URL-encoding limits and keep the message readable.
+// Keyed icon: [*]→~  (MessageGlyph — informal/instant channel, DD-015 compliant)
+function messagePlan(): void {
+  if (!currentSpec.value) {
+    showToast('Nothing to send — load or generate a Spec first', 4000)
+    return
+  }
+
+  _saveNow()
+
+  const modelName = specModel.value?.name ?? 'Planning Spec'
+  const versTxt   = specModel.value ? ` v${specModel.value.version}` : ''
+  const date      = new Date().toISOString().slice(0, 10)
+
+  let body = ''
+  try {
+    body = serialisePlainText(currentSpec.value)
+  } catch {
+    body = `${modelName}${versTxt} — Spec export (serialiser unavailable)`
+  }
+
+  // Header line — short so it lands visibly in the Messages compose field
+  const header  = `Spec: ${modelName}${versTxt} · ${date}\n──────────────────────\n`
+  const full    = header + body
+
+  // Cap the sms: URL body at 2 000 URL-encoded chars to stay within OS limits.
+  // iMessage delivers the full text in chunks; this cap keeps the URL short.
+  const SMS_CAP = 2000
+  let encoded   = encodeURIComponent(full)
+  let msgBody   = full
+  if (encoded.length > SMS_CAP) {
+    const truncMarker = '\n…[truncated — see full Spec in the app]'
+    const budgetHdr   = encodeURIComponent(header + truncMarker).length
+    let lo = 0, hi = body.length, fit = ''
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2)
+      const slice = body.slice(0, mid)
+      if (encodeURIComponent(header + slice + truncMarker).length <= SMS_CAP - budgetHdr + encodeURIComponent(header + truncMarker).length) {
+        fit = slice; lo = mid + 1
+      } else {
+        hi = mid - 1
+      }
+    }
+    msgBody = header + fit + truncMarker
+    encoded = encodeURIComponent(msgBody)
+  }
+
+  window.location.href = `sms:?body=${encoded}`
+  showToast('Messages opening — paste or edit in the compose field, then Send.', 6000)
+}
+
 async function handleSignOut() {
   startLoading('auth:signOut', 'Signing out…')
   try {
@@ -6733,6 +6789,42 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
             </span>
           </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-slate-50 border-2 border-slate-400 text-slate-700 text-sm font-semibold
+                   hover:bg-slate-100 hover:border-slate-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Download this Spec as a text file"
+            title="DOWNLOAD SPEC — saves full spec as a .txt file to your Downloads folder.&#10;Includes full spec · Resources stage content."
+            @click="downloadPlan()"
+          >
+            <GetGlyph size="standard" />
+            <span class="flex flex-col items-start leading-tight">
+              <span>Download</span>
+              <span class="text-[10px] font-normal opacity-70">full spec · .txt file</span>
+            </span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-green-50 border-2 border-green-400 text-green-700 text-sm font-semibold
+                   hover:bg-green-100 hover:border-green-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Send this Spec via Apple Messages / iMessage"
+            title="MESSAGE SPEC — opens Messages.app with the Spec in the compose field.&#10;iMessage or SMS · Resources stage content."
+            @click="messagePlan()"
+          >
+            <MessageGlyph size="standard" />
+            <span class="flex flex-col items-start leading-tight">
+              <span>Message</span>
+              <span class="text-[10px] font-normal opacity-70">via iMessage / SMS</span>
+            </span>
+          </button>
         </div>
 
         <div class="w-full max-w-3xl flex flex-col gap-5">
@@ -7412,6 +7504,42 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span class="flex flex-col items-start leading-tight">
               <span>Email Spec</span>
               <span class="text-[10px] font-normal opacity-70">full spec · Resources</span>
+            </span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-slate-50 border-2 border-slate-400 text-slate-700 text-sm font-semibold
+                   hover:bg-slate-100 hover:border-slate-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Download this Spec as a text file (bottom mirror)"
+            title="DOWNLOAD SPEC — saves full spec as a .txt file to your Downloads folder"
+            @click="downloadPlan()"
+          >
+            <GetGlyph size="standard" />
+            <span class="flex flex-col items-start leading-tight">
+              <span>Download</span>
+              <span class="text-[10px] font-normal opacity-70">full spec · .txt file</span>
+            </span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-green-50 border-2 border-green-400 text-green-700 text-sm font-semibold
+                   hover:bg-green-100 hover:border-green-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Send this Spec via Apple Messages / iMessage (bottom mirror)"
+            title="MESSAGE SPEC — opens Messages.app with the Spec in the compose field"
+            @click="messagePlan()"
+          >
+            <MessageGlyph size="standard" />
+            <span class="flex flex-col items-start leading-tight">
+              <span>Message</span>
+              <span class="text-[10px] font-normal opacity-70">via iMessage / SMS</span>
             </span>
           </button>
           <!-- Tom 2026-06-04 r83 — STAGE-AWARE forward button.  The stage===3
