@@ -38,7 +38,8 @@
   <a href="#resources-guided-ux" style="color:#059669;font-weight:700;">▶ Resources Guided UX (NEW 2026-06-05)</a> ·
   <a href="#scroll-arrows" style="color:#0369a1;font-weight:700;">▶ Bidirectional Scroll Arrows (NEW 2026-06-05)</a> ·
   <a href="#book-cover-chip" style="color:#6d28d9;font-weight:700;">▶ BookCoverChip widget (NEW 2026-06-05)</a> ·
-  <a href="#cost-engineering" style="color:#92400e;font-weight:700;">▶ Cost Engineering Tool (NEW 2026-06-05)</a>
+  <a href="#cost-engineering" style="color:#92400e;font-weight:700;">▶ Cost Engineering Tool (NEW 2026-06-05)</a> ·
+  <a href="#wcag-contrast" style="color:#d97706;font-weight:700;">▶ WCAG AA Contrast Audit (NEW 2026-06-05)</a>
 </nav>
 
 <p class="caption" style="background:#ecfdf5;border-left:4px solid #16a34a;padding:10px 14px;margin:8px 0 20px;">
@@ -846,12 +847,12 @@
   Artistic synonyms (above) are PROPOSALS — nothing in <code>src/components/icons/</code> has been changed.
 </p>
 
-<!-- ── Bidirectional Scroll Arrows section ──────────────────────────────── -->
+<!-- ── Bidirectional Scroll Arrows + Progress Track section ─────────────── -->
 <h2 id="scroll-arrows" style="background:#0c4a6e;color:#7dd3fc;padding:12px 18px;border-radius:10px;border:2px solid #0369a1;margin-top:40px;font-size:18px;">
-  ▶ Bidirectional Scroll Arrows — ↑ / ↕ / ↓  ✅ SHIPPED 2026-06-05
+  ▶ Bidirectional Scroll Arrows + Progress Track — ↑ / ↕ / ↓ · N% shown  ✅ SHIPPED 2026-06-05
 </h2>
 <p class="caption" style="background:#0c4a6e;color:#bae6fd;border-left:4px solid #0369a1;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
-  Tom Gilb 2026-06-05 verbatim: "the scroll arrow point down, but when we are at bottom it can point up and in middle both ways"
+  Tom Gilb 2026-06-05 verbatim: "the scroll arrow point down, but when we are at bottom it can point up and in middle both ways" + "Idea for Scroll: show with % or bar the % of the total scrollable which is in the window"
 </p>
 <table style="width:100%;border-collapse:collapse;background:#f0f9ff;color:#1e293b;">
   <thead>
@@ -880,6 +881,50 @@
       <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:18px;text-align:center;">↑</td>
       <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Top ↑ pill only. All content scrolled into view below. hasMore=false, hasLess=true.</td>
       <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">Right-edge progress track</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:14px;text-align:center;font-family:monospace;">│▊│</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">3px vertical track on right edge. Thumb height = visibleRatio × 100% (min 8%). Thumb position = scrollRatio × (100 − thumbHeight)%. Always visible when content overflows. Suppressed by noPill.</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">Pill % label</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;text-align:center;">↓ 40% shown</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Both top and bottom bounce pills now display "N% shown" (Math.round(visibleRatio × 100)) instead of the bare "scroll" label. The % shown = fraction of total content currently in the viewport window.</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ── WCAG AA Contrast Audit section ───────────────────────────────────── -->
+<h2 id="wcag-contrast" style="background:#1c1917;color:#fde68a;padding:12px 18px;border-radius:10px;border:2px solid #d97706;margin-top:40px;font-size:18px;">
+  ▶ WCAG AA Contrast Audit Standard — automated CI gate  ✅ SHIPPED 2026-06-05
+</h2>
+<p class="caption" style="background:#1c1917;color:#fef3c7;border-left:4px solid #d97706;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
+  Tom Gilb 2026-06-05 verbatim: "I should not ever have to tell you this, please develop standards and tests: the text is whiteout unreadable by us humans"
+</p>
+<table style="width:100%;border-collapse:collapse;background:#fffbeb;color:#1e293b;">
+  <thead>
+    <tr style="background:#fde68a;">
+      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Component</th>
+      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Description</th>
+      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Threshold</th>
+      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">wcagContrast.ts</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">Pure WCAG 2.1 utilities: hexToRgb, relativeLuminance, contrastRatio, passesWCAG_AA (≥ 4.5:1), passesWCAG_AA_Large (≥ 3.0:1). Twin-portable — no Vue, no DOM dependency.</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">WCAG 2.1 §1.4.3</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">wcagContrast.audit.test.ts</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">13 BUTTON_COMBOS rows: Pin 1–6 sub-buttons (bg-white + dark type = 4.5:1), Pin 3 violet-50 container fallback (4.5:1), 3 dark gradient headers (emerald/violet/amber = 3.0:1 large text), 3 All Tools footer pills (4.5:1). RULE: any new button/label/chip colour must be added here. 21/21 tests pass in CI.</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">≥ 4.5:1 normal · ≥ 3.0:1 large</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ 21/21 pass</td>
     </tr>
   </tbody>
 </table>
