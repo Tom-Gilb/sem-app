@@ -1,0 +1,567 @@
+<!--
+  ResourceOptimaPanel.vue — OPTIMA: Potential Resource Optimization Tool
+
+  Realization of Optima book principles (Tom Gilb 2024: "Balancing Critical Values").
+
+  DESIGN PRINCIPLES (from the Optima book cover):
+  - "A system of values and resources (dots) in reasonable balance"
+  - Threshold hierarchy: Stretch (aspiration) > Goal (target) > Tolerable (hard floor)
+  - Green dots = at or above Goal (meeting target)
+  - Orange/yellow = between Tolerable and Goal (at risk but not violated)
+  - Red + rapid vibration = below Tolerable (CONSTRAINT VIOLATION)
+
+  KEY INTERACTIONS (Tom's spec):
+  1. Resource sliders — adjust Resource (Means Attributes) up/down
+  2. Impact propagation — adjusting one resource recalculates all value estimates
+  3. Top-3 most impacted values VIBRATE for 2 seconds after each slider change
+  4. Violations (below Tolerable) RAPIDLY VIBRATE IN RED, "Tolerable Constraint Violation"
+  5. "Adjust values to avoid Constraint Violation" button auto-restores violating entries
+  6. Color coding: green (at/above Goal), orange (Tolerable < x < Goal), red (violation)
+
+  DEEP PLANGUAGE THEORY (from DEEP book + Optima book):
+  Resources can be INCREASED while others decrease — "buy" more value by investing.
+  One resource trade-off can unlock Goal achievement on multiple other values.
+  The optimal point (OPTIMA) is NOT the cheapest, fastest, or simplest — it's the
+  combination that reaches the maximum number of Value Goals within all Constraints.
+
+  Spec: ResourceOptimaPanel 2026-06-05.
+-->
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import type { SpecBlock } from '../types/spec'
+import CloseDot from './CloseDot.vue'
+import ScrollContainer from './ScrollContainer.vue'
+import OptimaGlyph from './icons/OptimaGlyph.vue'
+import ResourceArtsyGlyph from './icons/ResourceArtsyGlyph.vue'
+
+// UNIT_TYPE=Panel
+
+const props = defineProps<{
+  spec: SpecBlock | null
+  /** V×R impact ratios from Stage 7. Key: `${valueId}__${resourceId}` */
+  vcRatios?: Record<string, number>
+}>()
+
+const emit = defineEmits<{
+  close: []
+}>()
+
+// ── Keyboard close ──────────────────────────────────────────────────────────
+function onKey(e: KeyboardEvent) { if (e.key === 'Escape') emit('close') }
+onMounted(() => document.addEventListener('keydown', onKey))
+onUnmounted(() => document.removeEventListener('keydown', onKey))
+
+// ── Data model ───────────────────────────────────────────────────────────────
+
+interface OptimaEntry {
+  id: string
+  type: 'value' | 'resource'
+  label: string
+  /** 0–150 slider range. 100 = at Goal. 50 = at Tolerable. 150 = at Wish/Stretch. */
+  current: number
+  /** Tolerable threshold as slider position (default 50). */
+  tolerablePos: number
+  /** Goal threshold as slider position (default 100). */
+  goalPos: number
+  /** Wish/Stretch as slider position (default 130). */
+  wishPos: number
+  unit: string
+}
+
+function makeEntries(): OptimaEntry[] {
+  if (!props.spec) return demoEntries()
+  const entries: OptimaEntry[] = []
+
+  // Value entries
+  for (const v of (props.spec.values ?? [])) {
+    entries.push({
+      id: v.id,
+      type: 'value',
+      label: v.description || v.id,
+      current: 85,      // start between Tolerable and Goal — room to improve
+      tolerablePos: 50,
+      goalPos: 100,
+      wishPos: 130,
+      unit: v.scale?.split(/\s+/).slice(-1)[0] ?? '',
+    })
+  }
+
+  // Resource entries
+  for (const r of (props.spec.resources ?? [])) {
+    entries.push({
+      id: r.id,
+      type: 'resource',
+      label: r.description || r.id,
+      current: 100,     // start at Goal (allocated budget)
+      tolerablePos: 30,
+      goalPos: 100,
+      wishPos: 140,
+      unit: r.scale?.split(/\s+/).slice(-1)[0] ?? '',
+    })
+  }
+
+  // If no spec data, return demo entries
+  if (entries.length === 0) return demoEntries()
+  return entries
+}
+
+function demoEntries(): OptimaEntry[] {
+  return [
+    { id: 'demo-v1', type: 'value', label: 'System Performance Speed',    current: 88, tolerablePos: 50, goalPos: 100, wishPos: 130, unit: 'ms' },
+    { id: 'demo-v2', type: 'value', label: 'User Satisfaction Score',      current: 72, tolerablePos: 50, goalPos: 100, wishPos: 130, unit: '/10' },
+    { id: 'demo-v3', type: 'value', label: 'Data Accuracy Rate',           current: 95, tolerablePos: 50, goalPos: 100, wishPos: 130, unit: '%' },
+    { id: 'demo-v4', type: 'value', label: 'Stakeholder Value Delivery',   current: 55, tolerablePos: 50, goalPos: 100, wishPos: 130, unit: 'pts' },
+    { id: 'demo-r1', type: 'resource', label: 'Calendar Budget (weeks)',   current: 100, tolerablePos: 30, goalPos: 100, wishPos: 140, unit: 'wks' },
+    { id: 'demo-r2', type: 'resource', label: 'Team Hours per Evo Step',   current: 100, tolerablePos: 30, goalPos: 100, wishPos: 140, unit: 'hrs' },
+    { id: 'demo-r3', type: 'resource', label: 'Capital Budget',            current: 100, tolerablePos: 30, goalPos: 100, wishPos: 140, unit: '$k' },
+    { id: 'demo-r4', type: 'resource', label: 'Specialist Consultants',    current: 85,  tolerablePos: 30, goalPos: 100, wishPos: 140, unit: 'days' },
+  ]
+}
+
+const entries = ref<OptimaEntry[]>(makeEntries())
+watch(() => props.spec, () => { entries.value = makeEntries() }, { deep: true })
+
+// ── Animation state ──────────────────────────────────────────────────────────
+const vibrating = ref<Set<string>>(new Set())  // top-3 impacted — vibrate 2s then stop
+const violating = ref<Set<string>>(new Set())  // below Tolerable — shake continuously
+let vibrateTimer: ReturnType<typeof setTimeout> | null = null
+
+function updateViolations() {
+  const v = new Set<string>()
+  for (const e of entries.value) {
+    if (e.current < e.tolerablePos) v.add(e.id)
+  }
+  violating.value = v
+}
+
+// ── Slider interaction ───────────────────────────────────────────────────────
+
+function onResourceSlider(resourceId: string, newVal: number) {
+  const resource = entries.value.find(e => e.id === resourceId)
+  if (!resource) return
+  const delta = newVal - resource.current
+
+  // Propagate impact to value entries
+  const valueEntries = entries.value.filter(e => e.type === 'value')
+  const impacts: Array<{ id: string; delta: number }> = []
+
+  for (const ve of valueEntries) {
+    // Use vcRatios if available, else equal distribution
+    const key = `${ve.id}__${resourceId}`
+    const ratio = props.vcRatios?.[key] ?? (1 / Math.max(1, valueEntries.length))
+    const change = delta * ratio * 0.4  // sensitivity: 40% propagation
+    const oldCurrent = ve.current
+    ve.current = Math.max(0, Math.min(150, ve.current + change))
+    impacts.push({ id: ve.id, delta: Math.abs(ve.current - oldCurrent) })
+  }
+
+  resource.current = newVal
+
+  // Top-3 most impacted → vibrate
+  impacts.sort((a, b) => b.delta - a.delta)
+  const top3 = new Set(impacts.slice(0, 3).map(i => i.id))
+  vibrating.value = top3
+  if (vibrateTimer) clearTimeout(vibrateTimer)
+  vibrateTimer = setTimeout(() => { vibrating.value = new Set() }, 2000)
+
+  updateViolations()
+}
+
+// ── Fix violations ───────────────────────────────────────────────────────────
+
+function fixViolations() {
+  for (const e of entries.value) {
+    if (e.current < e.tolerablePos) {
+      e.current = e.tolerablePos + 5  // restore to just above Tolerable
+    }
+  }
+  // Cascade: increase the resource sliders proportionally to fund the fix
+  for (const r of entries.value.filter(e => e.type === 'resource')) {
+    if (r.current < r.goalPos * 0.8) r.current = Math.min(r.current * 1.15, r.goalPos)
+  }
+  updateViolations()
+}
+
+// ── Reset ────────────────────────────────────────────────────────────────────
+
+function reset() {
+  entries.value = makeEntries()
+  vibrating.value = new Set()
+  violating.value = new Set()
+}
+
+// ── Status helpers ───────────────────────────────────────────────────────────
+
+function statusColor(e: OptimaEntry): string {
+  if (e.current >= e.goalPos)      return '#16a34a'  // green — at or above Goal
+  if (e.current >= e.tolerablePos) return '#f59e0b'  // orange — between Tolerable and Goal
+  return '#dc2626'                                    // red — VIOLATION
+}
+
+function statusLabel(e: OptimaEntry): string {
+  if (e.current >= e.wishPos)      return 'Wish ✦'
+  if (e.current >= e.goalPos)      return 'Goal ✓'
+  if (e.current >= e.tolerablePos) return 'Tolerable'
+  return 'VIOLATION'
+}
+
+// ── Computed ─────────────────────────────────────────────────────────────────
+
+const valueEntries    = computed(() => entries.value.filter(e => e.type === 'value'))
+const resourceEntries = computed(() => entries.value.filter(e => e.type === 'resource'))
+const hasViolations   = computed(() => violating.value.size > 0)
+const violationCount  = computed(() => violating.value.size)
+</script>
+
+<template>
+  <!-- Backdrop -->
+  <div
+    class="fixed inset-0 bg-black/60 z-[90]"
+    aria-hidden="true"
+    @click="emit('close')"
+  />
+
+  <!-- Panel -->
+  <div
+    class="fixed inset-4 z-[100] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-label="OPTIMA — Potential Resource Optimization"
+  >
+    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <div class="bg-gradient-to-r from-amber-400 via-orange-400 to-red-500 px-6 py-4 flex items-center gap-4 shrink-0">
+      <OptimaGlyph size="xl" />
+      <div class="flex-1 min-w-0">
+        <h2 class="text-xl font-extrabold text-white tracking-tight">OPTIMA</h2>
+        <p class="text-[12px] text-white/85 font-medium">Potential Resource Optimization · Balancing Critical Values</p>
+      </div>
+      <CloseDot size="lg" @click="emit('close')"
+        title="Close OPTIMA · Escape key also closes" />
+    </div>
+
+    <!-- ── Book cover principle strip ────────────────────────────────────── -->
+    <div class="bg-amber-50 border-b border-amber-200 px-6 py-3 shrink-0">
+      <!-- Mini Optima diagram — recreated from book cover visual -->
+      <div class="flex items-start gap-6">
+        <svg viewBox="0 0 220 68" width="220" height="68" fill="none" class="shrink-0 rounded-lg shadow-sm bg-white border border-amber-200 p-1" aria-label="Optima diagram: dots around threshold lines">
+          <!-- Stretch line (blue, top) -->
+          <line x1="8" y1="12" x2="170" y2="12" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 2" />
+          <text x="174" y="15" font-size="8" fill="#2563eb" font-weight="600">Stretch</text>
+          <!-- Goal line (olive) -->
+          <line x1="8" y1="26" x2="170" y2="26" stroke="#ca8a04" stroke-width="2" />
+          <text x="174" y="29" font-size="8" fill="#ca8a04" font-weight="600">Goal</text>
+          <!-- Tolerable line (dark brown — hard floor) -->
+          <line x1="8" y1="46" x2="170" y2="46" stroke="#a16207" stroke-width="2.5" />
+          <text x="174" y="50" font-size="8" fill="#a16207" font-weight="700">Tolerable</text>
+          <!-- Green dots: above Goal (meeting target) -->
+          <circle cx="20" cy="19" r="4" fill="#16a34a" />
+          <circle cx="36" cy="16" r="4" fill="#16a34a" />
+          <circle cx="52" cy="20" r="4" fill="#16a34a" />
+          <circle cx="70" cy="17" r="4" fill="#16a34a" />
+          <circle cx="86" cy="21" r="4" fill="#16a34a" />
+          <!-- Orange dots: between Goal and Tolerable (at risk) -->
+          <circle cx="100" cy="34" r="4" fill="#f59e0b" />
+          <circle cx="118" cy="36" r="4" fill="#f59e0b" />
+          <!-- Yellow circle (approaching Tolerable — warning) + red triangle (violation risk) -->
+          <circle cx="136" cy="40" r="7" fill="#facc15" />
+          <polygon points="136,48 131,58 141,58" fill="#dc2626" />
+          <!-- Red dots: below Tolerable (violations) -->
+          <circle cx="152" cy="54" r="4" fill="#dc2626" />
+          <circle cx="166" cy="57" r="4" fill="#dc2626" />
+        </svg>
+        <div class="text-[11px] text-amber-900 leading-relaxed">
+          <p class="font-bold text-[12px] mb-1">Optima book — "Balancing Critical Values"</p>
+          <p>Move <b>Resource sliders</b> (Means) to explore tradeoffs.<br>
+            Values update automatically — top impacted ones <b>vibrate</b>.<br>
+            <span class="text-red-700 font-bold">Red rapid shake</span> = Tolerable Constraint Violation.<br>
+            <span class="text-amber-700 font-bold">Orange</span> = between Tolerable and Goal.<br>
+            <span class="text-emerald-700 font-bold">Green</span> = at or above Goal.</p>
+          <p class="mt-1 text-[10px] text-amber-700 italic">
+            DEEP Planguage theory: a resource can be <em>increased</em> to buy more value while
+            others decrease — the OPTIMA is the combination maximising all Goal achievement.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Violation banner ───────────────────────────────────────────────── -->
+    <Transition name="slide-down">
+      <div v-if="hasViolations"
+        class="bg-red-600 text-white px-6 py-2.5 flex items-center gap-3 shrink-0">
+        <span class="text-lg animate-bounce">&#9888;&#65039;</span>
+        <span class="font-bold text-sm flex-1">
+          Tolerable Constraint Violation &#8212; {{ violationCount }} {{ violationCount === 1 ? 'entry' : 'entries' }} below Tolerable threshold
+        </span>
+        <button
+          type="button"
+          class="bg-white text-red-700 font-bold text-[12px] px-3 py-1.5 rounded-lg
+                 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-white"
+          title="Automatically restore violating entries to just above Tolerable and increase relevant resources"
+          @click="fixViolations"
+        >
+          Adjust values to avoid Constraint Violation &#8594;
+        </button>
+      </div>
+    </Transition>
+
+    <!-- ── Scrollable content ─────────────────────────────────────────────── -->
+    <ScrollContainer class="flex-1">
+      <div class="p-6 space-y-8">
+
+        <!-- ── Values (Fundamental + Strategic Attributes) ─────────────────── -->
+        <section>
+          <div class="flex items-center gap-3 mb-4">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Fundamental &amp; Strategic Attributes</span>
+            <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{{ valueEntries.length }} Values</span>
+          </div>
+
+          <div class="space-y-3">
+            <div
+              v-for="entry in valueEntries"
+              :key="entry.id"
+              :class="[
+                'rounded-xl border-2 px-4 py-3 transition-all duration-150',
+                violating.has(entry.id)
+                  ? 'border-red-400 bg-red-50 violation-shake'
+                  : vibrating.has(entry.id)
+                    ? 'border-amber-400 bg-amber-50 vibrate-impact'
+                    : entry.current >= entry.goalPos
+                      ? 'border-emerald-200 bg-emerald-50'
+                      : entry.current >= entry.tolerablePos
+                        ? 'border-amber-200 bg-amber-50'
+                        : 'border-red-300 bg-red-50'
+              ]"
+            >
+              <!-- Entry header row -->
+              <div class="flex items-center gap-2 mb-2">
+                <div class="flex-1 min-w-0">
+                  <span class="text-[13px] font-semibold text-slate-800 truncate block">{{ entry.label }}</span>
+                </div>
+                <!-- Status badge -->
+                <span
+                  class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                  :style="{ backgroundColor: statusColor(entry) + '22', color: statusColor(entry) }"
+                >
+                  {{ statusLabel(entry) }}
+                </span>
+                <!-- Violation alert icon -->
+                <span v-if="violating.has(entry.id)"
+                  class="text-red-600 text-base font-black shrink-0 animate-pulse"
+                  title="Tolerable Constraint Violation — below minimum acceptable threshold">&#9888;</span>
+              </div>
+
+              <!-- Threshold-track slider (read-only for values — they respond to resources) -->
+              <div class="relative h-10">
+                <!-- Colored zone track -->
+                <div class="absolute inset-y-3.5 left-0 right-0 h-2.5 rounded-full overflow-hidden">
+                  <!-- Red zone: 0 → tolerablePos% of 150 range -->
+                  <div class="absolute left-0 top-0 h-full bg-red-200"
+                    :style="{ width: `${(entry.tolerablePos/150)*100}%` }" />
+                  <!-- Orange zone: tolerablePos → goalPos -->
+                  <div class="absolute top-0 h-full bg-amber-200"
+                    :style="{ left: `${(entry.tolerablePos/150)*100}%`,
+                              width: `${((entry.goalPos - entry.tolerablePos)/150)*100}%` }" />
+                  <!-- Green zone: goalPos → wishPos -->
+                  <div class="absolute top-0 h-full bg-emerald-200"
+                    :style="{ left: `${(entry.goalPos/150)*100}%`,
+                              width: `${((entry.wishPos - entry.goalPos)/150)*100}%` }" />
+                  <!-- Teal zone: wishPos → 150 (stretch) -->
+                  <div class="absolute top-0 h-full bg-teal-200"
+                    :style="{ left: `${(entry.wishPos/150)*100}%`,
+                              width: `${((150 - entry.wishPos)/150)*100}%` }" />
+                </div>
+                <!-- Threshold tick marks -->
+                <div class="absolute top-2 h-6 w-0.5 rounded bg-amber-600 z-10"
+                  :style="{ left: `${(entry.tolerablePos/150)*100}%` }"
+                  title="Tolerable threshold" />
+                <div class="absolute top-2 h-6 w-0.5 rounded bg-emerald-600 z-10"
+                  :style="{ left: `${(entry.goalPos/150)*100}%` }"
+                  title="Goal threshold" />
+                <!-- Progress bar (current value) — display only, not a slider -->
+                <div
+                  class="absolute top-3 h-4 rounded-full transition-all duration-300 opacity-70"
+                  :style="{
+                    width: `${Math.min(100, (entry.current/150)*100)}%`,
+                    backgroundColor: statusColor(entry)
+                  }" />
+                <!-- Current position thumb (visual only) -->
+                <div
+                  class="absolute top-2.5 w-4 h-5 rounded-md border-2 border-white shadow-md transition-all duration-300 -translate-x-1/2"
+                  :style="{
+                    left: `${Math.min(99, (entry.current/150)*100)}%`,
+                    backgroundColor: statusColor(entry)
+                  }" />
+              </div>
+
+              <!-- Labels -->
+              <div class="flex justify-between text-[9px] text-slate-400 mt-0.5 px-0.5">
+                <span>0</span>
+                <span class="text-amber-600 font-semibold" :style="{ marginLeft: `${(entry.tolerablePos/150)*100 - 8}%` }">Tolerable</span>
+                <span class="text-emerald-600 font-semibold">Goal</span>
+                <span class="text-teal-600">Stretch</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Resources (Means Attributes — the sliders) ───────────────────── -->
+        <section>
+          <div class="flex items-center gap-3 mb-4">
+            <ResourceArtsyGlyph size="md" />
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Means Attributes</span>
+            <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{{ resourceEntries.length }} Resources</span>
+            <span class="text-[10px] text-slate-400 italic">&#8592; adjust these sliders to explore tradeoffs</span>
+          </div>
+
+          <div class="space-y-3">
+            <div
+              v-for="entry in resourceEntries"
+              :key="entry.id"
+              class="rounded-xl border-2 border-emerald-200 bg-white px-4 py-3"
+            >
+              <!-- Entry header -->
+              <div class="flex items-center gap-2 mb-2">
+                <div class="flex-1 min-w-0">
+                  <span class="text-[13px] font-semibold text-slate-800 truncate block">{{ entry.label }}</span>
+                </div>
+                <span class="text-[11px] font-bold text-slate-600 shrink-0">{{ Math.round(entry.current) }}%</span>
+                <span
+                  class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                  :style="{ backgroundColor: statusColor(entry) + '22', color: statusColor(entry) }"
+                >
+                  {{ statusLabel(entry) }}
+                </span>
+              </div>
+
+              <!-- Resource SLIDER (user-adjustable) -->
+              <div class="relative h-10">
+                <!-- Colored zone track -->
+                <div class="absolute inset-y-3.5 left-0 right-0 h-2.5 rounded-full overflow-hidden">
+                  <div class="absolute left-0 top-0 h-full bg-red-200"
+                    :style="{ width: `${(entry.tolerablePos/150)*100}%` }" />
+                  <div class="absolute top-0 h-full bg-amber-200"
+                    :style="{ left: `${(entry.tolerablePos/150)*100}%`,
+                              width: `${((entry.goalPos - entry.tolerablePos)/150)*100}%` }" />
+                  <div class="absolute top-0 h-full bg-emerald-200"
+                    :style="{ left: `${(entry.goalPos/150)*100}%`,
+                              width: `${((entry.wishPos - entry.goalPos)/150)*100}%` }" />
+                  <div class="absolute top-0 h-full bg-teal-200"
+                    :style="{ left: `${(entry.wishPos/150)*100}%`, width: '100%' }" />
+                </div>
+                <!-- Threshold ticks -->
+                <div class="absolute top-2 h-6 w-0.5 rounded bg-amber-600 z-10"
+                  :style="{ left: `${(entry.tolerablePos/150)*100}%` }" />
+                <div class="absolute top-2 h-6 w-0.5 rounded bg-emerald-600 z-10"
+                  :style="{ left: `${(entry.goalPos/150)*100}%` }" />
+                <!-- INTERACTIVE range input -->
+                <input
+                  type="range"
+                  min="0" max="150" step="1"
+                  :value="entry.current"
+                  :title="`${entry.label} — drag to adjust budget. Current: ${Math.round(entry.current)}% of Goal. Moving this slider recalculates all Value estimates and shows tradeoffs.`"
+                  class="absolute inset-0 w-full opacity-0 cursor-pointer z-20"
+                  @input="onResourceSlider(entry.id, +($event.target as HTMLInputElement).value)"
+                />
+                <!-- Visual progress bar -->
+                <div
+                  class="absolute top-3 h-4 rounded-full transition-all duration-150 opacity-70"
+                  :style="{ width: `${Math.min(100,(entry.current/150)*100)}%`, backgroundColor: statusColor(entry) }"
+                />
+                <!-- Thumb -->
+                <div
+                  class="absolute top-2.5 w-5 h-5 rounded-full border-2 border-white shadow-lg transition-all duration-150 -translate-x-1/2"
+                  :style="{ left: `${Math.min(99,(entry.current/150)*100)}%`, backgroundColor: statusColor(entry) }"
+                />
+              </div>
+
+              <div class="flex justify-between text-[9px] text-slate-400 mt-0.5 px-0.5">
+                <span>0%</span>
+                <span class="text-amber-600 font-semibold">Tolerable</span>
+                <span class="text-emerald-600 font-semibold">Goal (100%)</span>
+                <span class="text-teal-600">+50% stretch</span>
+              </div>
+
+              <!-- DEEP insight: increase a resource to unlock value -->
+              <p v-if="entry.current > 110"
+                class="mt-2 text-[10px] text-teal-700 bg-teal-50 rounded-lg px-2 py-1 italic">
+                &#128161; OPTIMA insight: increasing this resource beyond Goal may unlock higher Value Goals
+                (DEEP Planguage theory &#8212; one resource increase can buy multiple value improvements)
+              </p>
+            </div>
+          </div>
+
+          <!-- Empty state if no resources yet -->
+          <div v-if="resourceEntries.length === 0"
+            class="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-6 text-center">
+            <OptimaGlyph size="lg" class="mx-auto mb-3" />
+            <p class="text-[12px] text-amber-800 font-semibold">No Resource entries yet</p>
+            <p class="text-[11px] text-amber-700 mt-1">
+              Use the Improve Resources tool (Pin 1) to add R. entries via Claudian,<br>
+              then return here to optimize the balance.
+            </p>
+          </div>
+        </section>
+
+      </div>
+    </ScrollContainer>
+
+    <!-- ── Bottom action bar ──────────────────────────────────────────────── -->
+    <div class="border-t border-slate-200 bg-slate-50 px-6 py-3 flex items-center gap-3 shrink-0">
+      <button type="button"
+        class="text-[12px] font-semibold text-slate-600 hover:text-slate-900 px-3 py-2
+               rounded-lg border border-slate-200 hover:border-slate-400 bg-white
+               focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
+        title="Reset all sliders to their Goal positions"
+        @click="reset">
+        &#8634; Reset to Goals
+      </button>
+      <div class="flex-1" />
+      <button v-if="hasViolations" type="button"
+        class="text-[12px] font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2
+               rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors"
+        @click="fixViolations">
+        Adjust values to avoid Constraint Violation &#8594;
+      </button>
+      <button type="button"
+        class="text-[12px] font-semibold text-slate-600 hover:text-slate-900 px-4 py-2
+               rounded-lg border border-slate-200 bg-white hover:border-slate-400
+               focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
+        @click="emit('close')">
+        Done
+      </button>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* Vibration animation — top-N most impacted values bounce briefly */
+@keyframes vibrate-impact {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-3px); }
+  40%       { transform: translateX(3px); }
+  60%       { transform: translateX(-2px); }
+  80%       { transform: translateX(2px); }
+}
+/* Constraint violation — rapid red shake, continuous until resolved */
+@keyframes violation-shake {
+  0%, 100% { transform: translateX(0) scale(1.005); }
+  15%, 45%, 75% { transform: translateX(-5px) scale(1.01); }
+  30%, 60%, 90% { transform: translateX(5px) scale(1.01); }
+}
+.vibrate-impact {
+  animation: vibrate-impact 0.4s ease-in-out 3;
+}
+.violation-shake {
+  animation: violation-shake 0.25s ease-in-out infinite;
+}
+/* Transition for violation banner slide-in */
+.slide-down-enter-active, .slide-down-leave-active {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  max-height: 80px;
+  overflow: hidden;
+}
+.slide-down-enter-from, .slide-down-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+</style>

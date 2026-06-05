@@ -147,6 +147,9 @@ import { GLYPH_PANEL_OPEN_EVENT, GLYPH_PANEL_CLOSE_EVENT, GLYPH_PANEL_NAVIGATE_E
 import SaveGlyph from './components/icons/SaveGlyph.vue'
 import EditGlyph from './components/icons/EditGlyph.vue'
 import PlResourceIcon from './components/icons/PlResourceIcon.vue'
+import ResourceArtsyGlyph from './components/icons/ResourceArtsyGlyph.vue'
+import OptimaGlyph from './components/icons/OptimaGlyph.vue'
+import ResourceOptimaPanel from './components/ResourceOptimaPanel.vue'
 import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
 import GetGlyph from './components/icons/GetGlyph.vue'
 import CopyGlyph from './components/icons/CopyGlyph.vue'
@@ -267,6 +270,8 @@ const sharpeningDone = ref(false)
 const sharpenModalOpen = ref(false)
 // resourcesSharpenOpen: true when Stage 10 · Resources Sharpening panel is open.
 const resourcesSharpenOpen = ref(false)
+// optimaOpen: true when Stage 10 · OPTIMA Resource Optimization panel is open.
+const optimaOpen = ref(false)
 
 
 // Tom 2026-06-04 r88 — Phase 2 of Resources beef-up: write-back from
@@ -4336,6 +4341,7 @@ const searchEntries = computed((): SearchEntry[] => {
 // pass `{ exclusive: false }` and document the reason inline.
 registerExclusiveSurface('presentation',      presentationOpen)
 registerExclusiveSurface('resourcesSharpen',  resourcesSharpenOpen)
+registerExclusiveSurface('optima',            optimaOpen)
 registerExclusiveSurface('sharpenModal',      sharpenModalOpen)
 registerExclusiveSurface('bullock',           bullockOpen)
 registerExclusiveSurface('visualise',         visualiseOpen)
@@ -6750,7 +6756,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <h3 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Resources Stage Tools</h3>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 
               <!-- ── Pin 1: Improve Plan Resources ─────────────────────────── -->
               <div class="rounded-xl border-2 border-emerald-300 overflow-hidden shadow-sm">
@@ -6934,6 +6940,61 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            cursor-not-allowed select-none"
                     title="Resource charts — coming in a future release"
                   >Resource Charts <span class="text-[9px] font-normal opacity-60">(soon)</span></button>
+                </div>
+              </div>
+
+              <!-- ── Pin 4: Potential Resource Optimization (OPTIMA) ──────── -->
+              <div class="rounded-xl border-2 border-amber-300 overflow-hidden shadow-sm">
+                <!-- Pin header — OptimaGlyph (dots + threshold lines + yellow circle) -->
+                <div class="bg-gradient-to-br from-amber-400 to-orange-600 px-4 py-6 text-white">
+                  <button
+                    type="button"
+                    class="w-full flex justify-center focus:outline-none focus:ring-2 focus:ring-white/60
+                           rounded-lg hover:bg-white/10 transition-colors duration-100 py-2"
+                    title="OPTIMA — Potential Resource Optimization · Balancing Critical Values (Optima book, Tom Gilb 2024) · VDT sliders show multi-factor tradeoffs · green = Goal met · orange = Tolerable risk · red = Constraint Violation · DEEP Planguage theory: a resource can be increased to buy more value while others decrease · Double-click for Optima glyph details"
+                    @dblclick.stop="optimaOpen = true"
+                    @click="optimaOpen = true"
+                  >
+                    <OptimaGlyph size="xl" />
+                  </button>
+                  <div class="text-center mt-3">
+                    <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">Potential</span>
+                    <div class="text-[14px] font-extrabold leading-tight mt-0.5">Resource Optimization</div>
+                    <div class="text-[10px] opacity-75 mt-0.5">balance · tradeoffs · OPTIMA</div>
+                  </div>
+                </div>
+                <!-- Sub-option buttons -->
+                <div class="bg-amber-50 p-2.5 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-amber-900
+                           bg-white rounded-lg px-3 py-2 border border-amber-200
+                           hover:border-amber-500 hover:bg-amber-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400
+                           transition-all duration-100"
+                    title="Open OPTIMA VDT sliders — adjust resources and see value tradeoffs in real time"
+                    @click="optimaOpen = true"
+                  >OPTIMA Tool — VDT Sliders</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-amber-900
+                           bg-white rounded-lg px-3 py-2 border border-amber-200
+                           hover:border-amber-500 hover:bg-amber-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400
+                           transition-all duration-100"
+                    title="DEEP theory: a resource can be increased while others decrease to unlock value — the OPTIMA is not cheapest/fastest but maximises Goal achievement"
+                    @click="optimaOpen = true"
+                  >DEEP Theory — Resource Trade-offs</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-amber-900
+                           bg-white rounded-lg px-3 py-2 border border-amber-200
+                           hover:border-amber-500 hover:bg-amber-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400
+                           transition-all duration-100"
+                    title="Constraint Violation Analysis — find which resource constraints are blocking Value Goals"
+                    @click="optimaOpen = true"
+                  >Constraint Violation Analysis</button>
                 </div>
               </div>
 
@@ -8231,6 +8292,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :captured-v-c-ratios="capturedVCRatios"
       @close="resourcesSharpenOpen = false"
       @apply-analysis="_onResourcesAnalysisApplied"
+    />
+
+    <!-- Stage 10 · OPTIMA Resource Optimization — VDT sliders + threshold visualization
+         Based on Optima book (Tom Gilb 2024: "Balancing Critical Values").
+         Adjusting a resource slider propagates impact to all Value entries;
+         top-3 impacted vibrate, violations shake red. -->
+    <ResourceOptimaPanel
+      v-if="view === 'app' && optimaOpen"
+      :spec="currentSpec"
+      :vc-ratios="capturedVCRatios"
+      @close="optimaOpen = false"
     />
 
     <!-- Sharpening Cycles modal — triggered from nav "Sharpen ▾" when spec exists -->
