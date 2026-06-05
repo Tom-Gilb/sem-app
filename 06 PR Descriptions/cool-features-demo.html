@@ -35,7 +35,10 @@
   <a href="#color-artsy">▶ Color Artsy Icons (6 shipped)</a> ·
   <a href="#analyze-compounds">▶ Analyze-Spec Compound Glyphs [TYPE]→? (7 proposed)</a> ·
   <a href="#kiss-feature" style="color:#7c3aed;font-weight:700;">▶ KISS Feature (NEW 2026-06-05)</a> ·
-  <a href="#resources-guided-ux" style="color:#059669;font-weight:700;">▶ Resources Guided UX (NEW 2026-06-05)</a>
+  <a href="#resources-guided-ux" style="color:#059669;font-weight:700;">▶ Resources Guided UX (NEW 2026-06-05)</a> ·
+  <a href="#scroll-arrows" style="color:#0369a1;font-weight:700;">▶ Bidirectional Scroll Arrows (NEW 2026-06-05)</a> ·
+  <a href="#book-cover-chip" style="color:#6d28d9;font-weight:700;">▶ BookCoverChip widget (NEW 2026-06-05)</a> ·
+  <a href="#cost-engineering" style="color:#92400e;font-weight:700;">▶ Cost Engineering Tool (NEW 2026-06-05)</a>
 </nav>
 
 <p class="caption" style="background:#ecfdf5;border-left:4px solid #16a34a;padding:10px 14px;margin:8px 0 20px;">
@@ -833,6 +836,120 @@
       <td style="padding:10px 16px;border:1px solid #d1fae5;font-size:12px;">Each of the 9 dimensions × 4 questions now has a full EvoSharpInterview-style interactive block: Planner textarea, 3–5 tickable suggested-answer chips (emerald highlight on tick, #N mono label), 4 mode pills (Mixed/All/My answer only/Ticked only, active=emerald-600), effective-answer preview box. Answered/total badge on accordion header (green=done, amber=partial, slate=none). Overall N/M progress in header subtitle.</td>
       <td style="padding:10px 16px;border:1px solid #d1fae5;font-size:12px;font-family:monospace;color:#059669;">ResourcesSharpenPanel.vue (+121 lines)</td>
       <td style="padding:10px 16px;border:1px solid #d1fae5;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="footnote">
+  Open this file in Safari: <code>open /Users/Tomgilbs/Documents/MyVault/.claude/glyph-preview.html</code><br>
+  Future workflow: Claudian updates the SVG markup in this file BEFORE applying changes to <code>src/components/icons/*Glyph.vue</code>.  Tom opens the file in Safari to preview, approves or rejects, and only then does the code change get committed.<br>
+  Artistic synonyms (above) are PROPOSALS — nothing in <code>src/components/icons/</code> has been changed.
+</p>
+
+<!-- ── Bidirectional Scroll Arrows section ──────────────────────────────── -->
+<h2 id="scroll-arrows" style="background:#0c4a6e;color:#7dd3fc;padding:12px 18px;border-radius:10px;border:2px solid #0369a1;margin-top:40px;font-size:18px;">
+  ▶ Bidirectional Scroll Arrows — ↑ / ↕ / ↓  ✅ SHIPPED 2026-06-05
+</h2>
+<p class="caption" style="background:#0c4a6e;color:#bae6fd;border-left:4px solid #0369a1;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
+  Tom Gilb 2026-06-05 verbatim: "the scroll arrow point down, but when we are at bottom it can point up and in middle both ways"
+</p>
+<table style="width:100%;border-collapse:collapse;background:#f0f9ff;color:#1e293b;">
+  <thead>
+    <tr style="background:#bae6fd;">
+      <th style="color:#0c4a6e;padding:10px 16px;text-align:left;border:1px solid #7dd3fc;">State</th>
+      <th style="color:#0c4a6e;padding:10px 16px;text-align:left;border:1px solid #7dd3fc;">Indicator</th>
+      <th style="color:#0c4a6e;padding:10px 16px;text-align:left;border:1px solid #7dd3fc;">Description</th>
+      <th style="color:#0c4a6e;padding:10px 16px;text-align:left;border:1px solid #7dd3fc;">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">At top (scrollTop = 0)</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:18px;text-align:center;">↓</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Bottom pill only. More content below, nothing above yet. hasMore=true, hasLess=false.</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">In middle</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:18px;text-align:center;">↑ &amp; ↕</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Top ↑ pill appears at top-2 with downward gradient. Bottom pill shows ↕ (bidirectional). Both hasMore AND hasLess true.</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">At bottom</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:18px;text-align:center;">↑</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Top ↑ pill only. All content scrolled into view below. hasMore=false, hasLess=true.</td>
+      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ── BookCoverChip section ─────────────────────────────────────────────── -->
+<h2 id="book-cover-chip" style="background:#3b0764;color:#d8b4fe;padding:12px 18px;border-radius:10px;border:2px solid #7c3aed;margin-top:40px;font-size:18px;">
+  ▶ BookCoverChip — Miniature Gilb-book reference widget  ✅ SHIPPED 2026-06-05
+</h2>
+<p class="caption" style="background:#3b0764;color:#ede9fe;border-left:4px solid #7c3aed;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
+  Tom Gilb 2026-06-05 verbatim: "When recommending my books, any books, a miniature cover picture of the books should be placed alongside the text about the book (or several books). With any free and public (like in my book references) download link (priority Researchgate, The Leanpub, then Gilb dropbox)"
+</p>
+<table style="width:100%;border-collapse:collapse;background:#faf5ff;color:#1e293b;">
+  <thead>
+    <tr style="background:#ede9fe;">
+      <th style="color:#4c1d95;padding:10px 16px;text-align:left;border:1px solid #c4b5fd;">Feature</th>
+      <th style="color:#4c1d95;padding:10px 16px;text-align:left;border:1px solid #c4b5fd;">Description</th>
+      <th style="color:#4c1d95;padding:10px 16px;text-align:left;border:1px solid #c4b5fd;">File</th>
+      <th style="color:#4c1d95;padding:10px 16px;text-align:left;border:1px solid #c4b5fd;">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #ede9fe;font-weight:700;color:#4c1d95;">Standard mode</td>
+      <td style="padding:10px 16px;border:1px solid #ede9fe;font-size:12px;">32×48px pure-CSS book spine (no external images), 3D drop-shadow, darker left-stripe via shadeColor(). Title / author / year below. Conditional download links in priority order: ResearchGate (emerald), Leanpub (indigo), Dropbox (blue). TwinPod-URI Access Policy enforced — only distribution URLs accepted.</td>
+      <td style="padding:10px 16px;border:1px solid #ede9fe;font-size:12px;font-family:monospace;color:#7c3aed;">BookCoverChip.vue (NEW, 227 lines)</td>
+      <td style="padding:10px 16px;border:1px solid #ede9fe;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #ede9fe;font-weight:700;color:#4c1d95;">Compact mode</td>
+      <td style="padding:10px 16px;border:1px solid #ede9fe;font-size:12px;">20×28px cover, inline title, first available link labelled "free PDF". Used in space-constrained contexts (citation badges, narrow columns).</td>
+      <td style="padding:10px 16px;border:1px solid #ede9fe;font-size:12px;font-family:monospace;color:#7c3aed;">BookCoverChip.vue (compact prop)</td>
+      <td style="padding:10px 16px;border:1px solid #ede9fe;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ── Cost Engineering Tool section ────────────────────────────────────── -->
+<h2 id="cost-engineering" style="background:#451a03;color:#fde68a;padding:12px 18px;border-radius:10px;border:2px solid #b45309;margin-top:40px;font-size:18px;">
+  ▶ Cost Engineering Tool — Static + Dynamic Design-to-Cost  ✅ SHIPPED 2026-06-05
+</h2>
+<p class="caption" style="background:#451a03;color:#fef3c7;border-left:4px solid #b45309;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
+  Tom Gilb 2026-06-05 verbatim: "COST ENGINEERING: THE TOOL, SEPARATE TOOL for Dynamic (Evo Step) Design to [Cost, Value, Constraint] and for initial statics upfront Design to [Cost, Value, Constraint]. Based on ideas in Cost Engineering."
+</p>
+<table style="width:100%;border-collapse:collapse;background:#fffbeb;color:#1e293b;">
+  <thead>
+    <tr style="background:#fde68a;">
+      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Tab / Feature</th>
+      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Description</th>
+      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">File</th>
+      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">Static — Upfront Design-to-Cost</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">Design-to-Cost Targets table from R. entries (budget, target, max-allowed, status), Value Delivery within Budget from V. entries (Goal, Wish vs budget), Constraint Check from C. entries with cost implications. Demo data when spec is null. Gilb Cost Engineering citation via BookCoverChip.</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;font-family:monospace;color:#b45309;">ResourceCostEngineeringPanel.vue (NEW, 536 lines)</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">Dynamic — Evo Step Cost Tracking</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">Per-Evo-Step table: planned cost vs value delivered vs constraint status. VDT-style V/C ratio ranking (≥2.0=emerald, 1.0–1.9=amber, &lt;1.0=red). DEEP Principle note on cross-step resource trade-offs. Actionable recommendation for lowest V/C step.</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;font-family:monospace;color:#b45309;">ResourceCostEngineeringPanel.vue (Dynamic tab)</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ SHIPPED</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">[$→*] International Keyed Icon</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">DD-015 compliant: bracket + dollar + arrow + asterisk (no English letters). $ = cost/resource, → = transformation, * = output. Appears on Pin 6 in the Stage 10 Visualize grid and in the panel header gradient (amber/slate-900).</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;font-family:monospace;color:#b45309;">App.vue (Pin 6)</td>
+      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ SHIPPED</td>
     </tr>
   </tbody>
 </table>
