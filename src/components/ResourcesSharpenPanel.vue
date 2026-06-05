@@ -23,6 +23,7 @@ import { ref, computed } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import { RESOURCES_SHARPEN_DIMENSIONS, RESOURCES_ADVANCED_TOOLS, RESOURCES_ANALYSIS_PROMPT } from '../data/resourcesSharpenDimensions'
+import type { ResourcesSharpenDimension } from '../data/resourcesSharpenDimensions'
 import type { SpecBlock } from '../types/spec'
 import { useToast } from '../composables/useToast'
 import {
@@ -37,10 +38,12 @@ import {
   type CEntryProposal,
   type ApprovalSet,
 } from '../composables/useResourcesAnalysisParser'
+import { useResourcesSharpAnswers, type SelectionMode } from '../composables/useResourcesSharpAnswers'
 
 const props = defineProps<{
   open: boolean
   spec: SpecBlock | null
+  planId?: string
   capturedCalendarCosts?: Record<string, number>
   capturedCapitalCosts?:  Record<string, number>
   capturedVCRatios?:      Record<string, number>
@@ -54,6 +57,43 @@ const emit = defineEmits<{
 }>()
 
 const { showToast } = useToast()
+
+// ─── Resources sharp answers composable ──────────────────────────────────────
+const planIdRef = computed(() => props.planId ?? props.spec?.name ?? 'default')
+const {
+  getAnswer,
+  setTypedAnswer,
+  toggleTicked,
+  setMode,
+  isTicked,
+  getEffectiveAnswer,
+  answeredInCategory,
+} = useResourcesSharpAnswers(planIdRef)
+
+// Selection mode pills — same UX as EvoSharpInterview.
+const SELECTION_MODES: Array<{ id: SelectionMode; label: string; title: string }> = [
+  { id: 'mixed',       label: 'Mixed',         title: 'Use your typed answer + any ticked suggestions (default)' },
+  { id: 'all',         label: 'All',            title: 'Use your typed answer + ALL suggestions regardless of ticks' },
+  { id: 'typed-only',  label: 'My answer only', title: 'Use only your typed answer; ignore all suggestions' },
+  { id: 'ticked-only', label: 'Ticked only',    title: 'Use only the suggestions you have ticked; ignore your typed answer' },
+]
+
+/** Counts answered questions for one dimension (memoised via helper to avoid
+ *  repeated inline expression in template). */
+function dimAnsweredCount(dim: ResourcesSharpenDimension): number {
+  return answeredInCategory(
+    dim.id,
+    dim.questions.map((_, qi) => ({ id: String(qi), suggestedAnswers: dim.suggestedAnswers?.[qi] })),
+  )
+}
+
+// Progress counters for the header subtitle.
+const totalQuestionsCount = computed(() =>
+  RESOURCES_SHARPEN_DIMENSIONS.reduce((s, d) => s + d.questions.length, 0),
+)
+const totalAnsweredCount = computed(() =>
+  RESOURCES_SHARPEN_DIMENSIONS.reduce((s, dim) => s + dimAnsweredCount(dim), 0),
+)
 
 // Which dimension card is expanded (single-expand for focus).
 const expandedId = ref<string | null>(RESOURCES_SHARPEN_DIMENSIONS[0]?.id ?? null)
@@ -244,8 +284,7 @@ async function copyAnalysisRequest(): Promise<void> {
               <div>
                 <h2 class="text-lg font-bold text-emerald-900">Resources Sharpening</h2>
                 <p class="text-[12px] text-emerald-700/80">
-                  9 dimensions, each with Gilb-cited guided questions.
-                  Conjunction-of-Technologies: every finding traces to a Gilb source.
+                  9 dimensions · {{ totalAnsweredCount }} / {{ totalQuestionsCount }} questions answered · Conjunction-of-Technologies: every finding traces to a Gilb source.
                 </p>
               </div>
             </div>
@@ -328,7 +367,17 @@ async function copyAnalysisRequest(): Promise<void> {
                     {{ idx + 1 }}
                   </span>
                   <div class="flex-1 min-w-0">
-                    <div class="font-bold text-slate-900 text-[15px]">{{ dim.label }}</div>
+                    <div class="flex items-center gap-1">
+                      <span class="font-bold text-slate-900 text-[15px]">{{ dim.label }}</span>
+                      <span
+                        class="shrink-0 text-[9px] font-mono px-1 py-px rounded ml-1"
+                        :class="dimAnsweredCount(dim) === dim.questions.length
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : dimAnsweredCount(dim) > 0
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-slate-100 text-slate-400'"
+                      >{{ dimAnsweredCount(dim) }}/{{ dim.questions.length }}</span>
+                    </div>
                     <div class="text-[12px] text-slate-600 mt-0.5">{{ dim.summary }}</div>
                   </div>
                   <span class="shrink-0 text-slate-400 text-xs mt-1" aria-hidden="true">
@@ -345,12 +394,85 @@ async function copyAnalysisRequest(): Promise<void> {
                     <span class="text-[11px] uppercase font-bold text-amber-700 tracking-wider mr-2">Why this matters</span>
                     <span class="text-[12px] text-amber-900">{{ dim.whyItMatters }}</span>
                   </div>
-                  <!-- Questions -->
-                  <div class="mb-3">
-                    <div class="text-[11px] uppercase font-bold text-slate-600 tracking-wider mb-1">Guided questions</div>
-                    <ul class="list-disc pl-5 text-[13px] text-slate-800 space-y-1">
-                      <li v-for="(q, qi) in dim.questions" :key="qi">{{ q }}</li>
-                    </ul>
+                  <!-- Interactive per-question blocks (EvoSharpInterview-style UX) -->
+                  <div class="mb-4 space-y-4">
+                    <div class="text-[11px] uppercase font-bold text-slate-600 tracking-wider mb-2">Guided questions</div>
+                    <div
+                      v-for="(q, qi) in dim.questions"
+                      :key="qi"
+                      class="space-y-2 pb-3 border-b border-slate-100 last:border-b-0"
+                    >
+                      <!-- Question -->
+                      <label class="block">
+                        <span class="text-sm font-semibold text-slate-800">{{ q }}</span>
+                      </label>
+
+                      <!-- Planner textarea -->
+                      <div>
+                        <p class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 mb-0.5">Planner's answer</p>
+                        <textarea
+                          :value="getAnswer(dim.id, String(qi)).typed"
+                          placeholder="Your answer…"
+                          rows="2"
+                          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800
+                                 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
+                                 transition-colors resize-y"
+                          :aria-label="`Your answer to: ${q}`"
+                          @input="(e) => setTypedAnswer(dim.id, String(qi), (e.target as HTMLTextAreaElement).value)"
+                        />
+                      </div>
+
+                      <!-- Suggested answers chips -->
+                      <div v-if="dim.suggestedAnswers?.[qi]?.length" class="space-y-1.5">
+                        <p class="text-[10px] font-bold uppercase tracking-wide text-indigo-700 mb-0.5">Suggested answers — tick any to approve</p>
+                        <label
+                          v-for="(sugg, si) in dim.suggestedAnswers![qi]"
+                          :key="si"
+                          class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 hover:bg-emerald-50/40 cursor-pointer transition-colors"
+                          :class="isTicked(dim.id, String(qi), si) ? 'border-emerald-300 bg-emerald-50/60' : ''"
+                          :title="`Suggestion ${si + 1} — click to ${isTicked(dim.id, String(qi), si) ? 'remove from' : 'add to'} effective answer (Mixed mode)`"
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="isTicked(dim.id, String(qi), si)"
+                            class="mt-0.5 flex-shrink-0 accent-emerald-600 cursor-pointer"
+                            :aria-label="`Tick suggestion ${si + 1} for question: ${q}`"
+                            @change="toggleTicked(dim.id, String(qi), si)"
+                          />
+                          <span class="text-xs text-slate-700 leading-snug flex-1">
+                            <span class="text-[9px] font-mono font-bold text-emerald-600 mr-1">#{{ si + 1 }}</span>{{ sugg }}
+                          </span>
+                        </label>
+                      </div>
+
+                      <!-- Mode pills -->
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mr-1">Use:</span>
+                        <button
+                          v-for="m in SELECTION_MODES"
+                          :key="m.id"
+                          type="button"
+                          class="text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors"
+                          :class="getAnswer(dim.id, String(qi)).mode === m.id
+                            ? 'bg-emerald-600 text-white border-emerald-700'
+                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'"
+                          :title="m.title"
+                          @click="setMode(dim.id, String(qi), m.id)"
+                        >{{ m.label }}</button>
+                      </div>
+
+                      <!-- Effective answer preview -->
+                      <div class="rounded-lg bg-emerald-50/60 border border-emerald-200 px-2.5 py-1.5">
+                        <p class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 mb-0.5">Effective answer (what will export)</p>
+                        <p
+                          v-if="getEffectiveAnswer(dim.id, String(qi), dim.suggestedAnswers?.[qi] ?? []).trim().length > 0"
+                          class="text-[11px] text-slate-800 whitespace-pre-wrap leading-snug"
+                        >{{ getEffectiveAnswer(dim.id, String(qi), dim.suggestedAnswers?.[qi] ?? []) }}</p>
+                        <p v-else class="text-[11px] text-slate-400 italic">
+                          (empty — type an answer or tick a suggestion to populate)
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   <!-- Examples -->
                   <div class="mb-3">
