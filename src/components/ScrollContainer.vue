@@ -21,7 +21,7 @@
     <div
       ref="scrollEl"
       class="overflow-y-auto"
-      :class="innerClass"
+      :class="resolvedInnerClass"
       :style="innerStyle || undefined"
       @scroll.passive="check"
     >
@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted, useAttrs } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, useAttrs } from 'vue'
 defineOptions({ inheritAttrs: false })
 const attrs = useAttrs()
 
@@ -142,6 +142,30 @@ const props = withDefaults(defineProps<{
   innerStyle: '',
   fadeFrom: 'white',
   noPill: false,
+})
+
+/**
+ * Auto-inject h-full on the inner div when the outer is flex-constrained (min-h-0).
+ *
+ * Why this is needed: `overflow-y-auto` only activates scroll when the element's
+ * rendered height is LESS than its content. In a `flex-1 min-h-0` outer, the inner
+ * div has no explicit height so it grows freely to fit all content — scroll never
+ * triggers. Adding `h-full` constrains the inner div to the outer's flex-allocated
+ * height, letting overflow-y-auto do its job.
+ *
+ * The rule: if outerClass contains `min-h-0` AND innerClass doesn't already have
+ * `h-full` AND innerStyle doesn't set an explicit height/max-height, inject h-full.
+ * This covers every panel body that uses the `flex-1 min-h-0` pattern without
+ * requiring all callers to remember `h-full` — a STANDARD RULE that ScrollContainer
+ * now enforces itself.
+ */
+const resolvedInnerClass = computed(() => {
+  const needsHFull =
+    props.outerClass.includes('min-h-0') &&
+    !props.innerClass.includes('h-full') &&
+    !props.innerStyle.includes('max-height') &&
+    !props.innerStyle.includes('height:')
+  return needsHFull ? `h-full ${props.innerClass}` : props.innerClass
 })
 
 const scrollEl     = ref<HTMLElement | null>(null)

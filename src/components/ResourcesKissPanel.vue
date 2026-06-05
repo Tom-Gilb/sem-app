@@ -416,7 +416,7 @@ function resourceDeltaSign(pct: number): string {
           <!-- ─── Phase B: Results (scrollable) ──────────────────────────── -->
           <ScrollContainer
             outer-class="flex-1 min-h-0 relative"
-            inner-class="px-4 py-4 space-y-6"
+            inner-class="h-full px-4 py-4 space-y-6"
             fade-from="#0f172a"
             :no-pill="false"
           >
