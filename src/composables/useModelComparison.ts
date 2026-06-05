@@ -14,7 +14,7 @@ import { ref, readonly } from 'vue'
 import Anthropic from '@anthropic-ai/sdk'
 import { MODEL_ID } from '../config/llm'
 import type { SpecBlock } from '../types/spec'
-import type { PlanModel } from './usePlanModel'
+import type { PlanModel } from './useSpecModel'
 
 // ── Diff criterion definitions ────────────────────────────────────────────────
 

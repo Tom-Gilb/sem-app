@@ -26,7 +26,7 @@ import { ref, computed, watch, onMounted, onUnmounted, reactive, nextTick } from
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import { useEvoPlan } from '../composables/useEvoPlan'
-import { usePlanModel, EVO_CYCLE_HOURS } from '../composables/usePlanModel'
+import { useSpecModel, EVO_CYCLE_HOURS } from '../composables/useSpecModel'
 import { useStepCostEstimator } from '../composables/useStepCostEstimator'
 import { useSprintPlanner } from '../composables/useSprintPlanner'
 import { useWsjfScorer } from '../composables/useWsjfScorer'
@@ -268,7 +268,7 @@ onUnmounted(() => {
 // cycleLength drives: (1) EvoCycleLengthPicker display, (2) step-card hour estimate,
 // (3) LLM prompt constraint injected at next fetchPlan() call,
 // (4) explicit "Maximum Evo Cycle Length is set to…" label on the step list.
-const { currentModel } = usePlanModel()
+const { currentModel } = useSpecModel()
 const cycleLength = computed(() => currentModel.value?.evoCycleLength ?? 'week')
 const cycleHours  = computed(() => EVO_CYCLE_HOURS[cycleLength.value])
 
@@ -1179,7 +1179,7 @@ function stepActionGroups(step: EvoStep, index: number): Array<{ id: string; emo
       ],
     },
     {
-      id: 'simplify', emoji: '✨', label: 'Plan Team Steps Detail',
+      id: 'simplify', emoji: '✨', label: 'Spec Team Steps Detail',
       items: [
         { label: 'Pair Programming', emoji: '👥',
           isActive: () => pairMap.value[key]?.open ?? false,
@@ -3201,7 +3201,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         <!-- Legend -->
         <div class="flex gap-4 mt-2 text-xs text-gray-500">
           <span><span class="inline-block w-3 h-3 rounded-full bg-violet-700 mr-1"></span>Evo step</span>
-          <span><span class="inline-block w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>V. entry</span>
+          <span><span class="inline-block w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>Value Spec</span>
         </div>
       </div>
     </div>
@@ -3451,8 +3451,10 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /> Fix Solutions in Spec Editor
         </button>
       </div>
+      <!-- Tom 2026-06-03: NO V./S. codes in user-facing text — write "Solution
+           Spec" instead of "S. entry" per the no-codes rule. -->
       <p class="text-xs text-red-400 italic">
-        Tip: every Evo step needs at least one S. entry. Open the Spec Editor
+        Tip: every Evo step needs at least one Solution Spec. Open the Spec Editor
         to add Solutions, then Retry.
       </p>
     </div>

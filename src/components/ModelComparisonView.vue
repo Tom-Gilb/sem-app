@@ -33,8 +33,8 @@ import {
   loadPlanByTag,
   allPlanTags,
   planVersionsForTag,
-} from '../composables/usePlanModel'
-import type { PlanModel } from '../composables/usePlanModel'
+} from '../composables/useSpecModel'
+import type { PlanModel } from '../composables/useSpecModel'
 
 const props = defineProps<{
   initialModel?: PlanModel

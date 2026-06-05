@@ -893,19 +893,17 @@ const headlineSentence = computed<string>(() => {
   -->
   <div :class="props.fitContainer ? 'flex flex-col w-full h-full' : ''">
 
-  <!-- ── Primary Value banner (Tom 2026-05-16: "pulsates like its spec; needs
-       explanation; larger text in a coloured rectangle box")
-       Shows the first V. entry — the plan's most important outcome — as a
-       prominent labelled box that breathes in sync with the matching SVG node.
-       Hidden in fitContainer (full-screen) mode — the ValueFlowPanel header
-       carries the context, and hiding the banner gives the SVG the full vertical
-       space, preventing the flex-height conflict that clipped lower-row arrows. -->
-  <div v-if="!thumbnail && !props.fitContainer" class="vfd-headline-box shrink-0" aria-label="Primary Value Target">
-    <p class="vfd-headline-label">
-      <span aria-hidden="true">★</span> Most valuable spec to act on
-    </p>
-    <p class="vfd-headline-text">{{ headlineSentence }}</p>
-  </div>
+  <!-- ── Primary Value banner — REMOVED 2026-06-03 (Tom: *"says sprint plan!
+       delete whole message. Enlarge the value flow map"*).
+       The banner displayed the first V. entry's description verbatim, which
+       leaked user-content scrum vocabulary ("sprint") through.  Even cleansed,
+       the banner was redundant with the diagram itself + the panel header +
+       took vertical space the diagram needs.  The breathing-pulse effect on
+       the primary V. node in the SVG remains as the visual emphasis.
+       Original banner shipped 2026-05-16 (Tom: "pulsates like its spec; needs
+       explanation; larger text in a coloured rectangle box") — superseded.
+  -->
+
 
   <!-- ── Legend bar — hidden in fitContainer mode to maximise diagram space ─── -->
   <div v-if="!thumbnail && !props.fitContainer" class="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-[10px] text-slate-500">

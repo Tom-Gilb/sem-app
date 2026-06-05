@@ -24,9 +24,10 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import PlTypeIcon, { type PlGlyphType } from './icons/PlTypeIcon.vue'
 import PlSpecFieldIcon, { type SpecFieldType } from './icons/PlSpecFieldIcon.vue'
+import CopyGlyph from './icons/CopyGlyph.vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 
@@ -113,8 +114,8 @@ const GLYPH_SHORT: Record<PlGlyphType, string> = {
   value:       'V.',
   function:    'F.',
   constraint:  'C.',
-  solution:    'S.',
-  stakeholder: 'K.',
+  solution:    'D.',    // D. = Design (Solutions) — Tom Gilb r16 universal rule 2026-06-02
+  stakeholder: 'Sh.',   // 'S.' taken by Solution; 'Sh.' = Sh(akeholder), unambiguous
   'evo-step':  'Evo',
   task:        'Task',
   resource:    'R.',
@@ -262,7 +263,7 @@ C. Budget:
   // ─── SOLUTION ───────────────────────────────────────────────────────────────
   solution: {
     fullName:     'Solution',
-    abbrev:       'S.',
+    abbrev:       'D.',    // D. = Design (Solutions) — Tom Gilb r16 universal rule 2026-06-02
     notation:     '[*]→',
     notationHint: 'bracketed asterisk = design option flowing to outcomes',
     keyedParts: [
@@ -307,12 +308,12 @@ C. Budget:
   // ─── STAKEHOLDER ────────────────────────────────────────────────────────────
   stakeholder: {
     fullName:     'Stakeholder',
-    abbrev:       'K.',
-    notation:     '←¶→',
-    notationHint: 'pilcrow (person/entity) with bidirectional influence arrows',
+    abbrev:       'Sh.',
+    notation:     '←§→',
+    notationHint: 'section mark (person/entity) with bidirectional influence arrows',
     keyedParts: [
       { chars: '←', meaning: 'Receiving arrow — the stakeholder receives value. Stakeholders are beneficiaries: plans exist to deliver value to them.' },
-      { chars: '¶', meaning: 'Pilcrow (¶) — traditionally marks a paragraph, a new voice, a distinct speaker. Here: the unique voice of an entity with needs. Every stakeholder has a distinct perspective that must be represented in the spec.' },
+      { chars: '§', meaning: 'Section sign (§) — the legal-paragraph mark used in statute citation (e.g. § 4(1)(a) GDPR), so it natively encodes the inanimate-stakeholder concept; visually resembles a person; contains the letter S. Tom Gilb 2026-06-04 swap from the earlier pilcrow ¶.' },
       { chars: '→', meaning: 'Influencing arrow — the stakeholder also IMPOSES requirements: Values, Functions, Constraints. Stakeholders are active, not passive. The bidirectional notation captures both directions simultaneously.' },
     ],
     semPosition:  'S (Stakes) — Stakeholders are the fundamental starting point of the S·E·M model. Their needs generate the entire Ends column (Values, Functions, Constraints) and thereby determine which Means are worth pursuing.',
@@ -334,8 +335,8 @@ Stakeholder: GDPR Regulation (inanimate)
   Needs: C.DataMinimisation, C.BreachNotification
   Role: Compliance requirement; all personal data processing must satisfy`,
     glossaryTerms: [
-      { term: 'Inanimate stakeholder', abbrev: 'I.K.', definition: 'A non-person entity with legitimate needs: data (GDPR), databases (integrity), regulations (compliance), physical laws (gravity in aerospace). Tom Gilb 2026-05-15: "all data is a stakeholder, it has needs like GDPR."' },
-      { term: 'Primary stakeholder', abbrev: 'P.K.', definition: 'The stakeholder whose Values are the primary optimisation target. In a product: the end user. In a hospital: the patient. When in doubt: whose failure to be satisfied makes the entire project a failure?' },
+      { term: 'Inanimate stakeholder', abbrev: 'I.Sh.', definition: 'A non-person entity with legitimate needs: data (GDPR), databases (integrity), regulations (compliance), physical laws (gravity in aerospace). Tom Gilb 2026-05-15: "all data is a stakeholder, it has needs like GDPR."' },
+      { term: 'Primary stakeholder', abbrev: 'P.Sh.', definition: 'The stakeholder whose Values are the primary optimisation target. In a product: the end user. In a hospital: the patient. When in doubt: whose failure to be satisfied makes the entire project a failure?' },
       { term: 'Value recipient', abbrev: 'VR.', definition: 'The stakeholder who receives the value delivered by a Solution or Evo Step. Identifying the value recipient makes it explicit whose life must improve — not just what the system does.' },
       { term: 'Power / Interest', abbrev: 'P/I', definition: 'Stakeholder analysis classifies entities by power to affect the plan AND interest in the outcome. Regulators: high power, specific interest. End users: low individual power, high collective interest. Both must be modelled.' },
     ],
@@ -490,7 +491,7 @@ Resource: Engineering Budget
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 
-const data = computed(() => GLYPH_DATA[props.plType])
+const data = computed(() => GLYPH_DATA[props.plType] ?? GLYPH_DATA['value'])
 
 // ── SVG Ontology Diagram ──────────────────────────────────────────────────────
 // Generates a simple node-link SVG: central type node + up to 4 satellite related-type nodes.
@@ -642,7 +643,7 @@ const historySvg = computed((): string => {
         <text x="100" y="85" text-anchor="middle" font-size="6" fill="#fb923c">RAND Cost-Effectiveness · 1961</text>
       </svg>`
     case 'stakeholder':
-      // Person (¶) with arrows: receives from right, imposes to left; reg/data nodes
+      // Person (§) with arrows: receives from right, imposes to left; reg/data nodes
       return `<svg viewBox="0 0 200 90" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:200px" aria-hidden="true">
         <rect width="200" height="90" rx="6" fill="#030a1a"/>
         <circle cx="100" cy="30" r="10" fill="#2563eb" fill-opacity="0.8"/>
@@ -710,6 +711,295 @@ const historySvg = computed((): string => {
   }
 })
 
+// ── Copy All ─────────────────────────────────────────────────────────────────
+// Image-rich HTML export — primary target is Mail (pastes beautifully).
+//
+// Design decision (2026-06-02 r10): Tom confirmed images are the POINT.
+// r09 text-only approach rejected — "nix". r08 PNG-image approach restored.
+// Mail renders PNG data-URIs perfectly with all colored glyph images.
+// Notes/Keynote (NSAttributedString) strip large PNGs — they get the text
+// sections only. That's acceptable. Three-tier clipboard strategy:
+//   1. execCommand (NSPasteboard — Notes/TextEdit/Keynote/Mail all read this)
+//   2. ClipboardItem fallback (web clipboard API for HTTPS contexts)
+//   3. writeText last resort
+//
+// SVG→PNG rasterisation via canvas (2× retina scale). Four visuals:
+//   pngHero     — xl glyph (56×56) from headerGlyphEl div
+//   pngAnatomy  — lg glyph (44×44) from anatomyGlyphEl div
+//   pngOntology — relational network diagram (360×200) from ontologySvg string
+//   pngHistory  — historical illustration (200×90) from historySvg string
+
+const copied = ref(false)
+const headerGlyphEl  = ref<HTMLElement | null>(null)   // neon-glow header div (xl glyph)
+const anatomyGlyphEl = ref<HTMLElement | null>(null)   // anatomy section glyph (lg)
+let _copyTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Rasterise an SVG element or SVG string to a PNG data-URI via canvas.
+ * Returns '' on failure so the table still renders without the image.
+ * 2× scale for retina clarity in Mail and other high-DPI email clients.
+ */
+async function _svgToPng(source: SVGElement | string, logicalW: number, logicalH: number): Promise<string> {
+  try {
+    const svgStr = typeof source === 'string'
+      ? source
+      : new XMLSerializer().serializeToString(source)
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const img  = new Image()
+    await new Promise<void>((resolve, reject) => {
+      img.onload  = () => resolve()
+      img.onerror = reject
+      img.src     = url
+    })
+    URL.revokeObjectURL(url)
+    const scale  = 2
+    const canvas = document.createElement('canvas')
+    canvas.width  = logicalW * scale
+    canvas.height = logicalH * scale
+    const ctx = canvas.getContext('2d')!
+    ctx.scale(scale, scale)
+    ctx.drawImage(img, 0, 0, logicalW, logicalH)
+    return canvas.toDataURL('image/png')
+  } catch {
+    return ''
+  }
+}
+
+function buildCopyHtml(
+  pngHero:     string,
+  pngAnatomy:  string,
+  pngOntology: string,
+  pngHistory:  string,
+): string {
+  const d  = data.value
+  const h  = d.hex           // canonical type color
+  const bg = h + '18'        // very faint tint for alternating rows
+
+  // ── style helpers — NSAttributedString-safe inline styles ───────────────
+  // No gradients, no filter, no text-shadow, no border-radius.
+  // Only properties known to survive NSAttributedString HTML import:
+  // background-color (solid), color, font-size, font-weight, font-family,
+  // font-style, padding, border, white-space, text-decoration.
+  const cell    = `padding:7px 11px; font-size:13px; font-family:Helvetica Neue,system-ui,sans-serif; vertical-align:top; color:#1e293b;`
+  const hdrCell = `padding:7px 11px; background-color:${h}; color:#ffffff; font-size:11px; font-weight:bold;`
+  const labelCell = `padding:7px 11px; font-size:11px; font-weight:bold; color:#64748b; white-space:nowrap; width:140px; font-family:Helvetica Neue,system-ui,sans-serif; vertical-align:top;`
+  const codeCell  = `padding:7px 11px; font-size:12px; font-family:Menlo,ui-monospace,monospace; color:#1e293b; background-color:#f0f4f8; white-space:pre-wrap; vertical-align:top;`
+  const darkCell  = `padding:16px; background-color:#1e293b; text-align:center; vertical-align:middle;`
+
+  const sec = (title: string) =>
+    `<tr><td colspan="2" style="${hdrCell}">${title}</td></tr>`
+
+  const row = (label: string, value: string, shade = false) =>
+    `<tr><td style="${labelCell}; background-color:${shade ? bg : '#ffffff'};">${label}</td>` +
+    `<td style="${cell}; background-color:${shade ? bg : '#ffffff'};">${value}</td></tr>`
+
+  // ── outer table ──────────────────────────────────────────────────────────
+  let t = `<table border="0" cellspacing="0" cellpadding="0" width="620" style="border-collapse:collapse; border:2px solid ${h}; font-family:Helvetica Neue,system-ui,sans-serif;">`
+
+  // ── Title row: hero PNG glyph + notation + full name on dark background ──
+  // r16: use fullName in alt text; no abbrev code in title row — glyph + notation + fullName is clear
+  const heroImg = pngHero
+    ? `<img src="${pngHero}" width="56" height="56" alt="${d.fullName} glyph" style="display:inline-block; vertical-align:middle;">`
+    : `<span style="font-family:Menlo,monospace; font-size:28px; font-weight:900; color:${h};">${d.notation}</span>`
+
+  t += `<tr><td colspan="2" style="${darkCell}">` +
+    `<table border="0" cellspacing="0" cellpadding="0" style="display:inline-table; vertical-align:middle;">` +
+    `<tr><td style="padding-right:14px; vertical-align:middle;">${heroImg}</td>` +
+    `<td style="vertical-align:middle; text-align:left;">` +
+    `<span style="font-family:Menlo,ui-monospace,monospace; font-size:36px; font-weight:900; color:${h}; letter-spacing:2px;">${d.notation}</span><br>` +
+    `<span style="font-size:18px; font-weight:bold; color:#ffffff;">${d.fullName}</span><br>` +
+    `<span style="font-size:11px; color:#94a3b8; font-style:italic;">${d.notationHint}</span>` +
+    `</td></tr></table>` +
+    `</td></tr>`
+
+  // ── § Glyph Anatomy ──────────────────────────────────────────────────────
+  t += sec('§ Glyph Anatomy — Keyed Notation')
+  // Anatomy PNG glyph + notation side-by-side on dark background
+  const anatomyImg = pngAnatomy
+    ? `<img src="${pngAnatomy}" width="44" height="44" alt="Color glyph" style="display:inline-block; vertical-align:middle;">&nbsp;&nbsp;`
+    : ''
+  t += `<tr><td colspan="2" style="${darkCell}; padding:12px;">` +
+    `${anatomyImg}<span style="font-family:Menlo,ui-monospace,monospace; font-size:28px; font-weight:900; color:${h}; letter-spacing:2px; vertical-align:middle;">${d.notation}</span>` +
+    `</td></tr>`
+  d.keyedParts.forEach((p, i) =>
+    t += row(
+      `<b style="font-family:Menlo,monospace; color:${h}; font-size:15px;">${p.chars}</b>`,
+      p.meaning, i % 2 === 1
+    )
+  )
+
+  // ── § Planguage Connection ───────────────────────────────────────────────
+  t += sec('§ Planguage Connection — S·E·M Position')
+  t += row('Position', d.semPosition, false)
+  t += row('Definition', d.definition, true)
+
+  // ── § Ontology ──────────────────────────────────────────────────────────
+  t += sec('§ Ontology — Related Types')
+  if (pngOntology) {
+    t += `<tr><td colspan="2" style="padding:8px; background-color:#1e293b; text-align:center;">` +
+      `<img src="${pngOntology}" width="360" height="200" alt="Ontology diagram" style="display:block; margin:0 auto;">` +
+      `</td></tr>`
+  }
+  // r16: show fullName instead of letter abbreviation in export rows
+  d.relations.forEach((r, i) =>
+    t += row(
+      `<b style="color:${h};">${r.direction}</b> ${r.label}`,
+      GLYPH_DATA[r.type].fullName,
+      i % 2 === 1
+    )
+  )
+
+  // ── § Glossary Terms ─────────────────────────────────────────────────────
+  t += sec('§ Glossary Terms')
+  d.glossaryTerms.forEach((term, i) =>
+    t += row(
+      `<b style="color:${h};">${term.term}</b> <span style="font-family:Menlo,monospace; font-size:10px; color:#94a3b8;">${term.abbrev}</span>`,
+      term.definition, i % 2 === 1
+    )
+  )
+
+  // ── § Example ───────────────────────────────────────────────────────────
+  t += sec('§ Planguage Syntax Example')
+  t += `<tr><td colspan="2" style="${codeCell}">${d.example.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}</td></tr>`
+
+  // ── § History ───────────────────────────────────────────────────────────
+  t += sec('§ History')
+  if (pngHistory) {
+    t += `<tr><td colspan="2" style="padding:8px; background-color:#1e293b; text-align:center;">` +
+      `<img src="${pngHistory}" width="200" height="90" alt="History illustration" style="display:block; margin:0 auto;">` +
+      `</td></tr>`
+  }
+  t += row('<b>Year / Who</b>', `<b>${d.history.year}</b> · ${d.history.who}`, false)
+  t += row('What', d.history.what, true)
+  t += row('Context', d.history.context, false)
+
+  // ── § Nerd Joke ─────────────────────────────────────────────────────────
+  t += sec('§ Nerd Joke')
+  t += `<tr><td colspan="2" style="${cell} background-color:#ffffff; font-style:italic;">${d.joke}</td></tr>`
+
+  // ── § Source ────────────────────────────────────────────────────────────
+  t += sec('§ Source')
+  t += row('Citation', d.citation, false)
+  t += row('URL', `<a href="${d.url}">${d.url}</a>`, true)
+
+  t += `</table>`
+
+  // Full document wrapper — NSAttributedString requires this to treat the
+  // payload as rich HTML, not a plain text fragment. charset meta is required.
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${t}</body></html>`
+}
+
+async function copyAll(): Promise<void> {
+  const svgHero = headerGlyphEl.value?.querySelector('svg') ?? null
+  const svgAnat = anatomyGlyphEl.value?.querySelector('svg') ?? null
+
+  // ── Start PNG rasterisation promises — do NOT await yet ───────────────────
+  // Critical: any `await` before clipboard write loses the browser's
+  // user-gesture context. Both execCommand('copy') and ClipboardItem require
+  // a live user gesture. Awaiting here would cause silent failures on macOS
+  // Safari/Chrome. Instead, pass Promise<Blob> directly to ClipboardItem —
+  // the write() call stays synchronous (gesture preserved) while PNG
+  // resolution happens asynchronously. Supported: Safari 16+, Chrome 86+.
+  const pHero     = svgHero           ? _svgToPng(svgHero, 56, 56)             : Promise.resolve('')
+  const pAnat     = svgAnat           ? _svgToPng(svgAnat, 44, 44)             : Promise.resolve('')
+  const pOntology = ontologySvg.value ? _svgToPng(ontologySvg.value, 360, 200) : Promise.resolve('')
+  const pHistory  = historySvg.value  ? _svgToPng(historySvg.value, 200, 90)   : Promise.resolve('')
+
+  const d = data.value
+  const plain = [
+    `${d.fullName} — ${d.notation}`,
+    `Notation: ${d.notationHint}`,
+    '',
+    `DEFINITION`,
+    d.definition,
+    '',
+    `ANATOMY`,
+    ...d.keyedParts.map(p => `  ${p.chars}  ${p.meaning}`),
+    '',
+    `S·E·M POSITION`,
+    d.semPosition,
+    '',
+    `ONTOLOGY — RELATED TYPES`,
+    ...d.relations.map(r => `  ${r.direction} ${r.label}  →  ${GLYPH_DATA[r.type].fullName}`),
+    '',
+    `GLOSSARY TERMS`,
+    ...d.glossaryTerms.map(t => `  ${t.term} (${t.abbrev})  ${t.definition}`),
+    '',
+    `PLANGUAGE SYNTAX EXAMPLE`,
+    d.example,
+    '',
+    `HISTORY`,
+    `  ${d.history.year} · ${d.history.who}`,
+    `  What: ${d.history.what}`,
+    `  Context: ${d.history.context}`,
+    '',
+    `NERD JOKE`,
+    d.joke,
+    '',
+    `SOURCE`,
+    d.citation,
+    d.url,
+  ].join('\n')
+
+  // ── Clipboard write strategy ────────────────────────────────────────────────
+  // PRIMARY: ClipboardItem with Promise<Blob> value for HTML.
+  // navigator.clipboard.write() is called synchronously (user gesture preserved).
+  // The browser defers the actual write until the blob promise resolves.
+  // This is the correct pattern for async clipboard content on modern macOS.
+  // Mail, Outlook, and browser surfaces all read from this path correctly.
+  let copyOk = false
+  try {
+    const htmlBlob: Promise<Blob> = Promise.all([pHero, pAnat, pOntology, pHistory])
+      .then(([h, a, o, hi]) => new Blob([buildCopyHtml(h, a, o, hi)], { type: 'text/html' }))
+    const item = new ClipboardItem({
+      'text/html':  htmlBlob,
+      'text/plain': new Blob([plain], { type: 'text/plain' }),
+    })
+    await navigator.clipboard.write([item])
+    copyOk = true
+  } catch { /* fall through to execCommand */ }
+
+  // FALLBACK: execCommand (NSPasteboard path — works for Notes/TextEdit).
+  // We must await the PNGs here, which loses user gesture context in strict
+  // Safari; execCommand will likely return false. Included as best-effort for
+  // environments where ClipboardItem is unavailable.
+  //
+  // Known limitation: Copy All pastes images + colors to Mail correctly.
+  // Apple Notes and Keynote (NSAttributedString HTML importer) strip PNG
+  // data-URIs — colors/structure paste but images are lost. Not fixable
+  // without a native pasteboard format. Logged as known bug 2026-06-02.
+  if (!copyOk) {
+    try {
+      const [pngHero, pngAnatomy, pngOntology, pngHistory] = await Promise.all([pHero, pAnat, pOntology, pHistory])
+      const html = buildCopyHtml(pngHero, pngAnatomy, pngOntology, pngHistory)
+      const tmp = document.createElement('div')
+      tmp.setAttribute('contenteditable', 'true')
+      tmp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;white-space:pre-wrap;'
+      tmp.innerHTML = html
+      document.body.appendChild(tmp)
+      tmp.focus()
+      const sel = window.getSelection()
+      const range = document.createRange()
+      range.selectNodeContents(tmp)
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+      copyOk = document.execCommand('copy')
+      sel?.removeAllRanges()
+      document.body.removeChild(tmp)
+    } catch { /* fall through to writeText */ }
+  }
+
+  // LAST RESORT: plain text only
+  if (!copyOk) {
+    await navigator.clipboard.writeText(plain)
+  }
+
+  copied.value = true
+  if (_copyTimer) clearTimeout(_copyTimer)
+  _copyTimer = setTimeout(() => { copied.value = false }, 2500)
+}
+
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 
 function _onKeydown(e: KeyboardEvent): void {
@@ -720,7 +1010,10 @@ function _onKeydown(e: KeyboardEvent): void {
 }
 
 onMounted(() => document.addEventListener('keydown', _onKeydown, { capture: true }))
-onUnmounted(() => document.removeEventListener('keydown', _onKeydown, { capture: true }))
+onUnmounted(() => {
+  document.removeEventListener('keydown', _onKeydown, { capture: true })
+  if (_copyTimer) clearTimeout(_copyTimer)
+})
 </script>
 
 <template>
@@ -747,8 +1040,9 @@ onUnmounted(() => document.removeEventListener('keydown', _onKeydown, { capture:
           :style="{ background: `linear-gradient(135deg, ${data.hex}22 0%, #0f172a 100%)`,
                     borderBottom: `2px solid ${data.hex}44` }"
         >
-          <!-- Neon-glow glyph (xl) -->
+          <!-- Neon-glow glyph (xl) — ref captured for Copy All -->
           <div
+            ref="headerGlyphEl"
             class="shrink-0 p-3 rounded-xl bg-black/30"
             :style="{ filter: `drop-shadow(0 0 14px ${data.hex})` }"
             aria-hidden="true"
@@ -757,11 +1051,13 @@ onUnmounted(() => document.removeEventListener('keydown', _onKeydown, { capture:
           </div>
 
           <div class="flex-1 min-w-0">
+            <!--
+              DD-013 / r16 universal rule (Tom Gilb 2026-06-02):
+              NO letter-abbreviation badge (V., F., S., K., etc.) — use glyph + full name instead.
+              The neon glyph at left and `data.fullName` below are unambiguous for any SEM user.
+              The notation badge (O--*-->) is kept — it is a symbol, not a type-abbreviation code.
+            -->
             <div class="flex items-center gap-2 flex-wrap mb-1">
-              <span
-                class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold font-mono"
-                :class="data.badgeClass"
-              >{{ data.abbrev }}</span>
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold font-mono
                        bg-white/10 text-white/80 tracking-widest"
@@ -772,17 +1068,33 @@ onUnmounted(() => document.removeEventListener('keydown', _onKeydown, { capture:
             <p class="text-xs text-white/50 mt-0.5 italic leading-tight">{{ data.notationHint }}</p>
           </div>
 
-          <!-- Close -->
-          <div class="absolute top-3 right-4">
+          <!-- Top-right controls: Copy All + Close -->
+          <div class="absolute top-3 right-4 flex items-center gap-2">
+            <!-- Copy All — copies a rich colored HTML table of all glyph info -->
+            <button
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold
+                     transition-all duration-150"
+              :class="copied
+                ? 'bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-400/40'
+                : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white ring-1 ring-white/15'"
+              :title="`Copy all ${data.fullName} reference info as a colored HTML table — paste into Keynote, Notes, or Mail`"
+              @click="copyAll"
+            >
+              <CopyGlyph size="compact" class="shrink-0" />
+              <span>{{ copied ? '✓ Copied' : 'Copy All' }}</span>
+            </button>
             <CloseDot variant="on-dark" aria-label="Close glyph reference panel" @click="emit('close')" />
           </div>
         </div>
 
         <!-- ── Body ────────────────────────────────────────────────────── -->
+        <!-- inner-style sets max-height on the overflow-y-auto div (not the outer wrapper).
+             Capped at min(76vh, 600px) so the panel never swamps the screen at any size. -->
         <ScrollContainer
-          outer-class="bg-slate-50"
+          outer-class="relative bg-slate-50"
           inner-class="p-5 space-y-5"
-          :style="{ maxHeight: '76vh' }"
+          inner-style="max-height: min(76vh, 640px)"
+          fade-from="#f8fafc"
         >
 
           <!-- ── § 1 GLYPH ANATOMY ─────────────────────────────────────── -->
@@ -817,9 +1129,10 @@ onUnmounted(() => document.removeEventListener('keydown', _onKeydown, { capture:
                 <p class="text-[11px] text-slate-600 leading-snug pt-0.5">{{ part.meaning }}</p>
               </div>
             </div>
-            <!-- Color Glyph as artistic rendition (captioned) -->
+            <!-- Color Glyph as artistic rendition (captioned) — ref captured for Copy All -->
             <div class="mt-3 flex items-center gap-3 px-3 py-2 rounded-lg bg-white ring-1 ring-black/8">
               <div
+                ref="anatomyGlyphEl"
                 class="shrink-0"
                 :style="{ filter: `drop-shadow(0 0 6px ${data.hex}70)` }"
                 aria-hidden="true"
@@ -855,12 +1168,12 @@ onUnmounted(() => document.removeEventListener('keydown', _onKeydown, { capture:
                 class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-400 mb-2">
               Ontology — Relational Map
             </h3>
-            <!-- SVG diagram -->
-            <div
-              class="rounded-xl overflow-hidden ring-1 ring-black/8 mb-2"
-              v-html="ontologySvg"
-              aria-hidden="true"
-            />
+            <!--
+              DD-013 / r16 universal rule (Tom Gilb 2026-06-02):
+              SVG diagram with letter-abbreviation circles (V., F., S., etc.) removed.
+              Relation chips below show PlTypeIcon glyph + full name — no abbreviation codes needed.
+              ontologySvg computed is retained for Copy All PNG export only.
+            -->
             <!-- Clickable relation chips (navigate to related type) -->
             <div class="flex flex-wrap gap-2">
               <button

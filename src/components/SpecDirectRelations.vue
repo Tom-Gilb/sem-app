@@ -23,7 +23,7 @@ import type { SpecBlock, FEntry, VEntry, SEntry } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import type { TaskSuggestion } from '../types/task'
 import type { ImpactMatrix } from '../types/impact'
-import { usePlanModel } from '../composables/usePlanModel'
+import { useSpecModel } from '../composables/useSpecModel'
 
 // ── Props / Emits ─────────────────────────────────────────────────────────────
 
@@ -91,7 +91,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 // ── Keyed glyphs — inline SVG per spec type (white strokes on coloured badge bg) ──
 // Geometry grammar: Value=0--✳-->, Function=→O→, Solution=[✳]->,
-//                  Constraint=[→O→], Evo Step=< ->+->, Task=[v], Stakeholder=←¶→, Resource=→O
+//                  Constraint=[→O→], Evo Step=< ->+->, Task=[v], Stakeholder=←§→, Resource=→O
 const GLYPHS: Record<string, string> = {
   values: `<svg viewBox="0 0 40 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:32px;height:11px;vertical-align:middle;overflow:visible;display:inline-block">
     <circle cx="4" cy="7" r="3" fill="none" stroke="white" stroke-width="1.5"/>
@@ -142,13 +142,15 @@ const GLYPHS: Record<string, string> = {
     <polyline points="6,4.5 9.5,10.5 13,4.5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="15" y="12" font-size="14" fill="white" font-family="monospace" font-weight="700">]</text>
   </svg>`,
-  // ←¶→  solid ← = value TO stakeholder · ¶ pilcrow = identity + left-facing human profile · dashed → = resources FROM stakeholder
+  // ←§→  solid ← = value TO stakeholder · § = identity (legal-paragraph mark,
+  //       resembles a person, contains S) · dashed → = resources FROM stakeholder.
+  //       Tom 2026-06-04: ¶ → § swap per DD-015 International-Icons rule.
   stakeholder: `<svg viewBox="0 0 40 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:32px;height:11px;vertical-align:middle;overflow:visible;display:inline-block">
     <!-- ← solid — value flows TO stakeholder -->
     <polygon points="3,4.5 0,7 3,9.5" fill="white"/>
     <line x1="0" y1="7" x2="10" y2="7" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-    <!-- ¶ pilcrow — identity AND a left-facing human profile (bowl=head, stems=body) -->
-    <text x="18" y="12.5" font-size="11" fill="white" text-anchor="middle" font-family="serif">¶</text>
+    <!-- § section mark — identity (Tom 2026-06-04 swap, see DD-015) -->
+    <text x="18" y="12.5" font-size="12" fill="white" text-anchor="middle" font-family="serif" font-weight="700">§</text>
     <!-- → dashed — resources FROM stakeholder to system -->
     <line x1="25" y1="7" x2="35" y2="7" stroke="white" stroke-width="1.2" stroke-dasharray="2 1.5" stroke-linecap="round"/>
     <polygon points="33,4.5 38,7 33,9.5" fill="white" opacity="0.85"/>
@@ -169,7 +171,7 @@ const INFO_TEXT: Record<string, { icon: string; title: string; desc: string }> =
   constraint:  { icon: '[→O→]',   title: 'Constraint',  desc: 'A hard limit on functions or values. Must not be exceeded.' },
   'evo-step':  { icon: '< ->+->',  title: 'Evo Step',    desc: 'Past anchor · planning gap · value delivered · accumulation · next value.' },
   task:        { icon: '[v]',      title: 'Task',        desc: 'A piece of work. v = value contribution AND checkmark — keyed icon pun.' },
-  stakeholder: { icon: '←¶→', title: 'Stakeholder', desc: '← value they receive (solid) · ¶ identity — paragraph of interests AND a left-facing human profile (bowl=head, stems=body, eye=face) · → resources they give (dashed). Brown (Stakeholder Engineering): "Follow the resources — every resource provider is a stakeholder." The → is the diagnostic: trace it back, find a stakeholder. Not just people — data, laws, systems too.' },
+  stakeholder: { icon: '←§→', title: 'Stakeholder', desc: '← value they receive (solid) · § identity — legal-paragraph mark (e.g. § 4(1)(a) GDPR) that natively encodes inanimate stakeholders, contains an S, and visually resembles a person · → resources they give (dashed). Brown (Stakeholder Engineering): "Follow the resources — every resource provider is a stakeholder." The → is the diagnostic: trace it back, find a stakeholder. Not just people — data, laws, systems too.' },
   resource:    { icon: '→O',       title: 'Resource',    desc: 'Input cost going into the system. →O is the left half of →O→ (Function).' },
 }
 
@@ -517,7 +519,7 @@ function handleMiniMapPivot(id: string, tab: 'functions' | 'values' | 'solutions
 }
 
 // ── Plan context (for export headers) ────────────────────────────────────────
-const { currentModel } = usePlanModel()
+const { currentModel } = useSpecModel()
 
 // ── Copy / Email export ───────────────────────────────────────────────────────
 

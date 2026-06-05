@@ -31,11 +31,11 @@ import { useSpecExport } from '../composables/useSpecExport'
 // were never surfaced here. Plans-vs-Versions distinction: the history panel
 // must show BOTH layers so nothing the user has saved is hidden.
 import {
-  usePlanModel,
+  useSpecModel,
   type PlanModel,
   exportAllPlanModelsBackup,
   importPlanModelsBackup,
-} from '../composables/usePlanModel'
+} from '../composables/useSpecModel'
 import type { SpecBlock } from '../types/spec'
 import type { EvoStepPlan } from '../types/evo-plan'
 import ScrollContainer from './ScrollContainer.vue'
@@ -49,6 +49,21 @@ import SaveGlyph from './icons/SaveGlyph.vue'
 // 2026-05-14 — Tom's standing instruction (split-button hover-`?` pattern
 // proven on Priority, now applied to all Save/Get affordances).
 import SaveGetActionButton from './SaveGetActionButton.vue'
+
+// Tom 2026-06-03: "Owner with Plan Title (and all other Model, Contract,
+// other restore areas too) in the Restore headings, important info."
+// Pass the CURRENT plan's owner names so version cards can fall back to
+// them when the snapshot didn't record any owners (most snapshots before
+// 2026-05-13 lack owner data — they should still display owner info from
+// the currently-active plan when the snapshot's planName matches).
+const props = defineProps<{
+  /** Owner names from the currently-active PlanModel. Used as fallback when
+   *  a snapshot has no recorded owners. */
+  currentPlanOwners?: string[]
+  /** Current PlanModel name — for matching snapshots to the active plan
+   *  before applying the fallback. */
+  currentPlanName?: string
+}>()
 
 const emit = defineEmits<{
   /**
@@ -121,7 +136,7 @@ function handleReinstateLostPlans(): void {
 // localStorage is partitioned per origin: plans saved at localhost:5173 are
 // invisible at localhost:4173 or any preview/production origin. The fix is a
 // portable backup file — already implemented by `exportAllPlanModelsBackup`
-// + `importPlanModelsBackup` in usePlanModel. We expose both right here next
+// + `importPlanModelsBackup` in useSpecModel. We expose both right here next
 // to the 🩹 Reinstate button so the user never needs to leave the History
 // panel to recover from another browser.
 
@@ -180,7 +195,7 @@ function handleImportBackupFile(e: Event): void {
   reader.readAsText(file)
 }
 const { serialise } = useSpecExport()
-const { currentModel, allModels } = usePlanModel()
+const { currentModel, allModels } = useSpecModel()
 
 // ── Copy-MD side-channel ──────────────────────────────────────────────────
 // Tracks the id whose Copy MD button was just clicked so we can flip its
@@ -431,10 +446,28 @@ const peopleFound = computed<FoundPerson[]>(() => {
 })
 
 /** Owner label (e.g. "by Tom Gilb, Kai Gilb") for a single version. */
+// Tom 2026-06-03: Owner with Plan Title in Restore headings (important info).
+// 3-tier fallback so a version card ALWAYS shows ownership context:
+//   1. Snapshot recorded owners → use those (most accurate)
+//   2. No snapshot owners BUT snapshot planName matches current plan → fall
+//      back to the active PlanModel's owner names (likely the same people)
+//   3. Otherwise → return '' and the template renders an explicit placeholder
+//      ("🔑 owner not recorded") rather than hiding the line.
 function ownerLabel(v: SpecVersion): string {
-  return v.planOwners && v.planOwners.length > 0
-    ? `by ${v.planOwners.join(', ')}`
-    : ''
+  if (v.planOwners && v.planOwners.length > 0) {
+    return `🔑 ${v.planOwners.join(', ')}`
+  }
+  // Fallback to current plan owners when snapshot has no data AND the names
+  // match (so we don't mis-attribute someone else's plan to current owner).
+  if (
+    props.currentPlanOwners
+    && props.currentPlanOwners.length > 0
+    && props.currentPlanName
+    && (v.planName ?? '').trim() === props.currentPlanName.trim()
+  ) {
+    return `🔑 ${props.currentPlanOwners.join(', ')}  (from current plan)`
+  }
+  return ''
 }
 
 /** Plan name to display (or "Untitled" when none was attached). */
@@ -575,13 +608,15 @@ function handleRestore(id: string): void {
             >
               {{ planLabel(latestVersion) }}
             </p>
-            <!-- Owner — second most important, clearly coloured -->
+            <!-- Owner — second most important, clearly coloured.
+                 Tom 2026-06-03: Owner with Plan Title in Restore headings.
+                 Always rendered (no v-if) so absence is explicit, not silent. -->
             <p
-              v-if="ownerLabel(latestVersion)"
-              class="text-[12px] font-semibold text-indigo-700 truncate leading-snug"
-              :title="ownerLabel(latestVersion)"
+              class="text-[12px] font-semibold truncate leading-snug"
+              :class="ownerLabel(latestVersion) ? 'text-indigo-700' : 'text-slate-400 italic'"
+              :title="ownerLabel(latestVersion) || 'No owner recorded in this snapshot. Use the 🔑 chip on the Plan Title to add owners — future snapshots will inherit them.'"
             >
-              {{ ownerLabel(latestVersion) }}
+              {{ ownerLabel(latestVersion) || '🔑 owner not recorded' }}
             </p>
             <!-- Metadata row: badge · timestamp -->
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -689,13 +724,14 @@ function handleRestore(id: string): void {
                 >
                   {{ planLabel(v) }}
                 </p>
-                <!-- Owner — second anchor -->
+                <!-- Owner — second anchor.  Tom 2026-06-03: always render
+                     (no v-if) so absence is explicit, not silent. -->
                 <p
-                  v-if="ownerLabel(v)"
-                  class="text-[10px] font-semibold text-indigo-600 truncate leading-snug"
-                  :title="ownerLabel(v)"
+                  class="text-[10px] font-semibold truncate leading-snug"
+                  :class="ownerLabel(v) ? 'text-indigo-600' : 'text-slate-400 italic'"
+                  :title="ownerLabel(v) || 'No owner recorded in this snapshot.'"
                 >
-                  {{ ownerLabel(v) }}
+                  {{ ownerLabel(v) || '🔑 owner not recorded' }}
                 </p>
                 <!-- Metadata row -->
                 <div class="flex items-center gap-1.5 flex-wrap mt-0.5">

@@ -94,7 +94,7 @@ const AGENTS: AgentDef[] = [
   {
     id: 'plan-importer',
     emoji: '📄',
-    label: 'Plan Agent',
+    label: 'Spec Agent',
     subtitle: 'Universal Planguage Converter',
     blurb: 'Paste any text — business brief, roadmap, strategy doc, rough notes — and AI converts it to full Planguage F./V./C./R./S. entries. Then analyses problems and inconsistencies, suggests improvements, and applies them on your command ("simplify", "innovate", "make measurable"). Full version history with before/after comparison.',
     color: 'orange',
@@ -340,7 +340,7 @@ function selectAgent(agent: AgentDef): void {
                 <div v-else-if="agent.id === 'plan-importer'" class="rounded-md overflow-hidden bg-white/90 shadow-sm ring-1 ring-white/40 shrink-0">
                   <svg width="72" height="53" viewBox="0 0 72 53" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <rect width="72" height="12" fill="#c2410c"/>
-                    <text x="4" y="9" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">📄 Plan Agent</text>
+                    <text x="4" y="9" font-size="5.5" fill="white" font-family="system-ui,sans-serif" font-weight="600">📄 Spec Agent</text>
                     <!-- Input text block left -->
                     <rect x="2" y="14" width="24" height="33" rx="2" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
                     <rect x="4" y="17" width="18" height="1.5" rx="0.5" fill="#9ca3af"/>

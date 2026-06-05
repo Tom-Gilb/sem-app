@@ -1,11 +1,23 @@
 <!-- UNIT_TYPE=Feature -->
 <!-- AmuseMeButton.vue — "Fun while waiting?" panel (Amuse Me feature)
-     Appears only when isLoading is true. Big gradient button that expands into
-     a menu of 8 entertainment/information options for the user to explore
-     while the AI generates content.
+     Redesigned 2026-06-02 (Tom: "pictures are cut off / menu too dominating
+     after item chosen / fun relegated to bottom"):
+
+     NEW LAYOUT:
+       Closed    → big gradient "Fun while waiting?" button
+       Open, no item → compact 2-column tile grid (quick scan, no scroll)
+       Open, item selected →
+           (1) Content area — PRIMARY, occupies most of the panel
+           (2) Compact horizontal pill nav — SECONDARY, slim row at bottom
+
+     Key changes vs prior design:
+       - Full-item menu list GONE when item is selected (no more domination)
+       - Content moves to TOP of panel — "fun" is no longer at the bottom
+       - Pictures use aspect-video with no max-height clip — never cut off
+       - Tile grid replaces tall scrollable list for initial item selection
 
      Rules observed:
-       - ScrollContainer wraps all overflow-y-auto content
+       - ScrollContainer only where genuinely long content risks overflow
        - CloseDot used as the sole close affordance
        - No × / ✕ / SVG cross close buttons
        - Tailwind classes only; scoped <style> for gradient animation only
@@ -52,56 +64,29 @@ const props = withDefaults(defineProps<{
 
 const { isOpen, activeItemId, lingerVisible, toggle, selectItem, close } = useAmuseMe()
 
-/**
- * Linger: keep the panel visible for LINGER_MS (4 s) after isLoading goes false.
- *
- * lingerVisible is a MODULE-LEVEL ref shared across all AmuseMeButton instances
- * (see useAmuseMe.ts). This solves a critical UX bug:
- *
- * Root cause (Tom 2026-05-29: "fun while waiting is still not working"):
- *   When the spec arrives, Vue switches from entry-mode AmuseMeButton to
- *   spec-review-mode AmuseMeButton. The old instance unmounts — destroying its
- *   component-local lingerVisible=true and its local 4-second timer. The new
- *   instance mounted with isLoading=false → old (component-local) logic set
- *   lingerVisible=false immediately → AmuseMeButton vanished.
- *
- * Fix: activateLinger() and startLingerFadeOut() update the shared module-level
- *   _lingerVisible ref. When the new AmuseMeButton mounts, it sees the SAME
- *   lingerVisible ref (still true), so it shows immediately and stays visible
- *   for the remaining linger time. No linger is lost across remounts.
- */
 watch(() => props.isLoading, (loading) => {
   if (loading) {
-    // AI started generating → show immediately, cancel any pending fade-out
     activateLinger()
   } else {
-    // AI finished → stay visible for 4 s then fade out (module-level timer)
     startLingerFadeOut()
   }
 }, { immediate: true })
 
-/** Whether the hover tooltip preview is visible */
 const showHoverPreview = ref(false)
-
-/** Snapshot of current joke (refreshed on double-click or item selection) */
-const currentJoke = ref(randomJoke())
-
-/** Snapshot of current nice-thing (refreshed on item selection) */
+const currentJoke      = ref(randomJoke())
 const currentNiceThing = ref(randomNiceThing())
 
 // ─── Computed content ─────────────────────────────────────────────────────────
 
-const planProgress = computed(() => planProgressText(props.specBlock))
-const nextStep = computed(() => nextStepText(props.planningStage))
+const planProgress    = computed(() => planProgressText(props.specBlock))
+const nextStep        = computed(() => nextStepText(props.planningStage))
 const remainingStages = computed(() => stagesUntilSharing(props.planningStage))
-
-/** Top 3 items shown in the hover tooltip preview */
-const previewItems = computed(() => AMUSE_ITEMS.slice(0, 3))
+const previewItems    = computed(() => AMUSE_ITEMS.slice(0, 3))
 
 // ─── Picture state ────────────────────────────────────────────────────────────
 
-const activeTheme   = ref<PictureTheme>(PICTURE_THEMES[0])  // default: Beautiful Nature
-const pictureSeed   = ref(Math.floor(Math.random() * 99999))
+const activeTheme    = ref<PictureTheme>(PICTURE_THEMES[0])
+const pictureSeed    = ref(Math.floor(Math.random() * 99999))
 const pictureLoading = ref(false)
 
 const currentPictureUrl = computed(() =>
@@ -109,13 +94,13 @@ const currentPictureUrl = computed(() =>
 )
 
 function selectTheme(theme: PictureTheme): void {
-  activeTheme.value   = theme
-  pictureSeed.value   = Math.floor(Math.random() * 99999)  // new seed = new image
+  activeTheme.value    = theme
+  pictureSeed.value    = Math.floor(Math.random() * 99999)
   pictureLoading.value = true
 }
 
 function refreshPicture(): void {
-  pictureSeed.value   = Math.floor(Math.random() * 99999)
+  pictureSeed.value    = Math.floor(Math.random() * 99999)
   pictureLoading.value = true
 }
 
@@ -127,30 +112,27 @@ function handleDoubleClick(): void {
 }
 
 function handleItemClick(id: string): void {
-  // Refresh randomised content each time the relevant item is selected
   if (id === 'glossaryJoke') currentJoke.value = randomJoke()
-  if (id === 'niceThings') currentNiceThing.value = randomNiceThing()
+  if (id === 'niceThings')   currentNiceThing.value = randomNiceThing()
   if (id === 'showPictures') {
-    pictureSeed.value = Math.floor(Math.random() * 99999)
+    pictureSeed.value    = Math.floor(Math.random() * 99999)
     pictureLoading.value = true
   }
   selectItem(id)
 }
+
+/** Label shown in the compact header when an item is active */
+const activeItemLabel = computed((): string => {
+  const item = AMUSE_ITEMS.find(i => i.id === activeItemId.value)
+  return item ? `${item.emoji} ${item.label}` : '🎉 Fun while waiting'
+})
 </script>
 
 <template>
   <Transition name="amuse-fade">
-    <!-- lingerVisible stays true for 10 s after isLoading goes false (was 4 s).
-         During the first 10 s, lingerFinishing=true → blinking Continue button shown.
-         If user clicks Continue, extendLinger() cancels the timer → stays indefinitely.
-         If ignored, fades out when countdown reaches 0. -->
     <div v-if="lingerVisible" class="mt-4 w-full">
 
-      <!-- ── Post-loading Continue offer ───────────────────────────────────── -->
-      <!-- Shown for 10 s after loading ends; blinking button + countdown.      -->
-      <!-- Tom 2026-06-02: "a BLINKING button 'Click to Continue Amuse Me',    -->
-      <!-- and also a signal that if they do not click, amuse me will           -->
-      <!-- disappear in 10 seconds."                                            -->
+      <!-- ── Post-loading Continue offer ──────────────────────────────────── -->
       <Transition
         enter-active-class="transition-all duration-300 ease-out"
         enter-from-class="opacity-0 -translate-y-1"
@@ -178,62 +160,69 @@ function handleItemClick(id: string): void {
         </div>
       </Transition>
 
-      <!-- ── Main trigger button ─────────────────────────────────────────── -->
-      <div
-        class="relative"
-        @mouseenter="showHoverPreview = true"
-        @mouseleave="showHoverPreview = false"
-      >
-        <button
-          type="button"
-          class="amuse-btn w-full h-16 rounded-2xl text-white font-bold text-lg
-                 shadow-lg hover:shadow-xl focus-visible:outline focus-visible:outline-2
-                 focus-visible:outline-offset-2 focus-visible:outline-indigo-400
-                 transition-shadow"
-          aria-label="Fun while waiting? Open amusement menu"
-          title="Click for fun options · Double-click for a Planguage joke"
-          @click="toggle"
-          @dblclick.prevent="handleDoubleClick"
+      <!-- ── CLOSED STATE: big gradient trigger button ─────────────────── -->
+      <!-- Shown only when panel is fully closed AND no item is active.       -->
+      <!-- Once the user has picked something, the panel stays open.          -->
+      <template v-if="!isOpen && !activeItemId">
+        <div
+          class="relative"
+          @mouseenter="showHoverPreview = true"
+          @mouseleave="showHoverPreview = false"
         >
-          🎉 Fun while waiting?
-        </button>
-
-        <!-- Hover preview tooltip — 3 top items -->
-        <Transition name="preview-fade">
-          <div
-            v-if="showHoverPreview && !isOpen"
-            class="absolute left-0 right-0 top-full mt-1 z-50
-                   bg-white border border-slate-200 rounded-xl shadow-lg py-2 px-3
-                   pointer-events-none"
-            role="tooltip"
+          <button
+            type="button"
+            class="amuse-btn w-full h-14 rounded-2xl text-white font-bold text-base
+                   shadow-lg hover:shadow-xl focus-visible:outline focus-visible:outline-2
+                   focus-visible:outline-offset-2 focus-visible:outline-indigo-400
+                   transition-shadow"
+            aria-label="Fun while waiting? Open amusement menu"
+            title="Click for fun options · Double-click for a Planguage joke"
+            @click="toggle"
+            @dblclick.prevent="handleDoubleClick"
           >
-            <p class="text-[10px] text-slate-400 uppercase tracking-wide mb-1.5 font-semibold">
-              Click to explore
-            </p>
-            <ul class="space-y-1">
-              <li
-                v-for="item in previewItems"
-                :key="item.id"
-                class="flex items-center gap-2 text-sm text-slate-600"
-              >
-                <span aria-hidden="true">{{ item.emoji }}</span>
-                <span>{{ item.label }}</span>
-              </li>
-            </ul>
-          </div>
-        </Transition>
-      </div>
+            🎉 Fun while waiting?
+          </button>
 
-      <!-- ── Full menu panel ─────────────────────────────────────────────── -->
+          <!-- Hover preview tooltip — 3 top items -->
+          <Transition name="preview-fade">
+            <div
+              v-if="showHoverPreview && !isOpen"
+              class="absolute left-0 right-0 top-full mt-1 z-50
+                     bg-white border border-slate-200 rounded-xl shadow-lg py-2 px-3
+                     pointer-events-none"
+              role="tooltip"
+            >
+              <p class="text-[10px] text-slate-400 uppercase tracking-wide mb-1.5 font-semibold">
+                Click to explore
+              </p>
+              <ul class="space-y-1">
+                <li
+                  v-for="item in previewItems"
+                  :key="item.id"
+                  class="flex items-center gap-2 text-sm text-slate-600"
+                >
+                  <span aria-hidden="true">{{ item.emoji }}</span>
+                  <span>{{ item.label }}</span>
+                </li>
+              </ul>
+            </div>
+          </Transition>
+        </div>
+      </template>
+
+      <!-- ── OPEN STATE: content-first panel ────────────────────────────── -->
+      <!-- Panel always mounts when isOpen OR when an item is active         -->
+      <!-- (activeItemId persists the open state even after toggle=false).   -->
       <Transition name="panel-slide">
         <div
-          v-if="isOpen"
-          class="mt-2 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden"
+          v-if="isOpen || activeItemId"
+          class="rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden mt-2"
         >
-          <!-- Panel header -->
-          <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
-            <span class="text-sm font-semibold text-slate-700">
-              🎉 Fun while waiting
+
+          <!-- Compact header: always shows current activity or title -->
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-slate-50">
+            <span class="text-sm font-semibold text-slate-700 truncate mr-2">
+              {{ activeItemId ? activeItemLabel : '🎉 Fun while waiting' }}
             </span>
             <CloseDot
               aria-label="Close Amuse Me panel"
@@ -243,121 +232,98 @@ function handleItemClick(id: string): void {
             />
           </div>
 
-          <!-- Menu rows — ScrollContainer so all 9 items are reachable on small screens -->
-          <ScrollContainer
-            outer-class="relative"
-            inner-style="max-height: 280px"
-            inner-class="divide-y divide-slate-100"
-            fade-from="#ffffff"
+          <!-- ══ NO ITEM SELECTED: 2-column tile picker ══════════════════ -->
+          <!-- Compact grid — all 9 items visible at a glance, no scroll.   -->
+          <div
+            v-if="!activeItemId"
+            class="p-3 grid grid-cols-2 gap-2"
           >
-          <ul class="divide-y divide-slate-100" role="listbox" aria-label="Amusement options">
-            <li
+            <button
               v-for="item in AMUSE_ITEMS"
               :key="item.id"
-              role="option"
-              :aria-selected="activeItemId === item.id"
-              class="flex items-start gap-3 px-4 py-3 cursor-pointer select-none
-                     transition-colors hover:bg-indigo-50 active:bg-indigo-100"
-              :class="activeItemId === item.id ? 'bg-indigo-50 border-l-2 border-indigo-400' : ''"
+              type="button"
+              :title="`${item.label} — ${item.blurb}`"
+              class="flex items-center gap-2.5 px-3 py-3 rounded-xl text-left
+                     bg-slate-50 hover:bg-indigo-50 border border-slate-100
+                     hover:border-indigo-200 hover:shadow-sm transition-all duration-150"
               @click="handleItemClick(item.id)"
             >
-              <span class="text-xl leading-none mt-0.5 shrink-0" aria-hidden="true">
-                {{ item.emoji }}
-              </span>
+              <span class="text-2xl leading-none shrink-0" aria-hidden="true">{{ item.emoji }}</span>
               <div class="min-w-0">
-                <p class="text-sm font-medium text-slate-800 leading-snug">
-                  {{ item.label }}
-                </p>
-                <p class="text-xs text-slate-500 leading-snug mt-0.5">
-                  {{ item.blurb }}
-                </p>
+                <p class="text-[12px] font-semibold text-slate-800 leading-tight">{{ item.label }}</p>
+                <p class="text-[10px] text-slate-500 leading-snug mt-0.5 line-clamp-2">{{ item.blurb }}</p>
               </div>
-              <span
-                v-if="activeItemId === item.id"
-                class="ml-auto text-indigo-500 text-xs font-bold shrink-0 mt-1"
-                aria-hidden="true"
-              >▶</span>
-            </li>
-          </ul>
-          </ScrollContainer>
+            </button>
+          </div>
 
-          <!-- Content area — shown when an item is selected -->
-          <Transition name="content-fade">
-            <div v-if="activeItemId" class="border-t border-slate-200 bg-slate-50">
+          <!-- ══ ITEM SELECTED: content-first layout ═════════════════════ -->
+          <!-- (1) Content occupies the full panel — no list pushing it down  -->
+          <!-- (2) Slim horizontal pill nav at the bottom for switching        -->
+          <template v-else>
 
-              <!-- ScrollContainer wraps the content area per UI rules -->
-              <ScrollContainer
-                outer-class="relative"
-                inner-style="max-height: 260px"
-                inner-class="px-4 py-4"
-                fade-from="#f8fafc"
-              >
+            <!-- Content area — PRIMARY, top of panel, no max-height clip    -->
+            <Transition name="content-fade" mode="out-in">
+              <div :key="activeItemId" class="p-4 pb-3">
 
-                <!-- glossaryJoke ────────────────────────────────────────── -->
+                <!-- glossaryJoke ─────────────────────────────────────── -->
                 <div v-if="activeItemId === 'glossaryJoke'">
                   <div class="flex items-start gap-3 bg-violet-50 border border-violet-200 rounded-xl p-4">
-                    <span class="text-3xl leading-none shrink-0" aria-hidden="true">🎭</span>
+                    <span class="text-4xl leading-none shrink-0" aria-hidden="true">🎭</span>
                     <blockquote class="text-sm text-violet-800 leading-relaxed italic">
                       "{{ currentJoke }}"
                     </blockquote>
                   </div>
                   <p class="text-xs text-slate-400 mt-2 text-right">
-                    Click the menu row again for a different joke
+                    Click the '🎭 Glossary Joke' button below for a new joke
                   </p>
                 </div>
 
-                <!-- planProgress ─────────────────────────────────────────── -->
+                <!-- planProgress ──────────────────────────────────────── -->
                 <div v-else-if="activeItemId === 'planProgress'">
                   <div class="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <span class="text-2xl leading-none shrink-0" aria-hidden="true">📈</span>
+                    <span class="text-3xl leading-none shrink-0" aria-hidden="true">📈</span>
                     <div class="min-w-0">
                       <p class="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-1">
                         Plan Progress to Date
                       </p>
-                      <p class="text-sm text-emerald-900 leading-relaxed">
-                        {{ planProgress }}
-                      </p>
+                      <p class="text-sm text-emerald-900 leading-relaxed">{{ planProgress }}</p>
                     </div>
                   </div>
                 </div>
 
-                <!-- nextStep ────────────────────────────────────────────── -->
+                <!-- nextStep ──────────────────────────────────────────── -->
                 <div v-else-if="activeItemId === 'nextStep'">
                   <div class="flex items-start gap-3 bg-sky-50 border border-sky-200 rounded-xl p-4">
-                    <span class="text-2xl leading-none shrink-0" aria-hidden="true">➡️</span>
+                    <span class="text-3xl leading-none shrink-0" aria-hidden="true">➡️</span>
                     <div class="min-w-0">
                       <p class="text-xs font-semibold text-sky-700 uppercase tracking-wide mb-1">
                         What Happens Next
                       </p>
-                      <p class="text-sm text-sky-900 leading-relaxed">
-                        {{ nextStep }}
-                      </p>
+                      <p class="text-sm text-sky-900 leading-relaxed">{{ nextStep }}</p>
                     </div>
                   </div>
                 </div>
 
-                <!-- niceThings ──────────────────────────────────────────── -->
+                <!-- niceThings ────────────────────────────────────────── -->
                 <div v-else-if="activeItemId === 'niceThings'">
                   <div class="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-xl p-4">
-                    <span class="text-2xl leading-none shrink-0" aria-hidden="true">❤️</span>
+                    <span class="text-3xl leading-none shrink-0" aria-hidden="true">❤️</span>
                     <div class="min-w-0">
                       <p class="text-xs font-semibold text-rose-700 uppercase tracking-wide mb-1">
                         Something Nice to Do
                       </p>
-                      <p class="text-sm text-rose-900 leading-relaxed">
-                        {{ currentNiceThing }}
-                      </p>
+                      <p class="text-sm text-rose-900 leading-relaxed">{{ currentNiceThing }}</p>
                     </div>
                   </div>
                   <p class="text-xs text-slate-400 mt-2 text-right">
-                    Click the menu row again for another suggestion
+                    Click the '💝 Do Something Nice' button below for another suggestion
                   </p>
                 </div>
 
-                <!-- completionAlert ──────────────────────────────────────── -->
+                <!-- completionAlert ───────────────────────────────────── -->
                 <div v-else-if="activeItemId === 'completionAlert'">
                   <div class="flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
-                    <span class="text-2xl leading-none shrink-0" aria-hidden="true">🔔</span>
+                    <span class="text-3xl leading-none shrink-0" aria-hidden="true">🔔</span>
                     <div class="min-w-0">
                       <p class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">
                         How You'll Know It's Done
@@ -371,10 +337,10 @@ function handleItemClick(id: string): void {
                   </div>
                 </div>
 
-                <!-- whyThisMatters ──────────────────────────────────────── -->
+                <!-- whyThisMatters ────────────────────────────────────── -->
                 <div v-else-if="activeItemId === 'whyThisMatters'">
                   <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <span class="text-2xl leading-none shrink-0" aria-hidden="true">🔮</span>
+                    <span class="text-3xl leading-none shrink-0" aria-hidden="true">🔮</span>
                     <div class="min-w-0">
                       <p class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">
                         Why This Process Matters
@@ -391,7 +357,7 @@ function handleItemClick(id: string): void {
                   </div>
                 </div>
 
-                <!-- untilSharing ────────────────────────────────────────── -->
+                <!-- untilSharing ──────────────────────────────────────── -->
                 <div v-else-if="activeItemId === 'untilSharing'">
                   <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                     <div class="flex items-center gap-2 mb-3">
@@ -421,18 +387,16 @@ function handleItemClick(id: string): void {
                   </div>
                 </div>
 
-                <!-- explainMode ─────────────────────────────────────────── -->
+                <!-- explainMode ───────────────────────────────────────── -->
                 <div v-else-if="activeItemId === 'explainMode'">
                   <div class="flex items-start gap-3 bg-slate-100 border border-slate-300 rounded-xl p-4">
-                    <span class="text-2xl leading-none shrink-0" aria-hidden="true">👆</span>
+                    <span class="text-3xl leading-none shrink-0" aria-hidden="true">👆</span>
                     <div class="min-w-0">
-                      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
+                      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
                         Explain Any Element
                       </p>
                       <ul class="text-sm text-slate-700 leading-relaxed space-y-2">
-                        <li>
-                          <strong>Hover</strong> any button — its tooltip will explain what it does.
-                        </li>
+                        <li><strong>Hover</strong> any button — its tooltip will explain what it does.</li>
                         <li>
                           <strong>Double-click</strong> any Planguage glyph (→O→, O--*-->, →●→, etc.)
                           to open its reference card with a full Planguage definition.
@@ -446,12 +410,10 @@ function handleItemClick(id: string): void {
                   </div>
                 </div>
 
-                <!-- showPictures ─────────────────────────────────────────── -->
-                <!-- Tom 2026-05-29: "at least display a set of pictures, choose
-                     between themes like modern art, classical art, sculpture,
-                     people, famous landmarks, beautiful nature, nature in Norway" -->
+                <!-- showPictures ──────────────────────────────────────── -->
+                <!-- Full-size image: aspect-video at panel width, no clip -->
                 <div v-else-if="activeItemId === 'showPictures'">
-                  <!-- Theme selector pills -->
+                  <!-- Theme selector pills (compact) -->
                   <div class="flex flex-wrap gap-1.5 mb-3">
                     <button
                       v-for="theme in PICTURE_THEMES"
@@ -468,9 +430,8 @@ function handleItemClick(id: string): void {
                     </button>
                   </div>
 
-                  <!-- Photo display -->
+                  <!-- Full-bleed photo — aspect-video, NO max-height clip -->
                   <div class="relative rounded-xl overflow-hidden bg-slate-100 aspect-video">
-                    <!-- Loading shimmer -->
                     <div
                       v-if="pictureLoading"
                       class="absolute inset-0 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 animate-pulse"
@@ -478,7 +439,7 @@ function handleItemClick(id: string): void {
                     <img
                       :key="currentPictureUrl"
                       :src="currentPictureUrl"
-                      :alt="`${activeTheme.label} photo`"
+                      :alt="`${activeTheme.label} photo — via loremflickr`"
                       class="w-full h-full object-cover transition-opacity duration-500"
                       :class="pictureLoading ? 'opacity-0' : 'opacity-100'"
                       @load="pictureLoading = false"
@@ -502,9 +463,13 @@ function handleItemClick(id: string): void {
                   </div>
                 </div>
 
-              </ScrollContainer>
-            </div>
-          </Transition>
+              </div>
+            </Transition>
+
+            <!-- Activity nav row removed (Tom 2026-06-02: "dark bar covering other stuff") -->
+
+          </template>
+
         </div>
       </Transition>
 
@@ -513,7 +478,7 @@ function handleItemClick(id: string): void {
 </template>
 
 <style scoped>
-/* Gradient animation for the main trigger button */
+/* Gradient animation for the closed-state trigger button */
 .amuse-btn {
   background: linear-gradient(
     135deg,
@@ -570,10 +535,10 @@ function handleItemClick(id: string): void {
   transform: translateY(-8px);
 }
 
-/* Content area cross-fade */
+/* Content area cross-fade (mode="out-in" so items swap cleanly) */
 .content-fade-enter-active,
 .content-fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.18s ease;
 }
 .content-fade-enter-from,
 .content-fade-leave-to {

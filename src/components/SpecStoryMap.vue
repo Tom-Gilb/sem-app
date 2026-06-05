@@ -111,7 +111,7 @@
       dominant-baseline="central"
       font-size="13"
       fill="#94a3b8"
-    >No F. entries found</text>
+    >No Function Specs found</text>
   </svg>
 </template>
 

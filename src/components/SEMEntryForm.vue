@@ -39,6 +39,12 @@ import {
   stripInferredMarker,
   withInferredMarker,
 } from '../utils/endsAndMeans'
+// Stakeholder detection — layer-3 contextual extraction + pattern set used to
+// override the means-exclusion gate in the final-pass implied-stakeholder scan.
+import {
+  extractContextualStakeholders,
+  STAKEHOLDER_PATTERNS,
+} from '../utils/stakeholderExtract'
 
 /** Iter 2.5 parser flag (opt-in via ?parser=iter25 in the URL, or
  *  localStorage 'sem-app:parser:iter25:v1' = '1'). Reversible. */
@@ -975,6 +981,20 @@ const ROLE_WORDS = new Set([
   // (to the world) and put it in the stakeholder category."
   'everyone','everybody',
   'people','persons',
+  // ── 2026-06-02: Tom parse-failure cases ──────────────────────────────────
+  // "government and oil money and poorest in Norway are all stakeholders and
+  //  they are not parsed" — three missing categories added below.
+  //
+  // Civic / state (inanimate collective entity)
+  'government','governments',
+  // Demographic / vulnerable-population adjectives used as nouns
+  'poor','poorest','needy','vulnerable','homeless','unemployed',
+  'deprived','disadvantaged','disabled','marginalized','marginalised',
+  'impoverished','underprivileged','excluded','disenfranchised',
+  'struggling','underserved','underrepresented',
+  // Inanimate financial entities (sovereign-fund / public-fund cases)
+  'money','fund','funds','wealth','grant','grants',
+  'endowment','treasury','pension',
 ])
 
 /**
@@ -1645,11 +1665,44 @@ function parseMultiEntry(text: string): MultiParsed {
       })()
       // Skip ONLY when the word is fully consumed by a Means and not echoed
       // in any value or in the raw input outside that means phrase.
-      if (inMeans && !inValues && !inInputOutsideMeans) continue
+      // EXCEPTION: if the word is a recognised stakeholder-pattern keyword
+      // (e.g. "government" in "government oil money"), it is always a
+      // stakeholder even when it appears inside a Means phrase — the Means
+      // phrasing merely describes HOW the stakeholder's resource is used.
+      const isKnownStakeholderKeyword = STAKEHOLDER_PATTERNS.some(p =>
+        p.keywords.some(k => k === tok)
+      )
+      if (inMeans && !inValues && !inInputOutsideMeans && !isKnownStakeholderKeyword) continue
 
       // Skip exact-string duplicates already in stakeholders.
       if (acc.stakeholders.some(s => s.toLowerCase() === tok)) continue
       acc.stakeholders.push(tok)
+    }
+  }
+
+  // ── Layer-3: contextual preposition-phrase extraction ────────────────────
+  // extractContextualStakeholders catches phrases introduced by "for", "helping",
+  // "serving", "supporting" etc. that the rule-based classifier above may miss.
+  // Classic case: "for the poorest in Norway" → "Poorest in Norway".
+  // Only novel phrases are merged — if an existing stakeholder is a substring
+  // of the new phrase, the longer (more specific) phrase replaces it so the
+  // chip carries the full geographic/demographic context.
+  {
+    const ctxMatches = extractContextualStakeholders(input)
+    for (const m of ctxMatches) {
+      const phrase = m.name
+      const phraseLower = phrase.toLowerCase()
+      // Replace any shorter existing stakeholder that is a subset of this phrase
+      const subsetIdx = acc.stakeholders.findIndex(s => phraseLower.includes(s.toLowerCase()) && s.toLowerCase() !== phraseLower)
+      if (subsetIdx >= 0) {
+        acc.stakeholders[subsetIdx] = phrase
+        continue
+      }
+      // Skip if a superset already exists (existing phrase contains this one)
+      if (acc.stakeholders.some(s => s.toLowerCase().includes(phraseLower))) continue
+      // Skip exact duplicates
+      if (acc.stakeholders.some(s => s.toLowerCase() === phraseLower)) continue
+      acc.stakeholders.push(phrase)
     }
   }
 
@@ -2138,8 +2191,8 @@ defineExpose({ loadAndParse })
         <img
           src="/icon-sem-app.svg"
           alt="SEM App logo"
-          aria-hidden="true"
-          class="h-10 w-10 shrink-0 rounded-xl shadow-sm"
+          :title="`SEM App — Keeney three-level hierarchy (Value-Focused Thinking, 1992)\n\n▲ FUNDAMENTAL · amber\n  Objectives given from above — environment, parent org, regulations\n  We operate within these; cannot unilaterally redesign them\n\n● STRATEGIC · violet  ← this level (the hero row)\n  Our own plan — the Ends and Values we own and are accountable for\n\n▼ MEANS · emerald\n  What supports us from below — Functions and Solutions\n  These deliver our Strategic Ends upward to the stakeholder\n\n──────────────────────────────\nperson / §  =  Stakeholder (animate or inanimate)\n←O←         =  End: target that receives and delivers value\nO←          =  Means: source that fires value into the target`"
+          class="h-10 w-10 shrink-0 rounded-xl shadow-sm cursor-help"
         />
         <div>
           <h1 class="text-2xl font-semibold text-gray-900">What's your project about?</h1>
@@ -2440,8 +2493,8 @@ defineExpose({ loadAndParse })
         <img
           src="/icon-sem-app.svg"
           alt="SEM App logo"
-          aria-hidden="true"
-          class="h-10 w-10 shrink-0 rounded-xl shadow-sm"
+          :title="`SEM App — Keeney three-level hierarchy (Value-Focused Thinking, 1992)\n\n▲ FUNDAMENTAL · amber\n  Objectives given from above — environment, parent org, regulations\n  We operate within these; cannot unilaterally redesign them\n\n● STRATEGIC · violet  ← this level (the hero row)\n  Our own plan — the Ends and Values we own and are accountable for\n\n▼ MEANS · emerald\n  What supports us from below — Functions and Solutions\n  These deliver our Strategic Ends upward to the stakeholder\n\n──────────────────────────────\nperson / §  =  Stakeholder (animate or inanimate)\n←O←         =  End: target that receives and delivers value\nO←          =  Means: source that fires value into the target`"
+          class="h-10 w-10 shrink-0 rounded-xl shadow-sm cursor-help"
         />
         <div>
           <h1 class="text-2xl font-semibold text-gray-900">Does this look right?</h1>

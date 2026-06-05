@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { SpecBlock, FEntry, VEntry } from '../types/spec'
-import type { PlanModel } from '../composables/usePlanModel'
+import type { PlanModel } from '../composables/useSpecModel'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 

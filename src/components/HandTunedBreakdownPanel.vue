@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
-import type { PlanModel } from '../composables/usePlanModel'
+import type { PlanModel } from '../composables/useSpecModel'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 

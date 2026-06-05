@@ -137,7 +137,7 @@ function buildAnthropicCaller(signal: AbortSignal): LlmCaller {
     const response = await client.messages.create(
       {
         model:      MARIA_MODEL_ID, // override via VITE_MARIA_MODEL_ID in .env.local
-        max_tokens: 4096,
+        max_tokens: 16384,  // raised from 4096 — 2026-06-05; large board documents were hitting the old ceiling
         system:     systemPrompt,
         messages:   [{ role: 'user', content: userContent }],
       },

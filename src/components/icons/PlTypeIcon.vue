@@ -22,11 +22,15 @@
   rule from SEMappHandbook p.25. Wrapper span carries title; inner dispatch is unchanged.
 
   DD-013 (2026-06-01): Universal double-click rule — EVERY PlTypeIcon opens GlyphDataPanel
-  on double-click, regardless of interactive mode. No event-bubbling chain required:
-  dblclick calls useGlyphPanel().openGlyphPanel() directly (singleton composable).
-  Hover tooltip always appends "· Double-click for detailed icon info".
-  Exception: pass `no-detail-click` when the parent owns double-click (e.g. ValueCounter
-  stage tiles use timer-click for StageInfoPanel — two conflicting panels is wrong UX).
+  on double-click, regardless of interactive mode.
+  Architecture v3 (2026-06-02): TWO-LAYER detection for maximum robustness:
+  Layer A — global capture-phase listener in App.vue reads `data-pl-type` via
+            Element.closest('[data-pl-type]'). Fires before any child handler.
+            Cannot be blocked by stopPropagation on buttons, table cells, etc.
+  Layer B — @dblclick on this span as belt-and-suspenders (same outcome).
+  Together these layers ensure dblclick works regardless of where in the DOM
+  this component is embedded. `no-detail-click` removes `data-pl-type` so
+  Layer A skips this icon and Layer B also skips it.
 
   Spec: F.ValueAccumulationCounter (#15) · Planguage Spec Type Glyphs v7 (2026-05-16).
 -->
@@ -133,9 +137,15 @@ function handleDblClick(): void {
     - In passive mode (default): purely structural, no interaction surface.
     Never add interactive to a PlTypeIcon that is already inside a <button> element.
   -->
+  <!--
+    data-pl-type: read by App.vue's global capture-phase dblclick listener (Layer A).
+    Omitted when noDetailClick=true so Layer A skips this icon entirely.
+    @dblclick.prevent: Layer B — belt-and-suspenders for contexts where bubbling works.
+  -->
   <span
     class="inline-flex"
     :title="resolvedTitle"
+    :data-pl-type="noDetailClick ? undefined : plType"
     :role="interactive ? 'button' : undefined"
     :tabindex="interactive ? 0 : undefined"
     :class="interactive ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-current rounded' : ''"

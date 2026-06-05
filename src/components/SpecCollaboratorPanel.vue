@@ -138,7 +138,7 @@ onUnmounted(() => {
     <RightPanel
       class="z-[460] w-80 bg-white shadow-2xl border-l border-violet-200 flex flex-col"
       role="complementary"
-      aria-label="Plan Advisor"
+      aria-label="Spec Advisor"
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-700 to-indigo-600 flex-shrink-0">

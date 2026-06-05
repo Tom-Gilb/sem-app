@@ -26,7 +26,7 @@
 
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
-import { usePlanImporter } from './usePlanImporter'
+import { useSpecImporter } from './useSpecImporter'
 import { useModelLibrary } from './useModelLibrary'
 import { useContractStore } from './useContractStore'
 import { mariaHistory } from '../lib/maria/mariaResultStore'
@@ -35,7 +35,7 @@ export function useAgentContext(): { contextSummary: ComputedRef<string> } {
   // All three composables are module-level singletons — calling them here
   // returns reactive refs pointing at the same underlying state as everywhere
   // else in the app.  No risk of duplicated data or stale snapshots.
-  const { plans }                   = usePlanImporter()
+  const { plans }                   = useSpecImporter()
   const { allEntries: allModels }   = useModelLibrary()
   const { contracts }               = useContractStore()
 

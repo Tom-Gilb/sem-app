@@ -11,7 +11,7 @@ import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 // DD-001 (2026-05-13) — SaveGlyph replaces 💾.
 import SaveGlyph from './icons/SaveGlyph.vue'
-import type { SpecOwner } from '../composables/usePlanModel'
+import type { SpecOwner } from '../composables/useSpecModel'
 import { usePriorityRecord, PRIORITY_SUGGESTIONS, type PriorityRecord } from '../composables/usePriorityRecord'
 
 // ── Props + Emits ─────────────────────────────────────────────────────────────

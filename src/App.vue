@@ -26,6 +26,13 @@ import InviteAcceptView from './components/InviteAcceptView.vue'
 import EvoPlanView from './components/EvoPlanView.vue'
 import TaskList from './components/TaskList.vue'
 import ImpactEstimationView from './components/ImpactEstimationView.vue'
+import ImpactEstimationStepView from './components/ImpactEstimationStepView.vue'
+import EvoToolsButton from './components/EvoToolsButton.vue'
+import EvoToolsPanel from './components/EvoToolsPanel.vue'
+import EvoSharpInterview from './components/EvoSharpInterview.vue'
+import EvoStepImprovement from './components/EvoStepImprovement.vue'
+import FeedMePanel from './components/FeedMePanel.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 import PrioritisedPlanView from './components/PrioritisedPlanView.vue'
 import ClarifyView from './components/ClarifyView.vue'
 import ThinkingIndicator from './components/ThinkingIndicator.vue'
@@ -55,6 +62,7 @@ import { useCollabConflict } from './composables/useCollabConflict'
 import { useClarifyingQuestions } from './composables/useClarifyingQuestions'
 import { useSpecExport, exportPrioritisedPlan, exportWithTasks, serialisePlainText, exportWithTasksPlainText } from './composables/useSpecExport'
 import { openEml, textToEmailHtml } from './composables/useEmlExport'
+import { renderColorfulSpecHtml } from './composables/useColorfulSpecHtml'
 import { useAuth } from './composables/useAuth'
 import { useWorkspace } from './composables/useWorkspace'
 import { useLoadingState, _resetLoadingStateForTest as _forceClearLoading } from './composables/useLoadingState'
@@ -85,10 +93,10 @@ import PlanModelPanel from './components/PlanModelPanel.vue'
 import ModelComparisonView from './components/ModelComparisonView.vue'
 import GetAPlanPanel from './components/GetAPlanPanel.vue'
 import ContractHub from './components/ContractHub.vue'
-import PlanOwnerPanel from './components/PlanOwnerPanel.vue'
-import PlanDNAStrip   from './components/PlanDNAStrip.vue'
+import SpecOwnerPanel from './components/SpecOwnerPanel.vue'
+import SpecStoryStrip   from './components/SpecStoryStrip.vue'
 import SpecOwnersPanel from './components/SpecOwnersPanel.vue'
-import PlanTargetsPanel from './components/PlanTargetsPanel.vue'
+import SpecTargetsPanel from './components/SpecTargetsPanel.vue'
 import SpecEditorPanel from './components/SpecEditorPanel.vue'
 import SpecDirectRelations from './components/SpecDirectRelations.vue'
 import ToolInfoPanel from './components/ToolInfoPanel.vue'
@@ -96,10 +104,24 @@ import PriorityRecordPanel from './components/PriorityRecordPanel.vue'
 import GlobalPriorityPanel from './components/GlobalPriorityPanel.vue'
 import PriorityInfoPanel from './components/PriorityInfoPanel.vue'
 import EditInfoPanel from './components/EditInfoPanel.vue'
-import PlanHealthStatusPanel from './components/PlanHealthStatusPanel.vue'
-import PlanHealthAdminPanel from './components/PlanHealthAdminPanel.vue'
-import PlanHealthBadge from './components/PlanHealthBadge.vue'
-import { usePlanHealth, type PlanHealthContext } from './composables/usePlanHealth'
+import SpecHealthStatusPanel from './components/SpecHealthStatusPanel.vue'
+import SpecHealthAdminPanel from './components/SpecHealthAdminPanel.vue'
+import SpecHealthTargetPanel from './components/SpecHealthTargetPanel.vue'
+import EvoHealthPanel from './components/EvoHealthPanel.vue'
+import HistoryGlyph from './components/icons/HistoryGlyph.vue'
+import StandardsAuditorPanel from './components/StandardsAuditorPanel.vue'
+import PlanguageAnalyzerPanel from './components/PlanguageAnalyzerPanel.vue'
+import InternetContextPanel from './components/InternetContextPanel.vue'
+import StudyActDataCollection from './components/StudyActDataCollection.vue'
+// Planguage-family glyphs for the Plan Crest people chips — Tom 2026-06-04
+// approved set replacing the dated 🔑 / 💡 / ⌨ emojis (per DD-011 / DD-012).
+import OwnerGlyph from './components/icons/OwnerGlyph.vue'
+import PlanGlyph from './components/icons/PlanGlyph.vue'
+import PlannerGlyph from './components/icons/PlannerGlyph.vue'
+import ScribeGlyph from './components/icons/ScribeGlyph.vue'
+import SpecStoryGlyph from './components/icons/SpecStoryGlyph.vue'
+import SpecHealthBadge from './components/SpecHealthBadge.vue'
+import { useSpecHealth, type PlanHealthContext } from './composables/useSpecHealth'
 import CopyrightPanel from './components/CopyrightPanel.vue'
 import SaveGlyphHistoryPanel from './components/SaveGlyphHistoryPanel.vue'
 import SymbolFamilyPanel from './components/SymbolFamilyPanel.vue'
@@ -111,7 +133,7 @@ import HistoryPanel from './components/HistoryPanel.vue'
 import ModelLibraryPanel from './components/ModelLibraryPanel.vue'
 import StakeholderMapperPanel from './components/StakeholderMapperPanel.vue'
 import EvoCritiquerPanel from './components/EvoCritiquerPanel.vue'
-import PlanImporterPanel from './components/PlanImporterPanel.vue'
+import SpecImporterPanel from './components/SpecImporterPanel.vue'
 import DecisionMapperPanel from './components/DecisionMapperPanel.vue'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
@@ -126,9 +148,13 @@ import SaveGlyph from './components/icons/SaveGlyph.vue'
 import EditGlyph from './components/icons/EditGlyph.vue'
 import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
 import GetGlyph from './components/icons/GetGlyph.vue'
+import CopyGlyph from './components/icons/CopyGlyph.vue'
+import EmailGlyph from './components/icons/EmailGlyph.vue'
+import { useTaskSuggestions } from './composables/useTaskSuggestions'
+import ResourcesSharpenPanel from './components/ResourcesSharpenPanel.vue'
 import ScrollContainer from './components/ScrollContainer.vue'
 import {
-  usePlanModel,
+  useSpecModel,
   initPlanModel,
   bumpPlanVersion,
   clearPlanModel,
@@ -147,7 +173,7 @@ import {
   setDeviceUserName,
   setWorkingMode,
   type PlanModel,
-} from './composables/usePlanModel'
+} from './composables/useSpecModel'
 import { clearComparison } from './composables/useModelComparison'
 import SelectionDefiner from './components/SelectionDefiner.vue'
 // 2026-05-14 — Fresh Start menu replaces the bare 🆘 Reset pill with a
@@ -168,6 +194,7 @@ import { useGlobalSearch, type SearchEntry } from './composables/useGlobalSearch
 import { useToolInfo } from './composables/useToolInfo'
 import { useCopyright } from './composables/useCopyright'
 import { useSpecEditor } from './composables/useSpecEditor'
+import { backfillSpecKeysFromPlanKeys } from './composables/useSpecKeyMigration'
 import { resolveStageNavAction, STAGE_TOAST_MESSAGES } from './composables/useStageNavigation'
 import {
   initEntriesFromSpec,
@@ -213,7 +240,7 @@ const { startLoading, stopLoading, isLoading } = useLoadingState()
 
 // --- Session persistence (crash/eviction recovery) ---
 const { save: _saveSession, load: _loadSession, clear: _clearSession, timeAgo } = useSessionPersist()
-const { showToast } = useToast()
+const { toast: globalToast, showToast } = useToast()
 /** True when the current view was restored from a saved session (shows "Start fresh" pill). */
 const sessionRestored = ref(false)
 
@@ -236,6 +263,22 @@ const presentationOpen = ref(false)
 const sharpeningDone = ref(false)
 // sharpenModalOpen: true when the nav "Sharpen ▾" dropdown opens the modal.
 const sharpenModalOpen = ref(false)
+// resourcesSharpenOpen: true when Stage 10 · Resources Sharpening panel is open.
+const resourcesSharpenOpen = ref(false)
+
+// Tom 2026-06-04 r88 — Phase 2 of Resources beef-up: write-back from
+// Claudian analysis.  The panel emits `apply-analysis` with an updated
+// SpecBlock after the user ticks per-finding approval.  We replace
+// currentSpec.value, persist the snapshot to the active planModel, and
+// log a one-line provenance breadcrumb.
+function _onResourcesAnalysisApplied(updatedSpec: SpecBlock): void {
+  currentSpec.value = updatedSpec
+  if (planModel.value) savePlanSnapshot(updatedSpec)
+  console.log('[ResourcesAnalysis] applied — spec now has',
+    updatedSpec.resources?.length ?? 0, 'R.,',
+    updatedSpec.solutions?.length ?? 0, 'S.,',
+    updatedSpec.constraints?.length ?? 0, 'C.')
+}
 // bullockOpen: true when the Bullock Audit Trail modal is open.
 const bullockOpen = ref(false)
 // sharpenedEntryIds: reactive list of entry IDs touched by sharpening rounds.
@@ -263,7 +306,7 @@ const specGeneratedAt = ref<Date | null>(null)
 // --- Plan Model ---
 // Named, versioned model tracking for each spec/plan pair.
 // Initialised in doTranslate(); bumped in onSpecSharpened().
-const { currentModel: planModel, allModels: _allPlanModels } = usePlanModel()
+const { currentModel: planModel, allModels: _allPlanModels } = useSpecModel()
 
 // Live "now" tick for the top bar's save-time label (refreshed every 30 s)
 const _topBarNow = ref(Date.now())
@@ -271,7 +314,7 @@ const _topBarTimer = setInterval(() => { _topBarNow.value = Date.now() }, 30_000
 onUnmounted(() => clearInterval(_topBarTimer))
 
 /** "Saved 4:32 PM" or "Saved 3 min ago" label for the persistent plan bar. */
-const planBarSavedLabel = computed((): string => {
+const specBarSavedLabel = computed((): string => {
   const ts = planModel.value?.updatedAt
   if (!ts) return ''
   const elapsed = Math.floor((_topBarNow.value - new Date(ts).getTime()) / 60_000)
@@ -284,7 +327,7 @@ const planBarSavedLabel = computed((): string => {
 })
 
 /** True when ≥2 minutes have elapsed since the last save — prompts a Save button in the top bar. */
-const planBarUnsaved = computed((): boolean => {
+const specBarUnsaved = computed((): boolean => {
   const ts = planModel.value?.updatedAt
   if (!ts) return false
   return Math.floor((_topBarNow.value - new Date(ts).getTime()) / 60_000) >= 2
@@ -395,6 +438,30 @@ const _vizHighlightId        = ref('')
 const _vizInitialTab         = ref<string>('')
 const heatLaneOpen           = ref(false)
 const evoSimulatorOpen       = ref(false)
+// Tom 2026-06-03 — Evo Tools marker: catalogue of Evo-specialised tools
+// (Value Flow, Evo Simulator, V × Step VDT, Critique, etc.) opened via
+// EvoToolsButton in the right pin cluster.  Registered as an exclusive
+// surface below so opening it closes other modals.
+const evoToolsOpen           = ref(false)
+// Tom 2026-06-03 — first Evo Tool detailed: "Sharpen Next Step" (the Evo
+// Sharp Interview).  12-category structured interview that crystallises
+// the next Evo Step before commit.  Tom's 8 categories + 4 PROPOSED.
+const evoSharpOpen           = ref(false)
+// Tom 2026-06-03 — second Evo Tool detailed: "Evo Step Improvement".  The
+// Evo Planner proposes a crazy first shot, critiques it, offers 1–5 better
+// ideas, plus a Skunkworks section of Daring and Wild Evo Ideas (2×–10×
+// daring shots at higher risk and cost).  File-read pattern; no in-app AI.
+const evoStepImprovementOpen = ref(false)
+// Tom 2026-06-03 — third Evo Tool detailed: "FEED ME!" (Audrey II nod).
+// Feedback + Learning tool: 3 sources (Feedback Base / Evo Base / Last Step
+// in Paris) + tough questions for DEV + recommended actions with required
+// audit trail (Source + Reason).  File-read pattern.
+const feedMeOpen             = ref(false)
+// Tom 2026-06-03 — SEM Settings Panel (long-requested, finally ratified).
+// Mode (Ultra Light / Pro SEM) + AI Max level + Privacy + Evo defaults +
+// Visual + Workflow + Export + Collab + Diagnostics.  v1: panel + persistence;
+// component consumption of individual settings ships incrementally.
+const settingsOpen           = ref(false)
 const conflictAnalysisOpen   = ref(false)
 const collaboratorOpen       = ref(false)
 
@@ -497,8 +564,8 @@ const comparisonOpen = ref(false)
 // --- Models Panel (browse / rename / delete all saved models) ---
 const modelsOpen = ref(false)
 
-// --- Plan Input (import existing plan) ---
-const planInputOpen = ref(false)
+// --- Spec Input (import existing spec) ---
+const specInputOpen = ref(false)
 
 // --- Feature #77: Animated Onboarding Tour ---
 // Tour is opt-in only — opens via the "Tour" button or voice command, never automatically.
@@ -534,14 +601,14 @@ async function handleWizardSubmit(
 // --- Feature #17: Comparison Mode ---
 const comparisonMode = ref(false)
 
-// --- Plan Owner panel + Spec Owners / Governance panel ---
-const planOwnerPanelOpen  = ref(false)
+// --- Spec Owner panel + Spec Owners / Governance panel ---
+const specOwnerPanelOpen  = ref(false)
 const planPeopleTab       = ref<'owners' | 'planners' | 'scribes'>('owners')
 const govPanelOpen        = ref(false)
-// --- Plan DNA / Planner Consequences strip ---
-const planDNAOpen         = ref(false)
+// --- Spec Story / Planner Consequences strip ---
+const specStoryOpen         = ref(false)
 function _togglePlanStory(): void {
-  planDNAOpen.value = !planDNAOpen.value
+  specStoryOpen.value = !specStoryOpen.value
 }
 
 // ── Stage bar layout: fixed at top-0, Plan Crest sits below it ───────────────
@@ -573,8 +640,8 @@ const contentTopPad = computed(() =>
     ? STAGE_BAR_H + planCrestH.value
     : undefined
 )
-// --- Feature #195: Plan Targets ---
-const planTargetsOpen     = ref(false)
+// --- Feature #195: Spec Targets ---
+const specTargetsOpen     = ref(false)
 // --- Agent Menu + Maria panels (2026-05-29 / 2026-05-30) ---
 const agentMenuOpen       = ref(false)
 const mariaOpen           = ref(false)           // MariaAgentBoard — analysis panel
@@ -583,7 +650,7 @@ const unifiedHistoryOpen  = ref(false)           // HistoryPanel — unified his
 const modelLibraryOpen    = ref(false)           // ModelLibraryPanel — domain model library
 const stakeholderMapperOpen = ref(false)         // StakeholderMapperPanel — AI attribute profiles
 const evoCritiquerOpen      = ref(false)         // EvoCritiquerPanel — Evo health check
-const planImporterOpen      = ref(false)         // PlanImporterPanel — universal Planguage converter
+const specImporterOpen      = ref(false)         // SpecImporterPanel — universal Planguage converter
 const decisionMapperOpen    = ref(false)         // DecisionMapperPanel — decision analysis
 // --- Spec Direct Relations (SDR) ---
 const sdrOpen      = ref(false)
@@ -763,30 +830,44 @@ const isModelMode = computed(() => planModel.value?.workingMode === 'model')
 //   • Status (read-only) — PHI breakdown + history graph + notifications
 //   • Administration — weights, custom aspects, notification policy, snapshots
 // Badge click → Status by default. Each panel has a header link to the other.
-const planHealthStatusOpen = ref(false)
-const planHealthAdminOpen  = ref(false)
+const specHealthStatusOpen = ref(false)
+const specHealthAdminOpen  = ref(false)
+// Tom 2026-06-03 (decision B for 2026-05-27 Plan Health tile naming WAIT row):
+// Spec Health Target — sibling of Status + Admin.  "Target and Administration
+// are vital" → both deserve their own tile, distinct from Status.
+const specHealthTargetOpen = ref(false)
+// Tom 2026-06-03 — EHT (Evo Health Tool): same structure as PHI but focused
+// on Evo Steps + short-term scope (Next / Next-5 / All).  v1 scaffold ships
+// detector + approval UI; v2 wires real Cure application + email-to-Owner.
+const evoHealthOpen        = ref(false)
+// Tom 2026-06-03 Conjunction Exploit #1 — Planguage-vs-Standards Auditor
+const standardsAuditorOpen = ref(false)
+// Tom 2026-06-03 Conjunction Exploit #5 — Planguage Analyzer (unified)
+const planguageAnalyzerOpen = ref(false)
+// Tom 2026-06-03 Conjunction Exploit #3 + #4 — Internet Context Fetcher (Stakeholder + Industry Benchmark)
+const internetContextOpen = ref(false)
 /**
  * Live Plan Health Index for the badge on the Plan ID bar.
  * Recomputes whenever spec or governance changes (computed dependency tracking).
  * The PHI is in [-100..+100]; below planHealthThreshold the badge vibrates.
  */
-const planHealthCtx = computed<PlanHealthContext>(() => ({
+const specHealthCtx = computed<PlanHealthContext>(() => ({
   spec: currentSpec.value ?? { functions: [], values: [], solutions: [] },
   specOwnerCount: planModel.value?.governance?.specOwners?.length ?? 0,
   hasPlanOwner: (planModel.value?.owners?.length ?? 0) > 0,
 }))
-const planHealthIndexValue = computed<number>(() => {
+const specHealthIndexValue = computed<number>(() => {
   if (!planModel.value || !currentSpec.value) return 0
-  return usePlanHealth(planModel.value.id).planHealthIndex(planHealthCtx.value)
+  return useSpecHealth(planModel.value.id).planHealthIndex(specHealthCtx.value)
 })
-const planHealthThresholdValue = computed<number>(() => {
+const specHealthThresholdValue = computed<number>(() => {
   if (!planModel.value) return 50
-  return usePlanHealth(planModel.value.id).custom.value.threshold
+  return useSpecHealth(planModel.value.id).custom.value.threshold
 })
 /** Pending notification count drives the rose dot on the Plan ID bar badge. */
-const planHealthAlertCount = computed<number>(() => {
+const specHealthAlertCount = computed<number>(() => {
   if (!planModel.value) return 0
-  return usePlanHealth(planModel.value.id).pendingNotifications.value.length
+  return useSpecHealth(planModel.value.id).pendingNotifications.value.length
 })
 
 // --- Feature #29: Spec Version History ---
@@ -825,11 +906,11 @@ watch(
   (newestId, oldId) => {
     if (!newestId || newestId === oldId) return
     if (!planModel.value || !currentSpec.value) return
-    const ph = usePlanHealth(planModel.value.id)
+    const ph = useSpecHealth(planModel.value.id)
     if (!ph.custom.value.admin.autoSnapshotOnVersionBump) return
     const v = specHistory.value[0]
     const isFirst = ph.custom.value.snapshots.length === 0
-    ph.recordSnapshot(planHealthCtx.value, {
+    ph.recordSnapshot(specHealthCtx.value, {
       trigger: isFirst ? 'inception' : 'version-bump',
       planVersion: planModel.value.version ? `v${planModel.value.version}` : '',
       versionLabel: v?.label ?? '',
@@ -875,6 +956,10 @@ function onHistoryRestore(
     currentSpec.value     = spec
     markdown.value        = serialise(spec)
     specGeneratedAt.value = new Date()
+    // Tom 2026-06-03: clear stale originalInput so the EvoPlanView "FOR"
+    // banner doesn't carry stakeholders from a previously-active plan into
+    // the restored snapshot.  Same fix as in _applyLoadedModel.
+    originalInput.value = null
 
     // ── Switch (or create) the PlanModel that owns this snapshot ────────────
     const wantedName = planName.trim()
@@ -1100,6 +1185,18 @@ const prevStageInfo = computed(() => {
   const n = planningStage.value
   return n > 1 ? (PLANNING_STAGES.find(s => s.stage === n - 1) ?? null) : null
 })
+/**
+ * The PLANNING_STAGES entry for the current planningStage — used by the
+ * middle "stage-action" pin so it can render the canonical PlTypeIcon
+ * (matching the stage tile above) + the stage number + a "Stage Now"
+ * indicator.  Tom 2026-06-04: *"It has a wrong glyph (use the same is in
+ * the stage pin above it). And the text needs more info like: '10
+ * Resources Stage Now'"*.
+ */
+const currentStageInfo = computed(() => {
+  return PLANNING_STAGES.find(s => s.stage === planningStage.value) ?? null
+})
+
 const nextStageInfo = computed(() => {
   const n = planningStage.value
   return n < PLANNING_STAGES.length ? (PLANNING_STAGES.find(s => s.stage === n + 1) ?? null) : null
@@ -1192,7 +1289,7 @@ const planningStageAction = computed<{ label: string; handler: () => void } | nu
     case 7:  return { label: '📈 Evo Simulator',        handler: () => { evoSimulatorOpen.value = true } }
     case 8:  return { label: '✅ Plan Tasks',            handler: () => goToTasksStage() }
     case 9:  return { label: '📋 Study Results',        handler: () => showToast('💡 Study-Act: measure actual value delivered vs your Goals, then loop back to update the spec', 4500) }
-    case 10: return { label: '📦 Resources',              handler: () => goToImpactStage() }
+    case 10: return { label: 'Sharpen Resources',         handler: () => { resourcesSharpenOpen.value = true } }
     case 11: return { label: '📤 Export Plan',          handler: () => exportFull() }
     default: return null
   }
@@ -1283,6 +1380,9 @@ watch(stage, (newStage, oldStage) => {
 console.log('[boot] script-setup end — onMounted scheduled', new Date().toISOString())
 
 onMounted(async () => {
+  // Phase 2 Plan→Spec localStorage key migration: copy sem-plan-* → sem-spec-* on first run.
+  // Idempotent: skips any new key that is already populated. Never deletes old keys.
+  backfillSpecKeysFromPlanKeys()
   console.log('[boot] onMounted entered', new Date().toISOString())
   // ── Hard watchdog (2026-05-12) ─────────────────────────────────────────────
   // Tom hit a "starts but does not come in after 300 seconds" boot hang.
@@ -1557,18 +1657,185 @@ function _tryRestoreSession(): void {
 const confirmedSteps = ref<EvoStep[]>([])
 const evoPlanConfirmed = ref(false)
 
-/** Steps to pass to diagrams — falls back to the suggested (unconfirmed) plan steps
- *  so Value Flow Diagram and Swimlane show content even before the user clicks
- *  "Confirm Plan". Tom 2026-05-16: "the diagram denies [evo steps], please fix."
- *  Suggested steps rendered with a dashed "◌ suggested" indicator in the VFD. */
-const _stepsForDiagram = computed<EvoStep[]>(() =>
-  confirmedSteps.value.length > 0 ? confirmedSteps.value : (_evoPlan.value?.steps ?? [])
-)
+/** Steps to pass to diagrams — ALWAYS prefers the live plan as the single source of
+ *  truth, falling back to confirmedSteps only when no live plan exists. This ensures:
+ *    (a) Re-generated plans appear in the diagram immediately, without re-confirming
+ *        (Tom 2026-06-03: "regenerated and got 3 steps, but in the next impact step
+ *         the value decision table only had the previous 2 steps" — bug caused by
+ *         the old precedence preferring the stale confirmedSteps snapshot).
+ *    (b) Edits to plan steps (reorder, rename, link changes) propagate to all
+ *        downstream diagrams without requiring re-confirmation.
+ *    (c) Empty/unconfirmed plans still render via the original Tom 2026-05-16 fix
+ *        ("the diagram denies [evo steps], please fix") — the live plan IS the draft.
+ *  confirmedSteps remains as a fallback for the edge case of a session-restore that
+ *  has a confirmed snapshot but no live plan instance yet (rare). */
+const _stepsForDiagram = computed<EvoStep[]>(() => {
+  const raw = _evoPlan.value?.steps?.length ? _evoPlan.value.steps : confirmedSteps.value
+  if (!raw?.length) return raw
+  // Tom 2026-06-04 verbatim: *"the evo steps table is empty but evo steps
+  // exist in the value flow diagram"*.  Root cause: the V × Evo Step view
+  // (ImpactEstimationStepView) aggregates impact per step by summing the
+  // V × S matrix across `step.linkedSolutions`.  When the LLM-generated
+  // plan emits empty / unresolvable linkedSolutions for every step, every
+  // aggregated cell shows "–" even with a fully-populated matrix.
+  //
+  // Fallback: if NO step has any linkedSolutions AND the spec has Solutions
+  // entries, fan-out every Solution to every step (charitable assumption:
+  // each step touches the whole-of-spec scope) so the V × Evo Step
+  // projection has something meaningful to aggregate.  This is a baseline
+  // the user can refine — better than a blank grid that doesn't explain
+  // itself.  Once any step carries its own linkedSolutions, this fallback
+  // is skipped (the per-step user data wins).
+  const noStepsHaveLinks = raw.every(s => !s.linkedSolutions || s.linkedSolutions.length === 0)
+  if (!noStepsHaveLinks) {
+    console.log(`[stepsForDiagram] ${raw.length} steps have their own linkedSolutions — using as-is`)
+    return raw
+  }
+  const allSolutions = currentSpec.value?.solutions ?? []
+  if (allSolutions.length === 0) {
+    console.log(`[stepsForDiagram] no solutions in spec to fan-out — leaving ${raw.length} steps with empty linkedSolutions`)
+    return raw
+  }
+  const fanned = raw.map(s => ({
+    ...s,
+    linkedSolutions: [...allSolutions.map(sol => sol.id)],
+  }))
+  console.log(`[stepsForDiagram] FANNED OUT ${allSolutions.length} solutions to ${fanned.length} steps · sol ids:`, allSolutions.map(s => s.id))
+  return fanned
+})
 
 // --- Task state ---
 // Map from step.name → task list (managed by TaskList component via v-model equivalent)
 // Exposed here so exportPrioritisedPlan can read it at export time.
 const tasksByStep = ref<Record<string, TaskSuggestion[]>>({})
+
+// ── ValueFlow Task backfill ───────────────────────────────────────────────────
+// Tom 2026-06-04 verbatim: *"No Tasks are now visible in the ValueFlow"*.
+// Root cause: tasksByStep is only populated when the user actually visits
+// Stage 8 (Tasks view) — TaskList.vue's onMounted calls suggestTasks(step)
+// for every step.  If the user jumps directly from Stage 6 (Evo Steps) to
+// Stage 7 (Evo Impact) or Stage 10 (Resources) via the planning bar — both
+// of which embed the ValueFlowDiagram — TaskList never mounted and the
+// diagram has no tasks to render.
+//
+// Fix: when the user enters any view that displays the ValueFlowDiagram
+// AND tasksByStep is empty AND steps exist, backfill tasksByStep using
+// the same suggestTasks composable TaskList uses.  Idempotent — if tasks
+// already exist (user did visit Stage 8), this is a no-op.  User edits
+// in TaskList still override these defaults via the @update:tasks-by-step
+// event.
+const { suggestTasks: _suggestTasksForBackfill } = useTaskSuggestions()
+function _backfillTasksByStepIfEmpty(): void {
+  const steps = _stepsForDiagram.value
+  if (!steps || steps.length === 0) return
+  // If any task list is already populated, treat as user-managed and skip.
+  const hasAny = Object.values(tasksByStep.value).some(arr => Array.isArray(arr) && arr.length > 0)
+  if (hasAny) return
+  const filled: Record<string, TaskSuggestion[]> = {}
+  for (const step of steps) {
+    filled[step.name] = _suggestTasksForBackfill(step)
+  }
+  tasksByStep.value = filled
+}
+
+// Fire the backfill when the user enters any view that embeds the
+// ValueFlowDiagram — internal stage===2 (Evo Plan + VFD modal), stage===3
+// (Evo Impact / Resources view with embedded VFD), or planningStage===9
+// (Study-Act, which the diagram is read-only for).  Idempotent and cheap.
+watch([stage, planningStage, _stepsForDiagram], () => {
+  if (stage.value === 2 || stage.value === 3 || planningStage.value === 9) {
+    _backfillTasksByStepIfEmpty()
+  }
+}, { immediate: true })
+
+// ── Impact matrix backfill ────────────────────────────────────────────────────
+// Tom 2026-06-04 verbatim: *"evo impact tabe not filled out"*.  Root cause:
+// `capturedImpactMatrix` defaults to `{}`.  When the user enters Stage 7
+// (Evo Impact) without having clicked through a prior path that populated
+// it (e.g. jumping from Stage 6 directly via the planning bar), every cell
+// shows "—".  The V × Evo Step aggregation above the V × S editor reads
+// from this matrix, so it shows nothing too.
+//
+// Fix: when the user enters stage===3 (Evo Impact view) with an empty
+// `capturedImpactMatrix` AND a populated spec, seed it with the same
+// deterministic mock snapshot that `exportFull()` already uses at line 2964
+// when the user reaches Export without estimating.  This gives the user
+// a baseline they can adjust, instead of a blank grid that doesn't explain
+// itself.  User edits via @matrix-updated still overwrite these.
+function _backfillImpactMatrixIfEmpty(): void {
+  if (!currentSpec.value) {
+    console.log('[backfillImpactMatrix] skip: no currentSpec')
+    return
+  }
+  const hasData = Object.keys(capturedImpactMatrix.value).length > 0
+  if (hasData) {
+    console.log(`[backfillImpactMatrix] skip: matrix already populated (${Object.keys(capturedImpactMatrix.value).length} V rows)`)
+    return
+  }
+  const vCount = currentSpec.value.values.length
+  const sCount = currentSpec.value.solutions.length
+  if (vCount === 0 || sCount === 0) {
+    console.log(`[backfillImpactMatrix] skip: empty spec (values=${vCount} solutions=${sCount})`)
+    return
+  }
+  const snap = computeMockImpactSnapshot(currentSpec.value.values, currentSpec.value.solutions)
+  capturedImpactMatrix.value  = snap.matrix
+  capturedVCRatios.value      = snap.vcRatios
+  capturedCalendarCosts.value = snap.calendarCosts
+  capturedCapitalCosts.value  = snap.capitalCosts
+  console.log(`[backfillImpactMatrix] FILLED matrix with mock data: ${vCount} values × ${sCount} solutions = ${vCount * sCount} cells`)
+}
+
+watch([stage, planningStage, currentSpec], () => {
+  if (stage.value === 3) _backfillImpactMatrixIfEmpty()
+}, { immediate: true })
+
+// Tom 2026-06-04 r87: smart @matrix-updated handler.  Previous handler was a
+// raw assignment — when ImpactEstimationView mounted and emitted its
+// initial (often empty) matrix, it OVERWROTE the r84 backfill, leaving
+// the V × Evo Step table showing dashes again.  This handler:
+//   1. Ignores emits where every cell is zero/empty (preserves r84 seed)
+//   2. Cell-merges non-empty emits into capturedImpactMatrix so partial
+//      IET edits coexist with mock baseline for the cells the user hasn't
+//      touched yet
+function _onMatrixUpdated(
+  matrix:        Record<string, Record<string, number>>,
+  efficiency:    Record<string, number>,
+  cal:           Record<string, number>,
+  cap:           Record<string, number>,
+): void {
+  // Count non-zero cells in the incoming matrix.
+  let nonZero = 0
+  for (const row of Object.values(matrix)) {
+    for (const cell of Object.values(row)) {
+      if (cell !== 0) nonZero++
+    }
+  }
+  const incomingHasData = nonZero > 0
+  const currentHasData  = Object.keys(capturedImpactMatrix.value).length > 0
+  if (!incomingHasData && currentHasData) {
+    console.log('[matrix-updated] ignored empty emit — keeping existing capturedImpactMatrix (likely r84 backfill or prior user edits)')
+    return
+  }
+  if (incomingHasData) {
+    // Cell-merge so the user's IET edits don't blow away the mock baseline
+    // for cells they haven't touched.  Only cells WITH a value in the
+    // incoming matrix replace; zero cells keep whatever was there before.
+    const merged: Record<string, Record<string, number>> = { ...capturedImpactMatrix.value }
+    for (const [vid, row] of Object.entries(matrix)) {
+      merged[vid] = { ...(merged[vid] ?? {}) }
+      for (const [sid, cell] of Object.entries(row)) {
+        if (cell !== 0) merged[vid][sid] = cell
+      }
+    }
+    capturedImpactMatrix.value = merged
+  } else {
+    capturedImpactMatrix.value = matrix
+  }
+  capturedVCRatios.value      = efficiency
+  capturedCalendarCosts.value = cal
+  capturedCapitalCosts.value  = cap
+}
 
 // --- Impact matrix state ---
 // Captured from ImpactEstimationView. Populated two ways:
@@ -1852,7 +2119,7 @@ function startFresh(): void {
   clearPlanModel()               // clear plan model reference on fresh start
   clearComparison()              // clear any open comparison slots
   comparisonOpen.value = false
-  planInputOpen.value  = false
+  specInputOpen.value  = false
   markdown.value = ''
   originalInput.value = null
   stage.value = 1
@@ -1918,13 +2185,13 @@ const sharpenDropdownMockRef = ref<{ close(): void } | null>(null)
  *  back-navigation.  Call this before changing stage — never set stage directly
  *  in a back-navigation handler. */
 function _closeAllOverlays(): void {
-  planDNAOpen.value          = false   // close Plan Story strip on any stage/overlay change
+  specStoryOpen.value          = false   // close Plan Story strip on any stage/overlay change
   menuOpen.value             = false
   renamePopoverOpen.value    = false
   modelsOpen.value           = false
-  planOwnerPanelOpen.value   = false
+  specOwnerPanelOpen.value   = false
   govPanelOpen.value         = false
-  planTargetsOpen.value      = false
+  specTargetsOpen.value      = false
   specEditorOpen.value       = false
   sdrOpen.value              = false
   toolInfoPanelOpen.value    = false
@@ -1932,8 +2199,8 @@ function _closeAllOverlays(): void {
   globalPriorityOpen.value   = false
   priorityInfoOpen.value     = false
   editInfoOpen.value         = false
-  planHealthStatusOpen.value = false
-  planHealthAdminOpen.value  = false
+  specHealthStatusOpen.value = false
+  specHealthAdminOpen.value  = false
   copyrightPanelOpen.value   = false
   saveGlyphHistoryOpen.value = false
   collaboratorOpen.value     = false
@@ -1945,7 +2212,7 @@ function _closeAllOverlays(): void {
   valueFlowOpen.value        = false
   evoSimulatorOpen.value     = false
   comparisonOpen.value       = false
-  planInputOpen.value        = false
+  specInputOpen.value        = false
   // Previously missing — all five cause invisible or full-screen overlays:
   presentationOpen.value     = false
   bullockOpen.value          = false
@@ -2100,13 +2367,24 @@ function improveCurrentVersion(): void {
  * Stage 1, form in review → Generate Spec (form's own generate button)
  * Stage 2              → Confirm Plan (EvoPlanView)
  * Stage 3 (Impact)     → Plan Tasks (goToTasksStage)
- * Stage 4 (Tasks)      → Export Plan (exportFull)
- * Stage 4              → Export Prioritised Plan
+ * Stage 4 (Tasks)      → Study-Act (planning-bar stage 9)
+ *
+ * Tom 2026-06-03 fix: previously stage 4 went straight to Export, skipping
+ * Study-Act (9) and Resources (10) of the 11-stage planning bar.  Tom: *"this
+ * jumped over 2 steps... was there a clear next stage option?"*  Next step
+ * after Tasks is now Study-Act, matching the planning-bar progression.
  */
 async function goNext(): Promise<void> {
   if (stage.value === 1) {
     if (currentSpec.value) {
-      goToPlanStage()
+      // Tom 2026-06-04 r87 BUG fix: was `goToPlanStage()` (no arg) which
+      // jumped `planningStage` from 1 → 6 in a single click, skipping
+      // Solutions / Sharpen / Impacts / Refine and quickly cascading to
+      // Stage 7 if the user pressed Next again.  Tom verbatim:
+      // *"it did jump to 7! skipping many steps"*.  Now passes
+      // `fromFreshGeneration=true` which keeps `planningStage` at ≥2 only
+      // (Solutions review) — user advances stage-by-stage from there.
+      goToPlanStage(true)
     } else {
       // SEMEntryForm review stage — click the Generate Spec button.
       // Guard: if the SDK is already generating, clicking again would queue a
@@ -2130,7 +2408,10 @@ async function goNext(): Promise<void> {
   } else if (stage.value === 3) {
     goToTasksStage()
   } else if (stage.value === 4) {
-    exportFull()
+    // Tom 2026-06-03: advance through the 11-stage planning bar (Tasks=8 → Study-Act=9),
+    // never skip straight to Export.  Internal `stage` doesn't have a Study-Act slot, so
+    // we advance via the planning bar — the user then sees the Study-Act stage view.
+    handleStageBarNav(9)
   }
 }
 
@@ -2156,7 +2437,7 @@ const nextActionLabel = computed<string | null>(() => {
     return 'Confirm Plan'
   }
   if (stage.value === 3) return 'Plan Tasks'   // Impact (stage 3) → Tasks (stage 4)
-  if (stage.value === 4) return 'Export Plan'  // Tasks (stage 4) → Export (stage 5)
+  if (stage.value === 4) return 'Study-Act'    // Tasks (8) → Study-Act (9) — Tom 2026-06-03 (no longer skip to Export)
   return null   // stage 5: done
 })
 
@@ -2293,7 +2574,7 @@ function handlePlanImported(spec: SpecBlock): void {
   initPlanModel(spec)
   addVersion(spec, 'Imported', null, planModel.value?.name ?? '', _planOwnerNames())
   markdown.value    = serialise(spec)
-  planInputOpen.value = false
+  specInputOpen.value = false
   stage.value       = 2
   scrollToSpec()
 }
@@ -2334,7 +2615,7 @@ function handlePlanAddTo(imported: SpecBlock): void {
   markdown.value    = serialise(merged)
   addVersion(merged, 'Added from import', _evoPlan.value, planModel.value?.name ?? '', _planOwnerNames())
   if (planModel.value) savePlanSnapshot(merged)
-  planInputOpen.value = false
+  specInputOpen.value = false
   stage.value = 1
   scrollToSpec()
 }
@@ -2361,6 +2642,14 @@ function _applyLoadedModel(model: PlanModel): void {
   activatePlanModel(model)
   sharpeningDone.value  = false
   resetSharpen()
+  // Tom 2026-06-03: "monitor is contract, but intended for stakeholder group
+  // is from another plan."  Root cause: originalInput.stakes (the FOR banner
+  // text in EvoPlanView) was NOT being cleared on model switch — it carried
+  // over from the previous plan's Stage 1 typed input.  Clear it here so the
+  // banner reflects only the CURRENT plan.  The banner falls back to a hidden
+  // state when stakes is empty (v-if="rawInput?.stakes?.trim()") — user can
+  // re-enter Stage 1 to populate it for the loaded plan if desired.
+  originalInput.value = null
   // Suppress auto-generation — when a plan model is loaded/replaced the user
   // should choose when to generate steps, not have it fire automatically on mount.
   _resetPlanForLoad()
@@ -2382,7 +2671,7 @@ function handleLoadPlanModel(model: PlanModel): void {
  */
 function handleGetAPlanLoadModel(model: PlanModel): void {
   handleLoadPlanModel(model)
-  planInputOpen.value = false
+  specInputOpen.value = false
 }
 
 /**
@@ -2392,7 +2681,7 @@ function handleGetAPlanLoadModel(model: PlanModel): void {
  */
 function handleGetAPlanRestoreVersion(sv: SpecVersion): void {
   onHistoryRestore(sv.spec, sv.plan, sv.planName ?? '', sv.planOwners ?? [])
-  planInputOpen.value = false
+  specInputOpen.value = false
 }
 
 /**
@@ -2467,8 +2756,27 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
   // the user is never left with no spec when a re-generation errors or hangs.
   // (Tom 2026-05-29: "all parse lost as I added solutions" — spec cleared before
   //  new generation succeeded, leaving the user with nothing on failure.)
-  const _specBeforeSubmit = currentSpec.value
+  const _specBeforeSubmit  = currentSpec.value
+  const _planModelBeforeSubmit = planModel.value  // for failure-restore symmetry
   currentSpec.value = null
+  // Tom 2026-06-04 verbatim: *"I started a new parse but the old project monitor
+  // persisted"*.  Root cause: planModel.value held the previous project ("MONITOR
+  // CONTRACT — Improve Vessel's Speed Under & Vessel's Speed v0.1") across the
+  // new-parse flow.  initPlanModel() runs only AFTER generation completes (line
+  // ~2691), so during the 30-60s generation window the title bar still showed
+  // the old project's name — Tom rightly read this as "the old project persisted
+  // into my new parse".  Fix: clearPlanModel() at parse-start so the title bar
+  // reflects "fresh parse" immediately.  Old model is preserved in history (via
+  // earlier _upsertHistory calls) so it remains recallable.  On generation
+  // FAILURE the spec-restore safety net below also restores planModel so the
+  // user isn't left empty-handed.
+  clearPlanModel()
+  // Tom 2026-06-04 r86: also reset planningStage to 1.  Without this the
+  // "What Happens Next" amuse-me card during generation reads the leftover
+  // planningStage from the prior project (e.g. 6 — Evo Steps) and tells
+  // the user "you are currently at Stage 6 / next is Stage 7" which is
+  // wrong when the user just started a fresh parse from the Stakes form.
+  planningStage.value = 1
   evoPlanConfirmed.value = false
   confirmedSteps.value = []
   stage.value = 1
@@ -2486,9 +2794,15 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
     await doTranslate({ stakes: payload.stakes, ends: payload.ends, means: payload.means })
   }
   // Spec restore safety net: if the generation failed (currentSpec still null),
-  // put the previous spec back so the user is never left empty-handed.
+  // put the previous spec AND its planModel back so the user is never left
+  // empty-handed.  Tom 2026-06-04 fix r82: planModel was being cleared at
+  // parse-start to fix the "old project persisted" bug; on failure we restore
+  // both so the failed parse doesn't ALSO lose the prior project context.
   if (!currentSpec.value && _specBeforeSubmit) {
     currentSpec.value = _specBeforeSubmit
+    if (_planModelBeforeSubmit) {
+      activatePlanModel(_planModelBeforeSubmit as Parameters<typeof activatePlanModel>[0])
+    }
     showToast('⚠️ Generation failed — your previous spec has been restored. Try again.', 5000)
   }
 }
@@ -2714,6 +3028,62 @@ function goToImpactStage(): void {
 }
 
 /**
+ * Dispatcher for the Evo Tools catalogue (Tom 2026-06-03 marker).
+ * EvoToolsPanel emits `tool-activated` with the tool's emitEvent name; this
+ * function maps that name to the right surface-open / navigation call.
+ *
+ * Adding a new 'ready' tool to the registry requires:
+ *   (1) flip status to 'ready' in src/data/evoTools.ts
+ *   (2) ensure the emitEvent name maps to a case here (or reuse an existing one)
+ * No other wiring needed — this dispatcher is the single integration point.
+ *
+ * Always closes the Evo Tools panel after dispatch so the user lands directly
+ * on the tool.
+ */
+function onEvoToolActivated(payload: { id: string; emitEvent: string; payload?: Record<string, unknown> }): void {
+  evoToolsOpen.value = false
+  switch (payload.emitEvent) {
+    case 'open-value-flow':
+      valueFlowOpen.value = true
+      break
+    case 'open-evo-simulator':
+      evoSimulatorOpen.value = true
+      break
+    case 'open-visualise':
+      _vizInitialTab.value = (payload.payload?.tab as string) ?? ''
+      visualiseOpen.value = true
+      break
+    case 'open-heat-lane':
+      heatLaneOpen.value = true
+      break
+    case 'open-evo-critique':
+      evoCritiquerOpen.value = true
+      break
+    case 'open-sharpen-next-step':
+      evoSharpOpen.value = true
+      break
+    case 'open-evo-step-improvement':
+      evoStepImprovementOpen.value = true
+      break
+    case 'open-feed-me':
+      feedMeOpen.value = true
+      break
+    case 'go-to-evo-impact-stage':
+      goToImpactStage()
+      break
+    case 'go-to-evo-steps-stage':
+      goToStage2()
+      break
+    case 'go-to-tasks-stage':
+      goToTasksStage()
+      break
+    default:
+      // Unrecognised tool emit — log to console for the dev to wire it up.
+      console.warn(`[EvoTools] No dispatcher for emitEvent "${payload.emitEvent}" (tool id: "${payload.id}").`)
+  }
+}
+
+/**
  * Transitions from Impact Estimation (stage 3) → Task Decomposition (stage 4).
  * Captures the live IET snapshot BEFORE ImpactEstimationView unmounts at stage 3,
  * so exportFull() has current data even if @matrix-updated hasn't fired for all rows.
@@ -2758,6 +3128,12 @@ function exportFull(): void {
 
   if (currentSpec.value) _ensurePlanModel(currentSpec.value) // keep bar visible on stage 5
   stage.value = 5
+  // Tom 2026-06-04 bug fix: also advance the planning bar to Stage 11 ·
+  // Export so the canonical bar tile lights up.  Previously exportFull()
+  // only set the internal stage (Tom verbatim: *"I pressed the new to
+  // export stage button and it did not move to that step"*) — the export
+  // CONTENT showed but the bar still highlighted Stage 10.
+  if (planningStage.value < 11) planningStage.value = 11
   // Evo Step 10: log impact_estimated event (3P.V.PrioritisationAccuracy)
   analytics.logImpactEstimated(currentSpec.value.values.length)
 }
@@ -2813,68 +3189,287 @@ function downloadPlan(): void {
 // Copies the full plain-text plan and shows a toast so the user knows it's there.
 // No mail client is opened — user can paste wherever they like.
 async function autoCopyPlan(): Promise<void> {
-  if (!currentSpec.value) return
-
-  const now       = new Date()
-  const hh        = now.getHours().toString().padStart(2, '0')
-  const mm        = now.getMinutes().toString().padStart(2, '0')
-  const modelName = planModel.value?.name ?? 'Planning Spec'
-  const version   = planModel.value ? `  v${planModel.value.version}` : ''
-  const HR        = '═'.repeat(48)
-
-  const fileHeader = [
-    HR,
-    `${modelName}${version}`,
-    `Exported: ${now.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}  ${hh}:${mm}`,
-    HR,
-    '',
-  ].join('\n')
-
-  const planBody = confirmedSteps.value.length > 0
-    ? exportWithTasksPlainText(currentSpec.value, confirmedSteps.value, tasksByStep.value)
-    : serialisePlainText(currentSpec.value)
+  // Tom 2026-06-04 — diagnostic version.  Every step shows a toast so we know
+  // exactly where the function dies if anything throws.  Outer try/catch
+  // ensures ANY unexpected error surfaces as a visible toast instead of
+  // silently disappearing into an unhandled-promise-rejection.
+  console.log('[autoCopyPlan] handler entered')
+  showToast('Copy clicked — building plan text…', 1800)
 
   try {
-    await navigator.clipboard.writeText(fileHeader + planBody)
-    showToast('📋 Plan copied to clipboard — paste into Mail, Notes, or anywhere', 5000)
-  } catch {
-    // Clipboard blocked (e.g. permissions) — silent fail; user can still use Email Plan
+    if (!currentSpec.value) {
+      showToast('Nothing to copy yet — load or generate a Spec first', 4000)
+      return
+    }
+
+    const now       = new Date()
+    const hh        = now.getHours().toString().padStart(2, '0')
+    const mm        = now.getMinutes().toString().padStart(2, '0')
+    const modelName = planModel.value?.name ?? 'Planning Spec'
+    const version   = planModel.value ? `  v${planModel.value.version}` : ''
+    const HR        = '═'.repeat(48)
+
+    const fileHeader = [
+      HR,
+      `${modelName}${version}`,
+      `Exported: ${now.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}  ${hh}:${mm}`,
+      HR,
+      '',
+    ].join('\n')
+
+    let planBody = ''
+    try {
+      planBody = confirmedSteps.value.length > 0
+        ? exportWithTasksPlainText(currentSpec.value, confirmedSteps.value, tasksByStep.value)
+        : serialisePlainText(currentSpec.value)
+    } catch (serErr) {
+      console.error('[autoCopyPlan] plain-text serialiser threw', serErr)
+      showToast(`Copy build failed at serialiser: ${String(serErr).slice(0, 80)}`, 7000)
+      return
+    }
+
+    const fullText = fileHeader + planBody
+
+    // ALSO build the colourful HTML version — Tom 2026-06-04: *"The copy
+    // gives a colored text, but no colored border rectangles, which it does
+    // in email copy but not in copy and paste in Keynote"*.  Solution: put
+    // BOTH HTML and plain text on the clipboard.  Paste targets pick the
+    // richest representation they understand: Keynote takes the HTML table
+    // (coloured rectangles!), Notes/Slack/Mail.app HTML-aware takes the
+    // HTML, plain-text-only targets fall back to the text.
+    let htmlText = ''
+    try {
+      htmlText = renderColorfulSpecHtml(currentSpec.value, modelName, version.trim() || undefined)
+    } catch (rErr) {
+      console.warn('[autoCopyPlan] colourful HTML build failed — plain text only', rErr)
+    }
+
+    console.log(`[autoCopyPlan] built plain=${fullText.length} html=${htmlText.length} chars`)
+
+    // Primary: ClipboardItem dual-MIME write (text/html + text/plain).
+    try {
+      if (htmlText && typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html':  new Blob([htmlText],  { type: 'text/html'  }),
+            'text/plain': new Blob([fullText],  { type: 'text/plain' }),
+          }),
+        ])
+        showToast(`📋 Spec copied (colourful + plain) — paste into Keynote, Mail, Notes, anywhere`, 5000)
+        return
+      }
+      // No HTML available — fall back to plain-only writeText.
+      await navigator.clipboard.writeText(fullText)
+      showToast(`📋 Plan copied (${fullText.length.toLocaleString()} chars, plain) — paste anywhere`, 5000)
+      return
+    } catch (err) {
+      console.warn('[autoCopyPlan] navigator.clipboard.write failed, falling back to execCommand', err)
+    }
+
+    // Fallback: hidden textarea + execCommand('copy') — plain text only.
+    try {
+      const ta = document.createElement('textarea')
+      ta.value           = fullText
+      ta.style.position  = 'fixed'
+      ta.style.top       = '-1000px'
+      ta.style.opacity   = '0'
+      ta.setAttribute('readonly', '')
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(ta)
+      if (ok) {
+        showToast(`📋 Plan copied via fallback (${fullText.length.toLocaleString()} chars, plain only)`, 5000)
+        return
+      }
+      showToast('Copy blocked — execCommand returned false', 6000)
+    } catch (err) {
+      console.error('[autoCopyPlan] execCommand fallback threw', err)
+      showToast(`Copy blocked: ${String(err).slice(0, 80)}`, 7000)
+    }
+  } catch (outerErr) {
+    console.error('[autoCopyPlan] outer catch — unexpected throw', outerErr)
+    showToast(`Copy crashed: ${String(outerErr).slice(0, 80)} (see Console)`, 8000)
   }
 }
 
 // ── Email entire plan ─────────────────────────────────────────────────────────
-// Strategy: build the complete plain-text plan (identical to the downloaded .txt),
-// Universal email rule (Tom 2026-05-29): email opens with the plan ALREADY in
-// the body as styled HTML — no manual paste required. Downloads a .eml file
-// that Mail.app opens as a compose-draft window.
+// Tom 2026-06-04 — TWO SUPREME design rules ratified for ALL SEM App emailing:
+//
+//   RULE A (Colorful HTML Spec Export):  *"WHEN EMAILING I LIKE always
+//          (design rule) to send colorful html version of the spec.  more
+//          fun and dramatic, by far."*  Every email body is the COLOURFUL
+//          HTML render of the spec — not plain text.  Per-entry-type sections
+//          with canonical Planguage colours (Function = green, Value = violet,
+//          Solution = orange, Constraint = red, Stakeholder = blue).
+//
+//   RULE B (Pre-pasted Body — no manual paste):  *"please do the paste into
+//          the email for me."*  The user MUST NOT have to manually paste the
+//          spec into the email body — it must arrive already pre-filled.
+//
+// STRATEGY satisfying both rules:
+//   The .eml file format is the only mechanism that pre-fills BOTH the
+//   subject AND the rich HTML body in the user's mail client.  `mailto:` only
+//   supports plain text and length-capped bodies — it FAILS rule A.  A
+//   colourful HTML clipboard paste FAILS rule B (manual paste required).
+//
+//   So: build the colourful HTML via `renderColorfulSpecHtml()`, wrap it in
+//   a multipart/alternative .eml with a plain-text fallback for screen
+//   readers + ancient mail clients, download the .eml, and Mail.app (or
+//   whatever app is registered as the macOS `message/rfc822` handler) opens
+//   it as a compose-draft window with the colourful body already in place.
+//
+//   To prevent Tom's previous "downloaded a file, no Mail opened" surprise,
+//   ALSO copy the colourful HTML to the clipboard as text/html (so any rich
+//   paste anywhere lands coloured), AND show a prominent toast naming the
+//   .eml file so Tom knows what to look for if Mail.app doesn't auto-open.
 async function emailPlan(): Promise<void> {
-  if (!currentSpec.value) return
+  // Tom 2026-06-04 amendment to the email export rules:
+  //   *"It does not go to eail, auto, I have to click on email myself.
+  //    I think it should go to emai forme"* + *"email has old -md not the
+  //    color stuff"*.
+  //
+  // Constraint trade-off (web-platform reality):
+  //   • mailto:  → reliably auto-opens Mail.app, but body is TEXT-ONLY
+  //                (mail clients refuse to render HTML received via mailto)
+  //   • .eml     → carries HTML body, but Safari saves to ~/Downloads and
+  //                does not auto-open in Mail unless "Open safe files" is on
+  //                — Tom hit exactly that and saw an .md-looking blob.
+  //
+  // Resolution Tom approved:
+  //   • Render the colourful HTML once.
+  //   • PRIMARY:  put the colourful HTML on the clipboard as text/html
+  //     (Apple Mail and most desktop clients accept rich HTML on paste —
+  //     pasting lands coloured).
+  //   • PRIMARY:  fire mailto: which auto-opens Mail.app's compose window
+  //     with the subject pre-filled and a 1-line cue body that says
+  //     "Press ⌘V here to paste the colourful Spec."  One keystroke from
+  //     Tom; auto-open satisfied; colourful satisfied; no .md confusion.
+  //   • The old .eml download path is RETIRED for emailPlan() — it caused
+  //     the "old .md" + "no auto-open" problems Tom is reporting.
+  console.log('[emailPlan] handler entered')
+  showToast('Email clicked — building colourful HTML…', 1800)
 
-  // ── Defensive pre-email save (2026-05-17 bug fix) ─────────────────────────
-  // The .eml download is synchronous and does NOT trigger page-hide, so this
-  // save is belt-and-suspenders — but we keep it to protect against future
-  // environment quirks where opening Mail.app can still trigger lifecycle events.
-  _saveNow()
-  if (planModel.value) savePlanSnapshot(currentSpec.value)
+  try {
+    if (!currentSpec.value) {
+      showToast('Nothing to email yet — load or generate a Spec first', 4000)
+      return
+    }
 
-  const now       = new Date()
-  const date      = now.toISOString().slice(0, 10)
-  const hh        = now.getHours().toString().padStart(2, '0')
-  const mm        = now.getMinutes().toString().padStart(2, '0')
-  const modelName = planModel.value?.name ?? 'Planning Spec'
-  const version   = planModel.value ? ` v${planModel.value.version}` : ''
-  const subject   = `Plan: ${modelName}${version}`
+    _saveNow()
+    if (planModel.value) savePlanSnapshot(currentSpec.value)
 
-  // Build the plan body (plain text) then wrap in styled HTML for the .eml.
-  // SpecOutput.vue has a richer colored table; App.vue's email path gets a clean
-  // styled pre-formatted view. A future improvement can extract the table builder
-  // into a shared composable (tracked in SEM-Design-History.md).
-  const plainBody = confirmedSteps.value.length > 0
-    ? exportWithTasksPlainText(currentSpec.value, confirmedSteps.value, tasksByStep.value)
-    : serialisePlainText(currentSpec.value)
+    const now       = new Date()
+    const date      = now.toISOString().slice(0, 10)
+    const modelName = planModel.value?.name ?? 'Planning Spec'
+    const versTxt   = planModel.value ? `v${planModel.value.version}` : ''
+    const subject   = `Spec: ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`
 
-  const htmlTitle = `${modelName}${version} · ${date} ${hh}:${mm}`
-  openEml(textToEmailHtml(plainBody, htmlTitle), subject, { plainBody })
+    let htmlBody = ''
+    try {
+      htmlBody = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined)
+      console.log(`[emailPlan] HTML body built — ${htmlBody.length} chars`)
+    } catch (rErr) {
+      console.error('[emailPlan] renderColorfulSpecHtml threw', rErr)
+      showToast(`Email HTML build failed: ${String(rErr).slice(0, 80)}`, 7000)
+      return
+    }
+
+    let plainBody = ''
+    try {
+      plainBody = confirmedSteps.value.length > 0
+        ? exportWithTasksPlainText(currentSpec.value, confirmedSteps.value, tasksByStep.value)
+        : serialisePlainText(currentSpec.value)
+    } catch (sErr) {
+      console.error('[emailPlan] plain-text serialiser threw', sErr)
+      showToast(`Email plain-fallback build failed: ${String(sErr).slice(0, 80)}`, 7000)
+      return
+    }
+
+    // PRIMARY: put colourful HTML on clipboard as text/html (Apple Mail
+    // and most desktop clients render this on paste).
+    let clipOk = false
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html':  new Blob([htmlBody],  { type: 'text/html'  }),
+            'text/plain': new Blob([plainBody], { type: 'text/plain' }),
+          }),
+        ])
+        clipOk = true
+      } else {
+        await navigator.clipboard.writeText(plainBody)
+        clipOk = true
+      }
+    } catch (cErr) {
+      console.warn('[emailPlan] clipboard copy failed — mailto will still open', cErr)
+    }
+
+    // SEM Email Body Standard (Tom 2026-06-04 — ratified for ALL SEM emails):
+    //   Line 1     : the LOUD paste cue (so Tom always sees it at the top)
+    //   Line 2     : exported-date stamp
+    //   Line 3     : separator
+    //   Line 4+    : the FULL plain-text spec inline as the always-present
+    //                fallback body — so the email is complete and meaningful
+    //                even if Tom does NOT paste.
+    //
+    // Mailto URL length is browser-capped (~2-8 KB depending on browser/OS).
+    // If the encoded URL exceeds 7000 chars we truncate the inline body with
+    // a clear marker so the cue + first portion still go through; the colour
+    // paste (⌘V) restores the full content.
+    const PASTE_HEADER  = clipOk
+      ? `PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION`
+      : `(Auto-copy failed — use Copy on the Spec page first, then ⌘V here for colour.)`
+    const HR            = '────────────────────────────────────────────────────────'
+    const stamp         = `Exported: ${date}`
+    const fullBody      = `${PASTE_HEADER}\n${stamp}\n${HR}\n\n${plainBody}`
+
+    // Probe encoded length and truncate the INLINE plain text if needed.
+    let body = fullBody
+    let encoded = encodeURIComponent(body)
+    const SAFE_LEN = 7000   // headroom below the 8 KB mailto ceiling Safari enforces
+    if (encoded.length > SAFE_LEN) {
+      // Reserve space for header + stamp + truncation marker, fill the rest with the plain text.
+      const fixed = `${PASTE_HEADER}\n${stamp}\n${HR}\n\n`
+      const marker = `\n\n…[plain-text truncated to fit mailto: limit — press ⌘V above for the full colour version]`
+      const budget = SAFE_LEN - encodeURIComponent(fixed + marker).length
+      // Binary-shrink the inline plain text until the encoded slice fits.
+      let lo = 0, hi = plainBody.length, fit = ''
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2)
+        const candidate = plainBody.slice(0, mid)
+        if (encodeURIComponent(candidate).length <= budget) {
+          fit = candidate
+          lo  = mid + 1
+        } else {
+          hi  = mid - 1
+        }
+      }
+      body    = `${fixed}${fit}${marker}`
+      encoded = encodeURIComponent(body)
+      console.log(`[emailPlan] inline plain-text truncated ${plainBody.length} → ${fit.length} chars to fit mailto cap`)
+    }
+
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encoded}`
+
+    // Fire mailto: — Mail.app (or whatever the default mail client is) opens
+    // a compose window automatically.  window.location.href is reliable
+    // across Safari, Chrome, Firefox; window.open is sometimes popup-blocked
+    // for mailto: in non-gesture contexts.
+    window.location.href = mailtoUrl
+    console.log('[emailPlan] mailto: fired')
+
+    showToast(
+      clipOk
+        ? `✉️ Mail opening — click in the body and press ⌘V to paste the colourful Spec, then Send.`
+        : `✉️ Mail opening — clipboard copy failed; use Copy first, then paste in the email.`,
+      8500,
+    )
+  } catch (outerErr) {
+    console.error('[emailPlan] outer catch — unexpected throw', outerErr)
+    showToast(`Email crashed: ${String(outerErr).slice(0, 80)} (see Console)`, 9000)
+  }
 }
 
 async function handleSignOut() {
@@ -2901,9 +3496,9 @@ const { active: dictationActive, supported: dictationSupported, toggle: toggleDi
   useDictation({
     // Navigation
     'History':                    () => { historyOpen.value = true },
-    'Plan History':               () => { historyOpen.value = true },
-    'Get A Plan':                 () => { planInputOpen.value = true },
-    'Import':                     () => { planInputOpen.value = true },
+    'Spec History':               () => { historyOpen.value = true },
+    'Get A Plan':                 () => { specInputOpen.value = true },
+    'Import':                     () => { specInputOpen.value = true },
     'Compare':                    () => { comparisonMode.value = true },
     'Spec History':               () => { dashboardOpen.value = true },
     'Present':                    () => { if (currentSpec.value) presentationOpen.value = true },
@@ -3140,7 +3735,7 @@ const searchEntries = computed((): SearchEntry[] => {
       context: 'Navigation', action: () => { goToStage1() },
     },
     {
-      id: 'history', icon: '🕐', name: 'Plan History',
+      id: 'history', icon: '🕐', name: 'Spec History',
       description: 'Browse and restore previous spec versions',
       keywords: ['history', 'versions', 'restore', 'undo', 'previous', 'spec history'],
       context: 'Planning', action: () => { historyOpen.value = true },
@@ -3173,10 +3768,10 @@ const searchEntries = computed((): SearchEntry[] => {
       disabled: !hasModel,
     },
     {
-      id: 'plan-targets', icon: '🎯', name: 'Plan Targets',
-      description: 'Define who receives this plan and tailor content per audience',
-      keywords: ['plan targets', 'audience', 'tailor', 'stakeholder audience', 'ceo', 'public', 'investor', 'delivery'],
-      context: 'Planning', action: () => { planTargetsOpen.value = true },
+      id: 'plan-targets', icon: '🎯', name: 'Spec Targets',
+      description: 'Define who receives this spec and tailor content per audience',
+      keywords: ['spec targets', 'audience', 'tailor', 'stakeholder audience', 'ceo', 'public', 'investor', 'delivery'],
+      context: 'Planning', action: () => { specTargetsOpen.value = true },
     },
     {
       id: 'global-priority', icon: '❯', name: 'Global Priority',
@@ -3186,17 +3781,62 @@ const searchEntries = computed((): SearchEntry[] => {
       disabled: !hasSpec,
     },
     {
-      id: 'plan-health-status', icon: '🩺', name: 'Plan Health Status',
-      description: 'Live Plan Health Index (-100..+100) with breakdown bars, history graph (Version + Date axis), pending notifications. Read-only.',
+      id: 'plan-health-status', icon: '🩺', name: 'Spec Health Status',
+      description: 'Live Spec Health Index (-100..+100) with breakdown bars, history graph (Version + Date axis), pending notifications. Read-only.  (Generic term per Tom 2026-06-04: "Spec Health index = generic, please note.")',
       keywords: ['plan health', 'phi', 'health', 'status', 'index', 'breakdown', 'graph', 'history', 'snapshot', 'snapshots', 'notification', 'notifications', 'alert', 'drop', 'circle', 'badge'],
-      context: 'Planning', action: () => { planHealthStatusOpen.value = true },
+      context: 'Planning', action: () => { specHealthStatusOpen.value = true },
       disabled: !hasSpec,
     },
     {
-      id: 'plan-health-admin', icon: '⚙️', name: 'Plan Health Administration',
-      description: 'Plan Health Record Administration Specification — aspect & group weights, custom aspects, vibrate threshold, notification frequency, drop-detect threshold, auto-snapshot policy, per-Owner notification subset, full audit log.',
+      id: 'plan-health-admin', icon: '⚙️', name: 'Spec Health Administration',
+      description: 'Spec Health Record Administration Specification — aspect & group weights, custom aspects, vibrate threshold, notification frequency, drop-detect threshold, auto-snapshot policy, per-Owner notification subset, full audit log.',
       keywords: ['plan health admin', 'administration', 'phi', 'governance', 'aspects', 'weights', 'defects', 'risks', 'unknowns', 'rule violations', 'inconsistencies', 'coverage', 'audit', 'notification', 'notify', 'snapshot', 'threshold', 'admin spec'],
-      context: 'Planning', action: () => { planHealthAdminOpen.value = true },
+      context: 'Planning', action: () => { specHealthAdminOpen.value = true },
+      disabled: !hasSpec,
+    },
+    // Tom 2026-06-03 (decision B for the 2026-05-27 Plan Health tile naming
+    // WAIT row): "Target and Administration are vital" — both deserve their
+    // own tile, distinct from Status.  Admin already existed; Target ships
+    // now as the third sibling.  Answers "where are we aiming + how big is
+    // the gap" — read-only target dashboard.
+    {
+      id: 'plan-health-target', icon: '🎯', name: 'Spec Health Target',
+      description: 'Spec Health TARGET dashboard — current SHI vs threshold gap, per-Value target progress (Tolerable / Goal / Wish), aggregate "at Goal / below Tolerable / missing Goal" counts.  Read-only sister of Status (live SHI) and Administration (threshold + weights setter).',
+      keywords: ['plan health target', 'target', 'phi target', 'goal', 'tolerable', 'wish', 'threshold', 'gap', 'aim', 'where we want to be', 'planguage target'],
+      context: 'Planning', action: () => { specHealthTargetOpen.value = true },
+      disabled: !hasSpec,
+    },
+    // Tom 2026-06-03: EHT (Evo Health Tool).  Mirror PHI structure but focused
+    // on Evo Steps + short-term scope.  v1 scaffold; v2 wires real Cure flow.
+    {
+      id: 'evo-health', icon: '🩺', name: 'Evo Health Tool (EHT)',
+      description: 'Evo-Step Health — short-term focus (Next Step / Next 5 / All).  Defect detector + Cure proposals with risk ratings (green / orange / red) + per-cure approval audit log.  Mirrors PHI structure for Evo Steps specifically.',
+      keywords: ['evo health', 'eht', 'step health', 'defects', 'cure', 'short term', 'evo defects', 'next step health'],
+      context: 'Planning', action: () => { evoHealthOpen.value = true },
+      disabled: !hasSpec,
+    },
+    // Tom 2026-06-03 Conjunction-of-Technologies Exploit #1
+    {
+      id: 'standards-auditor', icon: '📚', name: 'Planguage Standards Auditor',
+      description: 'Cross-references the live spec against 10.Standard/Standard.Kai-Zen/ Templates + Rules.  Every finding cites the standard violated (file + section + quote).  Deterministic + Claudian-driven paths.',
+      keywords: ['standards', 'auditor', 'planguage standards', 'gilb standards', 'kai-zen', 'compliance', 'violations', 'citations', 'conjunction'],
+      context: 'Planning', action: () => { standardsAuditorOpen.value = true },
+      disabled: !hasSpec,
+    },
+    // Tom 2026-06-03 Conjunction-of-Technologies Exploit #5 (the unified panel)
+    {
+      id: 'planguage-analyzer', icon: '🔬', name: 'Planguage Analyzer (Unified)',
+      description: 'ONE panel, ALL knowledge layers.  Aggregates findings from Standards Auditor + Evo Step Improvement + FEED ME! into a filterable view with per-finding source badge (Plan / Gilb / Standards / Internet / LLM / Template).  The flagship Conjunction-of-Technologies surface.',
+      keywords: ['analyzer', 'unified', 'conjunction', 'multi-source', 'all findings', 'planguage analyzer', 'aggregate', 'cross-tool'],
+      context: 'Planning', action: () => { planguageAnalyzerOpen.value = true },
+      disabled: !hasSpec,
+    },
+    // Tom 2026-06-03 Conjunction Exploit #3 + #4 — Internet Context Fetcher (Stakeholder + Industry Benchmark)
+    {
+      id: 'internet-context', icon: '🌐', name: 'Internet Context Fetcher',
+      description: 'Pull current internet context for stakeholders (GDPR updates, regulatory changes) AND industry benchmarks (Auth0 / Okta / Gartner / vendor SLAs) to propose V./C. updates and Tolerable/Goal/Wish adjustments — every finding cites a real URL.',
+      keywords: ['internet', 'stakeholder context', 'industry benchmark', 'url', 'citation', 'gdpr', 'auth0', 'okta', 'gartner', 'sla', 'conjunction', 'web', 'fetch'],
+      context: 'Planning', action: () => { internetContextOpen.value = true },
       disabled: !hasSpec,
     },
     {
@@ -3274,8 +3914,8 @@ const searchEntries = computed((): SearchEntry[] => {
       disabled: !hasSpec,
     },
     {
-      id: 'compare', icon: '📊', name: 'Compare Plan Models',
-      description: 'Side-by-side A/B comparison of two plan models',
+      id: 'compare', icon: '📊', name: 'Compare Spec Models',
+      description: 'Side-by-side A/B comparison of two spec models',
       keywords: ['compare', 'comparison', 'a/b', 'side by side', 'diff models'],
       context: 'Analyse', action: () => { comparisonOpen.value = true },
     },
@@ -3291,7 +3931,7 @@ const searchEntries = computed((): SearchEntry[] => {
       id: 'get-a-plan', icon: '✱', name: 'Get A Plan',
       description: 'Import a spec from a URL, PDF or HTML file via AI extraction',
       keywords: ['import', 'upload', 'url', 'pdf', 'extract', 'get plan', 'load url'],
-      context: 'Nav bar', action: () => { planInputOpen.value = true },
+      context: 'Nav bar', action: () => { specInputOpen.value = true },
     },
 
     // ── Backup & Reset ────────────────────────────────────────────────────
@@ -3330,27 +3970,27 @@ const searchEntries = computed((): SearchEntry[] => {
 
     // ── Owners / Planners / Scribes ────────────────────────────────────────
     {
-      id: 'owner-panel', icon: '🔑', name: 'Plan Owners',
-      description: 'Add or edit the people accountable for this plan (approval authority + change sign-off)',
+      id: 'owner-panel', icon: '🔑', name: 'Spec Owners',
+      description: 'Add or edit the people accountable for this spec (approval authority + change sign-off)',
       keywords: ['owner', 'owners', 'contact', 'accountability', 'approval', 'authority', 'responsible'],
       context: 'Plan',
-      action: () => { planPeopleTab.value = 'owners'; planOwnerPanelOpen.value = true },
+      action: () => { planPeopleTab.value = 'owners'; specOwnerPanelOpen.value = true },
       disabled: !hasModel,
     },
     {
-      id: 'planner-panel', icon: '💡', name: 'Plan Planners',
-      description: 'Add or edit the people who conceived and directed the plan ideas',
+      id: 'planner-panel', icon: '💡', name: 'Spec Planners',
+      description: 'Add or edit the people who conceived and directed the spec ideas',
       keywords: ['planner', 'planners', 'author', 'strategist', 'ideas', 'director'],
       context: 'Plan',
-      action: () => { planPeopleTab.value = 'planners'; planOwnerPanelOpen.value = true },
+      action: () => { planPeopleTab.value = 'planners'; specOwnerPanelOpen.value = true },
       disabled: !hasModel,
     },
     {
-      id: 'scribe-panel', icon: '⌨️', name: 'Plan Scribes',
+      id: 'scribe-panel', icon: '⌨️', name: 'Spec Scribes',
       description: 'Add or edit the people who did the actual keying/dictation to enter ideas into the app',
       keywords: ['scribe', 'scribes', 'typist', 'keyboard', 'dictation', 'mob', 'rotate', 'keying'],
       context: 'Plan',
-      action: () => { planPeopleTab.value = 'scribes'; planOwnerPanelOpen.value = true },
+      action: () => { planPeopleTab.value = 'scribes'; specOwnerPanelOpen.value = true },
       disabled: !hasModel,
     },
 
@@ -3410,23 +4050,29 @@ const searchEntries = computed((): SearchEntry[] => {
 // To exempt a surface from auto-close (e.g. genuine side-by-side comparison),
 // pass `{ exclusive: false }` and document the reason inline.
 registerExclusiveSurface('presentation',      presentationOpen)
+registerExclusiveSurface('resourcesSharpen',  resourcesSharpenOpen)
 registerExclusiveSurface('sharpenModal',      sharpenModalOpen)
 registerExclusiveSurface('bullock',           bullockOpen)
 registerExclusiveSurface('visualise',         visualiseOpen)
 registerExclusiveSurface('heatLane',          heatLaneOpen)
 registerExclusiveSurface('evoSimulator',      evoSimulatorOpen)
+registerExclusiveSurface('evoTools',          evoToolsOpen)
+registerExclusiveSurface('evoSharp',          evoSharpOpen)
+registerExclusiveSurface('evoStepImprovement', evoStepImprovementOpen)
+registerExclusiveSurface('feedMe',            feedMeOpen)
+registerExclusiveSurface('settings',          settingsOpen)
 registerExclusiveSurface('conflictAnalysis',  conflictAnalysisOpen)
 registerExclusiveSurface('collaborator',      collaboratorOpen)
 registerExclusiveSurface('comparison',        comparisonOpen)
 registerExclusiveSurface('models',            modelsOpen)
-registerExclusiveSurface('planInput',         planInputOpen)
+registerExclusiveSurface('planInput',         specInputOpen)
 registerExclusiveSurface('tour',              tourOpen)
 registerExclusiveSurface('dashboard',         dashboardOpen)
 registerExclusiveSurface('wizard',            wizardOpen)
-registerExclusiveSurface('planOwnerPanel',    planOwnerPanelOpen)
+registerExclusiveSurface('planOwnerPanel',    specOwnerPanelOpen)
 registerExclusiveSurface('govPanel',          govPanelOpen)
-registerExclusiveSurface('planDNA',           planDNAOpen)
-registerExclusiveSurface('planTargets',       planTargetsOpen)
+registerExclusiveSurface('planDNA',           specStoryOpen)
+registerExclusiveSurface('planTargets',       specTargetsOpen)
 registerExclusiveSurface('specEditor',        specEditorOpen)
 registerExclusiveSurface('contracts',         contractsOpen)
 registerExclusiveSurface('sdr',              sdrOpen)
@@ -3447,8 +4093,13 @@ registerExclusiveSurface('modelHistory',      modelHistoryOpen)
 // panel without closing them. Registering it caused double-click to
 // silently close the parent surface (2026-06-02).
 // registerExclusiveSurface('glyphDataPanel', glyphPanelOpen)
-registerExclusiveSurface('planHealthStatus',  planHealthStatusOpen)
-registerExclusiveSurface('planHealthAdmin',   planHealthAdminOpen)
+registerExclusiveSurface('planHealthStatus',  specHealthStatusOpen)
+registerExclusiveSurface('planHealthTarget',  specHealthTargetOpen)
+registerExclusiveSurface('evoHealth',         evoHealthOpen)
+registerExclusiveSurface('standardsAuditor', standardsAuditorOpen)
+registerExclusiveSurface('planguageAnalyzer', planguageAnalyzerOpen)
+registerExclusiveSurface('internetContext', internetContextOpen)
+registerExclusiveSurface('planHealthAdmin',   specHealthAdminOpen)
 registerExclusiveSurface('history',           historyOpen)
 // Fresh Start menu — popover. Registered so opening it auto-closes other
 // surfaces and vice versa (consistent with the Single-Surface universal rule).
@@ -3463,7 +4114,7 @@ registerExclusiveSurface('mariaBoardHub',     mariaBoardOpen)
 registerExclusiveSurface('modelLibrary',      modelLibraryOpen)
 registerExclusiveSurface('stakeholderMapper', stakeholderMapperOpen)
 registerExclusiveSurface('evoCritiquer',      evoCritiquerOpen)
-registerExclusiveSurface('planImporter',      planImporterOpen)
+registerExclusiveSurface('planImporter',      specImporterOpen)
 registerExclusiveSurface('decisionMapper',    decisionMapperOpen)
 registerExclusiveSurface('unifiedHistory',    unifiedHistoryOpen)
 
@@ -3475,15 +4126,20 @@ registerExclusiveSurface('unifiedHistory',    unifiedHistoryOpen)
 function handleAction(id: string): void {
   switch (id) {
     // ── QUALITY ────────────────────────────────────────────────────────────
-    case 'planHealthStatus': planHealthStatusOpen.value = true; break
-    case 'planHealthAdmin':  planHealthAdminOpen.value  = true; break
+    case 'planHealthStatus': specHealthStatusOpen.value = true; break
+    case 'planHealthAdmin':  specHealthAdminOpen.value  = true; break
+    case 'planHealthTarget': specHealthTargetOpen.value = true; break  // Tom 2026-06-03 decision B
+    case 'evoHealth':        evoHealthOpen.value        = true; break  // Tom 2026-06-03 EHT
+    case 'standardsAuditor': standardsAuditorOpen.value = true; break  // Tom 2026-06-03 Conjunction Exploit #1
+    case 'planguageAnalyzer': planguageAnalyzerOpen.value = true; break // Tom 2026-06-03 Conjunction Exploit #5
+    case 'internetContext': internetContextOpen.value = true; break // Tom 2026-06-03 Conjunction Exploit #3 + #4
     case 'conflicts':        conflictAnalysisOpen.value = true; break
     // ── PLANNING ───────────────────────────────────────────────────────────
-    case 'planTargets':      planTargetsOpen.value      = true; break
+    case 'planTargets':      specTargetsOpen.value      = true; break
     case 'globalPriority':   globalPriorityOpen.value   = true; break
-    case 'planOwners':       planPeopleTab.value = 'owners';   planOwnerPanelOpen.value = true; break
-    case 'planners':         planPeopleTab.value = 'planners'; planOwnerPanelOpen.value = true; break
-    case 'scribes':          planPeopleTab.value = 'scribes';  planOwnerPanelOpen.value = true; break
+    case 'planOwners':       planPeopleTab.value = 'owners';   specOwnerPanelOpen.value = true; break
+    case 'planners':         planPeopleTab.value = 'planners'; specOwnerPanelOpen.value = true; break
+    case 'scribes':          planPeopleTab.value = 'scribes';  specOwnerPanelOpen.value = true; break
     case 'specOwners':       govPanelOpen.value         = true; break
     // ── EXPLORE ────────────────────────────────────────────────────────────
     case 'evoSim':           evoSimulatorOpen.value     = true; break
@@ -3527,7 +4183,7 @@ function handleAction(id: string): void {
     case 'contracts':          contractsOpen.value        = true; break
     case 'models':             modelLibraryOpen.value     = true; break
     case 'stakeholder-mapper': stakeholderMapperOpen.value = true; break
-    case 'plan-importer':      planImporterOpen.value     = true; break
+    case 'plan-importer':      specImporterOpen.value     = true; break
     case 'decisions':          decisionMapperOpen.value   = true; break
     // evo-step-critique lives in ANALYZE section; same routing pattern
     case 'evo-step-critique':  evoCritiquerOpen.value     = true; break
@@ -3885,7 +4541,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
         </button>
         <!-- History — Evo Step Color Glyph (amber < ->+-> encodes past cycles).
              :no-detail-click per DD-013 (parent owns click for history panel).
-             DD-011 fix 2026-06-01: 🕐 emoji removed, Color Glyph applied. -->
+             DD-011 fix 2026-06-01: 🕐 emoji removed, Color Glyph applied.
+             TOOLTIP FIX (Tom 2026-06-03 — reported twice): PlTypeIcon defaults
+             its title to the CANONICAL Evo-Step label ("Evo Step — one
+             incremental delivery cycle. Delivers measurable stakeholder
+             value...") which appears when the user hovers the inner SVG even
+             though the parent button's title is the correct one.  Explicit
+             `title="Version History"` override on the inner icon now suppresses
+             the misleading canonical label. -->
         <div class="relative">
           <button
             type="button"
@@ -3896,7 +4559,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
             title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
             @click="historyOpen = true"
           >
-            <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" />
+            <!-- Tom 2026-06-03: HistoryGlyph [*]→[*] replaces the misleading
+                 Evo-Step glyph.  History IS the file-to-file restoration
+                 pattern (saved snapshot → working copy) — both sides bracketed. -->
+            <HistoryGlyph size="compact" aria-label="Version History" class="shrink-0" style="height: 16px; width: auto;" />
           </button>
           <span
             v-if="specHistory.length > 0"
@@ -3939,10 +4605,25 @@ function handleApertureLoadPlan(model: PlanModel): void {
            edit in place. The crest stripe + "Plan" eyebrow ride along on the
            left of the title so the whole identity unit stays together when
            centered. -->
+      <!-- Tom 2026-06-03: "button overlap, why do I have to report button overlap,
+           can't you check that?"  Root cause: max-w-[90%] let very long plan titles
+           (e.g., "MONITOR CONTRACT-Improve Vessel's Speed Under & Vessel's Speed")
+           consume 90% of the row width, pushing into the 🔑 owner chip + Next-Step
+           button + right pin cluster.  Tightened to max-w-[40%] with flex-1 min-w-0
+           so the title gets LEFTOVER space and truncates properly via the inner
+           span's truncate class.  Title font also dropped from text-2xl/[28px] to
+           text-base/lg responsive — the gold shimmer + amber stripe still gives the
+           title visual primacy without monopolising the row. -->
+      <!-- SHI badge (Spec Health Index) MOVED 2026-06-04 to Row 2 far-left
+           anchor position (Tom: *"shi awol"* after seeing it drifted into
+           the action cluster of Row 1).  Mirrors the 21 May 18:42 reference
+           layout where the +6% PHI was the FIRST visible item on the row.
+           Row 1 now has no PHI; Row 2 begins with it. -->
+
       <button
         v-if="!titleEditing"
         type="button"
-        class="group inline-flex items-center gap-3 min-w-0 max-w-[90%] pl-2 pr-3 py-1 -my-1 rounded-lg
+        class="group inline-flex items-center gap-3 min-w-0 max-w-[40%] flex-1 pl-2 pr-3 py-1 -my-1 rounded-lg
                hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-300/80 transition-colors"
         :title="`${planModel.name} — click to rename`"
         :aria-label="`Plan: ${planModel.name}. Click to rename in place.`"
@@ -3958,10 +4639,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="hidden md:inline text-[10px] uppercase tracking-[0.35em] font-bold text-amber-200/85 leading-none shrink-0"
           aria-hidden="true"
         >Plan</span>
-        <!-- THE TITLE — big, long, gold-shimmer, drop-shadowed -->
+        <!-- THE TITLE — gold-shimmer, drop-shadowed.  Font sizing dropped 2026-06-03
+             from text-2xl/[28px] to text-base/lg responsive so long titles don't
+             monopolise the row.  Truncate class on this span handles ellipsis. -->
         <span
-          class="plan-title-shimmer truncate min-w-0
-                 text-2xl md:text-[28px] leading-none font-extrabold tracking-tight
+          class="plan-title-shimmer truncate min-w-0 flex-1
+                 text-base md:text-lg leading-tight font-extrabold tracking-tight
                  bg-gradient-to-r from-amber-300 via-yellow-100 via-white to-amber-300
                  bg-clip-text text-transparent
                  drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)]"
@@ -3974,13 +4657,70 @@ function handleApertureLoadPlan(model: PlanModel): void {
         </svg>
       </button>
 
+      <!-- 🔑 OWNER CHIP — reinstated 2026-06-03 (Tom: *"The Stewards seem to
+           have disappeared, please reinstate, why did they disappear?  we can
+           simplify stewards to Owner Name on Title, but this is important
+           project information"*).
+           Casualty of the 2026-06-01 Plan Crest Row 2 removal — the three
+           people chips (🔑/💡/⌨️) lived on Row 2 and were dropped when Row 2
+           was deleted.  Reinstated as a SINGLE owner-name chip immediately
+           after the title (per Tom's "simplify to Owner Name on Title").
+           Clicking opens PlanOwnerPanel which still has all three role tabs
+           (Owners / Planners / Scribes) — so full Steward access is preserved
+           behind one trigger.  When no owner is set yet, the chip prompts. -->
+      <button
+        v-if="!titleEditing"
+        type="button"
+        class="group inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-lg
+               bg-amber-500/15 hover:bg-amber-500/30 border border-amber-300/40 hover:border-amber-300/80
+               text-amber-100 hover:text-white text-xs font-semibold
+               focus:outline-none focus:ring-2 focus:ring-amber-300 transition-colors"
+        :title="planModel.owners && planModel.owners.length > 0
+          ? `🔑 Plan owner: ${planModel.owners[0].name}.  Click to open Plan Stewards panel (Owners / Planners / Scribes — all roles preserved per the original 3-chip design).`
+          : `No plan owner set.  Click to open Plan Stewards panel and add owners, planners, and scribes.`"
+        :aria-label="planModel.owners && planModel.owners.length > 0
+          ? `Plan owner: ${planModel.owners[0].name}. Click for full Stewards panel.`
+          : `Add plan owner. Click for Stewards panel.`"
+        @click="planPeopleTab = 'owners'; specOwnerPanelOpen = true"
+      >
+        <!-- OwnerGlyph `[*]!` — Tom 2026-06-04 approved Planguage-family
+             replacement for the dated 🔑 emoji. -->
+        <OwnerGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
+        <span class="truncate max-w-[140px]">
+          {{ planModel.owners && planModel.owners.length > 0
+            ? planModel.owners[0].name
+            : 'Add owner' }}
+        </span>
+        <!-- Subtle additional-roles hint when planners/scribes also populated -->
+        <span
+          v-if="planModel.planners && planModel.planners.length > 0 || planModel.scribes && planModel.scribes.length > 0"
+          class="text-[10px] text-amber-200/80 font-normal"
+          aria-hidden="true"
+        >
+          +{{ (planModel.planners?.length ?? 0) + (planModel.scribes?.length ?? 0) }}
+        </span>
+      </button>
+
+      <!-- The 6 reinstated meta chips (Version · Sharpen · Saved · Plan Story
+           · Planner · Scribe) MOVED 2026-06-04 to a dedicated Row 2 wrap
+           below this row.  Reason: Tom *"overlap.  It is ok if you need an
+           extra line at top to organize things intelligibly.  Intelligibility
+           and utility have priority over 'lines' of control stuff"*.  Row 1
+           kept slim (PHI + title + Owner chip) so the absolute left + right
+           clusters don't collide with the centered title group. -->
+
       <!-- EDIT MODE — same visual weight as the title, but as a plain
            white editable input on a subtle amber ring (so the user can SEE
            they're editing). Enter saves, Esc cancels, blur saves. Spell-check
            off because plan names are usually proper nouns or acronyms.
            Wrapped with the crest stripe + Plan eyebrow so the centered
            assembly is visually identical to view mode. -->
-      <div v-else class="inline-flex items-center gap-3 min-w-0 max-w-[90%] pl-2 pr-3 py-1 -my-1 rounded-lg">
+      <!-- v-else → v-if="titleEditing" 2026-06-04: the 6 reinstated title-row
+           affordances above sit BETWEEN the title button (v-if="!titleEditing")
+           and this edit-mode block, breaking the v-if/v-else adjacency Vue
+           requires.  Made the condition explicit so the edit mode still
+           toggles correctly without needing sibling adjacency. -->
+      <div v-if="titleEditing" class="inline-flex items-center gap-3 min-w-0 max-w-[90%] pl-2 pr-3 py-1 -my-1 rounded-lg">
         <span
           class="shrink-0 h-9 w-1.5 rounded-full bg-gradient-to-b from-amber-200 via-amber-400 to-amber-600 shadow-[0_0_8px_rgba(251,191,36,0.55)]"
           aria-hidden="true"
@@ -4021,6 +4761,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
          Control-pins-at-top rule. Moved to outer crest bar 2026-05-31:
          was vertically centred in Row 1 which felt too close to stage buttons. -->
     <div class="absolute top-1.5 right-1 flex items-center gap-1 pr-0.5">
+      <!-- ⚙ Settings (Tom 2026-06-03 — long-requested SEM Settings panel).
+           Sits first in the cluster so it's adjacent to the SOS escape hatch
+           — the two "meta" pins together, separated from the action pins.
+           Tom 2026-06-04: *"setting gear is small, could be larger in same pin"*.
+           Button enlarged from h-8 w-8 → h-10 w-10 and glyph from text-base
+           (16px) → text-2xl (~24px) for clear visibility. -->
+      <button
+        type="button"
+        class="h-10 w-10 flex items-center justify-center rounded-lg text-2xl leading-none
+               bg-slate-700/80 text-white hover:bg-slate-600 ring-1 ring-slate-400/60 hover:ring-slate-300
+               focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all shrink-0"
+        aria-label="Open SEM Settings panel"
+        title="⚙ SEM Settings — Mode (Ultra Light / Pro SEM) · AI level · Privacy · Evo defaults · Visual · Workflow · Export · Collab · Diagnostics"
+        @click="settingsOpen = true"
+      >⚙</button>
       <!-- 🆘 SOS -->
       <button
         type="button"
@@ -4047,6 +4802,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
           : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
         @click="toggleMenu"
       ><span aria-hidden="true" style="filter: brightness(0.1);">⚡</span></button>
+      <!-- ⌗ Evo Tools — Tom 2026-06-03 marker: catalogue of Evo-specialised tools
+           (Value Flow, Evo Simulator, V × Step VDT, Critique, etc.).  Goes between
+           Actions and Agents because Evo Tools are a specialised sibling of Actions,
+           and conceptually "below" Agents (tools < AI workers).  Always visible
+           per Control-Pins-at-Top rule. -->
+      <EvoToolsButton @open="evoToolsOpen = true" />
       <!-- 🦾 Agents -->
       <button
         type="button"
@@ -4070,22 +4831,201 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
 
 
-    <!-- Row 2: Plan Story strip (toggled by the bright 🧬 Plan Story button) -->
-    <PlanDNAStrip
-      v-if="planDNAOpen"
+    <!-- ── Row 2: META CHIPS ROW — Tom 2026-06-04 *"It is ok if you need
+         an extra line at top to organize things intelligibly. Intelligibility
+         and utility have priority over 'lines' of control stuff"*.
+         Moved out of Row 1 to stop the cramped-overlap shown in Tom's
+         screenshot.  flex-wrap so chips stack on narrow widths instead of
+         truncating.  Subtle indigo tint distinguishes meta from the title
+         row above. -->
+    <div
+      v-if="planModel"
+      class="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-indigo-900/40 border-t border-white/10"
+      aria-label="Plan meta — Spec Health Index, version, sharpening, save status, story toggle, stewards"
+    >
+      <!-- Spec Health Index badge (SHI, formerly PHI) — Tom 2026-06-04 *"shi
+           awol"* — moved here from Row 1 to be the FIRST visible item, the
+           anchoring leftmost element of the meta row.  Matches the 21 May
+           18:42 reference layout where the PHI sat at the far-left of the
+           Plan Crest row.  Click opens Spec Health Status panel. -->
+      <SpecHealthBadge
+        v-if="currentSpec"
+        :index="specHealthIndexValue"
+        :threshold="specHealthThresholdValue"
+        :size="32"
+        :has-alert="specHealthAlertCount > 0"
+        :alert-count="specHealthAlertCount"
+        :alert-hint="specHealthAlertCount === 1
+          ? '1 Spec Health alert pending — click to review'
+          : `${specHealthAlertCount} Spec Health alerts pending — click to review`"
+        class="shrink-0"
+        @click="specHealthStatusOpen = true"
+      />
+
+      <!-- Plan / Spec chip — RESTORED 2026-06-04 (silent-drop catch from
+           PlanGlyph wiring discussion; default=yes per No-Silent-Removal
+           SUPREME rule). Uses the Color Keyed Icon `[*+*+*]` + the literal
+           word "Spec" (Tom's confirmed generic term). -->
+      <span
+        class="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/10 text-white/90 text-[11px] font-semibold"
+        title="Plan / Spec — a container of multiple spec entries (F · V · S · …).  The generic 'Spec' covers Plan, Model, Contract, Meeting Minutes, etc."
+      >
+        <PlanGlyph size="compact" class="h-3.5 w-auto" aria-hidden="true" />
+        <span>Spec</span>
+      </span>
+
+      <!-- Version pill (v0.1, v1.0, …) -->
+      <span
+        v-if="planModel.version"
+        class="shrink-0 px-1.5 py-0.5 rounded bg-white/15 ring-1 ring-white/25
+               font-mono text-[10px] font-bold text-white/90 tracking-tight"
+        :title="`Plan version ${planModel.version}`"
+      >v{{ planModel.version }}</span>
+
+      <!-- Sharpen-rounds badge — 🔪 N -->
+      <span
+        v-if="planModel.sharpenRounds && planModel.sharpenRounds > 0"
+        class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md
+               bg-amber-400/90 text-amber-950 text-[11px] font-bold"
+        :title="`${planModel.sharpenRounds} sharpening round${planModel.sharpenRounds !== 1 ? 's' : ''} applied`"
+      ><span class="text-base leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" aria-hidden="true">🔪</span><span class="leading-none">{{ planModel.sharpenRounds }}</span></span>
+
+      <!-- "Saved N min ago" pill — IS the Save Now button (dual-coded). -->
+      <button
+        v-if="specBarSavedLabel || planModel"
+        type="button"
+        class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md
+               text-[11px] font-semibold transition-all duration-150
+               focus:outline-none focus:ring-2 focus:ring-white/80 group"
+        :class="_saveFlash === 'flash'
+          ? 'bg-emerald-400/95 text-emerald-950 ring-1 ring-emerald-200/70'
+          : specBarUnsaved
+            ? 'bg-amber-400/95 text-amber-950 ring-1 ring-amber-200/70 hover:bg-amber-300 hover:scale-[1.04]'
+            : 'bg-white/10 text-white/90 hover:bg-white/25 hover:text-white'"
+        :title="_saveFlash === 'flash'
+          ? 'Saved!'
+          : specBarUnsaved
+            ? `${specBarSavedLabel} — click to save now (you have unsaved changes)`
+            : `${specBarSavedLabel || 'Not saved yet'} — click to save now`"
+        :aria-label="_saveFlash === 'flash'
+          ? 'Saved just now'
+          : specBarUnsaved
+            ? `${specBarSavedLabel}. Click to save now — you have unsaved changes.`
+            : `${specBarSavedLabel || 'Not saved yet'}. Click to save now.`"
+        @click="savedLabelClick"
+      >
+        <template v-if="_saveFlash === 'flash'">
+          <span aria-hidden="true">✓</span><span>Saved just now</span>
+        </template>
+        <template v-else>
+          <span class="inline group-hover:hidden" aria-hidden="true">
+            <SaveGlyph v-if="specBarUnsaved" size="compact" class="inline-block h-3 w-auto mr-1 -mt-0.5" />{{ specBarSavedLabel || 'Save plan' }}
+          </span>
+          <span class="hidden group-hover:inline" aria-hidden="true">
+            <SaveGlyph size="compact" class="inline-block h-3 w-auto mr-1 -mt-0.5" />Save now
+          </span>
+        </template>
+      </button>
+
+      <!-- 📖 Plan Story — toggles the Plan Story / Plan-DNA strip below. -->
+      <button
+        type="button"
+        :class="[
+          'shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg',
+          'text-xs font-bold tracking-wide transition-all duration-200',
+          'focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm',
+          specStoryOpen
+            ? 'bg-gradient-to-r from-fuchsia-300 to-pink-300 text-fuchsia-950 ring-2 ring-fuchsia-200/90 shadow-md'
+            : 'bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:from-fuchsia-400 hover:to-pink-400 hover:shadow-md hover:scale-[1.03] ring-1 ring-fuchsia-200/50',
+        ]"
+        :title="specStoryOpen
+          ? 'Hide Spec Story — origin, hand-tuning, sharpen rounds, stewards, age'
+          : 'Show Spec Story — origin, hand-tuning, sharpen rounds, stewards, age'"
+        :aria-pressed="specStoryOpen"
+        aria-label="Toggle Spec Story (origin, hand-tuning, sharpening, stewards, age)"
+        data-testid="plancrest-story-toggle"
+        @click="_togglePlanStory()"
+      >
+        <!-- SpecStoryGlyph `[*] ← §` — Tom 2026-06-04 approved replacement
+             for 📖 emoji.  Semantic: spec sourced from stakeholder.
+             Affordance renamed "Plan Story" → "Spec Story" 2026-06-04
+             after Tom confirmed Spec as the generic for Plan/Model/Contract/MM. -->
+        <SpecStoryGlyph size="compact" class="h-4 w-auto shrink-0 drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" aria-hidden="true" />
+        <span>Spec Story</span>
+        <span class="text-[10px] opacity-90 leading-none font-extrabold" aria-hidden="true">{{ specStoryOpen ? '▾' : '▸' }}</span>
+      </button>
+
+      <!-- 💡 Planner chip — distinct from Owner. -->
+      <button
+        type="button"
+        :class="[
+          'shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
+          'focus:outline-none focus:ring-2 focus:ring-white/60',
+          planModel.planners?.length
+            ? 'bg-white/15 text-white hover:bg-white/25'
+            : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
+        ]"
+        :title="planModel.planners?.length
+          ? `Planners: ${planModel.planners.map(p => p.name).join(', ')} — click to edit`
+          : 'Add a Spec Planner'"
+        aria-label="Spec Planners"
+        @click="planPeopleTab = 'planners'; specOwnerPanelOpen = true"
+      >
+        <!-- PlannerGlyph `[?]→[*]` — Tom 2026-06-04 approved replacement for 💡. -->
+        <PlannerGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
+        <span class="text-[9px] uppercase tracking-wider opacity-70">Planner</span>
+        <template v-if="planModel.planners?.length">
+          <span class="truncate max-w-[90px]">{{ planModel.planners[0].name }}</span>
+          <span v-if="planModel.planners.length > 1" class="text-white/70">+{{ planModel.planners.length - 1 }}</span>
+        </template>
+        <span v-else aria-hidden="true">+</span>
+      </button>
+
+      <!-- ⌨️ Scribe chip — distinct from Owner / Planner. -->
+      <button
+        type="button"
+        :class="[
+          'shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
+          'focus:outline-none focus:ring-2 focus:ring-white/60',
+          planModel.scribes?.length && planModel.scribes[0]?.name
+            ? 'bg-white/15 text-white hover:bg-white/25'
+            : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
+        ]"
+        :title="!planModel.scribes?.length
+          ? 'Add a Spec Scribe'
+          : planModel.scribes[0]?.isDefault
+            ? `Scribe (default — ${planModel.scribes[0].name || 'tap to set your name'}) — click to edit`
+            : `Scribes: ${planModel.scribes.map(s => s.name).join(', ')} — click to edit`"
+        aria-label="Spec Scribes"
+        @click="planPeopleTab = 'scribes'; specOwnerPanelOpen = true"
+      >
+        <!-- ScribeGlyph `[ ]→[*]` — Tom 2026-06-04 approved replacement for ⌨. -->
+        <ScribeGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
+        <span class="text-[9px] uppercase tracking-wider opacity-70">Scribe</span>
+        <template v-if="planModel.scribes?.length">
+          <span v-if="planModel.scribes[0].name" class="truncate max-w-[90px]">{{ planModel.scribes[0].name }}</span>
+          <span v-if="planModel.scribes.length > 1" class="text-white/70">+{{ planModel.scribes.length - 1 }}</span>
+        </template>
+        <span v-else aria-hidden="true">+</span>
+      </button>
+    </div>
+
+    <!-- Row 3: Plan Story strip (toggled by the bright 📖 Plan Story button) -->
+    <SpecStoryStrip
+      v-if="specStoryOpen"
       :plan-model="planModel"
-      @close="planDNAOpen = false"
-      @edit-stewards="planPeopleTab = 'owners'; planOwnerPanelOpen = true"
+      @close="specStoryOpen = false"
+      @edit-stewards="planPeopleTab = 'owners'; specOwnerPanelOpen = true"
     />
 
   </div>
 
   <!-- Plan Owner Data panel — pinned below the plan bar when open -->
-  <PlanOwnerPanel
-    v-if="view === 'app' && planModel && planOwnerPanelOpen"
+  <SpecOwnerPanel
+    v-if="view === 'app' && planModel && specOwnerPanelOpen"
     :initial-tab="planPeopleTab"
     :plan-model="planModel"
-    @close="planOwnerPanelOpen = false"
+    @close="specOwnerPanelOpen = false"
   />
 
   <!-- Plan Governance / Spec Owners drawer -->
@@ -4096,10 +5036,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <!-- Feature #195: Plan Targets panel -->
-  <PlanTargetsPanel
-    v-if="view === 'app' && planTargetsOpen"
-    @close="planTargetsOpen = false"
-    @open-editor="({ targetId, targetName }) => { planTargetsOpen = false; specEditorOpen = true; _editorTarget = { id: targetId, name: targetName } }"
+  <SpecTargetsPanel
+    v-if="view === 'app' && specTargetsOpen"
+    @close="specTargetsOpen = false"
+    @open-editor="({ targetId, targetName }) => { specTargetsOpen = false; specEditorOpen = true; _editorTarget = { id: targetId, name: targetName } }"
   />
 
   <!-- Feature #196: Spec Editor — full-screen, z-[600] -->
@@ -4166,7 +5106,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') planImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true; if (id === 'history') unifiedHistoryOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') specImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true; if (id === 'history') unifiedHistoryOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
@@ -4188,7 +5128,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <HistoryPanel
     v-if="unifiedHistoryOpen"
     @close="unifiedHistoryOpen = false"
-    @load-plan="(planId, versionId) => { unifiedHistoryOpen = false; planImporterOpen = true }"
+    @load-plan="(planId, versionId) => { unifiedHistoryOpen = false; specImporterOpen = true }"
     @restore-model="(modelId, versionId) => { unifiedHistoryOpen = false }"
     @load-contract="(contractId) => { unifiedHistoryOpen = false; contractsOpen = true }"
     @load-maria="(result) => { unifiedHistoryOpen = false; mariaOpen = true }"
@@ -4198,7 +5138,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <ModelLibraryPanel
     v-if="view === 'app' && modelLibraryOpen"
     @close="modelLibraryOpen = false"
-    @select-agent="(id) => { modelLibraryOpen = false; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') planImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true }"
+    @select-agent="(id) => { modelLibraryOpen = false; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') specImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true }"
   />
 
   <!-- Stakeholder Mapper agent panel — AI-drafted 10-attribute profiles. z-[600] -->
@@ -4217,9 +5157,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <!-- Plan Importer agent panel — universal Planguage converter. z-[600] -->
-  <PlanImporterPanel
-    v-if="view === 'app' && planImporterOpen"
-    @close="planImporterOpen = false"
+  <SpecImporterPanel
+    v-if="view === 'app' && specImporterOpen"
+    @close="specImporterOpen = false"
   />
 
   <!-- Decision Mapper agent panel — structured decision analysis. z-[600] -->
@@ -4251,8 +5191,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <!-- Feature #202: Plan Health Status — read-only PHI + history graph + notifications -->
-  <PlanHealthStatusPanel
-    v-if="view === 'app' && planModel && currentSpec && planHealthStatusOpen"
+  <SpecHealthStatusPanel
+    v-if="view === 'app' && planModel && currentSpec && specHealthStatusOpen"
     :plan-model-id="planModel.id"
     :spec="currentSpec"
     :spec-owner-count="planModel.governance?.specOwners?.length ?? 0"
@@ -4261,13 +5201,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :by="user?.email ?? 'unknown'"
     :plan-name="planModel.name"
     :plan-owners="planModel.owners ?? []"
-    @close="planHealthStatusOpen = false"
-    @open-admin="planHealthAdminOpen = true"
+    @close="specHealthStatusOpen = false"
+    @open-admin="specHealthAdminOpen = true"
   />
 
   <!-- Feature #202.b: Plan Health Administration — weights, notification policy, audit log -->
-  <PlanHealthAdminPanel
-    v-if="view === 'app' && planModel && currentSpec && planHealthAdminOpen"
+  <SpecHealthAdminPanel
+    v-if="view === 'app' && planModel && currentSpec && specHealthAdminOpen"
     :plan-model-id="planModel.id"
     :spec="currentSpec"
     :spec-owner-count="planModel.governance?.specOwners?.length ?? 0"
@@ -4276,8 +5216,66 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :plan-version="planModel.version ? `v${planModel.version}` : ''"
     :by="user?.email ?? 'unknown'"
     :plan-name="planModel.name"
-    @close="planHealthAdminOpen = false"
-    @open-status="planHealthAdminOpen = false; planHealthStatusOpen = true"
+    @close="specHealthAdminOpen = false"
+    @open-status="specHealthAdminOpen = false; specHealthStatusOpen = true"
+  />
+
+  <!-- Plan Health Target — Tom 2026-06-03 decision B (the 2026-05-27 "Target
+       and Administration are vital" WAIT row resolved).  Read-only sibling
+       of Status (live PHI) + Admin (threshold setter).  Answers "where are
+       we aiming + how big is the gap" via per-V.entry target progress. -->
+  <SpecHealthTargetPanel
+    v-if="view === 'app' && planModel && currentSpec && specHealthTargetOpen"
+    :plan-model-id="planModel.id"
+    :spec="currentSpec"
+    :spec-owner-count="planModel.owners?.length ?? 0"
+    :has-plan-owner="(planModel.owners?.length ?? 0) > 0"
+    :plan-name="planModel.name"
+    @close="specHealthTargetOpen = false"
+    @open-admin="specHealthTargetOpen = false; specHealthAdminOpen = true"
+    @open-status="specHealthTargetOpen = false; specHealthStatusOpen = true"
+    @open-value-edit="(valueId: string) => { specHealthTargetOpen = false; specEditorOpen = true; _editorTarget = { id: valueId, name: valueId } }"
+  />
+
+  <!-- Evo Health Tool (EHT) — Tom 2026-06-03.  Mirror of PHI structure but
+       scoped to Evo Steps + short-term focus.  Detector + Cure proposals
+       with risk ratings + per-cure approval audit log.  v1 scaffold —
+       real Cure application + email-to-Owner ship in v2. -->
+  <EvoHealthPanel
+    v-if="view === 'app' && evoHealthOpen"
+    :steps="_stepsForDiagram"
+    :plan-id="planModel?.name ?? 'default'"
+    @close="evoHealthOpen = false"
+  />
+
+  <!-- Planguage Standards Auditor — Tom 2026-06-03 Conjunction-of-Technologies
+       Exploit #1.  Cross-references live spec against 10.Standard/Standard.Kai-Zen/. -->
+  <StandardsAuditorPanel
+    v-if="view === 'app' && currentSpec && standardsAuditorOpen"
+    :spec="currentSpec"
+    :plan-id="planModel?.name ?? 'default'"
+    @close="standardsAuditorOpen = false"
+  />
+
+  <!-- Planguage Analyzer (Unified) — Tom 2026-06-03 Conjunction-of-Technologies
+       Exploit #5.  ONE panel, all knowledge layers, source-layer-filtered. -->
+  <PlanguageAnalyzerPanel
+    v-if="view === 'app' && currentSpec && planguageAnalyzerOpen"
+    :spec="currentSpec"
+    :plan-id="planModel?.name ?? 'default'"
+    :step-names="_stepsForDiagram.map(s => s.name)"
+    @close="planguageAnalyzerOpen = false"
+  />
+
+  <!-- Internet Context Fetcher — Tom 2026-06-03 Conjunction-of-Technologies
+       Exploit #3 (Stakeholder Context) + #4 (Industry Benchmark).
+       Two-tab panel; both tabs use Claudian's WebSearch/WebFetch via clipboard
+       prompt + paste-back JSON.  Every finding cites a real URL. -->
+  <InternetContextPanel
+    v-if="view === 'app' && currentSpec && internetContextOpen"
+    :spec="currentSpec"
+    :plan-id="planModel?.name ?? 'default'"
+    @close="internetContextOpen = false"
   />
 
   <!-- Copyright & Attribution panel — right drawer, z-[475] -->
@@ -4542,9 +5540,18 @@ function handleApertureLoadPlan(model: PlanModel): void {
       <div class="flex flex-col gap-1 mb-1 px-0.5">
         <div class="flex items-center gap-2 flex-wrap">
 
-          <!-- ← Back pin — shows the PREVIOUS stage with its glyph + number + label -->
+          <!-- ← Back pin — shows the PREVIOUS stage with its glyph + number + label.
+               Tom 2026-06-04 (BUG flag, verbatim): *"what is this study act
+               button doing in resources stage? BUG"*.  At Stages 10 (Resources)
+               and 11 (Export) the "previous" stage in the canonical 11-stage
+               cycle is Study-Act (9) and Resources (10) — both reflective /
+               post-delivery surfaces that aren't natural "back" targets for
+               forward planning flow.  Same reasoning chain as r64/r65 bottom-
+               mirror removals.  The stage bar at top of the page IS the
+               revisit surface — always visible, always MOVE-compliant.  Hide
+               the back pin at Stages 10 and 11. -->
           <button
-            v-if="prevStageInfo"
+            v-if="prevStageInfo && planningStage < 10"
             type="button"
             class="group inline-flex items-center gap-2.5 rounded-2xl
                    pl-2.5 pr-4 py-2 select-none
@@ -4566,21 +5573,60 @@ function handleApertureLoadPlan(model: PlanModel): void {
             </span>
           </button>
 
-          <!-- Stage-specific primary action button (Tom 2026-05-28: "repeat that step / do step actions") -->
+          <!-- Stage-specific primary action button — Tom 2026-06-04
+               enlarged + uses canonical PlTypeIcon (matching the stage
+               tile above) instead of the dated 📦/📋/etc. emoji that used
+               to live in the label string.  Format: [Stage N] [Color glyph]
+               [Stage Name] [STAGE NOW indicator] [Action label].
+               Stays the visual primary CTA (gradient + enlarged padding +
+               larger glyph size).  Falls back to label-only if for some
+               reason currentStageInfo is missing. -->
           <button
             v-if="planningStageAction"
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5
-                   text-sm font-semibold text-white
+            class="group inline-flex items-center gap-3 rounded-2xl
+                   pl-3 pr-5 py-3 select-none
+                   text-base font-bold text-white
                    bg-gradient-to-r from-indigo-500 to-violet-500
                    hover:from-indigo-600 hover:to-violet-600
-                   shadow-md hover:shadow-lg transition-all duration-150 select-none
-                   focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-            :title="`${planningStageAction.label} — primary action for Stage ${planningStage}`"
+                   shadow-lg hover:shadow-xl ring-2 ring-indigo-300/40
+                   transition-all duration-150 active:scale-95
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-1"
+            :title="currentStageInfo
+              ? `Stage ${currentStageInfo.stage} · ${currentStageInfo.label} (current stage) — primary action: ${planningStageAction.label.replace(/^[^\w]+\s*/, '')}`
+              : `${planningStageAction.label} — primary action for Stage ${planningStage}`"
             :aria-label="planningStageAction.label"
             @click="planningStageAction.handler()"
           >
-            {{ planningStageAction.label }}
+            <span v-if="currentStageInfo"
+                  class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
+                  aria-hidden="true">{{ currentStageInfo.stage }}</span>
+            <!-- White plate behind the PlTypeIcon so the canonical type colour
+                 (dark green Resource, dark red Constraint, blue Stakeholder
+                 etc.) has enough contrast against the indigo/violet gradient.
+                 Tom 2026-06-04: *"The color artsy icon is visually difficult
+                 for me against that background"*. -->
+            <span v-if="currentStageInfo"
+                  class="shrink-0 inline-flex items-center justify-center bg-white rounded-lg p-1 shadow-sm">
+              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" :no-detail-click="true" />
+            </span>
+            <span v-if="currentStageInfo" class="flex flex-col items-start leading-tight">
+              <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-indigo-200">Stage Now</span>
+              <span class="text-base font-extrabold text-white">{{ currentStageInfo.label }}</span>
+            </span>
+            <!-- Action label — strip leading emoji.  Hide entirely if it would
+                 just repeat the stage name (Tom 2026-06-04: *"the word
+                 resources 2x is unnecessary"*).  Case-insensitive comparison
+                 so "Resources" vs "resources" both deduplicate. -->
+            <template v-if="(() => {
+              const action = planningStageAction.label.replace(/^[^\w]+\s*/, '').trim().toLowerCase();
+              const stage = (currentStageInfo?.label ?? '').trim().toLowerCase();
+              return action && action !== stage;
+            })()">
+              <span class="text-sm font-semibold text-white/95 border-l border-white/30 pl-3 ml-1">
+                {{ planningStageAction.label.replace(/^[^\w]+\s*/, '') }}
+              </span>
+            </template>
           </button>
 
           <div class="flex-1" aria-hidden="true" />
@@ -4725,7 +5771,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
             aria-label="Get A Plan"
             title="Get A Plan — load a saved Planguage plan into your workspace, or import new planning data"
-            @click="planInputOpen = true"
+            @click="specInputOpen = true"
           >
             <!-- DD-011/DD-012: GetGlyph [*]→* is the correct Keyed Action Glyph for "retrieve a plan".
                  SEM App identity icon is brand-only (h-20 hero size); not appropriate as a 12px nav button icon.
@@ -4756,13 +5802,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
               class="h-9 px-2.5 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium
                      hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
                      transition-colors duration-150 inline-flex items-center gap-1.5"
-              aria-label="Plan History"
+              aria-label="Spec History"
               title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
               @click="historyOpen = true"
             >
               <!-- Color Glyph for 'history': Evo Step glyph (amber) — encodes past cycles via '<' (past anchor).
-                   :no-detail-click per DD-013 (parent owns click for history panel). -->
-              <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" class="shrink-0" />
+                   :no-detail-click per DD-013 (parent owns click for history panel).
+                   Tom 2026-06-03 — explicit title overrides PlTypeIcon's canonical Evo-Step label. -->
+              <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" title="Version History" class="shrink-0" />
               <span>History</span>
             </button>
             <span
@@ -4888,7 +5935,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
           aria-label="Get A Plan"
           title="Get A Plan — load a saved Planguage plan into your workspace, or import new planning data"
-          @click="planInputOpen = true"
+          @click="specInputOpen = true"
         >
           <!-- DD-011/DD-012: GetGlyph [*]→* — same fix as auth mode above. 2026-06-01. -->
           <GetGlyph class="h-3 w-auto shrink-0" aria-hidden="true" />
@@ -4914,11 +5961,11 @@ function handleApertureLoadPlan(model: PlanModel): void {
             class="h-9 px-2.5 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium
                    hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
                    transition-colors duration-150 inline-flex items-center gap-1.5"
-            aria-label="Plan History"
+            aria-label="Spec History"
             title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
             @click="historyOpen = true"
           >
-            <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" class="shrink-0" />
+            <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" title="Version History" class="shrink-0" />
             <span>History</span>
           </button>
           <span
@@ -5021,7 +6068,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <img
               src="/icon-sem-app.svg"
               alt="SEM App"
-              :title="`SEM App — Keeney three-level hierarchy (Value-Focused Thinking, 1992)\n\n▲ FUNDAMENTAL · amber\n  Objectives given from above — environment, parent org, regulations\n  We operate within these; cannot unilaterally redesign them\n\n● STRATEGIC · violet  ← this level (the hero row)\n  Our own plan — the Ends and Values we own and are accountable for\n\n▼ MEANS · emerald\n  What supports us from below — Functions and Solutions\n  These deliver our Strategic Ends upward to the stakeholder\n\n──────────────────────────────\nperson / ¶  =  Stakeholder (animate or inanimate)\n←O←         =  End: target that receives and delivers value\nO←          =  Means: source that fires value into the target`"
+              :title="`SEM App — Keeney three-level hierarchy (Value-Focused Thinking, 1992)\n\n▲ FUNDAMENTAL · amber\n  Objectives given from above — environment, parent org, regulations\n  We operate within these; cannot unilaterally redesign them\n\n● STRATEGIC · violet  ← this level (the hero row)\n  Our own plan — the Ends and Values we own and are accountable for\n\n▼ MEANS · emerald\n  What supports us from below — Functions and Solutions\n  These deliver our Strategic Ends upward to the stakeholder\n\n──────────────────────────────\nperson / §  =  Stakeholder (animate or inanimate)\n←O←         =  End: target that receives and delivers value\nO←          =  Means: source that fires value into the target`"
               class="h-20 w-20 flex-shrink-0 rounded-2xl shadow-lg cursor-help"
             />
             <div>
@@ -5030,7 +6077,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <img
                 src="/symbol-sem.svg"
                 alt="Stakeholder fires means at ends"
-                :title="`S · E · M\nStakeholder · Ends · Means\n\nThe stakeholder fires Means at Ends — value is then delivered to the one who needs it\n\nS  =  person (animate stakeholder)\n   or  ¶  (inanimate: law, data, standard, contract)\nE  =  ←O←  target — receives value from M, delivers it to S\nM  =  O←   source — fires value into the target\n\nTom Gilb, Competitive Engineering (2005)\nKeeney, Value-Focused Thinking (1992)`"
+                :title="`S · E · M\nStakeholder · Ends · Means\n\nThe stakeholder fires Means at Ends — value is then delivered to the one who needs it\n\nS  =  person (animate stakeholder)\n   or  §  (inanimate: law, data, standard, contract)\nE  =  ←O←  target — receives value from M, delivers it to S\nM  =  O←   source — fires value into the target\n\nTom Gilb, Competitive Engineering (2005)\nKeeney, Value-Focused Thinking (1992)`"
                 class="mt-2 h-8 opacity-60 cursor-help"
               />
             </div>
@@ -5052,6 +6099,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 :sharpened-entry-ids="sharpenedEntryIds"
                 :sharpen-summary="sharpenSummary"
                 :generated-at="specGeneratedAt"
+                :planning-stage="planningStage"
                 @lean-spec-selected="onLeanSpecSelected"
                 @open-collaborator="collaboratorOpen = !collaboratorOpen"
                 @rewrite-copy="onRewriteCopy"
@@ -5226,6 +6274,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 :sharpened-entry-ids="sharpenedEntryIds"
                 :sharpen-summary="sharpenSummary"
                 :generated-at="specGeneratedAt"
+                :planning-stage="planningStage"
                 @lean-spec-selected="onLeanSpecSelected"
                 @open-collaborator="collaboratorOpen = !collaboratorOpen"
                 @rewrite-copy="onRewriteCopy"
@@ -5265,12 +6314,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    hover:from-violet-600 hover:to-indigo-600 hover:shadow-lg
                    focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2
                    transition-all duration-200 active:scale-[0.98]"
-            aria-label="Back to spec"
+            aria-label="Back to Stage 1 · Spec & Sharpening"
             @click="goToStage1()"
           >
             <span class="text-xl leading-none" aria-hidden="true">←</span>
             <div class="text-left">
-              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to</div>
+              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to Stage 1</div>
               <div class="font-bold leading-tight">Spec &amp; Sharpening</div>
             </div>
           </button>
@@ -5318,6 +6367,206 @@ function handleApertureLoadPlan(model: PlanModel): void {
         />
       </template>
 
+      <!-- Stage 10 · Resources — dedicated view (Tom 2026-06-04 verbatim:
+           *"I think these need removal, and I am awaiting resource sharpening
+           etc, but i cannot see it"*).  Previously Stage 10 in the planning
+           bar fell through to the stage===3 (Evo Impact) body which showed
+           Value Flow + Evo step task lists — content inappropriate for the
+           Resources stage and visually noisy.  This block takes precedence
+           over stage===3 when planningStage===10 so the user sees Resources
+           content directly: large Stage 10 pin, three cost summary cards
+           (Calendar / Capital / V-C ratios from prior stages), prominent CTA
+           opening the ResourcesSharpenPanel with its 9 dimensions + 5
+           Advanced Tools, status note that R. entry persistence (Phase 1)
+           is live and Phase 2 (Claudian write-back) is queued.  Top + bottom
+           share mirrors (Copy / Email) + forward → Stage 11 button. -->
+      <template v-else-if="planningStage === 10 && currentSpec">
+        <div class="w-full max-w-3xl mb-4 flex flex-wrap items-center gap-3">
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
+                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Copy Spec to clipboard"
+            title="COPY — duplicate this Spec to your clipboard.&#10;Paste into Notes, Mail, Keynote, anywhere."
+            @click="autoCopyPlan()"
+          ><CopyGlyph size="standard" /><span>Copy</span></button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
+                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Email Spec via default mail client"
+            title="EMAIL — open your default mail client with the colourful Spec ready to paste."
+            @click="emailPlan()"
+          ><EmailGlyph size="standard" /><span>Email</span></button>
+        </div>
+
+        <div class="w-full max-w-3xl flex flex-col gap-5">
+          <!-- Header banner -->
+          <div class="rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+              <div class="flex items-center gap-3">
+                <div class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-2 select-none
+                            bg-gradient-to-r from-emerald-500 to-teal-500 shadow ring-2 ring-emerald-300/40">
+                  <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
+                        aria-hidden="true">10</span>
+                  <span class="flex flex-col items-start leading-tight">
+                    <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">Stage Now</span>
+                    <span class="text-base font-extrabold text-white">Resources</span>
+                  </span>
+                </div>
+                <div>
+                  <h2 class="text-lg font-extrabold text-emerald-900">Resources Stage</h2>
+                  <p class="text-[12px] text-emerald-800/80 leading-snug max-w-md">
+                    Estimate and allocate resource budgets (R. entries).  Review V/C ratios, assign capital and calendar
+                    budgets, confirm all Constraints are respected before Export.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="px-5 py-3 rounded-xl bg-violet-600 text-white font-bold text-sm shadow
+                       hover:bg-violet-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-violet-400
+                       transition-all"
+                title="Open Resources Sharpening — 9 Gilb-cited analytical dimensions + 5 generative tools (Tom 2026-06-04 r69/r70)"
+                @click="resourcesSharpenOpen = true"
+              >⚙ Open Resources Sharpening</button>
+            </div>
+          </div>
+
+          <!-- Cost summary cards (derived from prior stages) -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3">
+              <div class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">Calendar Cost</div>
+              <div class="text-2xl font-extrabold text-emerald-900 mt-1">
+                {{ Object.values(capturedCalendarCosts).reduce((s, v) => s + (v || 0), 0).toLocaleString() }}
+                <span class="text-xs font-normal text-emerald-700/80 ml-1">days</span>
+              </div>
+              <div class="text-[10px] text-emerald-700/70 mt-1 italic">from prior Impact Estimation stage</div>
+            </div>
+            <div class="rounded-xl border-2 border-violet-200 bg-violet-50 p-3">
+              <div class="text-[10px] uppercase font-bold text-violet-700 tracking-wider">Capital Cost</div>
+              <div class="text-2xl font-extrabold text-violet-900 mt-1">
+                ${{ Object.values(capturedCapitalCosts).reduce((s, v) => s + (v || 0), 0).toLocaleString() }}
+              </div>
+              <div class="text-[10px] text-violet-700/70 mt-1 italic">from prior Impact Estimation stage</div>
+            </div>
+            <div class="rounded-xl border-2 border-blue-200 bg-blue-50 p-3">
+              <div class="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Top V/C ratios (efficiency)</div>
+              <ul class="text-[11px] text-blue-900 mt-1 space-y-0.5">
+                <li
+                  v-for="[k, v] in Object.entries(capturedVCRatios).sort((a, b) => b[1] - a[1]).slice(0, 4)"
+                  :key="k"
+                ><b>{{ k }}</b>: {{ v.toFixed(2) }}</li>
+                <li v-if="Object.keys(capturedVCRatios).length === 0" class="italic opacity-70">No V/C data yet — complete Impact Estimation first.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- R. entry display (Phase 1 schema, r77) -->
+          <div class="rounded-xl border-2 border-teal-200 bg-teal-50/40 p-4">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <h3 class="text-sm font-extrabold text-teal-900">R. entries in this Spec</h3>
+                <p class="text-[11px] text-teal-700/80">
+                  Phase 1 schema live (r77) — entries persist in <code>SpecBlock.resources</code>.
+                  Phase 2 (Claudian write-back from the Sharpening panel) is queued.
+                </p>
+              </div>
+              <span class="text-2xl font-extrabold text-teal-700">{{ (currentSpec.resources ?? []).length }}</span>
+            </div>
+            <ul v-if="(currentSpec.resources ?? []).length > 0" class="space-y-1 mt-2">
+              <li
+                v-for="r in (currentSpec.resources ?? [])"
+                :key="r.id"
+                class="text-[12px] text-slate-800 bg-white rounded px-3 py-1.5 border border-teal-100"
+              >
+                <b class="text-teal-700">{{ r.id }}</b> — {{ r.description }}
+                <span v-if="r.goal" class="text-[11px] text-emerald-700 ml-2">Goal: {{ r.goal }}</span>
+              </li>
+            </ul>
+            <div v-else class="text-[12px] text-teal-800/70 italic mt-2">
+              No R. entries yet.  Use the Sharpening panel above to walk through the 9 Gilb-cited dimensions
+              + 5 generative Advanced Tools; copy the prompt + spec to Claudian to draft R. entries grounded in CE, Cost Engineering, SEA, Optima.
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom mirror -->
+        <div class="w-full max-w-3xl mt-8 pt-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
+          <div class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-3 select-none
+                      text-base font-bold text-white
+                      bg-gradient-to-r from-emerald-500 to-teal-500
+                      shadow-lg ring-2 ring-emerald-300/40">
+            <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
+                  aria-hidden="true">10</span>
+            <span class="flex flex-col items-start leading-tight">
+              <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">Stage Now</span>
+              <span class="text-base font-extrabold text-white">Resources</span>
+            </span>
+          </div>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
+                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Copy Spec to clipboard (bottom)"
+            @click="autoCopyPlan()"
+          ><CopyGlyph size="standard" /><span>Copy</span></button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
+                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Email Spec via default mail client (bottom)"
+            @click="emailPlan()"
+          ><EmailGlyph size="standard" /><span>Email</span></button>
+          <!-- Tom 2026-06-04 r83 — STAGE-AWARE forward button.  The stage===3
+               body renders for several planningStages (5 Refine routed via
+               STAGE_ACTION_MAP[5]='to-impact'; 7 Evo Impact; 10 Resources via
+               legacy routing — though planningStage===10 now has its own
+               template that takes precedence).  The previous hardcoded
+               "Next → Stage 11 · Export" was correct ONLY at Stage 10.  At
+               Stage 5 it should advance to Stage 6 Evo Steps, at Stage 7 to
+               Stage 8 Tasks, etc.  Now nextStageInfo drives both label and
+               click target: when nextStageInfo.stage===11 fire exportFull()
+               (the only stage with a side-effect, not a pure navigation);
+               otherwise handleStageBarNav(nextStageInfo.stage). -->
+          <button
+            v-if="currentSpec && nextStageInfo"
+            type="button"
+            class="ml-auto flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
+                   bg-gradient-to-r from-amber-500 to-orange-500 text-white
+                   font-bold text-sm shadow-md shadow-amber-200/70
+                   hover:from-amber-600 hover:to-orange-600 hover:shadow-lg
+                   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
+                   transition-all duration-200 active:scale-[0.98]"
+            :aria-label="`Next: Stage ${nextStageInfo.stage} · ${nextStageInfo.label}`"
+            :title="`Advance to Stage ${nextStageInfo.stage} · ${nextStageInfo.label} — ${nextStageInfo.title}`"
+            @click="nextStageInfo.stage === 11 ? exportFull() : handleStageBarNav(nextStageInfo.stage)"
+          >
+            <div class="text-right leading-tight">
+              <div class="text-[10px] font-normal opacity-85 uppercase tracking-wide">Next → Stage {{ nextStageInfo.stage }}</div>
+              <div class="font-extrabold leading-tight">{{ nextStageInfo.label }}</div>
+            </div>
+            <span class="text-xl leading-none" aria-hidden="true">→</span>
+          </button>
+        </div>
+      </template>
+
       <!-- Stage 3: Impact Estimation VDT — estimate value/solution impact to prioritise evo steps -->
       <template v-else-if="stage === 3 && currentSpec">
         <div class="w-full max-w-2xl mb-4 flex flex-wrap items-center gap-3">
@@ -5329,12 +6578,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    hover:from-cyan-600 hover:to-blue-600 hover:shadow-lg
                    focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2
                    transition-all duration-200 active:scale-[0.98]"
-            aria-label="Back to plan"
+            aria-label="Back to Stage 6 · Evo Steps (Evo Plan view)"
             @click="goToStage2()"
           >
             <span class="text-xl leading-none" aria-hidden="true">←</span>
             <div class="text-left">
-              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to</div>
+              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to Stage 6</div>
               <div class="font-bold leading-tight">Evo Plan</div>
             </div>
           </button>
@@ -5364,6 +6613,39 @@ function handleApertureLoadPlan(model: PlanModel): void {
             </svg>
             <span>Value Flow</span>
           </button>
+
+          <!-- Copy + Email at TOP — Tom 2026-06-04 DD-014 application:
+               sharable content (Value Flow + Impact Estimation) needs top + bottom share pins. -->
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
+                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Copy plan to clipboard"
+            title="COPY — duplicate this Spec to your clipboard.&#10;Paste into Notes, Mail, Slack, or anywhere.&#10;&#10;Planguage glyph [*]=[*] reads &quot;vessel equals vessel&quot;:&#10;the Spec is duplicated, both copies are identical."
+            @click="autoCopyPlan()"
+          >
+            <CopyGlyph size="standard" />
+            <span>Copy</span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
+                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Email plan via Mail.app"
+            title="EMAIL — open your default mail client with the Spec ready to paste.&#10;The full Spec is auto-copied to your clipboard;&#10;paste it into the email body, then send.&#10;&#10;Planguage glyph [*]→@ reads &quot;vessel sent to address&quot;:&#10;the Spec is sent to a remote recipient at an @ address."
+            @click="emailPlan()"
+          >
+            <EmailGlyph size="standard" />
+            <span>Email</span>
+          </button>
         </div>
         <!-- ── Embedded Value Flow (Tom 2026-06-03) ────────────────────────────
              "WHAT IF, AT THIS STAGE (EVO JUST DONE) WE COULD ALSO DISPLAY THE
@@ -5376,9 +6658,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
              full-screen modal for deeper inspection. Uses _stepsForDiagram
              (same source as the modal) so confirmed-or-draft steps both show.
         -->
+        <!-- Tom 2026-06-03: "Enlarge the value flow map".  Container widened
+             max-w-5xl → max-w-7xl (+25% horizontal), inner switched to
+             fit-container mode with min-h-[640px] so the SVG scales to the
+             allotted box instead of rendering at its fixed pixel size.
+             Padding reduced p-4 → p-2 to reclaim diagram space at the edges.
+             The legend bar (hidden in fit-container mode) is acceptable to drop
+             on this embedded view because the full-screen "Expand ↗" still shows it. -->
         <div
           v-if="currentSpec"
-          class="w-full max-w-5xl mb-6 rounded-2xl border-2 border-indigo-200
+          class="w-full max-w-none mb-6 rounded-2xl border-2 border-indigo-200
                  bg-gradient-to-br from-white to-indigo-50/30 shadow-lg overflow-hidden"
         >
           <div class="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600">
@@ -5397,9 +6686,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
                      border border-white/30 rounded-lg px-3 py-1.5 transition-colors"
               title="Open the full-screen Value Flow diagram"
               @click="valueFlowOpen = true"
-            >Expand ↗</button>
+            >Enlarge The Value Flow Diagram ↗</button>
           </div>
-          <div class="p-4 bg-white">
+          <!-- Tom 2026-06-03: fit-container=true rendered blank because the
+               SVG h-full needed an explicit parent height to resolve, and
+               min-h-[640px] only sets a MINIMUM (flex child resolved to 0
+               natural height).  Reverted to natural SVG sizing in a wider
+               container so the diagram renders at its native pixel size.
+               If we want auto-fit again, the parent needs `h-[640px]` (fixed),
+               not min-h — a v2 follow-on. -->
+          <div class="p-3 bg-white overflow-x-auto">
             <ValueFlowDiagram
               :spec="currentSpec"
               :evo-steps="_stepsForDiagram"
@@ -5411,21 +6707,256 @@ function handleApertureLoadPlan(model: PlanModel): void {
           </div>
         </div>
 
+        <!-- ── V × Evo Step VDT (PRIMARY for this stage, 2026-06-03) ──────────
+             Tom 2026-06-03: "I expected want the VDT columns to be Evo Steps
+             (V × Step) instead of Solutions (V × S)? at that stage, just after Evo".
+             The Evo Step IS the unit of value delivery — V × Step is the canonical
+             Planguage Impact Table at this stage. The V × S editor below feeds
+             cell values via each step's linkedSolutions aggregation (v1 derives;
+             v2 will add direct per-step editing + costs). When _stepsForDiagram
+             is empty (no plan generated yet), the step view shows an empty-state
+             hint and the V × S editor below is the only impact table the user sees.
+        -->
+        <ImpactEstimationStepView
+          v-if="_stepsForDiagram.length > 0"
+          :values="currentSpec.values"
+          :steps="_stepsForDiagram"
+          :solutions="currentSpec.solutions"
+          :impact-matrix="capturedImpactMatrix"
+        />
+
+        <!-- ── V × Solution editor (SECONDARY here — feeds the V × Step view above)
+             Kept on this page so users can sharpen the underlying V × S estimates
+             and watch the V × Step aggregations update reactively above. -->
         <ImpactEstimationView
           ref="ietRef"
           :values="currentSpec.values"
           :solutions="currentSpec.solutions"
           :resource-claims="{}"
-          @matrix-updated="(matrix, efficiency, cal, cap) => { capturedImpactMatrix.value = matrix; capturedVCRatios.value = efficiency; capturedCalendarCosts.value = cal; capturedCapitalCosts.value = cap }"
+          @matrix-updated="(matrix, efficiency, cal, cap) => _onMatrixUpdated(matrix, efficiency, cal, cap)"
         />
-        <div class="w-full max-w-2xl mt-4 px-4">
+        <!-- Bottom mirror — Tom 2026-06-04 DD-014 (Top-and-Bottom Navigation
+             Mirror): top has Return + Value Flow + Copy + Email; bottom
+             mirrors with the LARGE current-stage pin + Return + Copy + Email
+             + forward action.  Tom 2026-06-04: "include the large pin with
+             current stage … at top" — the user finishes work at the bottom
+             and must still know what stage they are in without scrolling up.
+             Separated from body by `border-t pt-4 mt-8` so it reads as the
+             closing handshake of this work block. -->
+        <div class="w-full max-w-2xl mt-8 pt-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
+          <!-- LARGE current-stage pin (mirror of the one at top, lines ~5133-5179) -->
+          <div
+            v-if="currentStageInfo"
+            class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-3 select-none
+                   text-base font-bold text-white
+                   bg-gradient-to-r from-indigo-500 to-violet-500
+                   shadow-lg ring-2 ring-indigo-300/40"
+            :title="`Stage ${currentStageInfo.stage} · ${currentStageInfo.label} (current stage)`"
+            :aria-label="`Stage ${currentStageInfo.stage} · ${currentStageInfo.label}`"
+          >
+            <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
+                  aria-hidden="true">{{ currentStageInfo.stage }}</span>
+            <span class="shrink-0 inline-flex items-center justify-center bg-white rounded-lg p-1 shadow-sm">
+              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" :no-detail-click="true" />
+            </span>
+            <span class="flex flex-col items-start leading-tight">
+              <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-indigo-200">Stage Now</span>
+              <span class="text-base font-extrabold text-white">{{ currentStageInfo.label }}</span>
+            </span>
+          </div>
+          <!-- Tom 2026-06-04 — REMOVED the "Return to Evo Plan" backward
+               button.  Reason (Tom verbatim, same message that approved the
+               Plan Tasks removal): *"same with the return to evo plan, drop"*.
+               At Stage 10 (Resources) the Evo Plan is upstream by 4 stages;
+               a backward link here implies the user needs to revisit, which
+               contradicts the forward flow.  Stage bar at top remains the
+               navigation surface for jumping anywhere.  Permanent-surface
+               drop approved by Tom in chat. -->
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
+                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Copy plan to clipboard (bottom)"
+            title="COPY — duplicate this Spec to your clipboard.&#10;Paste into Notes, Mail, Slack, or anywhere.&#10;&#10;Planguage glyph [*]=[*] reads &quot;vessel equals vessel&quot;:&#10;the Spec is duplicated, both copies are identical."
+            @click="autoCopyPlan()"
+          >
+            <CopyGlyph size="standard" />
+            <span>Copy</span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
+                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Email plan via Mail.app (bottom)"
+            title="EMAIL — open your default mail client with the Spec ready to paste.&#10;The full Spec is auto-copied to your clipboard;&#10;paste it into the email body, then send.&#10;&#10;Planguage glyph [*]→@ reads &quot;vessel sent to address&quot;:&#10;the Spec is sent to a remote recipient at an @ address."
+            @click="emailPlan()"
+          >
+            <EmailGlyph size="standard" />
+            <span>Email</span>
+          </button>
+          <!-- Tom 2026-06-04 — REMOVED the "Plan Tasks →" forward button from
+               this bottom mirror.  Reason (Tom verbatim): *"it is not clear
+               why this is here at all, they should be done now, is it a sign
+               they are not here ? … I think we drop it, right"*.  At Stage 10
+               (Resources) Tasks are expected to be DONE, so a forward link to
+               Tasks here implies the opposite and confuses the flow. -->
+
+          <!-- Forward → Stage 11 Export.  Tom 2026-06-04 verbatim: *"But there
+               is no forward button to next export dtag"*.  Stage 11 IS the
+               natural next-stage after Resources (10), so a single forward
+               affordance leads cleanly into Export.  Pushed to far right
+               with `ml-auto` to read as "complete this stage and proceed". -->
+          <!-- Tom 2026-06-04 r83 — STAGE-AWARE forward button.  The stage===3
+               body renders for several planningStages (5 Refine routed via
+               STAGE_ACTION_MAP[5]='to-impact'; 7 Evo Impact; 10 Resources via
+               legacy routing — though planningStage===10 now has its own
+               template that takes precedence).  The previous hardcoded
+               "Next → Stage 11 · Export" was correct ONLY at Stage 10.  At
+               Stage 5 it should advance to Stage 6 Evo Steps, at Stage 7 to
+               Stage 8 Tasks, etc.  Now nextStageInfo drives both label and
+               click target: when nextStageInfo.stage===11 fire exportFull()
+               (the only stage with a side-effect, not a pure navigation);
+               otherwise handleStageBarNav(nextStageInfo.stage). -->
+          <button
+            v-if="currentSpec && nextStageInfo"
+            type="button"
+            class="ml-auto flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
+                   bg-gradient-to-r from-amber-500 to-orange-500 text-white
+                   font-bold text-sm shadow-md shadow-amber-200/70
+                   hover:from-amber-600 hover:to-orange-600 hover:shadow-lg
+                   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
+                   transition-all duration-200 active:scale-[0.98]"
+            :aria-label="`Next: Stage ${nextStageInfo.stage} · ${nextStageInfo.label}`"
+            :title="`Advance to Stage ${nextStageInfo.stage} · ${nextStageInfo.label} — ${nextStageInfo.title}`"
+            @click="nextStageInfo.stage === 11 ? exportFull() : handleStageBarNav(nextStageInfo.stage)"
+          >
+            <div class="text-right leading-tight">
+              <div class="text-[10px] font-normal opacity-85 uppercase tracking-wide">Next → Stage {{ nextStageInfo.stage }}</div>
+              <div class="font-extrabold leading-tight">{{ nextStageInfo.label }}</div>
+            </div>
+            <span class="text-xl leading-none" aria-hidden="true">→</span>
+          </button>
+        </div>
+      </template>
+
+      <!-- Planning-bar stage 9: Study-Act data collection.  Tom 2026-06-03 *"EVO STEP
+           DATA COLLECTION: Stage 9 study, act. There is nothing there, so lets put
+           something in place. A Frame for Evo Step Data Collection."*  This block wins
+           over the stage===4 Tasks view BECAUSE the planning bar's stage 9 sets
+           planningStage=9 while leaving internal stage at 4 (no internal slot exists
+           for Study-Act).  Order in the v-else-if chain matters — first match wins. -->
+      <template v-else-if="planningStage === 9 && currentSpec">
+        <div class="w-full max-w-2xl mb-4 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            class="w-full flex items-center justify-center min-h-[44px] rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            aria-label="Plan Tasks"
-            @click="goToTasksStage"
+            class="flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
+                   bg-gradient-to-r from-blue-500 to-violet-500 text-white
+                   font-semibold text-sm shadow-md shadow-blue-200/70
+                   hover:from-blue-600 hover:to-violet-600 hover:shadow-lg
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2
+                   transition-all duration-200 active:scale-[0.98]"
+            aria-label="Back to Stage 8 · Tasks"
+            @click="handleStageBarNav(8)"
           >
-            Plan Tasks <span aria-hidden="true">→</span>
+            <span class="text-xl leading-none" aria-hidden="true">←</span>
+            <div class="text-left">
+              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to Stage 8</div>
+              <div class="font-bold leading-tight">Tasks</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            class="flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
+                   bg-gradient-to-r from-amber-500 to-orange-500 text-white
+                   font-semibold text-sm shadow-md shadow-amber-200/70
+                   hover:from-amber-600 hover:to-orange-600 hover:shadow-lg
+                   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
+                   transition-all duration-200 active:scale-[0.98]"
+            aria-label="Next: Stage 10 · Resources"
+            @click="handleStageBarNav(10)"
+          >
+            <div class="text-right">
+              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Next → Stage 10</div>
+              <div class="font-bold leading-tight">Resources</div>
+            </div>
+            <span class="text-xl leading-none" aria-hidden="true">→</span>
+          </button>
+        </div>
+        <StudyActDataCollection
+          :spec="currentSpec"
+          :steps="_stepsForDiagram"
+          :plan-id="planModel?.name ?? 'default'"
+          @close="handleStageBarNav(8)"
+        />
+
+        <!-- Bottom-mirror of the top stage nav.  Tom 2026-06-04 Rule 12
+             (Top-and-Bottom Navigation Mirror, DD-014): when the user finishes
+             a long sequence of work they are at the bottom — they should not
+             have to scroll back up to find Return / Next.  Tom 2026-06-04
+             also: "include the large pin with current stage … at top" —
+             so the bottom mirror leads with the same big current-stage pin. -->
+        <div class="w-full max-w-2xl mt-8 pt-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
+          <!-- LARGE current-stage pin (mirror of top, lines ~5133-5179) -->
+          <div
+            v-if="currentStageInfo"
+            class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-3 select-none
+                   text-base font-bold text-white
+                   bg-gradient-to-r from-indigo-500 to-violet-500
+                   shadow-lg ring-2 ring-indigo-300/40"
+            :title="`Stage ${currentStageInfo.stage} · ${currentStageInfo.label} (current stage)`"
+            :aria-label="`Stage ${currentStageInfo.stage} · ${currentStageInfo.label}`"
+          >
+            <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
+                  aria-hidden="true">{{ currentStageInfo.stage }}</span>
+            <span class="shrink-0 inline-flex items-center justify-center bg-white rounded-lg p-1 shadow-sm">
+              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" :no-detail-click="true" />
+            </span>
+            <span class="flex flex-col items-start leading-tight">
+              <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-indigo-200">Stage Now</span>
+              <span class="text-base font-extrabold text-white">{{ currentStageInfo.label }}</span>
+            </span>
+          </div>
+          <button
+            type="button"
+            class="flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
+                   bg-gradient-to-r from-blue-500 to-violet-500 text-white
+                   font-semibold text-sm shadow-md shadow-blue-200/70
+                   hover:from-blue-600 hover:to-violet-600 hover:shadow-lg
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2
+                   transition-all duration-200 active:scale-[0.98]"
+            aria-label="Back to Stage 8 · Tasks"
+            @click="handleStageBarNav(8)"
+          >
+            <span class="text-xl leading-none" aria-hidden="true">←</span>
+            <div class="text-left">
+              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to Stage 8</div>
+              <div class="font-bold leading-tight">Tasks</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            class="flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
+                   bg-gradient-to-r from-amber-500 to-orange-500 text-white
+                   font-semibold text-sm shadow-md shadow-amber-200/70
+                   hover:from-amber-600 hover:to-orange-600 hover:shadow-lg
+                   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
+                   transition-all duration-200 active:scale-[0.98]"
+            aria-label="Next: Stage 10 · Resources"
+            @click="handleStageBarNav(10)"
+          >
+            <div class="text-right">
+              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Next → Stage 10</div>
+              <div class="font-bold leading-tight">Resources</div>
+            </div>
+            <span class="text-xl leading-none" aria-hidden="true">→</span>
           </button>
         </div>
       </template>
@@ -5441,12 +6972,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    hover:from-blue-600 hover:to-violet-600 hover:shadow-lg
                    focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2
                    transition-all duration-200 active:scale-[0.98]"
-            aria-label="Back to impact"
+            aria-label="Back to Stage 7 · Evo Impact (Impact Estimation)"
             @click="_closeAllOverlays(); stage = 3"
           >
             <span class="text-xl leading-none" aria-hidden="true">←</span>
             <div class="text-left">
-              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to</div>
+              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to Stage 7</div>
               <div class="font-bold leading-tight">Impact Estimation</div>
             </div>
           </button>
@@ -5483,16 +7014,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <button
             v-if="currentSpec && _stepsForDiagram.length > 0"
             type="button"
-            class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-white border border-slate-200 text-slate-700 text-sm font-medium
-                   hover:bg-slate-50 hover:border-slate-300
-                   focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-1
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
+                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
                    transition-all duration-150 shadow-sm"
             aria-label="Copy tasks to clipboard"
-            title="Copy tasks to clipboard as plain text"
+            title="COPY — duplicate this task plan to your clipboard.&#10;Paste into Notes, Mail, Slack, or anywhere.&#10;&#10;Planguage glyph [*]=[*] reads &quot;vessel equals vessel&quot;:&#10;the Spec is duplicated, both copies are identical."
             @click="autoCopyPlan()"
           >
-            <span aria-hidden="true">📋</span>
+            <CopyGlyph size="standard" />
             <span>Copy</span>
           </button>
 
@@ -5500,22 +7031,23 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <button
             v-if="currentSpec && _stepsForDiagram.length > 0"
             type="button"
-            class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-white border border-indigo-200 text-indigo-700 text-sm font-medium
-                   hover:bg-indigo-50 hover:border-indigo-300
-                   focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-1
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
+                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
                    transition-all duration-150 shadow-sm"
             aria-label="Email tasks via Mail.app"
-            title="Email this task plan — opens Mail.app with the plan pre-filled in the body"
+            title="EMAIL — open your default mail client with this task plan ready to paste.&#10;The full Spec is auto-copied to your clipboard;&#10;paste it into the email body, then send.&#10;&#10;Planguage glyph [*]→@ reads &quot;vessel sent to address&quot;:&#10;the Spec is sent to a remote recipient at an @ address."
             @click="emailPlan()"
           >
-            <span aria-hidden="true">✉️</span>
+            <EmailGlyph size="standard" />
             <span>Email</span>
           </button>
         </div>
-        <!-- _stepsForDiagram = confirmedSteps if confirmed, else plan.value.steps as fallback.
-             Prevents "No Evo steps available. Confirm a plan first." when a plan is generated
-             but the user hasn't clicked Confirm Plan in EvoPlanView (Tom 2026-05-29). -->
+        <!-- _stepsForDiagram = live plan steps (preferred), or confirmedSteps as legacy fallback.
+             Precedence reversed 2026-06-03 so re-generated plans appear without re-confirming
+             (Tom: "regenerated and got 3 steps, but the next step had only the previous 2").
+             Still prevents "No Evo steps available" before any plan generation (Tom 2026-05-29). -->
         <TaskList
           :steps="_stepsForDiagram"
           :spec="currentSpec"
@@ -5524,36 +7056,93 @@ function handleApertureLoadPlan(model: PlanModel): void {
         <div class="w-full max-w-2xl mt-4">
           <button
             type="button"
-            class="w-full flex items-center justify-center min-h-[44px] rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-            aria-label="Export Prioritised Plan"
+            class="w-full flex items-center justify-center gap-2 min-h-[52px] rounded-lg bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            aria-label="Next: Stage 11 · Export — Export Prioritised Plan"
+            title="Advance to Stage 11 · Export — share and publish the prioritised plan"
             @click="exportFull"
           >
-            Export Prioritised Plan <span aria-hidden="true">→</span>
+            <span class="text-[10px] font-semibold uppercase tracking-[0.15em] opacity-85">Next → Stage 11</span>
+            <span>· Export Prioritised Plan</span>
+            <span aria-hidden="true">→</span>
           </button>
         </div>
       </template>
 
-      <!-- Stage 5: Exported prioritised plan -->
+      <!-- Stage 5 / planningStage 11: Exported prioritised plan.
+           Tom 2026-06-04: *"at that last export step, we need at both top and
+           bottom copy email and download buttons, and then buttons for stop
+           and save, or go back to any stage (click on stage button) or list
+           those buttons at bottom (what is best??)"*.
+           Tom-approved design A: TOP + BOTTOM mirrors with Copy / Email /
+           Download / Save, plus a small "↑ Click any stage above to revisit"
+           hint at the bottom pointing back to the always-visible stage bar
+           (which IS the canonical "go to any stage" surface — MOVE-compliant,
+           always visible in the sticky header). No 11-button row at the
+           bottom — that would duplicate the stage bar and add clutter. -->
       <template v-else-if="stage === 5 && currentSpec">
-        <div class="w-full max-w-3xl mb-4">
+        <!-- ── TOP action bar — Copy + Email + Download + Save ──────────── -->
+        <div class="w-full max-w-3xl mb-4 flex flex-wrap items-center gap-3">
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
+                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Copy Spec to clipboard"
+            title="COPY — duplicate this Spec to your clipboard.&#10;Paste into Notes, Mail, Keynote, anywhere.&#10;&#10;Planguage glyph [*]=[*] reads &quot;vessel equals vessel&quot;."
+            @click="autoCopyPlan()"
+          >
+            <CopyGlyph size="standard" />
+            <span>Copy</span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
+                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Email Spec via default mail client"
+            title="EMAIL — open your default mail client with the colourful Spec ready to paste.&#10;Press ⌘V in the body to paste, then Send."
+            @click="emailPlan()"
+          >
+            <EmailGlyph size="standard" />
+            <span>Email</span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-violet-50 border-2 border-violet-400 text-violet-700 text-sm font-semibold
+                   hover:bg-violet-100 hover:border-violet-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Download Spec as a text file"
+            title="DOWNLOAD — save the Spec as a .txt file to your Downloads folder."
+            @click="downloadPlan()"
+          >
+            <GetGlyph size="standard" />
+            <span>Download</span>
+          </button>
           <button
             type="button"
-            class="flex items-center gap-3 px-5 py-3 rounded-2xl min-h-[52px]
-                   bg-gradient-to-r from-emerald-500 to-teal-500 text-white
-                   font-semibold text-sm shadow-md shadow-emerald-200/70
-                   hover:from-emerald-600 hover:to-teal-600 hover:shadow-lg
-                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2
-                   transition-all duration-200 active:scale-[0.98]"
-            aria-label="Back to task decomposition"
-            @click="_closeAllOverlays(); stage = 4"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-slate-50 border-2 border-slate-400 text-slate-700 text-sm font-semibold
+                   hover:bg-slate-100 hover:border-slate-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Save Spec now (snapshot to local storage)"
+            title="SAVE — snapshot the current Spec now.&#10;Planguage glyph *→[*] reads &quot;asterisk to vessel&quot;: content stored."
+            @click="_saveNow(); currentSpec && planModel && savePlanSnapshot(currentSpec); showToast('💾 Spec saved', 3000)"
           >
-            <span class="text-xl leading-none" aria-hidden="true">←</span>
-            <div class="text-left">
-              <div class="text-[10px] font-normal opacity-75 uppercase tracking-wide">Return to</div>
-              <div class="font-bold leading-tight">Task Decomposition</div>
-            </div>
+            <SaveGlyph size="standard" />
+            <span>Save</span>
           </button>
         </div>
+
         <PrioritisedPlanView
           :spec="currentSpec"
           :original-input="originalInput"
@@ -5580,6 +7169,100 @@ function handleApertureLoadPlan(model: PlanModel): void {
           @go-to-tasks="stage = 4"
           @open-model-dashboard="modelDashboardOpen = true"
         />
+
+        <!-- ── BOTTOM MIRROR — Tom 2026-06-04 DD-014 + MOVE: Copy / Email /
+             Download / Save mirrored here so user reaching end-of-export
+             never has to scroll back up.  LARGE current-stage pin leads
+             (Stage Now · 11 · Export) so user knows they're at Export.
+             Small "↑ Click any stage above to revisit" hint points to the
+             always-visible stage bar (the canonical "go anywhere" surface).
+             Tom's question answered: option A wins — don't duplicate the
+             11 stage buttons here; the stage bar IS the revisit surface. -->
+        <div class="w-full max-w-3xl mt-8 pt-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
+          <div
+            v-if="currentStageInfo"
+            class="inline-flex items-center gap-3 rounded-2xl pl-3 pr-5 py-3 select-none
+                   text-base font-bold text-white
+                   bg-gradient-to-r from-emerald-500 to-teal-500
+                   shadow-lg ring-2 ring-emerald-300/40"
+            :title="`Stage ${currentStageInfo.stage} · ${currentStageInfo.label} (current stage)`"
+            :aria-label="`Stage ${currentStageInfo.stage} · ${currentStageInfo.label}`"
+          >
+            <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
+                  aria-hidden="true">{{ currentStageInfo.stage }}</span>
+            <span class="shrink-0 inline-flex items-center justify-center bg-white rounded-lg p-1 shadow-sm">
+              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" :no-detail-click="true" />
+            </span>
+            <span class="flex flex-col items-start leading-tight">
+              <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">Stage Now</span>
+              <span class="text-base font-extrabold text-white">{{ currentStageInfo.label }}</span>
+            </span>
+          </div>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
+                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Copy Spec to clipboard (bottom)"
+            title="COPY — duplicate this Spec to your clipboard.&#10;Paste into Notes, Mail, Keynote, anywhere."
+            @click="autoCopyPlan()"
+          >
+            <CopyGlyph size="standard" />
+            <span>Copy</span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
+                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Email Spec via default mail client (bottom)"
+            title="EMAIL — open your default mail client with the colourful Spec ready to paste."
+            @click="emailPlan()"
+          >
+            <EmailGlyph size="standard" />
+            <span>Email</span>
+          </button>
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-violet-50 border-2 border-violet-400 text-violet-700 text-sm font-semibold
+                   hover:bg-violet-100 hover:border-violet-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Download Spec as a text file (bottom)"
+            title="DOWNLOAD — save the Spec as a .txt file to your Downloads folder."
+            @click="downloadPlan()"
+          >
+            <GetGlyph size="standard" />
+            <span>Download</span>
+          </button>
+          <button
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   bg-slate-50 border-2 border-slate-400 text-slate-700 text-sm font-semibold
+                   hover:bg-slate-100 hover:border-slate-500 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            aria-label="Save Spec now (bottom)"
+            title="SAVE — snapshot the current Spec now."
+            @click="_saveNow(); currentSpec && planModel && savePlanSnapshot(currentSpec); showToast('💾 Spec saved', 3000)"
+          >
+            <SaveGlyph size="standard" />
+            <span>Save</span>
+          </button>
+          <div class="basis-full"></div>
+          <div class="text-[11px] text-slate-500 italic flex items-center gap-1">
+            <span aria-hidden="true">↑</span>
+            Click any stage in the bar above to revisit it — the stage bar is your "go anywhere" surface.
+          </div>
+        </div>
       </template>
     </template>
 
@@ -5659,7 +7342,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
            planModel exists. Buttons row is v-if="!planModel" to prevent
            duplication (they're already in the Plan Crest bar when plan loaded). -->
       <div
-        v-if="view === 'app' && (!planModel || menuOpen || renamePopoverOpen) && !comparisonOpen && !planInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
+        v-if="view === 'app' && (!planModel || menuOpen || renamePopoverOpen) && !comparisonOpen && !specInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
         :class="['fixed z-[9999] flex flex-col items-end gap-2', planModel ? 'top-10 right-4' : 'top-4 right-4']"
       >
 
@@ -5850,12 +7533,26 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <!-- Header -->
           <div class="flex items-center justify-between px-4 border-b border-gray-100 min-h-[56px]">
             <h2 class="text-sm font-semibold text-gray-900">Version History</h2>
-            <!-- Universal Close-Button Rule: <CloseDot> on the right (2026-05-12) -->
-            <CloseDot aria-label="Close History" @click="historyOpen = false" />
+            <!-- Universal Close-Button Rule: <CloseDot> on the right.
+                 Tom 2026-06-03 reported "no close button on stewards" — looking
+                 at the Version History panel.  CloseDot was present but the
+                 default 20px md size was too small for Tom to spot at a glance.
+                 Bumped to size="lg" (32px) — Tom's standing directive 2026-05-12
+                 "I would not mind if close button were larger and redder" applied
+                 to this surface too.  Backdrop click-outside still works (line
+                 ~6029 in App.vue). -->
+            <CloseDot
+              size="lg"
+              aria-label="Close Version History"
+              title="Close Version History  [->"
+              @click="historyOpen = false"
+            />
           </div>
           <!-- Body -->
           <div class="flex-1 overflow-hidden">
             <SpecHistory
+              :current-plan-owners="planModel?.owners?.map(o => o.name) ?? []"
+              :current-plan-name="planModel?.name ?? ''"
               @restore="onHistoryRestore"
               @open-save-glyph-history="saveGlyphHistoryOpen = true"
               @load-plan="(model) => { handleRestoreModel(model); historyOpen = false }"
@@ -5895,6 +7592,20 @@ function handleApertureLoadPlan(model: PlanModel): void {
     <OnboardingTour
       v-if="tourOpen"
       @close="tourOpen = false"
+    />
+
+    <!-- Stage 10 · Resources Sharpening — opens from the case-10 stage-action pin,
+         or auto-opens when the user navigates to planningStage 10.  Tom 2026-06-04
+         Phase 0 of Resources stage beef-up.  Gilb-cited 9-dimension guide;
+         no schema changes yet — Phase 1 adds R. entry persistence after Tom OK. -->
+    <ResourcesSharpenPanel
+      :open="resourcesSharpenOpen"
+      :spec="currentSpec"
+      :captured-calendar-costs="capturedCalendarCosts"
+      :captured-capital-costs="capturedCapitalCosts"
+      :captured-v-c-ratios="capturedVCRatios"
+      @close="resourcesSharpenOpen = false"
+      @apply-analysis="_onResourcesAnalysisApplied"
     />
 
     <!-- Sharpening Cycles modal — triggered from nav "Sharpen ▾" when spec exists -->
@@ -5939,16 +7650,92 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :on-close="() => heatLaneOpen = false"
     />
 
-    <!-- Evo Step 11: Evo Simulator — animated delivery timeline + cumulative value chart -->
-    <!-- _stepsForDiagram = confirmedSteps if confirmed, else plan.value.steps as fallback.
-         Prevents "No Evo steps available" when a plan exists but hasn't been formally confirmed
-         via the Confirm Plan button (Tom 2026-05-29). -->
-    <EvoSimulatorView
-      v-if="evoSimulatorOpen"
+    <!-- Evo Simulator — Tom 2026-06-03: *"evo simulator dead, remove it fro
+         here, it is now in the evo tools"*.  The component was rendering
+         INLINE on the page (just a `<div>` with `h-full bg-white`) — it
+         appeared as a tall purple block stuck below the Stage 7 V × Step VDT.
+         Now wrapped in a proper Teleported modal: fixed full-screen overlay
+         + backdrop click-outside + bounded panel.  Only opens when toggled
+         from the Evo Tools catalogue (or any other emit-open-evo-simulator
+         caller).  Same z-index pattern as the other Teleported modals. -->
+    <Teleport to="body">
+      <div
+        v-if="evoSimulatorOpen"
+        class="fixed inset-0 z-[500] bg-slate-900/70 flex items-stretch justify-center p-4 sm:p-8"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Evo Simulator"
+        @click.self="evoSimulatorOpen = false"
+      >
+        <div class="w-full max-w-5xl rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col">
+          <EvoSimulatorView
+            :steps="_stepsForDiagram"
+            :vc-ratios="capturedVCRatios"
+            :cycle-length="planModel?.evoCycleLength ?? 'week'"
+            @close="evoSimulatorOpen = false"
+          />
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Evo Tools catalogue (Tom 2026-06-03 marker) — full-screen modal listing
+         all Evo-specialised tools, organised by category, with status badges.
+         Click a 'ready' tile → dispatched via onEvoToolActivated → opens the
+         tool's existing surface.  Data registry lives in src/data/evoTools.ts. -->
+    <EvoToolsPanel
+      v-if="evoToolsOpen"
+      @close="evoToolsOpen = false"
+      @tool-activated="onEvoToolActivated"
+    />
+
+    <!-- Sharpen Next Step (Evo Sharp Interview) — Tom 2026-06-03 first detailed
+         Evo Tool.  12-category structured interview (Tom's 8 + 4 PROPOSED) that
+         crystallises the next Evo Step before commit.  Persists per (plan, step)
+         via localStorage.  Data: src/data/evoSharpInterview.ts. -->
+    <EvoSharpInterview
+      v-if="evoSharpOpen"
       :steps="_stepsForDiagram"
-      :vc-ratios="capturedVCRatios"
-      :cycle-length="planModel?.evoCycleLength ?? 'week'"
-      @close="evoSimulatorOpen = false"
+      :plan-id="planModel?.name ?? 'default'"
+      @close="evoSharpOpen = false"
+    />
+
+    <!-- Evo Step Improvement — Tom 2026-06-03 second detailed Evo Tool.
+         The Evo Planner proposes a crazy first shot, critiques it, offers 1–5
+         better ideas, plus a Skunkworks section of Daring and Wild Evo Ideas
+         (2×–10× daring shots at higher risk and cost).
+         File-read pattern (per Claude-Code-as-AI-Layer rule): no in-app API call.
+         Ideas come from Claudian (clipboard prompt → JSON paste-back) or from a
+         mock seed for first-look demo.  Data: src/data/evoStepImprovement.ts. -->
+    <EvoStepImprovement
+      v-if="evoStepImprovementOpen"
+      :steps="_stepsForDiagram"
+      :plan-id="planModel?.name ?? 'default'"
+      @close="evoStepImprovementOpen = false"
+    />
+
+    <!-- FEED ME! — Tom 2026-06-03 third detailed Evo Tool.
+         Audrey II nod (Little Shop of Horrors).  Feedback + Learning agent
+         covering 3 sources (Feedback Base / Evo Base / Last Step in Paris)
+         + tough questions to DEV with AI-suggested answers + recommended
+         actions with REQUIRED audit trail (Source + Reason at the type level).
+         File-read pattern (no in-app AI).  Data: src/data/feedMe.ts. -->
+    <FeedMePanel
+      v-if="feedMeOpen"
+      :steps="_stepsForDiagram"
+      :plan-id="planModel?.name ?? 'default'"
+      @close="feedMeOpen = false"
+    />
+
+    <!-- SEM Settings Panel — Tom 2026-06-03 long-requested.
+         Mode (Ultra Light / Pro SEM, default Pro SEM) + AI Max level
+         (default Maximum) + Privacy/Telemetry (default None) + Evo defaults
+         + Visualisation + Workflow + Export + Collaboration + Diagnostics.
+         v1: panel UI + persistence work.  Component consumption of individual
+         settings ships incrementally — each setting gets the "live" badge when
+         its consumer is wired.  Data: src/data/settings.ts. -->
+    <SettingsPanel
+      v-if="settingsOpen"
+      @close="settingsOpen = false"
     />
 
     <!-- Evo Step 12: Stakeholder Conflict Detector — surfaces hidden stakeholder tensions -->
@@ -5992,14 +7779,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
     <!-- Get A Plan — unified import / history / merge panel -->
     <GetAPlanPanel
-      v-if="planInputOpen"
+      v-if="specInputOpen"
       :has-current-plan="!!currentSpec"
       @imported="handlePlanImported"
       @imported-and-sharpen="handlePlanImportedAndSharpen"
       @add-to="handlePlanAddTo"
       @load-model="handleGetAPlanLoadModel"
       @restore-version="handleGetAPlanRestoreVersion"
-      @close="planInputOpen = false"
+      @close="specInputOpen = false"
     />
 
     <!-- Evo Step 10: In-app confidence survey (2S.V.PlannerConfidence / 2S.V.PlannerPlanningTrust) -->
@@ -6011,10 +7798,36 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @dismiss="survey.dismissSurvey"
     />
 
+    <!-- Global toast — Tom 2026-06-04 fix: showToast() updates a module-level
+         singleton, but the only renderer used to live INSIDE EvoPlanView.
+         That meant toasts fired from Stage 10 / Stage 3 / any view where
+         EvoPlanView was NOT mounted were invisible — Tom rightly perceived
+         "Copy dead / Email dead" because the action ran but no feedback
+         appeared.  Mounting the renderer here at App.vue root guarantees
+         every showToast() call is visible on every surface. -->
+    <Transition name="global-toast">
+      <div
+        v-if="globalToast"
+        :key="globalToast.id"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] rounded-full bg-slate-800 text-white text-sm font-medium px-5 py-3 shadow-2xl pointer-events-none select-none max-w-[90vw] text-center"
+        aria-live="polite"
+      >{{ globalToast.message }}</div>
+    </Transition>
+
   </div>
 </template>
 
 <style>
+/* Global toast slide-up animation (Tom 2026-06-04 fix — toast renderer moved
+   to App.vue root so every stage shows feedback). */
+.global-toast-enter-active { animation: global-toast-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.global-toast-leave-active { transition: opacity 180ms ease, transform 180ms ease; }
+.global-toast-leave-to     { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+@keyframes global-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(14px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* Plan Crest hero-title shimmer — slow gold sweep across the gradient.
    Tom 2026-05-12 asked for "large long color, drama attention" on the
    plan name. The gradient is amber-300 → yellow-100 → white → amber-300

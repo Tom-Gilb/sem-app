@@ -381,10 +381,12 @@ export function useSDK() {
 
       const response = await client.beta.messages.create({
         model: MODEL_ID,
-        // 4096 tokens comfortably fits a spec with 5 F + 5 V + 5 S entries
-        // (typical detailed output ≈ 2 000–3 500 tokens).
-        // Sonnet's hard ceiling is 8 192 output tokens.
-        max_tokens: 8192,
+        // claude-sonnet-4-6 supports up to 64 000 output tokens.
+        // Raised from 8 192 → 16 384 (2026-06-05): the SYSTEM_PROMPT mandates
+        // 2–4 sentence descriptions per entry + ≥1 V per stakeholder concern;
+        // a complex multi-stakeholder spec with 5+ entries was hitting the old
+        // ceiling and returning a truncated/unparseable JSON response.
+        max_tokens: 16384,
         system: [systemBlock],
         messages: [{ role: 'user', content: userContent }],
         betas: ['prompt-caching-2024-07-31'],
@@ -487,7 +489,7 @@ export function useSDK() {
       let fullText = ''
       const stream = client.beta.messages.stream({
         model: MODEL_ID,
-        max_tokens: 8192,
+        max_tokens: 16384,  // raised from 8192 — 2026-06-05, matches translate() ceiling
         system: [systemBlock],
         messages: [{ role: 'user', content: userContent }],
         betas: ['prompt-caching-2024-07-31'],

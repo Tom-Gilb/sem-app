@@ -14,8 +14,8 @@ import {
   addSpecOwner,
   updateSpecOwner,
   removeSpecOwner,
-} from '../composables/usePlanModel'
-import type { PlanModel, SpecOwner } from '../composables/usePlanModel'
+} from '../composables/useSpecModel'
+import type { PlanModel, SpecOwner } from '../composables/useSpecModel'
 
 const props = defineProps<{
   planModel: PlanModel

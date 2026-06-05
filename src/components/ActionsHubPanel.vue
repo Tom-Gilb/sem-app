@@ -104,7 +104,7 @@ const allSections = computed<SectionDef[]>(() => [
     key: 'analyze', label: 'ANALYZE', emoji: '📊',
     blurb: 'Rank priorities against values and constraints. Set delivery targets. Review Evo plan health.',
     tiles: [
-      { id: 'planTargets',      label: 'Plan Targets',    emoji: '🎯', thumb: 'planTargets',   tip: 'Set delivery targets and milestones' },
+      { id: 'planTargets',      label: 'Spec Targets',    emoji: '🎯', thumb: 'planTargets',   tip: 'Set delivery targets and milestones' },
       { id: 'globalPriority',   label: 'Global Priority', emoji: '🏆', thumb: 'priorityGlyph', tip: 'Full plan priority ranking: [A>B>C] across all entries', disabled: !props.hasSpec },
       {
         id: 'evo-step-critique', label: 'Evo Critiquer',  emoji: '🔬', thumb: 'emoji',
@@ -156,7 +156,7 @@ const allSections = computed<SectionDef[]>(() => [
     tiles: [
       { id: 'resumeLast',   label: 'Resume Last',       emoji: '▶',  thumb: 'resumeLast',   tip: 'Reopen the most recently used plan model',             disabled: !props.hasMultipleModels },
       { id: 'previousPlan', label: 'Previous Plan',     emoji: '📋', thumb: 'previousPlan', tip: 'Load an earlier plan model as a starting point',       disabled: !props.hasMultipleModels },
-      { id: 'planHistory',  label: 'Plan History',      emoji: '🕐', thumb: 'planHistory',  tip: 'Version history of the current plan' },
+      { id: 'planHistory',  label: 'Spec History',      emoji: '🕐', thumb: 'planHistory',  tip: 'Version history of the current spec' },
       { id: 'specHistory',  label: 'Spec History',      emoji: '📖', thumb: 'specHistory',  tip: 'All snapshots across all spec evolution sessions' },
     ],
   },
@@ -184,7 +184,7 @@ const allSections = computed<SectionDef[]>(() => [
     key: 'people', label: 'PEOPLE', emoji: '👥',
     blurb: 'Assign roles, governance and accountability across the plan.',
     tiles: [
-      { id: 'planOwners', label: 'Plan Owners', emoji: '🔑', thumb: 'planOwners', tip: 'Accountable stakeholders for this plan',         disabled: !props.hasPlan },
+      { id: 'planOwners', label: 'Spec Owners', emoji: '🔑', thumb: 'planOwners', tip: 'Accountable stakeholders for this spec',         disabled: !props.hasPlan },
       { id: 'planners',   label: 'Planners',    emoji: '💡', thumb: 'planners',   tip: 'Planners who conceive the plan ideas',           disabled: !props.hasPlan },
       { id: 'scribes',    label: 'Scribes',     emoji: '⌨️', thumb: 'scribes',    tip: 'Scribes who do the keying (Mob Planning style)', disabled: !props.hasPlan },
       { id: 'specOwners', label: 'Spec Owners', emoji: '👥', thumb: 'specOwners', tip: 'Area-specific spec accountability & governance', disabled: !props.hasPlan },

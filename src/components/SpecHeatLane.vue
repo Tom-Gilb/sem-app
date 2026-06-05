@@ -14,7 +14,7 @@
      Previous design (rows = lanes, columns = evo steps) replaced with:
        — Horizontal scroll of Evo Step Boards (one card per step)
        — Each board contains vertically-stacked spec-type Clusters:
-           ⚡ Tasks → 🔩 Solutions → 📈 Values → ⚙️ Functions → 👤¶ Stakeholders
+           ⚡ Tasks → 🔩 Solutions → 📈 Values → ⚙️ Functions → § Stakeholders
        — Suggested tasks (effortHours & assignee null) shown with ◌ badge + dashed border
        — Step header: indigo/violet gradient, step name, description, effort%
 -->
@@ -49,7 +49,11 @@ const CLUSTER_DEFS = [
   { key: 'solutions',    icon: '🔩',   label: 'Solutions',    bg: '#fff7ed', border: '#fdba74', hdr: '#ea580c', badge: '#ea580c', text: '#9a3412', accent: '#fb923c' },
   { key: 'values',       icon: '📈',   label: 'Values',       bg: '#f5f3ff', border: '#c4b5fd', hdr: '#7c3aed', badge: '#7c3aed', text: '#5b21b6', accent: '#a78bfa' },
   { key: 'functions',    icon: '⚙️',  label: 'Functions',    bg: '#f0fdf4', border: '#86efac', hdr: '#16a34a', badge: '#16a34a', text: '#166534', accent: '#4ade80' },
-  { key: 'stakeholders', icon: '👤¶', label: 'Stakeholders', bg: '#eff6ff', border: '#93c5fd', hdr: '#2563eb', badge: '#2563eb', text: '#1e40af', accent: '#60a5fa' },
+  // Tom 2026-06-04: stakeholder icon changed '👤¶' → '§' per the new
+  // International-Icons rule (DD-015).  § stands for legal paragraph (composes
+  // with the inanimate-stakeholders rule — GDPR etc.), contains an S, resembles
+  // a person visually, single keyboard character.
+  { key: 'stakeholders', icon: '§', label: 'Stakeholders', bg: '#eff6ff', border: '#93c5fd', hdr: '#2563eb', badge: '#2563eb', text: '#1e40af', accent: '#60a5fa' },
 ] as const
 
 // ── Global stakeholders from full spec text (top 3) ───────────────────────────
@@ -404,10 +408,11 @@ async function copyTable(): Promise<void> {
             </div>
           </div>
 
-          <!-- 👤¶ Stakeholders cluster ──────────────────────────── -->
+          <!-- § Stakeholders cluster ──────────────────────────── -->
           <div class="rounded-xl border overflow-hidden" style="border-color: #fcd34d; background: #fffbeb">
             <div class="flex items-center gap-1 px-2 py-1.5 border-b" style="border-color: #fcd34d">
-              <span class="text-[11px]" aria-hidden="true">👤¶</span>
+              <!-- § enlarged 2026-06-04 Tom: text-[11px] → text-lg + font-bold for proper presence. -->
+              <span class="text-lg font-bold leading-none" aria-hidden="true">§</span>
               <span class="text-[9px] font-bold flex-1" style="color: #b45309">Stakeholders</span>
               <span class="text-[8px]" style="color: #f59e0b">top 3</span>
             </div>

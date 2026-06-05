@@ -14,11 +14,11 @@
 import { ref, computed } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
-import { usePlanImporter } from '../composables/usePlanImporter'
+import { useSpecImporter } from '../composables/useSpecImporter'
 import { useModelLibrary } from '../composables/useModelLibrary'
 import { useContractStore } from '../composables/useContractStore'
 import { mariaHistory, lastMariaResult } from '../lib/maria/mariaResultStore'
-import type { ImportedPlan, PlanVersion } from '../composables/usePlanImporter'
+import type { ImportedPlan, PlanVersion } from '../composables/useSpecImporter'
 import type { MariaHistoryRecord } from '../lib/maria/mariaResultStore'
 import type { MariaResult } from '../types/maria'
 
@@ -34,7 +34,7 @@ const emit = defineEmits<{
 
 // ── Data sources ──────────────────────────────────────────────────────────────
 
-const { plans, selectPlan, setCurrentVersion } = usePlanImporter()
+const { plans, selectPlan, setCurrentVersion } = useSpecImporter()
 const { allEntries: allModels, restoreModelVersion } = useModelLibrary()
 const { contracts, setCurrentContract } = useContractStore()
 

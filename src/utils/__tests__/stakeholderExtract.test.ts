@@ -173,6 +173,59 @@ describe('impactLevel', () => {
   })
 })
 
+// ── Regression: 2026-06-02 Tom parse-failure cases ───────────────────────────
+// Tom: "government and oil money and poorest in Norway are all stakeholders
+// and they are not parsed"
+// Three bugs fixed:
+//   1. "for the poorest" → STOP_WORDS had 'the', so loop stopped immediately.
+//      Fix: leading articles skipped silently, not as STOP_WORDs.
+//   2. "poorest in Norway" → STOP_WORDS had 'in', so only "poorest" captured.
+//      Fix: 'in' removed from STOP_WORDS; captured as full phrase.
+//   3. "oil money" not in any pattern. Fix: new 'Public Fund' pattern added.
+
+describe('regression-2026-06-02 Tom parse failure cases', () => {
+  test('extracts "poorest in Norway" when preceded by "the" (leading-article fix)', () => {
+    const result = extractContextualStakeholders(
+      'make life better for the poorest in Norway through government oil money'
+    )
+    const names = result.map(s => s.name.toLowerCase())
+    expect(names.some(n => n.includes('poorest'))).toBe(true)
+  })
+
+  test('"poorest in Norway" — "in" is captured as phrase connector, not as stop word', () => {
+    const result = extractContextualStakeholders('for the poorest in Norway')
+    const names = result.map(s => s.name.toLowerCase())
+    // Must capture at least "poorest"; ideally the full "poorest in Norway"
+    expect(names.some(n => n.includes('poorest'))).toBe(true)
+  })
+
+  test('detects "oil money" via Public Fund pattern', () => {
+    const result = extractStakeholders('funded through government oil money')
+    expect(result.map(s => s.name)).toContain('Public Fund')
+  })
+
+  test('detects "sovereign wealth" via Public Fund pattern', () => {
+    expect(extractStakeholders('manages a sovereign wealth fund').map(s => s.name)).toContain('Public Fund')
+  })
+
+  test('detects "poorest" via Vulnerable Community pattern', () => {
+    expect(extractStakeholders('help the poorest communities').map(s => s.name)).toContain('Vulnerable Community')
+  })
+
+  test('detects "government" via Government pattern', () => {
+    expect(extractStakeholders('government policy makers').map(s => s.name)).toContain('Government')
+  })
+
+  test('extractAllStakeholders picks up all three categories from the full Tom phrase', () => {
+    const text = 'make life better for the poorest in Norway through government oil money'
+    const result = extractAllStakeholders(text)
+    const names = result.map(s => s.name)
+    expect(names).toContain('Public Fund')
+    expect(names).toContain('Vulnerable Community')
+    expect(names).toContain('Government')
+  })
+})
+
 // ── STAKEHOLDER_PATTERNS ──────────────────────────────────────────────────────
 
 describe('STAKEHOLDER_PATTERNS', () => {

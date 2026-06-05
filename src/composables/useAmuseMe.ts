@@ -11,6 +11,7 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
 import type { SpecBlock } from '../types/spec'
+import { PLANNING_STAGES } from '../data/planningStages'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,21 +172,37 @@ export function pictureUrl(keyword: string, seed?: number): string {
   return `https://loremflickr.com/800/500/${keyword}?random=${s}`
 }
 
-// ─── Planning stage names (9-step Evo cycle, Tom Gilb canonical) ──────────────
-
-const STAGE_NAMES: Record<number, string> = {
-  1: 'Stakeholders — who benefits and who pays',
-  2: 'Values — what outcomes matter and how to measure them',
-  3: 'Solutions — what capabilities deliver those values',
-  4: 'Decompose — break solutions into workable pieces',
-  5: 'Prioritize — rank by value delivered within all constraints',
-  6: 'Develop — build the prioritized solution increments',
-  7: 'Deliver — deploy increments to real stakeholders',
-  8: 'Measure — collect actual Value entry Status data',
-  9: 'Learn — interpret data and update the spec',
-  10: 'Review — share results and validate with stakeholders',
-  11: 'Export — share the plan externally',
-}
+// ─── Planning stage names — derived from canonical PLANNING_STAGES ────────────
+// Tom Gilb 2026-06-04 verbatim BUG: *"i was at generate and the amuse me says
+// step 7 is next clearly wrong"*.  Root cause: this map had Deming/PDSA-style
+// stage names (Develop, Deliver, Measure, Learn, Review) that don't match the
+// SEM App's canonical 11-stage cycle defined in `src/data/planningStages.ts`.
+// "Stage 6: Develop" / "Stage 7: Deliver" was wrong on BOTH counts: (a) the
+// names are not the canonical SEM labels (Evo Steps / Evo Impact), and (b) the
+// text claimed the user was AT Stage 6 when generating a fresh spec from the
+// Stage 1 entry form.  Both issues now fixed — names come from the canonical
+// data file (single source of truth shared with the planning bar), and the
+// "currently at" line is rendered by `nextStepText(planningStage)` using
+// whatever `planningStage` the caller actually passes in.
+//
+// Format kept as "Label — short description" so the existing "What Happens
+// Next" copy reads naturally.  Description text drawn from PLANNING_STAGES'
+// `title` field (full hover-tooltip explanation) trimmed to the leading
+// dash-separated clause for brevity.
+const STAGE_NAMES: Record<number, string> = (() => {
+  const m: Record<number, string> = {}
+  for (const s of PLANNING_STAGES) {
+    // Each PLANNING_STAGES.title has format "Stage N · Label — short blurb. Longer detail."
+    // Strip the "Stage N · Label — " prefix and the trailing period after the first sentence.
+    const blurb = s.title
+      .replace(/^Stage \d+ · [^—]+—\s*/i, '')   // drop "Stage 6 · Evo Steps — "
+      .split(/\.\s/)[0]                            // first sentence only
+      .replace(/\.$/, '')                          // trim trailing dot
+      .trim()
+    m[s.stage] = `${s.label} — ${blurb}`
+  }
+  return m
+})()
 
 // ─── Pure content helpers ─────────────────────────────────────────────────────
 

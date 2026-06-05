@@ -209,12 +209,86 @@ export interface CEntry {
 }
 
 /**
- * A complete spec block containing all F., V., S., and C. entries.
+ * A single Resource (R.) entry in a Planguage spec block.
+ *
+ * Resources are the budgets and consumables a plan must respect — calendar
+ * time, work hours, capital, scarce specialists, technical debt, etc.
+ *
+ * Phase 1 of the Resources stage beef-up (Tom Gilb, 2026-06-04):
+ * canonical Planguage R. entry shape, modelled on V./F./S./C. siblings.
+ *
+ * Canonical source: `10.Standard/Standard.Kai-Zen/Template_Write_Resource.md`
+ * + Gilb, Competitive Engineering (2005), Resource specification chapter.
+ *
+ * Examples:
+ *   R.CalendarBudget : Scale = days from project start; Tolerable = 180; Goal = 120
+ *   R.WorkHours.Backend : Scale = engineer-hours; Tolerable = 1200; Goal = 800
+ *   R.Specialist.NavalArchitect : Scale = qualified architects available;
+ *                                  Tolerable = 1; Goal = 2 (no-SPOF)
+ */
+export interface REntry {
+  /** Unique identifier, e.g. "R.CalendarBudget", "R.WorkHours.Backend" */
+  id: string
+  /** Always "Resource" */
+  type: string
+  /** One of: Business, Stakeholder, Product, Solution, Evo, To-Do */
+  level: string
+  /** Plain-language description of the resource being budgeted */
+  description: string
+  /**
+   * What is being measured and its unit.  Recommended: include Scale
+   * Qualifiers [Who, Where, What, How] per CE Scale Qualifier chapter.
+   * Example: "engineer-hours/year [Role = Chief Engineer, Where = port maintenance]".
+   */
+  scale: string
+  /** How measurement is performed — Meter design discipline. */
+  meter: string
+  /** Current measured / projected state: "Status [date, condition] value" */
+  status: string
+  /** Tolerable consumption limit: "Tolerable [date, condition] value" */
+  tolerable: string
+  /** Goal / Budget: "Goal [date, condition] value" — the planning target */
+  goal: string
+  /**
+   * Wish — pre-design stakeholder aspiration before resource constraints
+   * are confirmed (mirrors VEntry.wish pattern, DD-006 Change 3).
+   */
+  wish?: string
+  /** Stakeholder who stated the Wish (free text, optional). */
+  wishStakeholder?: string
+  /**
+   * Forecast — projected future state separate from Goal.  Used in Model
+   * mode to record where the resource is expected to be at a future date
+   * without committing to a plan to get there.  Format mirrors status.
+   */
+  forecast?: string
+  /** Wikilink(s) to V. entries this resource enables. */
+  resourceForValue?: string
+  /** Wikilink(s) to S. entries that consume this resource. */
+  consumedBy?: string
+  /**
+   * Current operational status — distinct from `status` (measurement).
+   * 'available' = resource currently available
+   * 'depleted'  = budget consumed, none remaining
+   * 'partial'   = partially consumed
+   * ''          = not assessed (default)
+   */
+  currentStatus?: 'available' | 'depleted' | 'partial' | ''
+}
+
+/**
+ * A complete spec block containing all F., V., S., C., and R. entries.
  * This is the in-memory representation used by the pipeline, serialiser,
  * and all composables.
  *
  * `constraints` is optional for backwards-compatibility with pre-DD-006
  * saved specs — always use `spec.constraints ?? []` when reading.
+ *
+ * `resources` is optional for backwards-compatibility with pre-r77
+ * saved specs (Tom Gilb 2026-06-04 — Phase 1 of Resources beef-up).
+ * Always use `spec.resources ?? []` when reading.  Older specs in
+ * localStorage will load without this field; every consumer must
+ * tolerate undefined.
  */
 export interface SpecBlock {
   functions: FEntry[]
@@ -222,6 +296,8 @@ export interface SpecBlock {
   solutions: SEntry[]
   /** Binary Constraint entries (C.) — introduced DD-006. */
   constraints?: CEntry[]
+  /** Resource entries (R.) — introduced Phase 1 of Resources beef-up r77. */
+  resources?: REntry[]
   /**
    * Original stakes/stakeholders string captured at generation time.
    * Comma-separated list of stakeholder names from the SEMEntryForm parser

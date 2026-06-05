@@ -75,21 +75,33 @@ export interface StageNavResult {
  * Sub-cycle 2 (stages 6–9): Value Delivery — Develop, Deliver, Measure, Learn.
  * Stages 10–11: cross-cutting (Resources, Export).
  */
+// Comments below corrected 2026-06-04 r83 against the canonical labels in
+// `src/data/planningStages.ts`.  Previous inline comments mislabelled stages
+// 4 and 5 — leading to Stage 5 (Refine = Constraints) being routed to the
+// Impact Estimation Table.  Tom verbatim BUG flag: *"bug next stage is not
+// export"* (Stage 5 was dumping into stage===3 body whose forward button
+// went to Stage 11).
 const STAGE_ACTION_MAP: Record<number, StageNavAction> = {
-  1:  'to-spec',    // Stakes (Stakeholders)
-  2:  'to-spec',    // Values
-  3:  'to-spec',    // Solutions
-  4:  'to-spec',    // Sharpen / Decompose
-  5:  'to-impact',  // Impacts / Prioritize
-  6:  'to-evo',     // Evo Steps / Develop
-  7:  'to-impact',  // Evo Impact / Deliver — Tom 2026-06-03: stage 7 IS the Impact
-                   // Estimation table (V × S). Was 'to-evo' which left the body empty
-                   // because the user navigated to Evo Plan stage without re-loading
-                   // the plan into view. Stage 7's label "Evo Impact" means "estimate
-                   // the value each Evo Step delivers per unit cost" — that's the IET.
-  8:  'to-tasks',   // Plan Tasks / Measure
+  1:  'to-spec',    // Stakes — stakeholders
+  2:  'to-spec',    // Solutions
+  3:  'to-spec',    // Sharpen — functions presence-test discipline
+  4:  'to-spec',    // Impacts — V. entries Scale/Meter/Tolerable/Goal in spec editor
+  5:  'to-spec',    // Refine — C. (Constraint) entries; spec editor has the Constraints tab
+                   //          Previously 'to-impact' which routed Refine clicks to the
+                   //          IET view + showed a wrong "Next → Stage 11" forward button.
+  6:  'to-evo',     // Evo Steps — Develop sub-cycle entry, EvoPlanView
+  7:  'to-impact',  // Evo Impact — Tom 2026-06-03: stage 7 IS the Impact Estimation
+                   // table (V × S).  Was 'to-evo' which left the body empty because the
+                   // user navigated to Evo Plan stage without re-loading the plan.
+                   // Stage 7's label "Evo Impact" means "estimate the value each Evo Step
+                   // delivers per unit cost" — that's the IET.
+  8:  'to-tasks',   // Tasks — TaskList view
   9:  'stay',       // Study-Act / Learn (no dedicated main-stage; toast guides)
-  10: 'to-impact',  // Resources (V/C cost ratios live in impact view)
+  10: 'to-impact',  // Resources — Tom 2026-06-04 r69 changed `planningStageAction` case 10
+                   // to open `ResourcesSharpenPanel` directly; planningStage===10 has a
+                   // dedicated template (r81) so this 'to-impact' is a fallback for the
+                   // brief window before that template mounts.  Could be 'stay' once the
+                   // template is universally reachable.
   11: 'to-export',  // Export Plan
 }
 
@@ -133,7 +145,9 @@ export function resolveStageNavAction(
   //
   // The bug this prevents: stages 1–4 all mapped to goToStage1() which called
   // _closeAllOverlays() → specEditorOpen = false, collapsing the editor mid-workflow.
-  if (specEditorOpen && hasCurrentSpec && n >= 1 && n <= 4) {
+  // Tom 2026-06-04 r83: extended editor-stay guard from 1-4 to 1-5 because
+  // Stage 5 (Refine) is now also 'to-spec' (Constraints live in spec editor).
+  if (specEditorOpen && hasCurrentSpec && n >= 1 && n <= 5) {
     return { action: 'editor-stay', toast }
   }
 

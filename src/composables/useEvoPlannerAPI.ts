@@ -377,13 +377,42 @@ export function useEvoPlannerAPI() {
         `to cover ALL Values in the spec across the planned steps.`,
       ].join('\n')
 
+      // EXACT-MATCH REINFORCEMENT (Tom 2026-06-03 hard rule).
+      // The LLM has historically drifted on linkedSolutions — emitting fuzzy
+      // variants of the solution name (e.g., "Supabase Auth Backend" when the
+      // spec id is "Supabase Auth Integration").  This breaks the V × Step VDT
+      // aggregator which looks up matrix[valueId][solutionRef].  System prompt
+      // rule 10 + counter-examples now codify the requirement; reinforce here
+      // by enumerating the EXACT id strings to pick from.
+      const valueIdList = (specBlock.values ?? []).map(v => `"${v.id}"`).join(', ')
+      const solutionIdList = (specBlock.solutions ?? []).map(s => `"${s.id}"`).join(', ')
+      const exactMatchReinforcement = [
+        `EXACT-MATCH REQUIREMENT (HARD RULE):`,
+        `  linkedValues entries MUST be chosen from this list (character-for-character):`,
+        `    [${valueIdList}]`,
+        `  linkedSolutions entries MUST be chosen from this list (character-for-character):`,
+        `    [${solutionIdList}]`,
+        `  DO NOT invent, paraphrase, truncate, or reorder.  Copy verbatim.`,
+        `  If a step needs a solution not in the above list, the step is invalid — pick a different scope.`,
+        ``,
+        `CONJUNCTION-OF-TECHNOLOGIES PRINCIPLE (Tom Gilb 2026-06-03 SUPREME):`,
+        `  Each step's "description" should reference WHICH Planguage standard or Gilb principle`,
+        `  guided its decomposition decisions — when you are following one.  Examples:`,
+        `    "Implements V.LoginSpeed via S.SupabaseAuth — per EVO 2024 ch.2 Decompose step."`,
+        `    "Per Template_Write_Function.md presenceTest pattern — binary on/off function delivery."`,
+        `  This grounds the AI's reasoning in Tom Gilb's authored corpus rather than generic`,
+        `  software-engineering folklore.  Brief but visible — don't bloat descriptions.`,
+      ].join('\n')
+
       const userContent =
         `INPUT SPEC:\n${JSON.stringify(specBlock, null, 2)}\n\n` +
         `${cycleContext}\n\n` +
+        `${exactMatchReinforcement}\n\n` +
         `TASK: Derive a ranked list of Evo implementation steps from the spec above,\n` +
         `following the STEP COUNT GUIDANCE for the chosen cycle.\n` +
-        `Return ONLY this JSON — no prose, no markdown, no extra keys:\n` +
-        `{"steps":[{"name":"Evo 1 — Example Setup","description":"what is being implemented in this step","linkedValues":["Some Value"],"linkedSolutions":["Some Solution"],"effortPercent":80}]}`
+        `Return ONLY this JSON — no prose, no markdown, no extra keys.\n` +
+        `Replace <pick from values list> and <pick from solutions list> with EXACT id strings from the lists above:\n` +
+        `{"steps":[{"name":"Evo 1 — Example","description":"what is implemented","linkedValues":["<pick from values list>"],"linkedSolutions":["<pick from solutions list>"],"effortPercent":80}]}`
 
       const systemBlock: BetaTextBlockParam = {
         type: 'text',
@@ -492,6 +521,13 @@ export function useEvoPlannerAPI() {
         error.value =
           `Anthropic API credits are exhausted. ` +
           `Please top up at console.anthropic.com/settings/billing, then Retry.`
+
+      // JSON parse error (Tom 2026-06-03: "JSON Parse error: Unrecognized token '`'"
+      // surfaced raw to the user — V8 / WebKit format).  Usually means the LLM
+      // wrapped output in markdown fences or returned non-JSON text.
+      } else if (errMsg.includes('JSON Parse error') || errMsg.includes('Unrecognized token') || errMsg.includes('Unexpected token')) {
+        error.value =
+          `AI response was not valid JSON (the model may have wrapped output in markdown fences or returned plain text instead).  Click Retry — the next attempt usually succeeds.`
 
       } else {
         error.value = errMsg

@@ -28,7 +28,7 @@ import { resolveIcon } from '../composables/iconRegistry'
 import { useBoardMembers }      from '../composables/useBoardMembers'
 import { useBoardActivityLog }  from '../composables/useBoardActivityLog'
 import { lastMariaResult, mariaPendingDocument } from '../lib/maria/mariaResultStore'
-import { buildEml }             from '../composables/useEmlExport'
+import { openEml }              from '../composables/useEmlExport'
 import type { ActivityStatus, ActivityType } from '../types/board'
 
 const emit = defineEmits<{
@@ -294,10 +294,14 @@ ${openItems.length === 0
 </body></html>`
 }
 
-async function sendBoardReport(): Promise<void> {
+/**
+ * r17 (2026-06-02): Replaced broken Vite-plugin + clipboard+mailto fallback
+ * with openEml() — synchronous, no server dependency, works in all environments.
+ * Same pattern as ContractHub (proven reliable). No user-gesture context loss.
+ */
+function sendBoardReport(): void {
   const html    = buildReportHtml()
   const subject = '🏛 Maria — Board Support Report'
-  const plain   = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 
   // Determine To: address — typed value wins, otherwise auto-detect chair
   const typedAddr = emailTo.value.trim()
@@ -307,36 +311,11 @@ async function sendBoardReport(): Promise<void> {
   const toAddr = typedAddr || chair?.email || ''
   if (!typedAddr && toAddr) emailTo.value = toAddr  // show auto-detected value
 
-  const eml = buildEml(html, plain, subject, toAddr ? [toAddr] : [], [], FROM_ADDR)
-
-  // Primary: POST to Vite dev-server plugin → `open <file.eml>` → Mail.app
-  // with HTML body pre-filled. Same pattern as MariaAgentBoard.vue.
-  let preFilled = false
-  try {
-    const resp = await fetch('/api/open-eml', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ eml }),
-    })
-    preFilled = resp.ok
-  } catch {
-    // Network error or endpoint absent (production build) — fall through to mailto: fallback
-  }
-
-  // Fallback: clipboard + mailto: (Mail.app opens but body requires one ⌘V paste)
-  if (!preFilled) {
-    navigator.clipboard
-      .write([new ClipboardItem({
-        'text/html':  new Blob([html],  { type: 'text/html' }),
-        'text/plain': new Blob([plain], { type: 'text/plain' }),
-      })])
-      .catch(() => navigator.clipboard.writeText(plain))
-
-    const mailtoUrl = toAddr
-      ? `mailto:${encodeURIComponent(toAddr)}?subject=${encodeURIComponent(subject)}`
-      : `mailto:?subject=${encodeURIComponent(subject)}`
-    window.location.href = mailtoUrl
-  }
+  // Download .eml → macOS auto-opens in Mail.app with full HTML body pre-filled
+  openEml(html, subject, {
+    to:   toAddr ? [toAddr] : [],
+    from: FROM_ADDR,
+  })
 }
 
 function copyBoardReport(): void {

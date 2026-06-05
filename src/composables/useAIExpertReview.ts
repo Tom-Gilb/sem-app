@@ -20,7 +20,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import type { SpecBlock } from '../types/spec'
-import type { AIExpert, AIExpertReview } from './usePlanHealth'
+import type { AIExpert, AIExpertReview } from './useSpecHealth'
 import { MODEL_ID } from '../config/llm'
 
 let _client: Anthropic | null = null

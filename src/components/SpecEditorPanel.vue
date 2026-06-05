@@ -25,7 +25,7 @@ import {
   type EditMode,
 } from '../composables/useSpecEditor'
 import type { SpecBlock } from '../types/spec'
-import { incrementManualEditCount, usePlanModel } from '../composables/usePlanModel'
+import { incrementManualEditCount, useSpecModel } from '../composables/useSpecModel'
 import { recordEditProvenance } from '../composables/useEntryProvenance'
 import { CONCEPT_HINTS } from '../data/conceptHints'
 import { useEvoPlan } from '../composables/useEvoPlan'
@@ -184,7 +184,7 @@ const {
   deleteEditVersion,
 } = useSpecEditor()
 
-const { currentModel: _planModel } = usePlanModel()
+const { currentModel: _planModel } = useSpecModel()
 
 // ── Evo Plan — needed for the live mini-thumbnail in the back-to-diagram strip ──
 const { plan: _evoPlan } = useEvoPlan()

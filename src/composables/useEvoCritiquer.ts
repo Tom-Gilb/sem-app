@@ -24,7 +24,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { ref } from 'vue'
 import { MODEL_ID } from '../config/llm'
 import type { SpecBlock } from '../types/spec'
-import type { PlanModel } from './usePlanModel'
+import type { PlanModel } from './useSpecModel'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 

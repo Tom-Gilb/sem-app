@@ -51,10 +51,12 @@ export interface VizThumbsOptions {
 const HIGH_PROB_WORDS   = /uncertain|unknown|might|could|dependency|external|third.?party|assum/i
 const HIGH_IMPACT_WORDS = /critical|revenue|compliance|security|auth|payment|data|core|must/i
 
+// Risk cells — was 100/200-level pastels (invisible at thumb scale).
+// Now 300/400-level saturated fills that read clearly at 112×76px.
 const RISK_CELL_COLOUR: string[][] = [
-  ['#d1fae5', '#fef3c7', '#fed7aa'],  // low prob:  green  | yellow | orange
-  ['#fef3c7', '#fed7aa', '#fecaca'],  // med prob:  yellow | orange | red-light
-  ['#fed7aa', '#fecaca', '#f87171'],  // high prob: orange | red    | deep-red
+  ['#6ee7b7', '#fde68a', '#fdba74'],  // low prob:  emerald | amber  | orange
+  ['#fde68a', '#fdba74', '#fca5a5'],  // med prob:  amber   | orange | red-light
+  ['#fdba74', '#fca5a5', '#ef4444'],  // high prob: orange  | red    | vivid-red
 ]
 
 const LEVEL_COLOUR: Record<string, string> = {
@@ -108,14 +110,14 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
     for (const b of flowCols) {
       const h = Math.max(6, (b.count / maxC) * 68)
       const y = 78 - h
-      flowBody += `<rect x="${b.x}" y="${y}" width="30" height="${h}" rx="3" fill="${b.color}" fill-opacity="0.82"/>`
+      flowBody += `<rect x="${b.x}" y="${y}" width="30" height="${h}" rx="3" fill="${b.color}"/>`
       flowBody += `<text x="${b.x + 15}" y="${y - 4}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="${b.color}">${b.count}</text>`
-      flowBody += `<text x="${b.x + 15}" y="95" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8" fill="#94a3b8">${b.label}</text>`
+      flowBody += `<text x="${b.x + 15}" y="95" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8" fill="#475569">${b.label}</text>`
     }
     for (let i = 0; i < flowCols.length - 1; i++) {
       const x1 = flowCols[i].x + 32, x2 = flowCols[i + 1].x - 2, y = 60
-      flowBody += `<line x1="${x1}" y1="${y}" x2="${x2 - 4}" y2="${y}" stroke="#cbd5e1" stroke-width="1.5"/>`
-      flowBody += `<polygon points="${x2 - 4},${y - 3} ${x2},${y} ${x2 - 4},${y + 3}" fill="#cbd5e1"/>`
+      flowBody += `<line x1="${x1}" y1="${y}" x2="${x2 - 4}" y2="${y}" stroke="#94a3b8" stroke-width="2"/>`
+      flowBody += `<polygon points="${x2 - 4},${y - 3} ${x2},${y} ${x2 - 4},${y + 3}" fill="#94a3b8"/>`
     }
     const flowThumb = wrap(flowBody)
 
@@ -154,7 +156,7 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
     const radarCX = 100, radarCY = 62, radarR = 46
     let radarBody = ''
     for (const fr of [1, 0.66, 0.33]) {
-      radarBody += `<circle cx="${radarCX}" cy="${radarCY}" r="${(radarR * fr).toFixed(1)}" fill="none" stroke="#e2e8f0" stroke-width="0.8"/>`
+      radarBody += `<circle cx="${radarCX}" cy="${radarCY}" r="${(radarR * fr).toFixed(1)}" fill="none" stroke="#334155" stroke-width="1.8"/>`
     }
     const ringDefs = [
       { count: adoptC,  r: radarR * 0.22, color: '#059669' },
@@ -169,7 +171,7 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
         const angle = i * step - Math.PI / 2
         const dx = radarCX + Math.cos(angle) * ring.r
         const dy = radarCY + Math.sin(angle) * ring.r
-        radarBody += `<circle cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="4" fill="${ring.color}" fill-opacity="0.8"/>`
+        radarBody += `<circle cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="5" fill="${ring.color}"/>`
       }
     }
     radarBody += `<text x="${radarCX}" y="11" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7" font-weight="700" fill="#059669">ADOPT ${adoptC}</text>`
@@ -184,11 +186,12 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
       const lvl = (e as { level?: string }).level ?? 'Product'
       levelCounts[lvl] = (levelCounts[lvl] ?? 0) + 1
     }
+    // Architecture bands — was 100-level pastels; now 300-level so bands read at thumbnail scale
     const togafBands = [
-      { label: 'Business',    keys: ['Business', 'Stakeholder'], fill: '#fde68a', text: '#92400e' },
-      { label: 'Application', keys: ['Product', 'Feature'],      fill: '#bbf7d0', text: '#065f46' },
-      { label: 'Data',        keys: ['Evo', 'To-Do'],            fill: '#bfdbfe', text: '#1e40af' },
-      { label: 'Technology',  keys: ['Solution'],                 fill: '#e9d5ff', text: '#6b21a8' },
+      { label: 'Business',    keys: ['Business', 'Stakeholder'], fill: '#fbbf24', text: '#78350f' },
+      { label: 'Application', keys: ['Product', 'Feature'],      fill: '#34d399', text: '#064e3b' },
+      { label: 'Data',        keys: ['Evo', 'To-Do'],            fill: '#60a5fa', text: '#1e3a8a' },
+      { label: 'Technology',  keys: ['Solution'],                 fill: '#c084fc', text: '#581c87' },
     ]
     const totalEnt = Math.max(vC + fC + sC, 1)
     let archBody = '', archY = 6
@@ -204,10 +207,11 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
     )
 
     // ── Dependencies ───────────────────────────────────────────────────────
+    // Deps columns — was 50-level bg with thin strokes; now solid fills + thicker borders
     const depsCols = [
-      { label: 'Values',    count: vC, stroke: '#a5b4fc', bg: '#eef2ff', text: '#3730a3' },
-      { label: 'Functions', count: fC, stroke: '#fcd34d', bg: '#fffbeb', text: '#92400e' },
-      { label: 'Solutions', count: sC, stroke: '#6ee7b7', bg: '#ecfdf5', text: '#064e3b' },
+      { label: 'Values',    count: vC, stroke: '#6366f1', bg: '#c7d2fe', text: '#3730a3' },
+      { label: 'Functions', count: fC, stroke: '#d97706', bg: '#fde68a', text: '#78350f' },
+      { label: 'Solutions', count: sC, stroke: '#059669', bg: '#6ee7b7', text: '#064e3b' },
     ]
     let depsBody = ''
     depsCols.forEach((col, ci) => {
@@ -215,13 +219,13 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
       depsBody += `<text x="${colX + 28}" y="12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7" font-weight="700" fill="${col.text}">${col.label.toUpperCase()}</text>`
       const vis = Math.min(col.count, 4)
       for (let k = 0; k < vis; k++) {
-        depsBody += `<rect x="${colX}" y="${18 + k * 22}" width="54" height="18" rx="3" fill="${col.bg}" stroke="${col.stroke}" stroke-width="0.8"/>`
+        depsBody += `<rect x="${colX}" y="${18 + k * 22}" width="54" height="18" rx="3" fill="${col.bg}" stroke="${col.stroke}" stroke-width="1.5"/>`
       }
       if (col.count > 4) {
         depsBody += `<text x="${colX + 27}" y="${18 + 4 * 22 + 10}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7.5" fill="${col.text}">+${col.count - 4}</text>`
       }
       if (col.count === 0) {
-        depsBody += `<text x="${colX + 27}" y="62" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#e2e8f0" font-style="italic">none</text>`
+        depsBody += `<text x="${colX + 27}" y="62" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#94a3b8" font-style="italic">none</text>`
       }
       depsBody += `<rect x="${colX + 38}" y="5" width="16" height="10" rx="3" fill="${col.stroke}"/>`
       depsBody += `<text x="${colX + 46}" y="13" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7.5" font-weight="700" fill="white">${col.count}</text>`
@@ -275,10 +279,10 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
         const color = LEVEL_COLOUR[item.level] ?? '#94a3b8'
         const maxW  = 158
         finBody += `<text x="6" y="${y + 8}" font-family="system-ui,sans-serif" font-size="7.5" fill="#64748b" font-weight="600">${item.label.slice(0, 20)}</text>`
-        finBody += `<rect x="6" y="${y + 11}" width="${maxW}" height="4" rx="2" fill="#f1f5f9"/>`
+        finBody += `<rect x="6" y="${y + 11}" width="${maxW}" height="4" rx="2" fill="#e2e8f0"/>`
         if (item.tolerable > 0)
-          finBody += `<rect x="6" y="${y + 11}" width="${((maxW * item.tolerable) / 100).toFixed(1)}" height="4" rx="2" fill="${color}" opacity="0.38"/>`
-        finBody += `<rect x="6" y="${y + 16}" width="${maxW}" height="8" rx="4" fill="#f1f5f9"/>`
+          finBody += `<rect x="6" y="${y + 11}" width="${((maxW * item.tolerable) / 100).toFixed(1)}" height="4" rx="2" fill="${color}" opacity="0.65"/>`
+        finBody += `<rect x="6" y="${y + 16}" width="${maxW}" height="8" rx="4" fill="#e2e8f0"/>`
         if (item.goal > 0) {
           const gw = Math.max(8, (maxW * item.goal) / 100)
           finBody += `<rect x="6" y="${y + 16}" width="${gw.toFixed(1)}" height="8" rx="4" fill="${color}"/>`
@@ -300,17 +304,19 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
       const cellW = Math.min(24, 156 / sc)
       const cellH = Math.min(22, 90 / ec)
       let swimBody = ''
-      const SWIM_COLORS = ['#bbf7d0', '#bfdbfe', '#e9d5ff', '#fde68a']
+      // Swimlane — was 100-level pastels with low opacity (invisible at thumb scale)
+      // Now 300-level fills with 0.6–1.0 opacity range
+      const SWIM_COLORS = ['#34d399', '#60a5fa', '#c084fc', '#fbbf24']
       for (let s = 0; s < sc; s++) {
-        swimBody += `<rect x="${34 + s * (cellW + 2)}" y="6" width="${cellW}" height="10" rx="1.5" fill="#e2e8f0"/>`
-        swimBody += `<text x="${34 + s * (cellW + 2) + cellW / 2}" y="14" text-anchor="middle" font-family="system-ui,sans-serif" font-size="6" fill="#64748b">S${s + 1}</text>`
+        swimBody += `<rect x="${34 + s * (cellW + 2)}" y="6" width="${cellW}" height="10" rx="1.5" fill="#94a3b8"/>`
+        swimBody += `<text x="${34 + s * (cellW + 2) + cellW / 2}" y="14" text-anchor="middle" font-family="system-ui,sans-serif" font-size="6" fill="white" font-weight="700">S${s + 1}</text>`
       }
       for (let e = 0; e < ec; e++) {
         const label = e < vC ? `V${e + 1}` : `F${e - vC + 1}`
-        swimBody += `<text x="32" y="${22 + e * (cellH + 2) + cellH / 2 + 3}" text-anchor="end" font-family="system-ui,sans-serif" font-size="6.5" fill="#64748b">${label}</text>`
+        swimBody += `<text x="32" y="${22 + e * (cellH + 2) + cellH / 2 + 3}" text-anchor="end" font-family="system-ui,sans-serif" font-size="6.5" fill="#334155" font-weight="700">${label}</text>`
         for (let s = 0; s < sc; s++) {
           const intensity = Math.sin(e * 2.3 + s * 1.7) * 0.5 + 0.5
-          swimBody += `<rect x="${34 + s * (cellW + 2)}" y="${20 + e * (cellH + 2)}" width="${cellW}" height="${cellH}" rx="1.5" fill="${SWIM_COLORS[e % 4]}" fill-opacity="${(0.25 + intensity * 0.7).toFixed(2)}"/>`
+          swimBody += `<rect x="${34 + s * (cellW + 2)}" y="${20 + e * (cellH + 2)}" width="${cellW}" height="${cellH}" rx="1.5" fill="${SWIM_COLORS[e % 4]}" fill-opacity="${(0.55 + intensity * 0.45).toFixed(2)}"/>`
         }
       }
       swimThumb = wrap(swimBody)
@@ -320,7 +326,23 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
     const simSteps = steps.slice(0, 4)
     let simThumb: string
     if (simSteps.length === 0) {
-      simThumb = noData('No Evo steps yet')
+      // No Evo steps yet — show an illustrative placeholder value curve so the
+      // tile always has a recognisable glyph. Dashed ascending line + ghost bars.
+      simThumb = wrap(
+        // Ghost bars (value accumulation per step — illustrative)
+        `<rect x="28" y="90" width="22" height="12" rx="2" fill="#7c3aed" fill-opacity="0.25"/>` +
+        `<rect x="62" y="78" width="22" height="24" rx="2" fill="#7c3aed" fill-opacity="0.35"/>` +
+        `<rect x="96" y="62" width="22" height="40" rx="2" fill="#7c3aed" fill-opacity="0.50"/>` +
+        `<rect x="130" y="44" width="22" height="58" rx="2" fill="#7c3aed" fill-opacity="0.65"/>` +
+        `<rect x="164" y="26" width="22" height="76" rx="2" fill="#7c3aed" fill-opacity="0.80"/>` +
+        // Ascending value curve — dashed to signal "preview"
+        `<polyline points="39,90 73,75 107,59 141,42 175,24" stroke="#7c3aed" stroke-width="2.5" fill="none" stroke-dasharray="5 3" stroke-linecap="round" stroke-linejoin="round"/>` +
+        // Axis line
+        `<line x1="20" y1="102" x2="196" y2="102" stroke="#cbd5e1" stroke-width="1"/>` +
+        // Labels
+        `<text x="100" y="14" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8" font-weight="700" fill="#7c3aed">Value ↑</text>` +
+        `<text x="100" y="116" text-anchor="middle" font-family="system-ui,sans-serif" font-size="7" fill="#94a3b8">Evo Steps →</text>`
+      )
     } else {
       let simBody = ''
       simSteps.forEach((_, i) => {

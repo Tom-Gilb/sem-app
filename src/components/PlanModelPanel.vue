@@ -26,21 +26,21 @@ import SaveGlyph from './icons/SaveGlyph.vue'
 import GetGlyph from './icons/GetGlyph.vue'
 import EditGlyph from './icons/EditGlyph.vue'
 import {
-  usePlanModel,
+  useSpecModel,
   renamePlanModel,
   deletePlanModel,
   importPlanModel,
   importPlanModelsBackup,
   exportPlanModel,
   type PlanModel,
-} from '../composables/usePlanModel'
+} from '../composables/useSpecModel'
 
 const emit = defineEmits<{
   close: []
   load: [model: PlanModel]
 }>()
 
-const { currentModel, allModels } = usePlanModel()
+const { currentModel, allModels } = useSpecModel()
 
 // ── Inline rename ─────────────────────────────────────────────────────────────
 
@@ -242,7 +242,7 @@ function formatDate(iso: string): string {
                        bg-indigo-600 text-white text-xs font-semibold
                        hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors"
                 @click="emit('load', model)"
-                title="Load this plan — `[*]→*` get from vessel"
+                title="Load this plan into your workspace"
               >
                 <GetGlyph size="compact" class="h-3 w-auto" aria-hidden="true" />
                 <span>Load</span>

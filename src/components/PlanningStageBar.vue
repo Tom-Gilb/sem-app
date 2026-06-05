@@ -15,7 +15,7 @@
 //   - Horizontal scroll container wraps tiles for narrow windows
 
 const props = defineProps<{
-  /** Current planning stage (1–5 maps to the 5-stage App state). */
+  /** Current planning stage index (1–11). Drives which tile is highlighted. */
   currentStage: number
   /** True once a spec has been parsed — unlocks non-Stakes tiles. */
   hasSpec: boolean
@@ -35,7 +35,11 @@ const emit = defineEmits<{
 // `color` = Tailwind bg token for the icon accent ring (inactive tiles).
 // `activeGradient` = gradient classes for the active tile background.
 
-const STAGES = [
+// Exported so App.vue's Back/Next pin-pair (and any future stage-navigator)
+// can render destination-stage info (label + gradient colors) without
+// duplicating this list. Tom 2026-06-03: "buttons should be identical to
+// the stage pins". Single-source ensures they stay visually consistent.
+export const STAGES = [
   {
     n: 1,
     label: 'Stakes',
@@ -140,7 +144,9 @@ const STAGES = [
 type StageIcon = typeof STAGES[number]['icon']
 
 function isActive(s: typeof STAGES[number]): boolean {
-  return s.appStage === props.currentStage
+  // r17 fix (2026-06-02): compare planning stage index (1–11) not appStage (1–5).
+  // Using appStage caused ALL tiles sharing the same appStage to highlight together.
+  return s.n === props.currentStage
 }
 
 function isReachable(s: typeof STAGES[number]): boolean {
@@ -199,12 +205,16 @@ function isReachable(s: typeof STAGES[number]): boolean {
                 ? 'bg-slate-800 hover:bg-slate-700 focus:ring-slate-500 cursor-pointer'
                 : 'bg-slate-800/50 cursor-not-allowed opacity-50',
           ]"
-          @click="isReachable(s) && emit('navigate', s.appStage)"
+          @click="isReachable(s) && emit('navigate', s.n)"
         >
-          <!-- Stage number badge (top-left) -->
+          <!-- Stage number badge (top-left) — Tom 2026-06-04: was illegible
+               (text-white/80 on light active gradients washed out, text-
+               slate-300 on dark inactive tiles low-contrast).  Now uses
+               the universal dark-plate treatment: bg-black/70 + white text
+               + tight padding — readable on every active/inactive gradient. -->
           <span
-            class="absolute top-1.5 left-2 text-[10px] font-bold leading-none"
-            :class="isActive(s) ? 'text-white/80' : 'text-slate-300'"
+            class="absolute top-1 left-1 text-[11px] font-extrabold leading-none
+                   bg-black/70 text-white rounded-md px-1.5 py-1 shadow-sm"
             aria-hidden="true"
           >{{ s.n }}</span>
 

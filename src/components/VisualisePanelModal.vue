@@ -1330,7 +1330,7 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
                   <p v-if="v.goal" class="text-[9px] text-indigo-500 mt-0.5 truncate">Goal: {{ v.goal }}</p>
                   <p v-if="v.valueOfFunction" class="text-[9px] text-gray-400 mt-0.5 truncate" :title="v.valueOfFunction">↔ {{ v.valueOfFunction }}</p>
                 </div>
-                <p v-if="!(spec?.values?.length)" class="text-[11px] text-gray-400 italic">No V. entries</p>
+                <p v-if="!(spec?.values?.length)" class="text-[11px] text-gray-400 italic">No Value Specs</p>
               </div>
 
               <!-- Functions column -->
@@ -1344,7 +1344,7 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
                   <p class="text-[11px] font-semibold text-amber-800 truncate" :title="f.id">{{ f.id }}</p>
                   <p v-if="f.functionOfValue" class="text-[9px] text-gray-400 mt-0.5 truncate" :title="f.functionOfValue">↔ {{ f.functionOfValue }}</p>
                 </div>
-                <p v-if="!(spec?.functions?.length)" class="text-[11px] text-gray-400 italic">No F. entries</p>
+                <p v-if="!(spec?.functions?.length)" class="text-[11px] text-gray-400 italic">No Function Specs</p>
               </div>
 
               <!-- Solutions column -->
@@ -1359,7 +1359,7 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
                   <p v-if="s.impact" class="text-[9px] text-emerald-500 mt-0.5 truncate">{{ s.impact }}</p>
                   <p v-if="s.function" class="text-[9px] text-gray-400 mt-0.5 truncate" :title="s.function">↔ {{ s.function }}</p>
                 </div>
-                <p v-if="!(spec?.solutions?.length)" class="text-[11px] text-gray-400 italic">No S. entries</p>
+                <p v-if="!(spec?.solutions?.length)" class="text-[11px] text-gray-400 italic">No Solution Specs</p>
               </div>
 
             </div>
@@ -1410,7 +1410,7 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
                switch, so the last-branch bug cannot occur regardless of chain position. -->
           <div v-else-if="activeTab === 'finance'" class="p-6">
             <p class="text-xs text-gray-500 mb-4">Value entries — tolerable (lighter) vs goal (solid) targets extracted from scale/meter definitions. Colour = level.</p>
-            <div v-if="financeItems.length === 0" class="text-gray-400 text-sm">No V. entries with numeric goals found.</div>
+            <div v-if="financeItems.length === 0" class="text-gray-400 text-sm">No Value Specs with numeric goals found.</div>
             <div class="space-y-3 w-full max-w-2xl">
               <div v-for="item in financeItems" :key="item.label" class="space-y-0.5">
                 <div class="flex items-center justify-between text-[10px] text-gray-600">

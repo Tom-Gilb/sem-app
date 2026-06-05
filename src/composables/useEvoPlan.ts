@@ -6,7 +6,7 @@ import { ref, readonly } from 'vue'
 import { useEvoPlannerAPI } from './useEvoPlannerAPI'
 import { useWorkspace } from './useWorkspace'
 import { useSpecHistory } from './useSpecHistory'
-import { usePlanModel } from './usePlanModel'
+import { useSpecModel } from './useSpecModel'
 import { getSupabaseClient } from '../config/supabase'
 import type { SpecBlock } from '../types/spec'
 import type { EvoStepPlan } from '../types/evo-plan'
@@ -215,7 +215,7 @@ export function useEvoPlan() {
   const { error: apiError, planSteps } = useEvoPlannerAPI()
   const { currentWorkspace } = useWorkspace()
   const { updateLatestPlan } = useSpecHistory()
-  const { currentModel } = usePlanModel()
+  const { currentModel } = useSpecModel()
 
   // error alias — wraps the module-level ref so callers keep the same API
   const error = _planError

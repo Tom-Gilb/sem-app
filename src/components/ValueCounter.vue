@@ -139,9 +139,12 @@ function glowStyle(s: number): Record<string, string> {
 function badgeClass(s: number): string {
   const state = stageStatus(s)
   if (state === 'done')    return 'text-emerald-300'
-  // 'current' pill is hsl(hue, 72%, 50%) — luminance ≈ 0.50 for cyan hues.
-  // White text on L=50% cyan = ~1.9:1 contrast (WCAG fail). Use dark text instead.
-  if (state === 'current') return 'text-gray-900'
+  // 'current' badge: white text on the `bg-black/60` plate (which the badge
+  // span already has).  Was 'text-gray-900' from the pre-plate era — that
+  // reasoning ("white on L=50% cyan fails WCAG") no longer applies because
+  // the dark plate now provides the contrast.  Tom 2026-06-04: *"this 10
+  // is invisible"* — dark text on the dark plate was the bug.
+  if (state === 'current') return 'text-white'
   return 'text-slate-300'
 }
 
@@ -425,9 +428,9 @@ onUnmounted(() => {
                  focus-visible:ring-2 focus-visible:ring-white/60 rounded-2xl
                  transition-all duration-300 hover:scale-105 active:scale-95"
           :style="{ ...pillStyle(step.stage), height: '96px', borderRadius: '16px' }"
-          :aria-label="`Stage ${step.stage}: ${step.label} — click for overview · double-click for full INFO`"
+          :aria-label="`Stage ${step.stage}: ${step.label} — click for overview · double-click for detailed stage info`"
           :aria-current="step.stage === currentStage ? 'step' : undefined"
-          :title="`${step.title} · click for overview · dbl-click for INFO`"
+          :title="`${step.title} · single-click for overview · DOUBLE-CLICK for detailed stage info`"
           @click="handlePillClick(step.stage)"
         >
           <!-- Stage Halo — bright white glowing ring, breathing 2s.

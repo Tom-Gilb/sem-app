@@ -73,6 +73,26 @@
 
 
   <!-- ═══════════════════════════════════════════════
+       VALUE CASCADE — upward arrows in E column
+       Ends/Values rise through levels: Means → Strategic → Fundamental
+       White #FFFFFF at 45% opacity — neutral (Value type color = violet but
+       would clash with the Strategic row; white reads as cross-level meta-flow)
+       ═══════════════════════════════════════════════ -->
+
+  <!-- ↑ Means E → Strategic E (y=148→y=120 gap, arrowhead tip at y=122) -->
+  <g opacity="0.45" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8">
+    <line x1="100" y1="143" x2="100" y2="127"/>
+    <polyline points="96,130 100,122 104,130"/>
+  </g>
+
+  <!-- ↑ Strategic E → Fundamental E (y=80→y=52 gap, arrowhead tip at y=56) -->
+  <g opacity="0.45" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8">
+    <line x1="100" y1="75" x2="100" y2="62"/>
+    <polyline points="96,65 100,57 104,65"/>
+  </g>
+
+
+  <!-- ═══════════════════════════════════════════════
        MEANS LEVEL — bottom row  (y=160)
        Emerald #6EE7B7 — 60% scale, 80% opacity — supports us
        ═══════════════════════════════════════════════ -->
@@ -94,6 +114,27 @@
       <line x1="-19" y1="0" x2="15" y2="0" stroke-width="4"/>
       <polyline points="7,-9  17,0  7,9" fill="none" stroke-width="4"/>
     </g>
+  </g>
+
+
+  <!-- ═══════════════════════════════════════════════
+       VALUE DELIVERY — leftward arrows E → S per row
+       Values/Ends are delivered TO Stakeholders at every level.
+       White #FFFFFF at 40% opacity — family match with cascade arrows.
+       Middle row gap (17px) is naturally shorter than top/bottom (32px)
+       because full-size elements fill more of the column space.
+       ═══════════════════════════════════════════════ -->
+
+  <g opacity="0.40" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+    <!-- Fundamental row (y=40): E left-edge=88, S right-edge=56 → 32px gap -->
+    <line x1="86" y1="40" x2="63" y2="40"/>
+    <polyline points="63,35 58,40 63,45"/>
+    <!-- Strategic row (y=100): E left-edge=80, S right-edge=63 → 17px gap -->
+    <line x1="78" y1="100" x2="69" y2="100"/>
+    <polyline points="69,96 65,100 69,104"/>
+    <!-- Means row (y=160): E left-edge=88, S right-edge=56 → 32px gap -->
+    <line x1="86" y1="160" x2="63" y2="160"/>
+    <polyline points="63,155 58,160 63,165"/>
   </g>
 
 </svg>

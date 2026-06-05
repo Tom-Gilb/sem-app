@@ -60,7 +60,7 @@ const CANONICAL_LABELS: Record<SpecFieldType, string> = {
   'meter':     'Meter ({∆}) — how this value is measured. The instrument, method, or formula that returns a numeric level.',
   'status':    'Status ([●]) — lifecycle state of this entry: Draft → Proposed → Approved → Active → Met → Superseded → Retired.',
   'tag':       'Tag (#) — classification label. Used for filtering, grouping, and priority organisation across entry types.',
-  'ambition':  'Ambition Level ({≡}) — a short quoted sentence describing a Value Objective (e.g. "Competitive Quality"). Ideally quoted from a responsible source (CEO, website, presentation). Seeds the Planguage spec (Scale, Wish) and provides authority for QC.',
+  'ambition':  'Ambition Level (!<!!) — a value statement: the quality we have (!) is less than (<) the quality we aspire to (!!). E.g. "We want far better Security." Ideally a quoted statement from a responsible source (CEO, website, presentation). Seeds the Planguage spec (Scale, Wish) and provides authority for QC.',
 }
 
 const SIZE_PX: Record<'xs' | 'sm' | 'md', number> = { xs: 14, sm: 18, md: 22 }
@@ -199,13 +199,16 @@ const resolvedTitle = computed(() => props.title ?? CANONICAL_LABELS[props.field
         <line x1="4"  y1="13" x2="16" y2="13" />
       </g>
 
-      <!-- ── 10 · Ambition · {≡} · Fuchsia #701a75 ────────────────────────── -->
-      <!--  Speech bubble: a QUOTED ASPIRATIONAL STATEMENT from a responsible   -->
-      <!--  source (CEO, website, presentation). NOT a derived numeric metric.  -->
-      <!--  {≡}: structured text content (≡ triple lines = text body) inside   -->
-      <!--  a process container {}. Seeds Scale/Wish/Goal; used for QC/review. -->
-      <!--  Tail at bottom-left (like 💬, already used in SpecOutput for this  -->
-      <!--  field). Two horizontal lines = the quoted sentence content.         -->
+      <!-- ── 10 · Ambition · !<!! · Fuchsia #701a75 ──────────────────────── -->
+      <!--  Speech bubble: a QUOTED VALUE STATEMENT from a responsible source.  -->
+      <!--  !<!! (Tom Gilb, 2026-06-02): a value statement about aspiration.  -->
+      <!--  ! = the quality/value we currently have;                           -->
+      <!--  < = is less than (Planguage comparator, left-to-right);            -->
+      <!--  !! = the aspiration — more of that quality.                        -->
+      <!--  Reads: "what we have (!) is less than what we aspire to (!!)."     -->
+      <!--  E.g. "We want far better Security." Not a numeric metric.          -->
+      <!--  Tail at bottom-left (like 💬, used in SpecOutput for this field).  -->
+      <!--  Two horizontal lines = the quoted sentence content.                -->
       <g v-else-if="field === 'ambition'" stroke="#701a75" stroke-width="1.8">
         <!-- Speech bubble outline with tail pointing down-left -->
         <path d="M 3 2 Q 2 2 2 3 L 2 11 Q 2 12 3 12 L 5 12 L 4 16 L 8 12 L 17 12 Q 18 12 18 11 L 18 3 Q 18 2 17 2 Z" />

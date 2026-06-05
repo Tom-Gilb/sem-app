@@ -23,7 +23,7 @@ import type { ImpactMatrix } from '../types/impact'
 import { useSharpen } from '../composables/useSharpen'
 import SharpenDiffList from './SharpenDiffList.vue'
 import { extractAllStakeholders, impactLevel, type StakeholderMatch } from '../utils/stakeholderExtract'
-import { usePlanModel } from '../composables/usePlanModel'
+import { useSpecModel } from '../composables/useSpecModel'
 import { useSpecAnnotations, type AnnotationType } from '../composables/useSpecAnnotations'
 import { useSpecQualityCheck } from '../composables/useSpecQualityCheck'
 import { useSpecQuality } from '../composables/useSpecQuality'
@@ -124,7 +124,7 @@ const identityStamp = computed<string>(() => {
 
 // ── Plan owner — read from singleton composable, no prop needed ───────────────
 
-const { currentModel: _planModel, allModels: _allPlanModels } = usePlanModel()
+const { currentModel: _planModel, allModels: _allPlanModels } = useSpecModel()
 
 // ── Feature #200: Spec Quality Annotations ────────────────────────────────────
 
@@ -1034,7 +1034,7 @@ function buildFullPlanClipboardHTML(): string {
       })
     } else {
       html += `<tr><td colspan="2" style="${tdW};color:#94a3b8;font-style:italic;text-align:center">` +
-        `No constraints defined — add C. entries to bound the solution space` +
+        `No constraints defined — add Constraint Specs to bound the solution space` +
       `</td></tr>`
     }
     html += `</table>`

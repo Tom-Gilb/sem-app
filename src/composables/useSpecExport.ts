@@ -5,7 +5,7 @@
 // Spec: S.MarkdownSerialiserSchema / F.ImplementMarkdownExportModule / F.SupportTaskDecomposition
 //       F.EstimateImpactAndPrioritise
 
-import type { SpecBlock, FEntry, VEntry, SEntry, CEntry } from '../types/spec'
+import type { SpecBlock, FEntry, VEntry, SEntry, CEntry, REntry } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import type { TaskSuggestion } from '../types/task'
 import type { ImpactMatrix } from '../types/impact'
@@ -60,6 +60,29 @@ function serialiseSEntry(entry: SEntry): string {
   ].join('\n')
 }
 
+// Phase 1 of Resources beef-up (Tom Gilb 2026-06-04, r77): Resource entries (R.).
+// Field order: Description, Scale, Meter, Now (Status), Tolerable, Goal, optional Wish / Forecast / linkages.
+function serialiseREntry(entry: REntry): string {
+  const lines = [
+    `#### ${entry.id}`,
+    `Type: ${entry.type || PLACEHOLDER('Type')}`,
+    `Level: ${entry.level || PLACEHOLDER('Level')}`,
+    `Description: ${entry.description || PLACEHOLDER('Description')}`,
+    `Scale: ${entry.scale || PLACEHOLDER('Scale')}`,
+    `Meter: ${entry.meter || PLACEHOLDER('Meter')}`,
+    `Now: ${entry.status || PLACEHOLDER('Now')}`,
+    `Tolerable: ${entry.tolerable || PLACEHOLDER('Tolerable')}`,
+    `Goal: ${entry.goal || PLACEHOLDER('Goal')}`,
+  ]
+  if (entry.wish)             lines.push(`Wish: ${entry.wish}`)
+  if (entry.wishStakeholder)  lines.push(`Wish by: ${entry.wishStakeholder}`)
+  if (entry.forecast)         lines.push(`Forecast: ${entry.forecast}`)
+  if (entry.resourceForValue) lines.push(`Resource of Value: ${entry.resourceForValue}`)
+  if (entry.consumedBy)       lines.push(`Consumed by: ${entry.consumedBy}`)
+  if (entry.currentStatus)    lines.push(`Current Status: ${entry.currentStatus}`)
+  return lines.join('\n')
+}
+
 // DD-006: Binary Constraint entries (C.)
 // Field order follows Template_Write_Constraint.md: Description, Scope, Rationale, Source.
 function serialiseCEntry(entry: CEntry): string {
@@ -110,6 +133,9 @@ export function useSpecExport() {
     }
     for (const entry of spec.constraints ?? []) {
       sections.push(serialiseCEntry(entry))
+    }
+    for (const entry of spec.resources ?? []) {
+      sections.push(serialiseREntry(entry))
     }
 
     return sections.join('\n\n')
@@ -194,14 +220,22 @@ function _pad(label: string, width = 14): string {
   return label.padEnd(width)
 }
 
+// Tom 2026-06-04: never print the word "undefined" in plain-text exports.
+// Optional fields render as an em-dash placeholder so the structure is
+// visible but no JS-runtime artefact leaks into the email body.
+function _opt(value: string | undefined | null): string {
+  const v = (value ?? '').toString().trim()
+  return v.length ? v : '—'
+}
+
 function serialiseFEntryPlain(entry: FEntry): string {
   return [
     entry.id,
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
     `  ${_pad('Description:')} ${entry.description}`,
-    `  ${_pad('Presence:')}  ${entry.presenceTest || entry.successCriteria || ''}`,
-    `  ${_pad('Delivers:')}  ${entry.functionOfValue}`,
+    `  ${_pad('Presence:')}  ${_opt(entry.presenceTest ?? entry.successCriteria)}`,
+    `  ${_pad('Delivers:')}  ${_opt(entry.functionOfValue)}`,
   ].join('\n')
 }
 
@@ -211,12 +245,12 @@ function serialiseVEntryPlain(entry: VEntry): string {
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
     `  ${_pad('Description:')} ${entry.description}`,
-    `  ${_pad('Scale:')}     ${entry.scale}`,
-    `  ${_pad('Meter:')}     ${entry.meter}`,
-    `  ${_pad('Now:')}       ${entry.status}`,
-    `  ${_pad('Tolerable:')} ${entry.tolerable}`,
-    `  ${_pad('Goal:')}      ${entry.goal}`,
-    `  ${_pad('For:')}       ${entry.valueOfFunction}`,
+    `  ${_pad('Scale:')}     ${_opt(entry.scale)}`,
+    `  ${_pad('Meter:')}     ${_opt(entry.meter)}`,
+    `  ${_pad('Now:')}       ${_opt(entry.status)}`,
+    `  ${_pad('Tolerable:')} ${_opt(entry.tolerable)}`,
+    `  ${_pad('Goal:')}      ${_opt(entry.goal)}`,
+    `  ${_pad('For:')}       ${_opt(entry.valueOfFunction)}`,
   ].join('\n')
 }
 
@@ -226,9 +260,29 @@ function serialiseSEntryPlain(entry: SEntry): string {
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
     `  ${_pad('Description:')} ${entry.description}`,
-    `  ${_pad('Impact:')}    ${entry.impact}`,
-    `  ${_pad('Function:')}  ${entry.function}`,
+    `  ${_pad('Impact:')}    ${_opt(entry.impact)}`,
+    `  ${_pad('Function:')}  ${_opt(entry.function)}`,
   ].join('\n')
+}
+
+function serialiseREntryPlain(entry: REntry): string {
+  const lines = [
+    entry.id,
+    `  ${_pad('Type:')}      ${entry.type}`,
+    `  ${_pad('Level:')}     ${entry.level}`,
+    `  ${_pad('Description:')} ${entry.description}`,
+    `  ${_pad('Scale:')}     ${_opt(entry.scale)}`,
+    `  ${_pad('Meter:')}     ${_opt(entry.meter)}`,
+    `  ${_pad('Now:')}       ${_opt(entry.status)}`,
+    `  ${_pad('Tolerable:')} ${_opt(entry.tolerable)}`,
+    `  ${_pad('Goal:')}      ${_opt(entry.goal)}`,
+  ]
+  if (entry.wish)             lines.push(`  ${_pad('Wish:')}      ${entry.wish}`)
+  if (entry.wishStakeholder)  lines.push(`  ${_pad('Wish by:')}   ${entry.wishStakeholder}`)
+  if (entry.forecast)         lines.push(`  ${_pad('Forecast:')}  ${entry.forecast}`)
+  if (entry.resourceForValue) lines.push(`  ${_pad('Enables:')}   ${entry.resourceForValue}`)
+  if (entry.consumedBy)       lines.push(`  ${_pad('Consumed by:')} ${entry.consumedBy}`)
+  return lines.join('\n')
 }
 
 function serialiseCEntryPlain(entry: CEntry): string {
@@ -271,6 +325,11 @@ export function serialisePlainText(spec: SpecBlock): string {
   if ((spec.constraints ?? []).length) {
     parts.push(`CONSTRAINTS\n${_HR}`)
     parts.push((spec.constraints ?? []).map(serialiseCEntryPlain).join('\n\n'))
+  }
+
+  if ((spec.resources ?? []).length) {
+    parts.push(`RESOURCES\n${_HR}`)
+    parts.push((spec.resources ?? []).map(serialiseREntryPlain).join('\n\n'))
   }
 
   return parts.join('\n\n')

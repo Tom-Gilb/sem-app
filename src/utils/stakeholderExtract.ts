@@ -77,13 +77,29 @@ export const STAKEHOLDER_PATTERNS: StakeholderMatch[] = [
   },
   {
     name: 'Government',
-    keywords: ['government', 'council', 'ministry', 'department', 'authority', 'agency', 'official', 'civil servant', 'policy maker', 'politician', 'municipal', 'federal', 'state', 'public sector'],
+    keywords: ['government', 'governments', 'council', 'ministry', 'department', 'authority', 'agency', 'official', 'civil servant', 'policy maker', 'politician', 'municipal', 'federal', 'state', 'public sector', 'parliament', 'legislature'],
     colour: '#dc2626',
   },
   {
     name: 'Investor',
     keywords: ['investor', 'funder', 'donor', 'sponsor', 'grant maker', 'philanthropist', 'vc', 'venture', 'angel', 'backer', 'lender', 'creditor'],
     colour: '#b45309',
+  },
+  {
+    // Inanimate financial stakeholders — funds / money pools have constraints on how
+    // they are used (fiduciary rules, sovereign wealth mandates, audit requirements).
+    // Tom 2026-06-02: "oil money … is a stakeholder"
+    name: 'Public Fund',
+    keywords: ['oil money', 'oil fund', 'sovereign fund', 'sovereign wealth', 'public fund', 'government fund', 'national fund', 'wealth fund', 'endowment', 'treasury', 'pension fund', 'welfare fund', 'state fund'],
+    colour: '#047857',
+  },
+  {
+    // Demographic / vulnerable groups — described by adjectives rather than role nouns.
+    // Tom 2026-06-02: "poorest in Norway … is a stakeholder"
+    // These groups are stakeholders in any public-policy or welfare context.
+    name: 'Vulnerable Community',
+    keywords: ['poor', 'poorest', 'needy', 'deprived', 'disadvantaged', 'marginalized', 'marginalised', 'underserved', 'underrepresented', 'vulnerable', 'impoverished', 'underprivileged', 'homeless', 'unemployed', 'excluded', 'low-income', 'at-risk', 'struggling', 'disenfranchised'],
+    colour: '#0891b2',
   },
   {
     name: 'Research',
@@ -130,14 +146,28 @@ export function extractStakeholders(text: string): StakeholderMatch[] {
 // who the plan is FOR — e.g. "for non-profit leaders", "helping young people",
 // "designed to serve rural communities".
 
-/** Stop words that end a contextual stakeholder phrase */
+/** Stop words that end a contextual stakeholder phrase.
+ *  NOTE: 'in', 'a', 'an', 'the' intentionally removed — they are handled
+ *  separately so phrases like "the poorest in Norway" are captured whole. */
 const STOP_WORDS = new Set([
-  'to', 'and', 'or', 'but', 'in', 'on', 'at', 'with', 'by', 'from',
+  'to', 'and', 'or', 'but', 'on', 'at', 'with', 'by', 'from',
   'who', 'that', 'which', 'so', 'when', 'where', 'as', 'if', 'while',
-  'their', 'them', 'they', 'it', 'this', 'these', 'those', 'a', 'an', 'the',
+  'their', 'them', 'they', 'it', 'this', 'these', 'those',
   'our', 'your', 'his', 'her', 'its', 'we', 'us', 'you', 'more', 'better',
   'increase', 'improve', 'reduce', 'enable', 'ensure', 'provide', 'achieve',
+  // First-person pronouns — never a stakeholder group (Tom 2026-06-02: "i" extracted as stakeholder)
+  'i', 'me', 'my', 'myself', 'mine',
 ])
+
+/** Articles skipped silently when they appear at the START of a phrase
+ *  (before the first content word has been collected). This lets "for the
+ *  poorest in Norway" → skip "the" → collect "poorest in Norway" rather
+ *  than stopping immediately on the article. */
+const LEADING_ARTICLES = new Set(['a', 'an', 'the'])
+
+/** Words stripped from the TAIL of a collected phrase. Prevents phrases
+ *  ending with a dangling preposition when the sentence continues. */
+const TRAILING_PREPS = new Set(['in', 'of', 'for', 'and', 'or', 'to', 'on', 'at', 'with', 'by', 'from', 'a', 'an', 'the'])
 
 /** Trigger words that introduce a stakeholder noun phrase */
 const TRIGGER_PATTERN = /\b(?:for|helping|serving|support(?:ing)?|benefit(?:t?ing)?|empowering|assisting|enabling|reaching|designed\s+for|built\s+for|intended\s+for|aimed\s+at|tailored\s+for|used\s+by|relied\s+on\s+by)\s+/gi
@@ -168,16 +198,28 @@ export function extractContextualStakeholders(text: string): StakeholderMatch[] 
   let match: RegExpExecArray | null
 
   while ((match = re.exec(text)) !== null) {
-    // Collect words following the trigger, stopping at stop words or punctuation
+    // Collect words following the trigger, stopping at stop words or punctuation.
+    // Leading articles ("the", "a", "an") are skipped silently so "for the poorest"
+    // captures "poorest" rather than stopping immediately on the article.
+    // "in" is no longer a STOP_WORD so "poorest in Norway" is captured whole.
     const rest = text.slice(match.index + match[0].length)
     const words = rest.split(/[\s,;.!?]+/)
     const phraseWords: string[] = []
 
     for (const w of words) {
       const wl = w.toLowerCase().replace(/[^a-z\-]/g, '')
-      if (!wl || STOP_WORDS.has(wl)) break
+      if (!wl) break
+      // Skip leading articles silently — do not add, do not break
+      if (phraseWords.length === 0 && LEADING_ARTICLES.has(wl)) continue
+      if (STOP_WORDS.has(wl)) break
       phraseWords.push(w.replace(/[^a-zA-Z\-]/g, ''))
-      if (phraseWords.length >= 4) break  // cap at 4-word phrases
+      if (phraseWords.length >= 5) break  // cap at 5-word phrases
+    }
+
+    // Strip trailing prepositions / articles that were collected before a
+    // sentence boundary cut off the rest of the phrase.
+    while (phraseWords.length > 1 && TRAILING_PREPS.has(phraseWords[phraseWords.length - 1].toLowerCase())) {
+      phraseWords.pop()
     }
 
     if (phraseWords.length === 0) continue

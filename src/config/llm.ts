@@ -594,6 +594,23 @@ Where each EvoStep is:
 7. Minimum: ≥1 step in the output.
 8. Step names: use natural readable words — e.g. "Evo 1 — Supabase Auth Setup", "Database Redundancy Core", "Test Infrastructure". No type prefix (S., F., V.). No PascalCase.
 9. BREVITY IS MANDATORY (Tom 2026-06-03 — generation was hanging on long descriptions). Each "description" field ≤ 25 words / 1 short sentence. Each "name" ≤ 8 words. Do not pad. Total output should fit in ~500 tokens for a 4-step plan. The Few-Shot Example below shows the target length — match it; do not exceed it.
+10. EXACT-MATCH VERIFICATION FOR linkedValues AND linkedSolutions (Tom 2026-06-03 hard rule — fuzzy variants break the V × Step VDT aggregator):
+    Every string in linkedValues MUST appear CHARACTER-FOR-CHARACTER in the input SpecBlock's values[].id list.
+    Every string in linkedSolutions MUST appear CHARACTER-FOR-CHARACTER in the input SpecBlock's solutions[].id list.
+    Before emitting the JSON, scan input.values[].id and input.solutions[].id. Your linkedValues and linkedSolutions arrays MUST be subsets of those exact lists.
+    DO NOT paraphrase. DO NOT truncate. DO NOT reorder words. DO NOT invent id formats like "S.1" or "V.LoginSuccess" unless they appear verbatim in the input.
+    If you cannot link a step to ≥1 existing solution id, the step is invalid — pick a different scope.
+
+== COUNTER-EXAMPLES (DO NOT EMIT) ==
+
+If input.solutions contains { "id": "Supabase Auth Integration", ... }:
+  ✓ CORRECT: linkedSolutions: ["Supabase Auth Integration"]
+  ✗ WRONG:   linkedSolutions: ["Supabase Auth Backend Setup"]   ← drifted toward step name
+  ✗ WRONG:   linkedSolutions: ["Supabase Auth"]                  ← truncated
+  ✗ WRONG:   linkedSolutions: ["Auth Integration"]               ← words reordered / dropped
+  ✗ WRONG:   linkedSolutions: ["S.1"]                            ← invented id format not in input
+
+The matcher is whitespace-insensitive ONLY at the leading/trailing edges. Internal spaces, punctuation, and capitalisation MUST match the input id exactly.
 
 == FEW-SHOT EXAMPLE ==
 

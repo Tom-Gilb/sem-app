@@ -25,7 +25,7 @@
 //   go-plan   — return to naked aperture
 
 import { computed } from 'vue'
-import { usePlanModel, type PlanModel } from '../composables/usePlanModel'
+import { useSpecModel, type PlanModel } from '../composables/useSpecModel'
 import ScrollContainer from './ScrollContainer.vue'
 
 const emit = defineEmits<{
@@ -33,7 +33,7 @@ const emit = defineEmits<{
   'go-plan': []
 }>()
 
-const { allModels } = usePlanModel()
+const { allModels } = useSpecModel()
 
 // ── Relative-time helper ─────────────────────────────────────────────────────
 function relativeTime(isoOrDate: string | Date | null | undefined): string {

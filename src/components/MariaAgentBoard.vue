@@ -30,7 +30,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 import { useMaria, cancelCurrentMaria, mariaStreamedText } from '../composables/useMaria'
-import { buildEml }            from '../composables/useEmlExport'
+import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
 import type { MariaResult }    from '../types/maria'
 import { matchMembersToItem }  from '../lib/maria/boardMatcher'
@@ -728,33 +728,27 @@ async function copyReport(): Promise<void> {
  * Open Mail.app with the governance report pre-addressed, subject filled, and
  * HTML body already in the compose window — no user paste action required.
  *
- * Primary path (Vite dev server present — the normal case for this app):
- *   1. Build full coloured HTML + RFC 2822 .eml via buildEml().
- *   2. POST the .eml string to /api/open-eml (served by mariaMailPlugin in vite.config.ts).
- *   3. The Vite plugin writes it to /tmp/maria-report-<ts>.eml and calls macOS `open`.
- *   4. Mail.app opens a compose draft with To:, Subject:, AND the HTML body pre-filled.
- *      Tom presses Send — done. Zero paste required.
- *
- * Fallback path (production build / Vite server absent):
- *   - Copy HTML to clipboard (text/html + text/plain).
- *   - Fire mailto: link — OS-handled, PWA window stays intact.
- *   - Mail.app opens with To: + Subject filled; user presses ⌘V once for HTML body.
+ * Uses openEml() from useEmlExport (same as ContractHub — proven reliable).
+ * Builds a RFC 2822 .eml blob, downloads it, macOS auto-opens in Mail.app.
+ * No Vite plugin dependency, no fetch(), no user-gesture context loss.
  *
  * To: address priority:
  *   (a) Whatever is typed in the emailTo field.
  *   (b) Chairman's email auto-detected from the board member roster.
  *   (c) Blank — user fills it in Mail.app.
+ *
+ * r17 (2026-06-02): Replaced broken Vite-plugin + clipboard+mailto fallback
+ * with openEml() — synchronous, no server dependency, works in all environments.
  */
-async function sendEmailReport(): Promise<void> {
+function sendEmailReport(): void {
   if (!result.value) return
 
   // 1 — Build report content
-  const html  = buildMariaEmailHtml(result.value, {
+  const html    = buildMariaEmailHtml(result.value, {
     ratingValue:      rating.value,
     ratingLabel:      ratingLabel.value,
     ratingInteracted: ratingInteracted.value,
   })
-  const plain   = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   const subject = '🏛 Maria — Board Governance Analysis'
 
   // 2 — Determine To: address
@@ -765,42 +759,14 @@ async function sendEmailReport(): Promise<void> {
   const toAddr = typedAddr || chairMember?.email || ''
   if (!typedAddr && toAddr) emailTo.value = toAddr  // fill field so user sees it
 
-  // 3 — Build the full RFC 2822 .eml
-  // From: prevents Mail.app "No Sender" — use the app owner's address so
-  // Mail treats it as an outgoing draft rather than a received message.
-  const FROM_ADDR = 'Tom Gilb <Tom@Gilb.com>'
-  const eml = buildEml(html, plain, subject, toAddr ? [toAddr] : [], [], FROM_ADDR)
+  // 3 — Download .eml → macOS auto-opens in Mail.app with full HTML body pre-filled
+  openEml(html, subject, {
+    to:   toAddr ? [toAddr] : [],
+    from: 'Tom Gilb <Tom@Gilb.com>',
+  })
 
-  // 4 — Primary: POST to local Vite dev-server endpoint → `open` → Mail.app with HTML body
-  let preFilled = false
-  try {
-    const resp = await fetch('/api/open-eml', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ eml }),
-    })
-    preFilled = resp.ok
-  } catch {
-    // Network error or endpoint absent (production build) — fall through to mailto: fallback
-  }
-
-  // 5 — Fallback: clipboard + mailto: (Mail.app opens but body requires one ⌘V paste)
-  if (!preFilled) {
-    navigator.clipboard
-      .write([new ClipboardItem({
-        'text/html':  new Blob([html],  { type: 'text/html' }),
-        'text/plain': new Blob([plain], { type: 'text/plain' }),
-      })])
-      .catch(() => navigator.clipboard.writeText(plain))
-
-    const mailtoUrl = toAddr
-      ? `mailto:${encodeURIComponent(toAddr)}?subject=${encodeURIComponent(subject)}`
-      : `mailto:?subject=${encodeURIComponent(subject)}`
-    window.location.href = mailtoUrl
-  }
-
-  mailPreFilled.value = preFilled
-  reportSent.value = true
+  mailPreFilled.value = true
+  reportSent.value    = true
   if (_sentTimer) clearTimeout(_sentTimer)
   _sentTimer = setTimeout(() => {
     reportSent.value    = false

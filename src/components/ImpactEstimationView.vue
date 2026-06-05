@@ -781,7 +781,7 @@ defineExpose({
       v-if="!values.length || !solutions.length"
       class="py-8 text-center text-gray-400 text-sm"
     >
-      Add V. and S. entries to your spec to use the impact estimation table.
+      Add Value Specs and Solution Specs to your spec to use the impact estimation table.
     </div>
 
     <template v-else>
@@ -1409,7 +1409,7 @@ defineExpose({
           v-if="detectedStakeholders.length === 0"
           class="py-4 text-center text-sm text-gray-400"
         >
-          No stakeholders detected — add role keywords to your V. entry descriptions
+          No stakeholders detected — add role keywords to your Value Spec descriptions
         </p>
 
         <!-- Matrix grid -->

@@ -19,7 +19,7 @@
 <script setup lang="ts">
 // UNIT_TYPE=Panel
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { usePlanModel, type PlanModel } from '../composables/usePlanModel'
+import { useSpecModel, type PlanModel } from '../composables/useSpecModel'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 
@@ -42,7 +42,7 @@ const emit = defineEmits<{
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-const { allModels } = usePlanModel()
+const { allModels } = useSpecModel()
 
 // ── Search ────────────────────────────────────────────────────────────────────
 

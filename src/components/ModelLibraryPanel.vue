@@ -1043,10 +1043,10 @@ function faceStyle(transform: string): Record<string, string> {
         <button
           type="button"
           class="flex items-center gap-1 text-[10px] font-semibold bg-teal-600 hover:bg-teal-500 text-white rounded px-2 py-1 transition-colors duration-150"
-          title="Plan Agent — open Plan Agent with this model as context"
+          title="Spec Agent — open Spec Agent with this model as context"
           @click="sendToAgent('plan-importer')"
         >
-          📄 Plan Agent
+          📄 Spec Agent
         </button>
         <button
           type="button"
@@ -1451,7 +1451,7 @@ function faceStyle(transform: string): Record<string, string> {
                 Model text
               </label>
               <p class="text-[11px] text-slate-400 -mt-1">
-                Paste any text — strategy doc, spec, plan, rough notes — AI converts it to Planguage F./V./C./R./S. entries.
+                Paste any text — strategy doc, spec, plan, rough notes — AI converts it to Planguage Function / Value / Constraint / Resource / Solution Specs.
               </p>
               <textarea
                 id="bring-in-text"
@@ -2422,7 +2422,7 @@ function faceStyle(transform: string): Record<string, string> {
               <label class="text-xs font-bold text-slate-600">Improvement Dimension</label>
               <div class="grid grid-cols-3 gap-2">
                 <button
-                  v-for="d in [{id:'stakeholder',label:'Stakeholder',emoji:'👥',desc:'Add new stakeholders and entries that serve them'},{id:'value',label:'Value',emoji:'📈',desc:'Improve measurable value attributes (V. entries)'},{id:'constraint',label:'Constraint',emoji:'🔒',desc:'Add or refine constraints (C. entries) for the model'}]"
+                  v-for="d in [{id:'stakeholder',label:'Stakeholder',emoji:'👥',desc:'Add new stakeholders and entries that serve them'},{id:'value',label:'Value',emoji:'📈',desc:'Improve measurable value attributes (Value Specs)'},{id:'constraint',label:'Constraint',emoji:'🔒',desc:'Add or refine Constraint Specs for the model'}]"
                   :key="d.id"
                   type="button"
                   :class="[
@@ -2447,7 +2447,7 @@ function faceStyle(transform: string): Record<string, string> {
                 {{ improveDimension === 'stakeholder' ? 'For which stakeholder/group?' : improveDimension === 'value' ? 'What value improvement goal?' : 'What constraint or resource limit?' }}
               </label>
               <p class="text-[11px] text-slate-400 -mt-1">
-                {{ improveDimension === 'stakeholder' ? 'e.g. "Surgical Nurses" — AI will add functions, values, and stakeholders that serve them' : improveDimension === 'value' ? 'e.g. "Better Security" or "Faster response time" — AI adds measurable V. entries and corresponding F. entries' : 'e.g. "For less capital expenditure" or "Within GDPR constraints" — AI adds C. entries and budget-aware alternatives' }}
+                {{ improveDimension === 'stakeholder' ? 'e.g. "Surgical Nurses" — AI will add Function Specs, Value Specs, and stakeholders that serve them' : improveDimension === 'value' ? 'e.g. "Better Security" or "Faster response time" — AI adds measurable Value Specs and corresponding Function Specs' : 'e.g. "For less capital expenditure" or "Within GDPR constraints" — AI adds Constraint Specs and budget-aware alternatives' }}
               </p>
               <input
                 v-model="improveSpec"
@@ -2594,6 +2594,20 @@ function faceStyle(transform: string): Record<string, string> {
                 >
                   <div class="flex-1 min-w-0">
                     <p class="text-xs font-semibold text-slate-700 truncate">{{ version.name }}</p>
+                    <!-- Tom 2026-06-03: Owner with Plan Title in Restore headings.
+                         Owner shown on every version row; falls back to selectedModel.owners
+                         (which are model-scoped, shared across versions). -->
+                    <p
+                      class="text-[10px] font-semibold truncate leading-snug"
+                      :class="(selectedModel.owners && selectedModel.owners.length > 0) ? 'text-indigo-600' : 'text-slate-400 italic'"
+                      :title="(selectedModel.owners && selectedModel.owners.length > 0)
+                        ? `Owners: ${selectedModel.owners.map(o => o.name).join(', ')}`
+                        : 'No owner recorded for this model — add via the 🔑 chip on the Plan Title.'"
+                    >
+                      {{ (selectedModel.owners && selectedModel.owners.length > 0)
+                        ? `🔑 ${selectedModel.owners.map(o => o.name).join(', ')}`
+                        : '🔑 owner not recorded' }}
+                    </p>
                     <p class="text-[10px] text-slate-400">{{ version.entries.length }} entries · {{ version.stakeholders.length }} stakeholders · <span class="capitalize">{{ version.source }}</span></p>
                   </div>
                   <button
@@ -2665,11 +2679,11 @@ function faceStyle(transform: string): Record<string, string> {
                 <button
                   type="button"
                   class="flex items-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white px-3 py-2.5 text-xs font-semibold transition-colors duration-150"
-                  title="Plan Agent — convert this model to a Planguage plan, analyse problems and improvements"
+                  title="Spec Agent — convert this model to a Planguage spec, analyse problems and improvements"
                   @click="sendToAgent('plan-importer')"
                 >
                   <span aria-hidden="true">📄</span>
-                  <span>Plan Agent</span>
+                  <span>Spec Agent</span>
                 </button>
                 <button
                   type="button"
@@ -2904,6 +2918,18 @@ function faceStyle(transform: string): Record<string, string> {
                 >
                   <div class="flex-1 min-w-0">
                     <p class="text-xs font-semibold text-slate-700 truncate">{{ version.name }}</p>
+                    <!-- Tom 2026-06-03: Owner with Plan Title in Restore headings. -->
+                    <p
+                      class="text-[10px] font-semibold truncate leading-snug"
+                      :class="(selectedModel.owners && selectedModel.owners.length > 0) ? 'text-indigo-600' : 'text-slate-400 italic'"
+                      :title="(selectedModel.owners && selectedModel.owners.length > 0)
+                        ? `Owners: ${selectedModel.owners.map(o => o.name).join(', ')}`
+                        : 'No owner recorded for this model.'"
+                    >
+                      {{ (selectedModel.owners && selectedModel.owners.length > 0)
+                        ? `🔑 ${selectedModel.owners.map(o => o.name).join(', ')}`
+                        : '🔑 owner not recorded' }}
+                    </p>
                     <p class="text-[10px] text-slate-400">{{ version.entries.length }} entries · {{ version.stakeholders.length }} stakeholders</p>
                   </div>
                   <button

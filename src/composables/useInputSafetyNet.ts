@@ -76,6 +76,23 @@ const OOPS_MAX_AGE_MS = 5 * 60 * 1000
 const MAX_SNAPSHOTS_PER_FIELD = 5
 /** localStorage key. */
 const STORAGE_KEY = 'sem-app:input-safety-net:v1'
+/**
+ * Initial crash-recovery offer max age — Tom 2026-06-03 *"i am really tired
+ * of oops"*. The bug: the initial-recovery path (line ~278) used to bypass
+ * the age cap and offer any snapshot up to 24 h old.  Every time a field-
+ * registering component (SEMEntryForm) remounted on a stage navigation, the
+ * 3-hour-old Stakes draft re-popped the Oops toast.  Cap the auto-offer at
+ * 15 minutes — old drafts are still recoverable via `getLatestDraft()` /
+ * future menu, but they no longer auto-spam the toast hours later.
+ */
+const INITIAL_OFFER_MAX_AGE_MS = 15 * 60 * 1000   // 15 minutes
+/**
+ * Session-level set of snapshot-capturedAt timestamps that have already been
+ * dismissed or offered + ignored.  Prevents the SAME snapshot from being
+ * re-offered after a remount-driven re-registration.  Persisted to
+ * localStorage so it survives reloads.
+ */
+const DISMISSED_KEY = 'sem-app:input-safety-net:dismissed:v1'
 
 // ───── Module-level singleton state ─────────────────────────────────────────
 
@@ -177,6 +194,8 @@ function _maybeOfferOops(fieldId: string, currentText: string): void {
   // is only useful within a few minutes of the drop. Crash recovery uses a
   // separate path (watchField initial check) with the longer SNAPSHOT_MAX_AGE_MS.
   if (Date.now() - latest.capturedAt > OOPS_MAX_AGE_MS) return
+  // Already dismissed once — never re-offer the same snapshot.
+  if (_isSnapshotDismissed(latest.capturedAt)) return
   const currentWords = countWords(currentText)
   if (latest.words < MIN_WORDS) return
   if (currentWords >= latest.words * DROP_RATIO) return
@@ -202,6 +221,31 @@ function _isIntentionallyCleared(fieldId: string): boolean {
   const t = _intentionalClearAt.get(fieldId)
   if (!t) return false
   return Date.now() - t < INTENTIONAL_GRACE_MS
+}
+
+/** Snapshot timestamps already dismissed in this or a prior session. */
+function _loadDismissed(): Set<number> {
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as number[]
+    return new Set(Array.isArray(arr) ? arr : [])
+  } catch { return new Set() }
+}
+function _saveDismissed(set: Set<number>): void {
+  try {
+    // Cap at last 50 to prevent unbounded growth.
+    const arr = Array.from(set).slice(-50)
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify(arr))
+  } catch { /* non-fatal */ }
+}
+const _dismissedSnapshots: Set<number> = _loadDismissed()
+function _markSnapshotDismissed(capturedAt: number): void {
+  _dismissedSnapshots.add(capturedAt)
+  _saveDismissed(_dismissedSnapshots)
+}
+function _isSnapshotDismissed(capturedAt: number): boolean {
+  return _dismissedSnapshots.has(capturedAt)
 }
 
 // ───── Public API ──────────────────────────────────────────────────────────
@@ -283,8 +327,15 @@ export function watchField(
     const latest = _latestSnapshot(fieldId)
     if (!latest) return
     if (latest.words < MIN_WORDS) return
-    // Offer directly (bypasses OOPS_MAX_AGE_MS — the draft is fresh enough for
-    // the 24-hour window but may be older than the 5-minute Oops window).
+    // Tom 2026-06-03 *"i am really tired of oops"* — three suppression gates:
+    //   (1) snapshot age must be within INITIAL_OFFER_MAX_AGE_MS (15 min) —
+    //       cap was previously 24 h via SNAPSHOT_MAX_AGE_MS bypass, which made
+    //       every stage navigation re-pop a 3-hour-old Stakes draft.
+    //   (2) this exact snapshot must not have been dismissed in this or a
+    //       prior session (persisted in DISMISSED_KEY).
+    //   (3) field-level lockout still applies (covered upstream).
+    if (Date.now() - latest.capturedAt > INITIAL_OFFER_MAX_AGE_MS) return
+    if (_isSnapshotDismissed(latest.capturedAt)) return
     _oopsOffer.value = {
       fieldId,
       snapshot: latest,
@@ -306,6 +357,8 @@ function restoreOops(): void {
   if (!offer) return
   const restorer = _restorers.get(offer.fieldId)
   if (restorer) restorer(offer.snapshot.text)
+  // Mark this snapshot consumed so it never re-offers (user already restored).
+  _markSnapshotDismissed(offer.snapshot.capturedAt)
   _oopsOffer.value = null
   // Lockout is intentionally kept until the user generates a new stable
   // snapshot — prevents toast spam if they delete again immediately.
@@ -319,7 +372,13 @@ function dismissOops(): void {
   // cannot raise a fresh Oops on the NEXT page load. Without this call,
   // the 24-hour snapshot persists in localStorage and the Oops banner
   // fires again every time the app reloads with an empty textarea.
-  if (offer) clearField(offer.fieldId)
+  if (offer) {
+    clearField(offer.fieldId)
+    // Tom 2026-06-03 *"i am really tired of oops"* — also blacklist this
+    // snapshot's capturedAt so even if some other code path resurrects the
+    // snapshot for the same field, we never re-offer THIS one again.
+    _markSnapshotDismissed(offer.snapshot.capturedAt)
+  }
 }
 
 /**

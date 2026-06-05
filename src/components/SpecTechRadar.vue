@@ -76,7 +76,7 @@
         text-anchor="middle"
         font-size="12"
         fill="#94a3b8"
-      >No S. entries in spec</text>
+      >No Solution Specs in spec</text>
     </svg>
 
     <!-- Legend -->

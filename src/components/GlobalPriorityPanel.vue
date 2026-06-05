@@ -30,7 +30,7 @@ import {
   type Dilemma,
 } from '../composables/useGlobalPriority'
 import type { SpecBlock } from '../types/spec'
-import type { SpecOwner } from '../composables/usePlanModel'
+import type { SpecOwner } from '../composables/useSpecModel'
 import RightPanel from './RightPanel.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'

@@ -52,7 +52,7 @@
            the full 4-element requirement (spinner✓ elapsed✓ progress✓ amuse below).
            lingerVisible ensures the button stays for 10 s after generation finishes
            with the blinking "Click to Continue Amuse Me" countdown (Tom 2026-06-02). -->
-      <AmuseMeButton :is-loading="loading" class="w-full mt-3" />
+      <AmuseMeButton :is-loading="loading" :planning-stage="planningStage" class="w-full mt-3" />
     </div>
 
     <!-- Error state -->
@@ -1110,7 +1110,7 @@
           v-else-if="capsuleReport && capsuleReport.items.length === 0"
           class="text-xs text-rose-600 italic"
         >
-          Add V. entries to generate a review checklist
+          Add Value Specs to generate a review checklist
         </p>
 
         <!-- Copy button -->
@@ -1434,7 +1434,7 @@
 
         <!-- Empty state -->
         <p v-else class="text-xs text-emerald-600 italic">
-          No V. entries found — add Value entries with Goals to generate a checklist
+          No Value Specs found — add Value Specs with Goals to generate a checklist
         </p>
 
         <!-- Ship CTA when all pass -->
@@ -2046,7 +2046,7 @@
           </p>
         </div>
         <!-- Empty state -->
-        <p v-if="confidenceVEntries.length === 0" class="text-xs text-slate-400 italic">No V. entries in spec.</p>
+        <p v-if="confidenceVEntries.length === 0" class="text-xs text-slate-400 italic">No Value Specs in spec.</p>
         <!-- Per-entry rows -->
         <div v-else class="space-y-2">
           <div
@@ -2082,7 +2082,7 @@
       <div
         v-if="graphOpen"
         class="rounded-xl border border-cyan-200 bg-cyan-50 p-4 space-y-3"
-        aria-label="V. entry dependency graph panel"
+        aria-label="Value Spec dependency graph panel"
       >
         <!-- Panel header -->
         <div class="flex items-center justify-between">
@@ -2098,7 +2098,7 @@
       />
         </div>
         <!-- Empty state -->
-        <p v-if="graph.nodes.length === 0" class="text-xs text-slate-400 italic">No V. entries in spec.</p>
+        <p v-if="graph.nodes.length === 0" class="text-xs text-slate-400 italic">No Value Specs in spec.</p>
         <!-- Graph -->
         <SpecDepGraph
           v-else
@@ -2627,7 +2627,7 @@
         <div
           v-if="clauses.length === 0"
           class="text-xs text-slate-500 italic py-2"
-        >No V. entries found</div>
+        >No Value Specs found</div>
 
         <!-- Clause cards -->
         <div
@@ -2707,7 +2707,7 @@
         <div
           v-if="lanes.length === 0"
           class="text-xs text-slate-500 italic py-2"
-        >No F. entries found</div>
+        >No Function Specs found</div>
 
         <!-- SVG story map -->
         <div v-else class="overflow-x-auto rounded-lg bg-white border border-emerald-100">
@@ -2862,7 +2862,7 @@
               </div>
               <p class="text-slate-500 pl-1">Current: {{ kr.current }} → Target: {{ kr.target }}</p>
             </div>
-            <p v-if="obj.keyResults.length === 0" class="text-slate-400 italic">No V. entries mapped to this objective</p>
+            <p v-if="obj.keyResults.length === 0" class="text-slate-400 italic">No Value Specs mapped to this objective</p>
           </div>
         </div>
 
@@ -2952,7 +2952,7 @@
         <p
           v-if="ladderEntries.length === 0 || ladderEntries.every(e => e.rungs.length === 0)"
           class="text-xs text-amber-700"
-        >No V. entries with numeric values</p>
+        >No Value Specs with numeric values</p>
 
         <!-- SVG chart -->
         <template v-else>
@@ -3024,7 +3024,7 @@
         <p
           v-if="comparisonRows.length === 0"
           class="text-xs text-blue-700"
-        >No V. entries</p>
+        >No Value Specs</p>
 
         <!-- Comparison table -->
         <template v-else>
@@ -3430,7 +3430,7 @@
           >Overall {{ velocityOverallTrend }}</span>
         </div>
         <!-- Per-entry rows -->
-        <div v-if="velocityEntries.length === 0" class="text-xs text-slate-400 italic">No V. entries found.</div>
+        <div v-if="velocityEntries.length === 0" class="text-xs text-slate-400 italic">No Value Specs found.</div>
         <div v-else class="space-y-2">
           <div
             v-for="e in velocityEntries"
@@ -3501,7 +3501,7 @@
         @click="coqOpen = false"
       />
         </div>
-        <p v-if="coqEntries.length === 0" class="text-xs text-slate-400 italic">Add a spec with V. entries to see CoQ calculations.</p>
+        <p v-if="coqEntries.length === 0" class="text-xs text-slate-400 italic">Add a spec with Value Specs to see CoQ calculations.</p>
         <template v-else>
           <div class="overflow-x-auto mb-4">
             <table class="w-full text-xs text-left border-collapse">
@@ -3777,7 +3777,7 @@
           <span v-if="constraintHighCount > 0" class="text-xs font-semibold text-red-600">{{ constraintHighCount }} high-severity</span>
         </div>
         <!-- No constraints message -->
-        <div v-if="constraintEntries.length === 0" class="text-xs text-slate-400 italic">No constraints detected. Add Tolerable fields to V. entries.</div>
+        <div v-if="constraintEntries.length === 0" class="text-xs text-slate-400 italic">No constraints detected. Add Tolerable fields to Value Specs.</div>
         <!-- Category sections -->
         <div v-else class="space-y-3">
           <div
@@ -3871,7 +3871,7 @@
       />
           </div>
         </div>
-        <div v-if="hypCards.length === 0 && !hypGenerating" class="text-xs text-lime-600 italic">No V. entries found. Add values to your spec to generate hypothesis cards.</div>
+        <div v-if="hypCards.length === 0 && !hypGenerating" class="text-xs text-lime-600 italic">No Value Specs found. Add Value Specs to your spec to generate hypothesis cards.</div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div
             v-for="card in hypCards"
@@ -4037,7 +4037,7 @@
       />
         </div>
         <template v-if="hypothesisCards.length === 0">
-          <p class="text-sm text-slate-400">No V. entries found</p>
+          <p class="text-sm text-slate-400">No Value Specs found</p>
         </template>
         <template v-else>
           <!-- Card grid -->
@@ -4356,7 +4356,7 @@
         @click="rolloutOpen = false"
       />
         </div>
-        <div v-if="rolloutEntries.length === 0" class="text-xs text-slate-400">No F. entries found.</div>
+        <div v-if="rolloutEntries.length === 0" class="text-xs text-slate-400">No Function Specs found.</div>
         <div v-else class="space-y-4">
           <div v-for="entry in rolloutEntries" :key="entry.fEntryId" class="border rounded-lg p-3">
             <p class="text-xs font-semibold text-slate-700 mb-2">{{ entry.fEntryId }}</p>
@@ -4414,7 +4414,7 @@
         @click="chaosOpen = false"
       />
         </div>
-        <div v-if="chaosScenarios.length === 0" class="text-xs text-slate-400">No S. entries found.</div>
+        <div v-if="chaosScenarios.length === 0" class="text-xs text-slate-400">No Solution Specs found.</div>
         <div v-else class="space-y-4">
           <div v-for="scenario in chaosScenarios" :key="scenario.sEntryId" class="border rounded-lg p-3">
             <p class="text-xs font-semibold text-slate-700 mb-2">{{ scenario.sEntryId }}</p>
@@ -4519,7 +4519,7 @@
         @click="empathyOpen = false"
       />
         </div>
-        <p v-if="empathyCards.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
+        <p v-if="empathyCards.length === 0" class="text-xs text-slate-400 italic">No Value Specs found. Generate a spec first.</p>
         <div v-else class="grid grid-cols-2 gap-2">
           <div
             v-for="card in empathyCards"
@@ -4559,7 +4559,7 @@
         @click="npsOpen = false"
       />
         </div>
-        <p v-if="npsEntries.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
+        <p v-if="npsEntries.length === 0" class="text-xs text-slate-400 italic">No Value Specs found. Generate a spec first.</p>
         <template v-else>
           <!-- Summary banner -->
           <div class="rounded-lg p-3 mb-3 flex items-center gap-3"
@@ -4625,7 +4625,7 @@
         @click="changelogEntryOpen = false"
       />
         </div>
-        <p v-if="changelogEntries.length === 0" class="text-xs text-slate-400 italic">No F. entries found. Generate a spec first.</p>
+        <p v-if="changelogEntries.length === 0" class="text-xs text-slate-400 italic">No Function Specs found. Generate a spec first.</p>
         <template v-else>
           <!-- Version bump badge -->
           <div class="mb-3 flex items-center gap-2">
@@ -4750,7 +4750,7 @@
         @click="jtbdOpen = false"
       />
         </div>
-        <p v-if="jtbdCards.length === 0" class="text-xs text-slate-400 italic">No F. entries found. Generate a spec first.</p>
+        <p v-if="jtbdCards.length === 0" class="text-xs text-slate-400 italic">No Function Specs found. Generate a spec first.</p>
         <div v-else class="space-y-2">
           <div
             v-for="card in jtbdCards"
@@ -4792,7 +4792,7 @@
         @click="apiContractOpen = false"
       />
         </div>
-        <p v-if="apiEndpoints.length === 0" class="text-xs text-slate-400 italic">No F. or S. entries found. Generate a spec first.</p>
+        <p v-if="apiEndpoints.length === 0" class="text-xs text-slate-400 italic">No Function or Solution Specs found. Generate a spec first.</p>
         <div v-else class="space-y-2">
           <details
             v-for="ep in apiEndpoints"
@@ -4842,7 +4842,7 @@
         @click="experimentOpen = false"
       />
         </div>
-        <p v-if="experimentCards.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
+        <p v-if="experimentCards.length === 0" class="text-xs text-slate-400 italic">No Value Specs found. Generate a spec first.</p>
         <div v-else class="space-y-3">
           <div v-for="card in experimentCards" :key="card.entryId" class="rounded-lg border p-3 bg-slate-50">
             <p class="text-xs font-bold text-slate-700 mb-2">{{ card.entryId }}</p>
@@ -4875,7 +4875,7 @@
         @click="decayOpen = false"
       />
         </div>
-        <p v-if="decayEntries.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
+        <p v-if="decayEntries.length === 0" class="text-xs text-slate-400 italic">No Value Specs found. Generate a spec first.</p>
         <template v-else>
           <div class="mb-2 text-xs text-red-700 font-medium">
             {{ decaySorted.filter(e => e.urgencyLevel === 'critical').length }} critical /
@@ -4942,7 +4942,7 @@
         @click="riskValueOpen = false"
       />
         </div>
-        <p v-if="riskValueEntries.length === 0" class="text-xs text-slate-400 italic">No V. entries found. Generate a spec first.</p>
+        <p v-if="riskValueEntries.length === 0" class="text-xs text-slate-400 italic">No Value Specs found. Generate a spec first.</p>
         <template v-else>
           <div class="space-y-3 mb-3">
             <div v-for="e in riskValueEntries" :key="e.vId" class="rounded border border-slate-100 p-3 bg-slate-50">
@@ -5026,7 +5026,7 @@
         @click="backlogOpen = false"
       />
         </div>
-        <p v-if="backlogStories.length === 0" class="text-xs text-slate-400 italic">No F. entries found. Generate a spec first.</p>
+        <p v-if="backlogStories.length === 0" class="text-xs text-slate-400 italic">No Function Specs found. Generate a spec first.</p>
         <template v-else>
           <ScrollContainer outer-class="mb-3 relative" inner-class="space-y-2" inner-style="max-height: 24rem" :no-pill="true">
             <template v-for="story in backlogStories" :key="story.storyId">
@@ -5168,7 +5168,7 @@
         @click="slaOpen = false"
       />
         </div>
-        <div v-if="slaClauses.length === 0" class="text-sm text-slate-500 italic">No V. entries in spec.</div>
+        <div v-if="slaClauses.length === 0" class="text-sm text-slate-500 italic">No Value Specs in spec.</div>
         <div v-else class="overflow-x-auto">
           <table class="w-full text-xs border-collapse">
             <thead>
@@ -6852,7 +6852,7 @@
       />
         </div>
 
-        <p v-if="wbsNodes.length === 0" class="text-xs text-stone-500 italic">No F. entries found. Generate a spec first.</p>
+        <p v-if="wbsNodes.length === 0" class="text-xs text-stone-500 italic">No Function Specs found. Generate a spec first.</p>
 
         <!-- Per-F.-entry expandable cards -->
         <div
@@ -6917,7 +6917,7 @@
       />
         </div>
 
-        <p v-if="okrHealthEntries.length === 0" class="text-xs text-cyan-700 italic">No V. entries found. Generate a spec first.</p>
+        <p v-if="okrHealthEntries.length === 0" class="text-xs text-cyan-700 italic">No Value Specs found. Generate a spec first.</p>
 
         <template v-else>
           <div class="space-y-2">
@@ -8105,6 +8105,11 @@ const props = withDefaults(defineProps<{
   sharpenSummary?: { totalChanges: number; at: Date | null } | null
   /** Feature #177 — When the spec was generated; shown as a timestamp in the header */
   generatedAt?: Date | null
+  /** Tom 2026-06-04 r89 — current planning-bar stage; forwarded to AmuseMeButton
+   *  so the "What Happens Next" card reflects the user's actual position
+   *  during spec generation (was defaulting to 6 inside AmuseMeButton because
+   *  this prop was never forwarded). */
+  planningStage?: number
 }>(), {
   loading: false,
   error: '',
@@ -8115,6 +8120,7 @@ const props = withDefaults(defineProps<{
   sharpenedEntryIds: () => [],
   sharpenSummary: null,
   generatedAt: null,
+  planningStage: 1,
 })
 
 const { serialise } = useSpecExport()

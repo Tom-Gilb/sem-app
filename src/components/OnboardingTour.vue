@@ -17,7 +17,7 @@ const TOUR_STEPS = [
     icon: '🤖',
     region: 'Spec Panel',
     title: 'AI generates your Planguage spec',
-    description: 'Submit your SEM entry and Claude generates a structured Planguage spec with Function (F.), Value (V.), and Solution (S.) entries. Each V. entry has Scale, Meter, Goal, Tolerable, and Status fields.',
+    description: 'Submit your SEM entry and Claude generates a structured Planguage spec with Function Specs, Value Specs, and Solution Specs. Each Value Spec has Scale, Meter, Goal, Tolerable, and Status fields.',
   },
   {
     step: 3,
@@ -31,7 +31,7 @@ const TOUR_STEPS = [
     icon: '📊',
     region: 'Impact Estimation',
     title: 'Prioritise by value',
-    description: 'The Impact Estimation Table (IET) shows each Evo step scored against your V. entries. V/C ratios rank steps by value-per-resource. Use the Confidence and Stakeholder toggles for deeper analysis.',
+    description: 'The Impact Estimation Table (IET) shows each Evo step scored against your Value Specs. V/C ratios (Value per Cost) rank steps by value-per-resource. Use the Confidence and Stakeholder toggles for deeper analysis.',
   },
   {
     step: 5,

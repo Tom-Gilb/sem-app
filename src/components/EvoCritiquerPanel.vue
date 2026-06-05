@@ -30,7 +30,7 @@ import {
   scoreToGrade,
 } from '../composables/useEvoCritiquer'
 import type { HealthDimension, EvoStepCritique, HealthFinding, ImprovementTask } from '../composables/useEvoCritiquer'
-import { usePlanModel, activatePlanModel, type PlanModel } from '../composables/usePlanModel'
+import { useSpecModel, activatePlanModel, type PlanModel } from '../composables/useSpecModel'
 
 const emit = defineEmits<{
   close: []
@@ -42,7 +42,7 @@ const emit = defineEmits<{
 // ── Composables ───────────────────────────────────────────────────────────────
 
 const { critiqueResult, critiqueLoading, critiqueError, runEvoCritique } = useEvoCritiquer()
-const { currentModel: planModel, allModels } = usePlanModel()
+const { currentModel: planModel, allModels } = useSpecModel()
 
 // ── Plan picker (shown when no plan is loaded) ────────────────────────────────
 // Uses reactive allModels (not static listRecentPlans) so plans added after

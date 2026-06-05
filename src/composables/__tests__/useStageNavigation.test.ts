@@ -57,11 +57,13 @@ describe('resolveStageNavAction — routing (editor closed, has spec, has steps)
   it('stage 3 (Solutions) → to-spec', () => {
     expect(nav(3).action).toBe('to-spec')
   })
-  it('stage 4 (Sharpen) → to-spec', () => {
+  it('stage 4 (Impacts) → to-spec', () => {
     expect(nav(4).action).toBe('to-spec')
   })
-  it('stage 5 (Impacts) → to-impact', () => {
-    expect(nav(5).action).toBe('to-impact')
+  // Tom 2026-06-04 r83: was 'to-impact' (wrong — Stage 5 is Refine / Constraints,
+  // not Impacts).  Stage 5 now routes to the spec editor where the Constraints tab lives.
+  it('stage 5 (Refine / Constraints) → to-spec', () => {
+    expect(nav(5).action).toBe('to-spec')
   })
   it('stage 6 (Evo Steps) → to-evo', () => {
     expect(nav(6).action).toBe('to-evo')
@@ -114,10 +116,12 @@ describe('resolveStageNavAction — editor-stay guard (regression: r18 "Next →
     expect(nav(4, { editorOpen: true, hasSpec: false }).action).toBe('to-spec')
   })
 
-  // Guard only covers stages 1–4. Stage 5+ must proceed to their own actions
-  // even when the editor is technically open (closing the editor is correct for 5+).
-  it('stage 5 with editor open + has spec → to-impact (guard does NOT cover stage 5)', () => {
-    expect(nav(5, { editorOpen: true, hasSpec: true }).action).toBe('to-impact')
+  // Tom 2026-06-04 r83: guard now covers stages 1–5 (Stage 5 = Refine is also
+  // a spec-editor stage now that Constraints live in the spec editor's
+  // Constraints tab).  Stage 6+ still proceeds to its own action even when
+  // the editor is open (closing the editor is correct for 6+).
+  it('stage 5 with editor open + has spec → editor-stay (guard NOW covers stage 5 per r83)', () => {
+    expect(nav(5, { editorOpen: true, hasSpec: true }).action).toBe('editor-stay')
   })
   it('stage 6 with editor open + has spec → to-evo (guard does NOT cover stage 6)', () => {
     expect(nav(6, { editorOpen: true, hasSpec: true }).action).toBe('to-evo')
@@ -196,9 +200,10 @@ describe('resolveStageNavAction — advisory toasts (non-blocking guidance)', ()
 // ── Section 4: toast + action together (integration of both outputs) ──────────
 
 describe('resolveStageNavAction — toast + action together', () => {
-  it('stage 5, no spec: action=to-impact AND toast=spec-missing', () => {
+  // Tom 2026-06-04 r83: was 'to-impact' (wrong); Stage 5 = Refine routes to spec editor.
+  it('stage 5, no spec: action=to-spec AND toast=spec-missing', () => {
     const { action, toast } = nav(5, { hasSpec: false })
-    expect(action).toBe('to-impact')
+    expect(action).toBe('to-spec')
     expect(toast).toBe('spec-missing')
   })
 
@@ -274,7 +279,7 @@ describe('resolveStageNavAction — exhaustive action coverage', () => {
 
     reached.add(nav(1, { editorOpen: true, hasSpec: true }).action)  // editor-stay
     reached.add(nav(1).action)   // to-spec
-    reached.add(nav(5).action)   // to-impact
+    reached.add(nav(7).action)   // to-impact (Tom 2026-06-04 r83: was nav(5); Stage 5 is now to-spec)
     reached.add(nav(6).action)   // to-evo
     reached.add(nav(8).action)   // to-tasks
     reached.add(nav(11).action)  // to-export

@@ -595,7 +595,7 @@ const {
             <button
               type="button"
               :class="['px-5 py-3 text-sm font-semibold transition-colors', tabClass('planguage')]"
-              title="Planguage Model tab — F./V./C. entries representing the decision space"
+              title="Planguage Model tab — Function / Value / Constraint Specs representing the decision space"
               @click="activeTab = 'planguage'"
             >
               Planguage Model
@@ -978,7 +978,7 @@ const {
                     type="button"
                     class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
                     :disabled="!comparisonText.trim()"
-                    title="Compare how each option affects the external plan — AI analyses alignment with F./V./C. entries"
+                    title="Compare how each option affects the external plan — AI analyses alignment with Function / Value / Constraint Specs"
                     @click="triggerCompare"
                   >
                     Compare →

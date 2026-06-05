@@ -18,13 +18,13 @@ import GetGlyph from './icons/GetGlyph.vue'
 // half to read the "About the Save Glyph" essay (SaveGlyphHistoryPanel).
 import SaveGetActionButton from './SaveGetActionButton.vue'
 import {
-  usePlanModel,
+  useSpecModel,
   exportPlanModel,
   setPlanName,
   setPlanVersion,
   importPlanModel,
   type PlanModel,
-} from '../composables/usePlanModel'
+} from '../composables/useSpecModel'
 
 const emit = defineEmits<{
   load: [model: PlanModel]
@@ -43,7 +43,7 @@ const emit = defineEmits<{
   'open-save-glyph-history': []
 }>()
 
-const { currentModel, allModels } = usePlanModel()
+const { currentModel, allModels } = useSpecModel()
 
 // ── Inline name editing ───────────────────────────────────────────────────────
 
@@ -322,9 +322,9 @@ function handleFileImport(event: Event): void {
           ? 'bg-white/15 text-white hover:bg-white/25'
           : 'border border-dashed border-indigo-400/70 text-indigo-200 hover:bg-white/15 hover:text-white hover:border-white/70'"
         :title="currentModel.owners?.[0]?.name
-          ? `Owner: ${currentModel.owners[0].name} — click to open Plan Responsibilities`
+          ? `Owner: ${currentModel.owners[0].name} — click to open Spec Responsibilities`
           : 'No Owner set — click to add'"
-        aria-label="Plan Owners"
+        aria-label="Spec Owners"
         data-testid="planmodelbar-owner-chip"
         @click="emit('open-people', 'owners')"
       >
@@ -347,9 +347,9 @@ function handleFileImport(event: Event): void {
           ? 'bg-white/15 text-white hover:bg-white/25'
           : 'border border-dashed border-indigo-400/70 text-indigo-200 hover:bg-white/15 hover:text-white hover:border-white/70'"
         :title="currentModel.planners?.[0]?.name
-          ? `Planner: ${currentModel.planners[0].name} — click to open Plan Responsibilities`
+          ? `Planner: ${currentModel.planners[0].name} — click to open Spec Responsibilities`
           : 'No Planner set — click to add'"
-        aria-label="Plan Planners"
+        aria-label="Spec Planners"
         data-testid="planmodelbar-planner-chip"
         @click="emit('open-people', 'planners')"
       >
@@ -372,11 +372,11 @@ function handleFileImport(event: Event): void {
           ? 'bg-white/15 text-white hover:bg-white/25'
           : 'border border-dashed border-indigo-400/70 text-indigo-200 hover:bg-white/15 hover:text-white hover:border-white/70'"
         :title="currentModel.scribes?.[0]?.isDefault
-          ? `Scribe (default — ${currentModel.scribes[0].name || 'tap to set your name'}) — click to open Plan Responsibilities`
+          ? `Scribe (default — ${currentModel.scribes[0].name || 'tap to set your name'}) — click to open Spec Responsibilities`
           : currentModel.scribes?.[0]?.name
-            ? `Scribe: ${currentModel.scribes[0].name} — click to open Plan Responsibilities`
+            ? `Scribe: ${currentModel.scribes[0].name} — click to open Spec Responsibilities`
             : 'No Scribe set — click to add'"
-        aria-label="Plan Scribes"
+        aria-label="Spec Scribes"
         data-testid="planmodelbar-scribe-chip"
         @click="emit('open-people', 'scribes')"
       >

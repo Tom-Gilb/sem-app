@@ -54,7 +54,7 @@ function nodeFillColor(id: string): string {
   <svg
     :viewBox="`0 0 ${VIEW_W} ${VIEW_H}`"
     class="w-full border rounded bg-slate-50"
-    aria-label="V. entry dependency graph"
+    aria-label="Value Spec dependency graph"
     role="img"
   >
     <!-- Edges (drawn first, behind nodes) -->

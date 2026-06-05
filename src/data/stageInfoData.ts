@@ -57,7 +57,7 @@ export const STAGE_INFO_DATA: StageInfo[] = [
       {
         emoji: '📐',
         title: 'Planguage',
-        body: 'A Stakeholder entry (¶) identifies an entity — person, group, system, regulation, or inanimate object — that has a stake in the plan\'s outcome. Each stakeholder is the origin of at least one V. (Value) or C. (Constraint) entry. Without a named stakeholder as anchor, a value or constraint has no authority and no accountability. The traceability chain Stakeholder → Value/Constraint → Solution → Evo Step is the backbone of Planguage prioritisation. Notation: Stakeholder entries use the ¶ prefix and carry fields: Tag, Description, Relationships, and Responsibility.',
+        body: 'A Stakeholder entry (§) identifies an entity — person, group, system, regulation, or inanimate object — that has a stake in the plan\'s outcome. Each stakeholder is the origin of at least one V. (Value) or C. (Constraint) entry. Without a named stakeholder as anchor, a value or constraint has no authority and no accountability. The traceability chain Stakeholder → Value/Constraint → Solution → Evo Step is the backbone of Planguage prioritisation. Notation: Stakeholder entries use the § prefix and carry fields: Tag, Description, Relationships, and Responsibility.',
         links: [
           { label: 'Tom Gilb: Planguage glossary (Gilb.com)', url: 'https://www.gilb.com/planguage' },
           { label: 'Tom Gilb profile (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Tom_Gilb' },
@@ -66,7 +66,7 @@ export const STAGE_INFO_DATA: StageInfo[] = [
       {
         emoji: '🗂️',
         title: 'SEM Examples',
-        body: 'In a flight-booking system plan, the Stakes stage produces entries like: ¶.Passenger — the end user whose primary value is "time saved per booking." ¶.AirlineOps — operational staff whose constraint is "zero double-bookings." ¶.GDPR — the EU regulation stakeholder whose C. entry reads "C.DataRetention: passenger PII must not be retained beyond 90 days after flight date." Even the booking database itself qualifies as ¶.BookingDB with needs like uptime SLAs. Every V. and C. entry in later stages traces back to one of these ¶ entries.',
+        body: 'In a flight-booking system plan, the Stakes stage produces entries like: §.Passenger — the end user whose primary value is "time saved per booking." §.AirlineOps — operational staff whose constraint is "zero double-bookings." §.GDPR — the EU regulation stakeholder whose C. entry reads "C.DataRetention: passenger PII must not be retained beyond 90 days after flight date." Even the booking database itself qualifies as §.BookingDB with needs like uptime SLAs. Every V. and C. entry in later stages traces back to one of these § entries.',
         links: [
           { label: 'Tom Gilb: Stakeholder Engineering paper (ResearchGate)', url: 'https://www.researchgate.net/publication/386907645_Stakeholder_Engineering_MASTER_121224_Edit_Refs_for_Researchgate' },
           { label: 'Gilb.com — Planguage resources', url: 'https://www.gilb.com' },
@@ -178,7 +178,7 @@ export const STAGE_INFO_DATA: StageInfo[] = [
       {
         emoji: '🗂️',
         title: 'SEM Examples',
-        body: 'For the booking system: V.BookingTime — Scale: seconds per booking completion. Meter: median time from checkout page load to confirmation email sent, sampled across 1,000 live sessions weekly. Tolerable: 180 seconds. Goal: 90 seconds. Past: 240 seconds (current baseline). Another entry: V.DropoffRate — Scale: percentage of sessions that abandon at checkout. Meter: (sessions reaching payment page − sessions reaching confirmation) / sessions reaching payment page, 7-day rolling average. Tolerable: 18%. Goal: 8%. Both entries cite ¶.Passenger as the originating stakeholder.',
+        body: 'For the booking system: V.BookingTime — Scale: seconds per booking completion. Meter: median time from checkout page load to confirmation email sent, sampled across 1,000 live sessions weekly. Tolerable: 180 seconds. Goal: 90 seconds. Past: 240 seconds (current baseline). Another entry: V.DropoffRate — Scale: percentage of sessions that abandon at checkout. Meter: (sessions reaching payment page − sessions reaching confirmation) / sessions reaching payment page, 7-day rolling average. Tolerable: 18%. Goal: 8%. Both entries cite §.Passenger as the originating stakeholder.',
         links: [
           { label: 'Tom Gilb: Planguage glossary (Gilb.com)', url: 'https://www.gilb.com/planguage' },
           { label: 'Kahneman: Thinking Fast and Slow — on impact estimation biases (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Thinking,_Fast_and_Slow' },
@@ -216,7 +216,7 @@ export const STAGE_INFO_DATA: StageInfo[] = [
       {
         emoji: '🗂️',
         title: 'SEM Examples',
-        body: 'For the flight-booking system: C.DevBudget — Type: Budget. Description: "Total engineering effort for the checkout redesign must not exceed 3 sprints (6 engineer-weeks)." C.WCAG — Type: Binary. Description: "All checkout UI must conform to WCAG 2.1 Level AA accessibility guidelines." Stakeholder: ¶.GDPR, ¶.LegalTeam. C.DataRetention — Type: Binary. Description: "Passenger PII collected during checkout must not be retained beyond 90 days after the associated flight date." Stakeholder: ¶.GDPR. None of these constraints are optional; a plan that violates any one of them fails outright.',
+        body: 'For the flight-booking system: C.DevBudget — Type: Budget. Description: "Total engineering effort for the checkout redesign must not exceed 3 sprints (6 engineer-weeks)." C.WCAG — Type: Binary. Description: "All checkout UI must conform to WCAG 2.1 Level AA accessibility guidelines." Stakeholder: §.GDPR, §.LegalTeam. C.DataRetention — Type: Binary. Description: "Passenger PII collected during checkout must not be retained beyond 90 days after the associated flight date." Stakeholder: §.GDPR. None of these constraints are optional; a plan that violates any one of them fails outright.',
         links: [
           { label: 'WCAG 2.1 AA standard (W3C)', url: 'https://www.w3.org/TR/WCAG21/' },
           { label: 'GDPR full text (EUR-Lex)', url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679' },
@@ -254,7 +254,7 @@ export const STAGE_INFO_DATA: StageInfo[] = [
       {
         emoji: '🗂️',
         title: 'SEM Examples',
-        body: 'For the booking system: EvoStep.1 — Description: "Implement single-page checkout for domestic routes only." Solutions: S.OnePageCheckout. Targets: V.BookingTime (current: 240s, planned post-step: 140s), V.DropoffRate (current: 22%, planned post-step: 14%). Constraint budget: 2 sprints from C.DevBudget. Deliver date: Sprint 4. This step is measurable, bounded, and traceable back to ¶.Passenger. A second step EvoStep.2 extends to international routes only after EvoStep.1 is measured and the impact hypothesis is confirmed — or revised if the data does not support the plan.',
+        body: 'For the booking system: EvoStep.1 — Description: "Implement single-page checkout for domestic routes only." Solutions: S.OnePageCheckout. Targets: V.BookingTime (current: 240s, planned post-step: 140s), V.DropoffRate (current: 22%, planned post-step: 14%). Constraint budget: 2 sprints from C.DevBudget. Deliver date: Sprint 4. This step is measurable, bounded, and traceable back to §.Passenger. A second step EvoStep.2 extends to international routes only after EvoStep.1 is measured and the impact hypothesis is confirmed — or revised if the data does not support the plan.',
         links: [
           { label: 'Tom Gilb: EVO 2024 (Gilb.com)', url: 'https://www.gilb.com/evo-2024' },
           { label: 'Kaizen incremental improvement (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Kaizen' },
@@ -443,7 +443,7 @@ export const STAGE_INFO_DATA: StageInfo[] = [
       {
         emoji: '🗂️',
         title: 'SEM Examples',
-        body: 'Export for the booking system Evo cycle 1 produces: a colored HTML table with columns Tag / Type / Description / Status / Stakeholder / Evo Step / Last Measured. Row sample: V.BookingTime | Value | Booking completion time | Status: 155s (Goal: 90s, Tolerable: 180s) | ¶.Passenger | EvoStep.1 | 2026-05-14. Each row is a live entry with its current measured Status. The export is then shared with ¶.Passenger representatives (UX research), ¶.LegalTeam (constraint compliance), and ¶.AirlineOps (operational sign-off). Their feedback initiates the next Evo cycle at stage 1 — and the loop continues.',
+        body: 'Export for the booking system Evo cycle 1 produces: a colored HTML table with columns Tag / Type / Description / Status / Stakeholder / Evo Step / Last Measured. Row sample: V.BookingTime | Value | Booking completion time | Status: 155s (Goal: 90s, Tolerable: 180s) | §.Passenger | EvoStep.1 | 2026-05-14. Each row is a live entry with its current measured Status. The export is then shared with §.Passenger representatives (UX research), §.LegalTeam (constraint compliance), and §.AirlineOps (operational sign-off). Their feedback initiates the next Evo cycle at stage 1 — and the loop continues.',
         links: [
           { label: 'Tom Gilb: Evo cycle overview (Gilb.com)', url: 'https://www.gilb.com/evo' },
           { label: 'Gilb.com — all resources', url: 'https://www.gilb.com' },

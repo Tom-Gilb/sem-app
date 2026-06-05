@@ -27,7 +27,7 @@ import PlTypeIcon from './icons/PlTypeIcon.vue'
 import type { PlGlyphType } from './icons/PlTypeIcon.vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
-import { stageProgressColor } from '../utils/stageProgressColors'
+import { stageDarkBgColor } from '../utils/stageProgressColors'
 
 const props = defineProps<{
   /**
@@ -52,16 +52,22 @@ const info = computed(() =>
 const isOpen = computed(() => props.stageIdx !== null && info.value !== null)
 
 /**
- * Gradient for the modal header — uses the stage's position in the
- * indigo→emerald sweep, darkening slightly for the right edge to give
- * a diagonal sheen effect matching ArrowInfoPanel's visual language.
+ * Gradient for the modal header.
+ *
+ * CONTRAST FIX (Tom 2026-06-03 screenshot: header text unreadable):
+ *   Was stageProgressColor (L=65%) — too light for white text — contrast
+ *   ~1.9:1 against white for cyan-band stages (FAIL WCAG AA).  Replaced with
+ *   stageDarkBgColor (L=25%) which the codebase already provides specifically
+ *   for "coloured overlay with white copy" (per its docstring: contrast
+ *   ≥5.5:1 across all 11 hues, ≥7.9:1 at the worst-case cyan band).
+ *   StageInfoPanel was the only consumer that had not adopted it yet.
  */
 const headerGradient = computed(() => {
   if (props.stageIdx === null) return {}
-  // stageProgressColor takes 0-based position; stageIdx is 1-based
-  const baseColor = stageProgressColor(props.stageIdx - 1)
+  // stageDarkBgColor takes 0-based position; stageIdx is 1-based
+  const baseColor = stageDarkBgColor(props.stageIdx - 1)
   // A slightly darker shade for the diagonal gradient end
-  const darkerColor = stageProgressColor(Math.min(props.stageIdx, 10))
+  const darkerColor = stageDarkBgColor(Math.min(props.stageIdx, 10))
   return {
     background: `linear-gradient(135deg, ${baseColor} 0%, ${darkerColor} 100%)`,
   }
@@ -105,13 +111,21 @@ const SECTION_TINTS = [
             class="shrink-0 px-4 pt-4 pb-3 flex items-center gap-3"
             :style="headerGradient"
           >
-            <!-- PlTypeIcon glyph (clickable to emit open-glyph) -->
+            <!-- PlTypeIcon glyph (clickable to emit open-glyph).
+                 DD-013 (Tom 2026-06-03 screenshot: "the hovering on this step
+                 and others did NOT give 'double click for info' as all should
+                 have").  The wrapping button's title intercepts the PlTypeIcon's
+                 automatic DD-013 tooltip; restore the "double-click for detailed
+                 icon info" suffix explicitly here so the rule is honoured.
+                 Single-click opens GlyphDataPanel (via emit), so single-click
+                 IS the "for info" gesture here — double-click works too via the
+                 inner PlTypeIcon's own handler. -->
             <button
               type="button"
               class="shrink-0 opacity-90 hover:opacity-100 transition-opacity
                      focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded"
-              :title="`${info.label} (${info.plType}) — click for glyph info`"
-              :aria-label="`${info.label} glyph — click for info`"
+              :title="`${info.label} (${info.plType}) — click or double-click for detailed icon info`"
+              :aria-label="`${info.label} glyph — click for detailed icon info`"
               @click="emit('open-glyph', info!.plType)"
             >
               <PlTypeIcon :pl-type="info.plType" size="md" />

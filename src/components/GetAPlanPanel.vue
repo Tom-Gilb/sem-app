@@ -25,8 +25,8 @@ import {
   parseAsPlanguage,
   mergePlansAsPlanguage,
   type PlanInputMode,
-} from '../composables/usePlanInput'
-import { usePlanModel, type PlanModel } from '../composables/usePlanModel'
+} from '../composables/useSpecInput'
+import { useSpecModel, type PlanModel } from '../composables/useSpecModel'
 import { useSpecHistory, type SpecVersion } from '../composables/useSpecHistory'
 import type { SpecBlock } from '../types/spec'
 import LoadingProgress from './LoadingProgress.vue'
@@ -68,7 +68,7 @@ function switchTab(t: TopTab): void {
 
 // ── History data ──────────────────────────────────────────────────────────────
 
-const { allModels }  = usePlanModel()
+const { allModels }  = useSpecModel()
 const { history }    = useSpecHistory()
 
 // ── TAB 1: Read In ─────────────────────────────────────────────────────────────
@@ -649,7 +649,7 @@ async function emailMerge(): Promise<void> {
         <div class="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-t-2xl flex-shrink-0">
           <div class="flex items-center gap-2 text-white">
             <GetGlyph size="standard" class="h-4 w-auto" aria-hidden="true" />
-            <h2 class="text-sm font-semibold text-white tracking-wide">Get A Plan</h2>
+            <h2 class="text-sm font-semibold text-white tracking-wide">Get a Spec</h2>
           </div>
           <!-- Close — universal CloseDot per "Universal Close-Button Rule" -->
           <CloseDot

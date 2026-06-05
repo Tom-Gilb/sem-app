@@ -21,7 +21,11 @@
 import { reactive, ref, nextTick, watch, onMounted } from 'vue'
 import { useTaskSuggestions } from '../composables/useTaskSuggestions'
 import type { EvoStep } from '../types/evo-plan'
-import type { TaskSuggestion } from '../types/task'
+import type { TaskSuggestion, HoursEstimate } from '../types/task'
+import type { AISource } from '../data/aiSource'
+import { AI_SOURCE_META as _AI_SOURCE_META } from '../data/aiSource'
+// Re-export marker to keep import linked for future per-field source-badge use.
+void _AI_SOURCE_META
 import type { SpecBlock } from '../types/spec'
 import ConceptHint from './ConceptHint.vue'
 import { CONCEPT_HINTS } from '../data/conceptHints'
@@ -128,8 +132,11 @@ function addTask(stepName: string): void {
     id,
     description: '',
     effortHours: null,
+    hoursEstimate: { low: null, high: null, central: null, provenance: { source: 'template' } },
+    specialistType: null,
     assignee: null,
     completed: false,
+    // Enrichment fields left undefined — UI shows them only when user opens "✨ Enrich".
   })
   // Open edit mode immediately so the field renders, then focus it.
   // The global useDictation focusin listener will detect the focus and
@@ -196,11 +203,115 @@ function setEffortHours(task: TaskSuggestion, value: string): void {
   const parsed = parseFloat(value)
   // Only store finite positive values; treat empty string or NaN as null
   task.effortHours = value.trim() === '' || isNaN(parsed) ? null : Math.max(0, parsed)
+  // Mirror into hoursEstimate.central so the range UI stays in sync.
+  _ensureHoursEstimate(task)
+  task.hoursEstimate!.central = task.effortHours
+}
+
+// ── Tom 2026-06-03 enrichment helpers ────────────────────────────────────────
+// Hours range + provenance, specialist type, and the 7 "more interesting"
+// enrichment fields (simplification, location, tools, legal, org, standards,
+// problems-to-avoid).  All optional; row visually expands on click of the
+// "✨ Enrich" pill so legacy tasks stay compact.
+
+/**
+ * Tracks which task rows have the enrichment-detail panel expanded.
+ * Keyed by task.id.  Per-session, not persisted (mirrors editingDescriptions).
+ */
+const enrichingTasks = reactive<Record<string, boolean>>({})
+
+/** Available source layers for the hours-estimate provenance dropdown. */
+const HOURS_SOURCE_OPTIONS: readonly AISource[] = ['template', 'llm', 'plan', 'gilb', 'standards', 'internet'] as const
+/** Display labels for the source dropdown — SWAG-honest. */
+const HOURS_SOURCE_LABEL: Record<AISource, string> = {
+  template: 'SWAG (best guess)',
+  llm: 'AI suggestion',
+  plan: 'Derived from plan',
+  gilb: 'Cited from Gilb',
+  standards: 'From 10.Standard/',
+  internet: 'Internet benchmark',
+}
+
+function _ensureHoursEstimate(task: TaskSuggestion): void {
+  if (!task.hoursEstimate) {
+    task.hoursEstimate = {
+      low: task.effortHours,
+      high: task.effortHours,
+      central: task.effortHours,
+      provenance: { source: 'template' },
+    }
+  }
+  if (!task.hoursEstimate.provenance) {
+    task.hoursEstimate.provenance = { source: 'template' }
+  }
+}
+
+/** Coerce a user-typed numeric string to a non-negative number or null. */
+function _parseHours(value: string): number | null {
+  const parsed = parseFloat(value)
+  if (value.trim() === '' || isNaN(parsed)) return null
+  return Math.max(0, parsed)
+}
+
+function setHoursLow(task: TaskSuggestion, value: string): void {
+  _ensureHoursEstimate(task)
+  task.hoursEstimate!.low = _parseHours(value)
+  // Auto-update central as midpoint when both bounds are set.
+  const lo = task.hoursEstimate!.low, hi = task.hoursEstimate!.high
+  if (lo !== null && hi !== null) {
+    task.hoursEstimate!.central = (lo + hi) / 2
+    task.effortHours = task.hoursEstimate!.central
+  }
+}
+function setHoursHigh(task: TaskSuggestion, value: string): void {
+  _ensureHoursEstimate(task)
+  task.hoursEstimate!.high = _parseHours(value)
+  const lo = task.hoursEstimate!.low, hi = task.hoursEstimate!.high
+  if (lo !== null && hi !== null) {
+    task.hoursEstimate!.central = (lo + hi) / 2
+    task.effortHours = task.hoursEstimate!.central
+  }
+}
+function setHoursSource(task: TaskSuggestion, source: AISource): void {
+  _ensureHoursEstimate(task)
+  task.hoursEstimate!.provenance = { source }
+}
+
+/** Display string for the hours-estimate badge (e.g. "4–8 h", "6 h", "–"). */
+function hoursDisplay(task: TaskSuggestion): string {
+  const est = task.hoursEstimate
+  if (est && est.low !== null && est.high !== null && est.low !== est.high) {
+    return `${est.low}–${est.high} h`
+  }
+  if (est?.central !== null && est?.central !== undefined) return `${est.central} h`
+  if (task.effortHours !== null) return `${task.effortHours} h`
+  return '–'
+}
+
+function toggleEnrich(taskId: string): void {
+  enrichingTasks[taskId] = !enrichingTasks[taskId]
 }
 </script>
 
 <template>
   <section class="w-full max-w-2xl mx-auto px-4 py-6" aria-label="Task decomposition" @click.capture="handleSectionClick">
+    <!-- Specialist-type suggestion list — shared by every task row's Type input.
+         Tom 2026-06-03 explicit examples + common engineering roles. -->
+    <datalist id="specialist-type-suggestions">
+      <option value="Contract Specialist" />
+      <option value="Systems Architect" />
+      <option value="Software Engineer" />
+      <option value="Naval Engineer" />
+      <option value="Mechanical Engineer" />
+      <option value="Test Engineer" />
+      <option value="Project Manager" />
+      <option value="UX Designer" />
+      <option value="Data Analyst" />
+      <option value="Security Specialist" />
+      <option value="Compliance Officer" />
+      <option value="Procurement" />
+      <option value="Legal Counsel" />
+    </datalist>
     <ConceptHint
       v-bind="CONCEPT_HINTS.task"
       :spec="props.spec ?? null"
@@ -299,42 +410,164 @@ function setEffortHours(task: TaskSuggestion, value: string): void {
                 {{ task.description || 'Click to add description' }}
               </button>
 
-              <!-- Effort hours + Assignee row -->
-              <div class="flex flex-wrap gap-2 mt-1">
-                <!-- Effort hours input -->
+              <!-- Hours range + provenance + specialist + assignee row.
+                   Tom 2026-06-03 *"make an hours estimate range or ±, add SWAG
+                   or Based on (AI source)"* + *"add a type of specialist to
+                   the task, separate field Assigned To: [name]"*. -->
+              <div class="flex flex-wrap items-center gap-2 mt-1">
+                <!-- Hours: low–high range -->
                 <div class="flex items-center gap-1">
-                  <label
-                    :for="`effort-${task.id}`"
-                    class="text-xs text-gray-500 shrink-0"
-                  >Hours:</label>
+                  <label :for="`hlow-${task.id}`" class="text-xs text-gray-500 shrink-0">Hours:</label>
                   <input
-                    :id="`effort-${task.id}`"
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    class="w-16 rounded border border-gray-300 px-1 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    :value="task.effortHours ?? ''"
-                    :aria-label="`Effort hours for task ${index + 1}`"
-                    placeholder="–"
-                    @input="setEffortHours(task, ($event.target as HTMLInputElement).value)"
+                    :id="`hlow-${task.id}`"
+                    type="number" min="0" step="0.5"
+                    class="w-14 rounded border border-gray-300 px-1 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    :value="task.hoursEstimate?.low ?? task.effortHours ?? ''"
+                    :aria-label="`Hours low estimate for task ${index + 1}`"
+                    placeholder="low"
+                    title="Lower bound (hours)"
+                    @input="setHoursLow(task, ($event.target as HTMLInputElement).value)"
+                  />
+                  <span class="text-xs text-gray-400">–</span>
+                  <input
+                    type="number" min="0" step="0.5"
+                    class="w-14 rounded border border-gray-300 px-1 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    :value="task.hoursEstimate?.high ?? task.effortHours ?? ''"
+                    :aria-label="`Hours high estimate for task ${index + 1}`"
+                    placeholder="high"
+                    title="Upper bound (hours).  If equal to low, treated as a single-point estimate."
+                    @input="setHoursHigh(task, ($event.target as HTMLInputElement).value)"
                   />
                 </div>
 
-                <!-- Assignee input -->
+                <!-- Hours-estimate source / provenance -->
+                <div class="flex items-center gap-1">
+                  <label :for="`hsrc-${task.id}`" class="sr-only">Hours estimate source</label>
+                  <select
+                    :id="`hsrc-${task.id}`"
+                    class="rounded border border-gray-300 px-1 py-0.5 text-[11px] bg-amber-50 text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    :value="task.hoursEstimate?.provenance?.source ?? 'template'"
+                    :title="'Where this estimate came from — SWAG / AI / measured / cited.  Tom 2026-06-03 honesty rule.'"
+                    @change="setHoursSource(task, ($event.target as HTMLSelectElement).value as AISource)"
+                  >
+                    <option v-for="src in HOURS_SOURCE_OPTIONS" :key="src" :value="src">
+                      {{ HOURS_SOURCE_LABEL[src] }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Specialist type — distinct from named assignee.
+                     Tom 2026-06-03: "Ideally: Contract Specialist or Systems Architect" -->
+                <div class="flex items-center gap-1 min-w-0">
+                  <label :for="`spec-${task.id}`" class="text-xs text-gray-500 shrink-0">Type:</label>
+                  <input
+                    :id="`spec-${task.id}`"
+                    v-model="task.specialistType"
+                    type="text" list="specialist-type-suggestions"
+                    class="w-32 rounded border border-indigo-200 bg-indigo-50/60 px-1 py-0.5 text-xs text-indigo-900 placeholder-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g. Contract Specialist"
+                    :aria-label="`Specialist type for task ${index + 1}`"
+                    title="Role / specialism needed for this task (Contract Specialist, Systems Architect, etc).  Distinct from the named Assignee."
+                  />
+                </div>
+
+                <!-- Assignee — named person -->
                 <div class="flex items-center gap-1 flex-1 min-w-0">
-                  <label
-                    :for="`assignee-${task.id}`"
-                    class="text-xs text-gray-500 shrink-0"
-                  >Assignee:</label>
+                  <label :for="`assignee-${task.id}`" class="text-xs text-gray-500 shrink-0">Assigned to:</label>
                   <input
                     :id="`assignee-${task.id}`"
                     v-model="task.assignee"
                     type="text"
                     class="flex-1 min-w-0 rounded border border-gray-300 px-1 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    :aria-label="`Assignee for task ${index + 1}`"
+                    :aria-label="`Assignee name for task ${index + 1}`"
                     placeholder="Unassigned"
                   />
                 </div>
+
+                <!-- Enrich pill — opens the 7-field planning-context panel.
+                     Tom 2026-06-03 *"what can we do to make task planning more
+                     interesting and exciting"* — Simplification / Location /
+                     Tools / Legal / Org Policy / Standards / Problems to Avoid. -->
+                <button
+                  type="button"
+                  class="text-[11px] px-2 py-0.5 rounded-full border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  :aria-expanded="enrichingTasks[task.id] === true"
+                  :title="enrichingTasks[task.id]
+                    ? 'Close enrichment fields (Simplification / Location / Tools / Legal / Policy / Standards / Problems)'
+                    : 'Add planning context: Simplification opportunities, Location, Suggested Tools, Legal Constraints, Org Policy, Applicable Standards, Problems to Avoid'"
+                  @click="toggleEnrich(task.id)"
+                >
+                  {{ enrichingTasks[task.id] ? '▼ Close enrich' : '✨ Enrich' }}
+                </button>
+              </div>
+
+              <!-- Enrichment panel — 7 optional fields, all free-text.
+                   Tom 2026-06-03 — designed to make task planning richer than
+                   just "checkbox + hours + assignee".  Each field has a clear
+                   placeholder so the user (or future Claudian suggestion pass)
+                   knows what to put there.  Conjunction-of-Technologies note:
+                   v2 should add a "🪄 AI Suggest" pill per field that copies a
+                   Claudian prompt with full plan + task context. -->
+              <div
+                v-if="enrichingTasks[task.id]"
+                class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg border border-purple-200 bg-purple-50/30 p-3"
+              >
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-semibold text-purple-800">💡 Simplification</span>
+                  <input
+                    v-model="task.simplification" type="text"
+                    class="rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="e.g. reuse existing X, skip if Y is already done"
+                  />
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-semibold text-purple-800">📍 Location</span>
+                  <input
+                    v-model="task.location" type="text"
+                    class="rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="main office / subsidiary / Zoom / near users / not critical"
+                  />
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-semibold text-purple-800">🛠 Suggested Tools</span>
+                  <input
+                    v-model="task.suggestedTools" type="text"
+                    class="rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="AI suggestions, templates, old patterns, tools…"
+                  />
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-semibold text-purple-800">⚖ Legal Constraints</span>
+                  <input
+                    v-model="task.legalConstraints" type="text"
+                    class="rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="GDPR, contracts, regulations applicable here"
+                  />
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-semibold text-purple-800">🏢 Org Policy</span>
+                  <input
+                    v-model="task.orgPolicy" type="text"
+                    class="rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="company policy, procurement rules, approval chain"
+                  />
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-semibold text-purple-800">📐 Applicable Standards</span>
+                  <input
+                    v-model="task.applicableStandards" type="text"
+                    class="rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="ISO, IEEE, 10.Standard/Template_Write_*, company standards"
+                  />
+                </label>
+                <label class="flex flex-col gap-0.5 sm:col-span-2">
+                  <span class="text-[11px] font-semibold text-purple-800">🚧 Problems to Avoid</span>
+                  <input
+                    v-model="task.problemsToAvoid" type="text"
+                    class="rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="historical pitfalls, lessons learned, things that went wrong last time"
+                  />
+                </label>
               </div>
             </div>
 
