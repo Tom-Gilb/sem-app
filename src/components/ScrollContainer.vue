@@ -48,7 +48,7 @@
                 d="M14.78 11.78a.75.75 0 0 1-1.06 0L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06z"
                 clip-rule="evenodd" />
             </svg>
-            <span>scroll</span>
+            <span>{{ Math.round(visibleRatio * 100) }}% shown</span>
           </div>
         </div>
       </div>
@@ -85,11 +85,33 @@
                 d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z"
                 clip-rule="evenodd" />
             </svg>
-            <span>scroll</span>
+            <span>{{ Math.round(visibleRatio * 100) }}% shown</span>
           </div>
         </div>
       </div>
     </Transition>
+
+    <!-- Right-edge progress track — visible whenever content overflows.
+         Thumb height = visibleRatio (fraction of content in view).
+         Thumb top    = scrollRatio × (1 − thumbHeight) — tracks scroll position.
+         Suppressed by noPill (same flag that suppresses the badges). -->
+    <div
+      v-if="isScrollable && !noPill"
+      class="absolute right-0 top-0 bottom-0 w-1 pointer-events-none z-10"
+      aria-hidden="true"
+      aria-label="Scroll position indicator"
+    >
+      <!-- Track rail -->
+      <div class="absolute inset-0 rounded-full bg-slate-300/30" />
+      <!-- Thumb -->
+      <div
+        class="absolute left-0 right-0 rounded-full bg-slate-600/50 transition-[top,height] duration-75"
+        :style="{
+          top:    (scrollRatio * (100 - Math.max(visibleRatio * 100, 8))) + '%',
+          height: Math.max(visibleRatio * 100, 8) + '%',
+        }"
+      />
+    </div>
   </div>
 </template>
 
@@ -122,16 +144,22 @@ const props = withDefaults(defineProps<{
   noPill: false,
 })
 
-const scrollEl = ref<HTMLElement | null>(null)
-const hasMore   = ref(false)
-const hasLess   = ref(false)
+const scrollEl     = ref<HTMLElement | null>(null)
+const hasMore      = ref(false)
+const hasLess      = ref(false)
+const scrollRatio  = ref(0)   // 0..1  — position in scrollable range
+const visibleRatio = ref(1)   // 0..1  — fraction of total content that is visible
+const isScrollable = ref(false) // true when content overflows
 
 function check() {
   const el = scrollEl.value
   if (!el) return
-  // 4px tolerance avoids lingering indicator on sub-pixel rounding
-  hasMore.value = el.scrollHeight - el.scrollTop - el.clientHeight > 4
-  hasLess.value = el.scrollTop > 4
+  const maxScroll = el.scrollHeight - el.clientHeight
+  hasMore.value     = maxScroll - el.scrollTop > 4
+  hasLess.value     = el.scrollTop > 4
+  isScrollable.value = maxScroll > 4
+  scrollRatio.value  = maxScroll > 0 ? el.scrollTop / maxScroll : 0
+  visibleRatio.value = el.scrollHeight > 0 ? el.clientHeight / el.scrollHeight : 1
 }
 
 let ro: ResizeObserver | null = null
