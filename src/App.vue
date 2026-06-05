@@ -164,6 +164,7 @@ import AnalyzeEvoStepGlyph     from './components/icons/AnalyzeEvoStepGlyph.vue'
 import AnalyzeTypeIcon         from './components/icons/AnalyzeTypeIcon.vue'
 import { useTaskSuggestions } from './composables/useTaskSuggestions'
 import ResourcesSharpenPanel from './components/ResourcesSharpenPanel.vue'
+import ResourcesKissPanel from './components/ResourcesKissPanel.vue'
 import ScrollContainer from './components/ScrollContainer.vue'
 import {
   useSpecModel,
@@ -280,6 +281,9 @@ const sharpenModalOpen = ref(false)
 const resourcesSharpenOpen = ref(false)
 // optimaOpen: true when Stage 10 · OPTIMA Resource Optimization panel is open.
 const optimaOpen = ref(false)
+// kissOpen: true when Stage 10 · KISS panel is open.
+// KISS = Keep Improvement Super Surprising — 5 most cost-effective spec improvements.
+const kissOpen = ref(false)
 
 
 // Tom 2026-06-04 r88 — Phase 2 of Resources beef-up: write-back from
@@ -4350,6 +4354,7 @@ const searchEntries = computed((): SearchEntry[] => {
 registerExclusiveSurface('presentation',      presentationOpen)
 registerExclusiveSurface('resourcesSharpen',  resourcesSharpenOpen)
 registerExclusiveSurface('optima',            optimaOpen)
+registerExclusiveSurface('kiss',              kissOpen)
 registerExclusiveSurface('sharpenModal',      sharpenModalOpen)
 registerExclusiveSurface('bullock',           bullockOpen)
 registerExclusiveSurface('visualise',         visualiseOpen)
@@ -6779,7 +6784,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <h3 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Resources Stage Tools</h3>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
 
               <!-- ── Pin 1: Improve Plan Resources ─────────────────────────── -->
               <div class="rounded-xl border-2 border-emerald-300 overflow-hidden shadow-sm">
@@ -7010,6 +7015,71 @@ function handleApertureLoadPlan(model: PlanModel): void {
                     title="Constraint Violation Analysis — find which resource constraints are blocking Value Goals"
                     @click="optimaOpen = true"
                   >Constraint Violation Analysis</button>
+                </div>
+              </div>
+
+              <!-- ── Pin 5: KISS — Keep Improvement Super Surprising ─────────── -->
+              <!-- Tom 2026-06-05 verbatim: "BLOW OUR mind with KISSES. KISS: Keep Improvement Super Surprising" -->
+              <div class="rounded-xl border-2 border-violet-400 overflow-hidden shadow-sm ring-1 ring-violet-300">
+                <div class="bg-gradient-to-br from-violet-900 via-indigo-900 to-slate-900 px-4 py-6 text-white">
+                  <button
+                    type="button"
+                    class="w-full flex flex-col items-center justify-center gap-2
+                           focus:outline-none focus:ring-2 focus:ring-white/60
+                           rounded-lg hover:bg-white/10 transition-colors duration-100 py-2"
+                    title="KISS — Keep Improvement Super Surprising · 5 most cost-effective spec improvements for dramatic resource gains · Change Differential Diagram shows before/after using VDT logic · 4 alternative approaches per improvement · Click to open"
+                    @click="kissOpen = true"
+                  >
+                    <!-- KISS acronym block — dramatic visual -->
+                    <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-center select-none">
+                      <span class="text-[22px] font-black text-yellow-300 leading-none">K</span>
+                      <span class="text-[10px] font-semibold text-yellow-200/80 leading-tight self-center text-left">Keep</span>
+                      <span class="text-[22px] font-black text-emerald-300 leading-none">I</span>
+                      <span class="text-[10px] font-semibold text-emerald-200/80 leading-tight self-center text-left">Improvement</span>
+                      <span class="text-[22px] font-black text-cyan-300 leading-none">S</span>
+                      <span class="text-[10px] font-semibold text-cyan-200/80 leading-tight self-center text-left">Super</span>
+                      <span class="text-[22px] font-black text-pink-300 leading-none">S</span>
+                      <span class="text-[10px] font-semibold text-pink-200/80 leading-tight self-center text-left">Surprising</span>
+                    </div>
+                  </button>
+                  <div class="text-center mt-3">
+                    <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">5 Top Improvements</span>
+                    <div class="text-[14px] font-extrabold leading-tight mt-0.5">KISS Analysis</div>
+                    <div class="text-[10px] opacity-75 mt-0.5">change diff · VDT · tradeoffs</div>
+                  </div>
+                </div>
+                <!-- Sub-option buttons -->
+                <div class="bg-violet-950/10 p-2.5 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
+                    title="KISS: 5 most cost-effective improvements with Change Differential Diagrams and 4 alternatives each"
+                    @click="kissOpen = true"
+                  >Change Differential Diagrams</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
+                    title="Constraint relaxation options — binary constraint, regulatory, policy, contract deferral"
+                    @click="kissOpen = true"
+                  >Constraint Relaxation Options</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
+                    title="VDT-ranked priority alternatives — 4 ranked alternatives per improvement with resource deltas"
+                    @click="kissOpen = true"
+                  >4 Alternatives per Improvement</button>
                 </div>
               </div>
 
@@ -8318,6 +8388,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :spec="currentSpec"
       :vc-ratios="capturedVCRatios"
       @close="optimaOpen = false"
+    />
+
+    <!-- Stage 10 · KISS — Keep Improvement Super Surprising
+         Tom 2026-06-05: "5 most cost-effective spec improvements… Change Differential Diagram…
+         BLOW OUR mind with KISSES" — constraint relaxation, solution-add, value-goal-relax,
+         resource reallocation, stakeholder power — each with VDT-ranked Change Differential
+         Diagram and 4 alternative approaches. -->
+    <ResourcesKissPanel
+      :open="view === 'app' && kissOpen"
+      :spec="currentSpec"
+      @close="kissOpen = false"
     />
 
     <!-- Sharpening Cycles modal — triggered from nav "Sharpen ▾" when spec exists -->
