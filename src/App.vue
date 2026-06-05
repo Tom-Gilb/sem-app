@@ -165,6 +165,8 @@ import AnalyzeTypeIcon         from './components/icons/AnalyzeTypeIcon.vue'
 import { useTaskSuggestions } from './composables/useTaskSuggestions'
 import ResourcesSharpenPanel from './components/ResourcesSharpenPanel.vue'
 import ResourcesKissPanel from './components/ResourcesKissPanel.vue'
+import ResourceCostEngineeringPanel from './components/ResourceCostEngineeringPanel.vue'
+import BookCoverChip from './components/BookCoverChip.vue'
 import ScrollContainer from './components/ScrollContainer.vue'
 import {
   useSpecModel,
@@ -284,6 +286,10 @@ const optimaOpen = ref(false)
 // kissOpen: true when Stage 10 · KISS panel is open.
 // KISS = Keep Improvement Super Surprising — 5 most cost-effective spec improvements.
 const kissOpen = ref(false)
+// costEngineeringOpen: true when Stage 10 · Cost Engineering tool is open.
+// Tom 2026-06-05: "COST ENGINEERING: THE TOOL, SEPARATE TOOL for Dynamic (Evo Step)
+// Design to [Cost, Value, Constraint] and for initial statics upfront."
+const costEngineeringOpen = ref(false)
 
 
 // Tom 2026-06-04 r88 — Phase 2 of Resources beef-up: write-back from
@@ -4355,6 +4361,7 @@ registerExclusiveSurface('presentation',      presentationOpen)
 registerExclusiveSurface('resourcesSharpen',  resourcesSharpenOpen)
 registerExclusiveSurface('optima',            optimaOpen)
 registerExclusiveSurface('kiss',              kissOpen)
+registerExclusiveSurface('costEngineering',   costEngineeringOpen)
 registerExclusiveSurface('sharpenModal',      sharpenModalOpen)
 registerExclusiveSurface('bullock',           bullockOpen)
 registerExclusiveSurface('visualise',         visualiseOpen)
@@ -6753,17 +6760,35 @@ function handleApertureLoadPlan(model: PlanModel): void {
           </div>
 
           <!-- Cost Engineering reference — Tom 2026-06-05: "read and refer to cost engineering book" -->
-          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
-            <span class="text-xl flex-shrink-0 mt-0.5">📚</span>
-            <div>
-              <span class="font-bold text-amber-900 text-sm">Cost Engineering</span>
-              <span class="text-amber-700 text-xs ml-2">— Gilb · canonical reference for this stage</span>
-              <p class="text-amber-800/70 text-xs mt-1 leading-relaxed">
-                Resource planning is grounded in Cost Engineering: Budget types (Calendar, Capital, Effort),
-                Performance-to-Cost Ratio, Design-to-Cost, and Value-to-Cost scoring.
-                Planguage Glossary: Cost-Budget · Cost-Level · Value-to-Cost-Ratio · Performance-to-Cost-Ratio · Design-to-Cost.
-                Companion books: OPTIMA (Balancing Critical Values) · SEA · DEEP.
-              </p>
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div class="flex items-start gap-3">
+              <BookCoverChip
+                title="Cost Engineering"
+                short-title="Cost Eng"
+                year="2005"
+                cover-color="#1e3a5f"
+                research-gate-url="https://www.researchgate.net/profile/Tom-Gilb"
+                :compact="false"
+              />
+              <div class="flex-1 min-w-0">
+                <span class="font-bold text-amber-900 text-sm">Cost Engineering</span>
+                <span class="text-amber-700 text-xs ml-2">— Gilb · canonical reference for this stage</span>
+                <p class="text-amber-800/70 text-xs mt-1 leading-relaxed">
+                  Resource planning is grounded in Cost Engineering: Budget types (Calendar, Capital, Effort),
+                  Performance-to-Cost Ratio, Design-to-Cost, and Value-to-Cost scoring.
+                  Planguage Glossary: Cost-Budget · Cost-Level · Value-to-Cost-Ratio · Performance-to-Cost-Ratio · Design-to-Cost.
+                  Companion books: OPTIMA (Balancing Critical Values) · SEA · DEEP.
+                </p>
+              </div>
+            </div>
+            <div class="mt-3 border-t border-amber-200 pt-2">
+              <button
+                type="button"
+                class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300
+                       rounded-lg px-3 py-1.5 hover:bg-amber-200 hover:border-amber-400 transition-all"
+                title="Open Cost Engineering Tool — Design to Cost / Value / Constraint, static and dynamic (Evo Step) modes"
+                @click="costEngineeringOpen = true"
+              >📐 Open Cost Engineering Tool →</button>
             </div>
           </div>
 
@@ -6784,7 +6809,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <h3 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Resources Stage Tools</h3>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
 
               <!-- ── Pin 1: Improve Plan Resources ─────────────────────────── -->
               <div class="rounded-xl border-2 border-emerald-300 overflow-hidden shadow-sm">
@@ -6840,6 +6865,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
                     title="Paste Claudian analysis JSON to apply Resource entry improvements"
                     @click="resourcesSharpenOpen = true"
                   >Apply Claudian Analysis</button>
+                  <!-- Footer: All Tools + Other Tools -->
+                  <div class="border-t border-emerald-200 mt-1.5 pt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400 transition-all"
+                      title="Open full Resources Sharpening tool — 9 analytical dimensions + 5 advanced generative tools"
+                      @click="resourcesSharpenOpen = true"
+                    >📋 All Tools</button>
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all"
+                      title="Other resource tools — OPTIMA optimization, KISS analysis, Value Flow Diagram"
+                      @click="optimaOpen = true"
+                    >⋯ Other Tools</button>
+                  </div>
                 </div>
               </div>
 
@@ -6914,6 +6954,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            transition-all duration-100"
                     title="Value-to-Resource ratio analysis — how much Value each Resource budget delivers per Evo Step"
                   >Value / Resource Ratio Analysis</button>
+                  <!-- Footer: All Tools + Other Tools -->
+                  <div class="border-t border-blue-200 mt-1.5 pt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all"
+                      title="Open full Resources Sharpening tool — 9 analytical dimensions + 5 advanced generative tools"
+                      @click="resourcesSharpenOpen = true"
+                    >📋 All Tools</button>
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all"
+                      title="Other resource tools — OPTIMA optimization, KISS analysis, Value Flow Diagram"
+                      @click="optimaOpen = true"
+                    >⋯ Other Tools</button>
+                  </div>
                 </div>
               </div>
 
@@ -6942,24 +6997,71 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 </div>
                 <!-- Sub-option buttons -->
                 <div class="bg-violet-50 p-2.5 flex flex-col gap-1.5">
-                  <button @click="valueFlowOpen = true"
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
                     title="Open the Value Flow Diagram — see how Resources connect to Value delivery"
-                    class="w-full text-left px-3 py-2 rounded-lg border border-white/30 hover:bg-white/20 text-white text-sm font-medium transition-colors">
-                    Value Flow Diagram
-                    <span class="block text-white/60 text-xs mt-0.5">visual · values · stakeholders</span>
-                  </button>
-                  <button @click="resourcesSharpenOpen = true"
+                    @click="valueFlowOpen = true"
+                  >Value Flow Diagram</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
                     title="Open Resource Spec entries — view and sharpen all R. entries in the Spec"
-                    class="w-full text-left px-3 py-2 rounded-lg border border-white/30 hover:bg-white/20 text-white text-sm font-medium transition-colors">
-                    Spec Resource Entries
-                    <span class="block text-white/60 text-xs mt-0.5">entries · sharpen · cost</span>
-                  </button>
-                  <button disabled
-                    title="Coming soon — visual cost-vs-value charts per Evo Step"
-                    class="w-full text-left px-3 py-2 rounded-lg border border-white/20 text-white/40 text-sm font-medium cursor-not-allowed">
-                    Resource Charts
-                    <span class="block text-white/40 text-xs mt-0.5">soon · charts · budgets</span>
-                  </button>
+                    @click="resourcesSharpenOpen = true"
+                  >Spec Resource Entries</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
+                    title="Walk through all 9 Gilb-cited analytical sharpening dimensions for Resource entries"
+                    @click="resourcesSharpenOpen = true"
+                  >9 Sharpen Dimensions</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
+                    title="OPTIMA Optimization — balance resource tradeoffs using VDT sliders"
+                    @click="optimaOpen = true"
+                  >OPTIMA Optimization</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border border-violet-200
+                           hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-all duration-100"
+                    title="KISS Analysis — Keep Improvement Super Surprising · 5 most cost-effective spec improvements"
+                    @click="kissOpen = true"
+                  >KISS Analysis</button>
+                  <!-- Footer: All Tools + Other Tools -->
+                  <div class="border-t border-violet-200 mt-1.5 pt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 hover:border-violet-400 transition-all"
+                      title="Open full Resources Sharpening tool — 9 analytical dimensions + 5 advanced generative tools"
+                      @click="resourcesSharpenOpen = true"
+                    >📋 All Tools</button>
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all"
+                      title="Other resource tools — OPTIMA optimization, KISS analysis, Value Flow Diagram"
+                      @click="optimaOpen = true"
+                    >⋯ Other Tools</button>
+                  </div>
                 </div>
               </div>
 
@@ -7015,6 +7117,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
                     title="Constraint Violation Analysis — find which resource constraints are blocking Value Goals"
                     @click="optimaOpen = true"
                   >Constraint Violation Analysis</button>
+                  <!-- Footer: All Tools + Other Tools -->
+                  <div class="border-t border-amber-200 mt-1.5 pt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 transition-all"
+                      title="Open full Resources Sharpening tool — 9 analytical dimensions + 5 advanced generative tools"
+                      @click="resourcesSharpenOpen = true"
+                    >📋 All Tools</button>
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all"
+                      title="Other resource tools — OPTIMA optimization, KISS analysis, Value Flow Diagram"
+                      @click="optimaOpen = true"
+                    >⋯ Other Tools</button>
+                  </div>
                 </div>
               </div>
 
@@ -7080,6 +7197,107 @@ function handleApertureLoadPlan(model: PlanModel): void {
                     title="VDT-ranked priority alternatives — 4 ranked alternatives per improvement with resource deltas"
                     @click="kissOpen = true"
                   >4 Alternatives per Improvement</button>
+                  <!-- Footer: All Tools + Other Tools -->
+                  <div class="border-t border-violet-200 mt-1.5 pt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 hover:border-violet-400 transition-all"
+                      title="Open full Resources Sharpening tool — 9 analytical dimensions + 5 advanced generative tools"
+                      @click="resourcesSharpenOpen = true"
+                    >📋 All Tools</button>
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all"
+                      title="Other resource tools — Resources Sharpening, OPTIMA optimization, Value Flow Diagram"
+                      @click="resourcesSharpenOpen = true"
+                    >⋯ Other Tools</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Pin 6: Cost Engineering ─────────────────────────────────── -->
+              <!-- Tom 2026-06-05: "COST ENGINEERING: THE TOOL, SEPARATE TOOL for Dynamic
+                   (Evo Step) Design to [Cost, Value, Constraint] and for initial statics
+                   upfront Design to [Cost, Value, Constraint]." -->
+              <div class="rounded-xl border-2 border-amber-600 overflow-hidden shadow-sm ring-1 ring-amber-400/50">
+                <div class="bg-gradient-to-br from-slate-900 via-amber-950 to-slate-900 px-4 py-6 text-white">
+                  <button
+                    type="button"
+                    class="w-full flex flex-col items-center justify-center gap-1.5
+                           focus:outline-none focus:ring-2 focus:ring-amber-400/60
+                           rounded-lg hover:bg-white/10 transition-colors duration-100 py-2"
+                    title="Cost Engineering Tool — Design to Cost / Value / Constraint · Static (upfront) + Dynamic (Evo Step) modes · Based on Tom Gilb's Cost Engineering book"
+                    @click="costEngineeringOpen = true"
+                  >
+                    <!-- [$→*] keyed icon — cost/budget to output (international, DD-015) -->
+                    <svg viewBox="0 0 64 48" width="96" height="72" fill="none"
+                         aria-label="Cost Engineering — budget transforms to value" role="img">
+                      <!-- Left bracket [ -->
+                      <path d="M 12,8 L 7,8 L 7,40 L 12,40" stroke="rgba(251,191,36,0.9)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                      <!-- $ symbol (cost/resource) -->
+                      <text x="15" y="32" font-size="20" font-family="Georgia,serif" font-weight="bold" fill="rgba(251,191,36,0.95)">$</text>
+                      <!-- Right bracket ] -->
+                      <path d="M 32,8 L 37,8 L 37,40 L 32,40" stroke="rgba(251,191,36,0.9)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                      <!-- → transformation arrow -->
+                      <line x1="40" y1="24" x2="52" y2="24" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" stroke-linecap="round"/>
+                      <polyline points="49,20 54,24 49,28" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                      <!-- * output star -->
+                      <text x="56" y="30" font-size="18" font-family="Georgia,serif" font-weight="bold" fill="rgba(52,211,153,0.95)">*</text>
+                    </svg>
+                    <div class="text-center mt-1">
+                      <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-80">Design to</span>
+                      <div class="text-[13px] font-extrabold leading-tight mt-0.5">Cost Engineering</div>
+                      <div class="text-[10px] opacity-75 mt-0.5">static · dynamic · Evo Steps</div>
+                    </div>
+                  </button>
+                </div>
+                <!-- Sub-option buttons -->
+                <div class="bg-amber-50 p-2.5 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-amber-900
+                           bg-white rounded-lg px-3 py-2 border border-amber-200
+                           hover:border-amber-500 hover:bg-amber-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400
+                           transition-all duration-100"
+                    title="Static upfront Design-to-Cost — set cost targets for whole plan, see which Solutions fit within budget"
+                    @click="costEngineeringOpen = true"
+                  >Static — Upfront Design-to-Cost</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-amber-900
+                           bg-white rounded-lg px-3 py-2 border border-amber-200
+                           hover:border-amber-500 hover:bg-amber-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400
+                           transition-all duration-100"
+                    title="Dynamic Evo Step Design-to-Cost — per step: planned cost vs value delivered vs constraints"
+                    @click="costEngineeringOpen = true"
+                  >Dynamic — Evo Step Cost Tracking</button>
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-amber-900
+                           bg-white rounded-lg px-3 py-2 border border-amber-200
+                           hover:border-amber-500 hover:bg-amber-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400
+                           transition-all duration-100"
+                    title="Value/Cost ratio ranking — which Solutions and Evo Steps give the best V/C ratio"
+                    @click="costEngineeringOpen = true"
+                  >V/C Ratio Ranking</button>
+                  <!-- Footer: All Tools + Other Tools -->
+                  <div class="border-t border-amber-200 mt-1.5 pt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 transition-all"
+                      title="Open full Resources Sharpening tool — 9 analytical dimensions + 5 advanced generative tools"
+                      @click="resourcesSharpenOpen = true"
+                    >📋 All Tools</button>
+                    <button
+                      type="button"
+                      class="flex-1 text-center text-[10px] font-bold px-2 py-1.5 rounded-md border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all"
+                      title="Other resource tools — KISS analysis, OPTIMA optimization, Value Flow Diagram"
+                      @click="kissOpen = true"
+                    >⋯ Other Tools</button>
+                  </div>
                 </div>
               </div>
 
@@ -8399,6 +8617,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :open="view === 'app' && kissOpen"
       :spec="currentSpec"
       @close="kissOpen = false"
+    />
+
+    <!-- Stage 10 · Cost Engineering Tool — Static upfront Design-to-Cost + Dynamic Evo Step tracking.
+         Tom 2026-06-05: "COST ENGINEERING: THE TOOL, SEPARATE TOOL for Dynamic (Evo Step)
+         Design to [Cost, Value, Constraint] and for initial statics upfront Design to
+         [Cost, Value, Constraint]. Based on ideas in Cost Engineering."
+         [$→*] international keyed icon: resource-to-output transformation. -->
+    <ResourceCostEngineeringPanel
+      :open="view === 'app' && costEngineeringOpen"
+      :spec="currentSpec"
+      @close="costEngineeringOpen = false"
     />
 
     <!-- Sharpening Cycles modal — triggered from nav "Sharpen ▾" when spec exists -->

@@ -28,7 +28,33 @@
       <slot />
     </div>
 
-    <!-- Indicator: absolute overlay on the outer, never inside the scroller -->
+    <!-- TOP indicator — shows when scrolled down (content exists above) -->
+    <Transition name="si">
+      <div
+        v-if="hasLess"
+        class="absolute top-0 left-0 right-0 h-14 pointer-events-none z-10"
+        aria-hidden="true"
+      >
+        <div
+          class="absolute inset-0"
+          :style="`background: linear-gradient(to bottom, ${fadeFrom} 30%, transparent 100%)`"
+        />
+        <div v-if="!noPill" class="absolute top-2 left-0 right-0 flex justify-center">
+          <div
+            class="flex items-center gap-1 rounded-full bg-gray-800 text-white text-[10px] font-semibold px-2.5 py-1 shadow-lg animate-bounce"
+          >
+            <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M14.78 11.78a.75.75 0 0 1-1.06 0L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06z"
+                clip-rule="evenodd" />
+            </svg>
+            <span>scroll</span>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- BOTTOM indicator — shows when more content exists below -->
     <Transition name="si">
       <div
         v-if="hasMore"
@@ -41,21 +67,23 @@
           :style="`background: linear-gradient(to top, ${fadeFrom} 30%, transparent 100%)`"
         />
         <!-- Visible scroll badge: dark pill with chevron + "scroll" label.
-             Suppressed when noPill is true (gradient fade still shows). -->
+             Suppressed when noPill is true (gradient fade still shows).
+             Shows ↕ when in the middle (hasLess AND hasMore), ↓ when at the top (only hasMore). -->
         <div v-if="!noPill" class="absolute bottom-2 left-0 right-0 flex justify-center">
           <div
             class="flex items-center gap-1 rounded-full bg-gray-800 text-white text-[10px] font-semibold px-2.5 py-1 shadow-lg animate-bounce"
           >
-            <svg
-              class="h-3 w-3 flex-shrink-0"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
+            <!-- Up-down arrows when in the middle (content both above and below) -->
+            <svg v-if="hasLess" class="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M10 3a.75.75 0 0 1 .53.22l3.5 3.5a.75.75 0 0 1-1.06 1.06L10 4.81 7.03 7.78a.75.75 0 0 1-1.06-1.06l3.5-3.5A.75.75 0 0 1 10 3zm-3.47 9.22a.75.75 0 0 1 1.06 0L10 15.19l2.97-2.97a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 0-1.06z"
+                clip-rule="evenodd" />
+            </svg>
+            <!-- Down arrow only when at the top (only hasMore) -->
+            <svg v-else class="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
                 d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z"
-                clip-rule="evenodd"
-              />
+                clip-rule="evenodd" />
             </svg>
             <span>scroll</span>
           </div>
@@ -96,12 +124,14 @@ const props = withDefaults(defineProps<{
 
 const scrollEl = ref<HTMLElement | null>(null)
 const hasMore   = ref(false)
+const hasLess   = ref(false)
 
 function check() {
   const el = scrollEl.value
   if (!el) return
   // 4px tolerance avoids lingering indicator on sub-pixel rounding
   hasMore.value = el.scrollHeight - el.scrollTop - el.clientHeight > 4
+  hasLess.value = el.scrollTop > 4
 }
 
 let ro: ResizeObserver | null = null
