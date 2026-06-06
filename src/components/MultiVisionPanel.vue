@@ -1050,12 +1050,35 @@ async function exportMultiVision(): Promise<void> {
                         min="0"
                         max="100"
                         :value="vTolerableSliders[v.id] ?? 25"
-                        class="v-slider w-full"
-                        :title="`Tolerable Constraint for ${v.id} — failure-avoidance line. Below this number the WHOLE PROJECT fails (Glossary *539). Tom: 'we can actually only set the Wish' → here you also set the Constraint.`"
+                        class="v-slider-tolerable w-full"
+                        :title="`😐 Neutral-face thumb = Tolerable Constraint border. Left of thumb (red zone) = 😟 project failure — below this level the WHOLE PROJECT FAILS (Glossary *539). At or right of thumb = 😐 just tolerable — escaping failure but not the committed promise.`"
                         :aria-label="`Tolerable Constraint setting for ${v.description}`"
                         style="background: linear-gradient(to right, #ef4444 0%, #ef4444 50%, #fbbf24 50%, #fbbf24 100%)"
                         @input="handleTolerableSlider(v.id, +($event.target as HTMLInputElement).value)"
                       />
+                    </div>
+
+                    <!-- ── Zone legend — semantic meaning of commitment levels ──────
+                         Tom 2026-06-06: "below is unhappy smily, The wish goal
+                         level is success (Smiley)". Three zones on one horizontal
+                         line, anchored to the track width, so the user sees the
+                         emotional spectrum that maps onto both slider tracks. -->
+                    <div
+                      class="flex items-center justify-between px-0.5 -mt-1 select-none text-[9px]"
+                      aria-hidden="true"
+                    >
+                      <span class="flex flex-col items-center gap-0.5" title="Below Tolerable — project failure">
+                        <span class="text-base leading-none">😟</span>
+                        <span class="text-red-600 font-bold uppercase tracking-wide text-[7px]">Fail</span>
+                      </span>
+                      <span class="flex flex-col items-center gap-0.5" title="At Tolerable — just escaping failure (constraint border)">
+                        <span class="text-base leading-none">😐</span>
+                        <span class="text-amber-700 font-bold uppercase tracking-wide text-[7px]">Tolerable</span>
+                      </span>
+                      <span class="flex flex-col items-center gap-0.5" title="At Goal or Wish — committed promise reached or stakeholder dream satisfied">
+                        <span class="text-base leading-none">😊</span>
+                        <span class="text-violet-700 font-bold uppercase tracking-wide text-[7px]">Wish</span>
+                      </span>
                     </div>
 
                     <!-- ── Wish Target slider ──────────────────────────────────── -->
@@ -1084,8 +1107,8 @@ async function exportMultiVision(): Promise<void> {
                         min="0"
                         max="100"
                         :value="vWishSliders[v.id] ?? 75"
-                        class="v-slider w-full"
-                        :title="`Wish Target for ${v.id} — stakeholder dream level (Glossary *244). Per Tom: this is what stakeholders articulated; the project does NOT commit to it. Goal emerges from OPTIMA balancing.`"
+                        class="v-slider-wish w-full"
+                        :title="`😊 Happy-face thumb = Wish Target (stakeholder dream level, Glossary *244). At this thumb: 😊 full stakeholder satisfaction — the best the stakeholder would pay for, beyond which they are indifferent. Project does NOT commit to Wish; Goal emerges from OPTIMA balancing.`"
                         :aria-label="`Wish Target setting for ${v.description}`"
                         style="background: linear-gradient(to right, #fbbf24 0%, #fbbf24 50%, #a78bfa 50%, #a78bfa 100%)"
                         @input="handleWishSlider(v.id, +($event.target as HTMLInputElement).value)"
@@ -1792,24 +1815,59 @@ input[type='range'] {
   background: transparent;
 }
 
-/* ── Value slider thumb (indigo) ─────────────────────────────────────────── */
-.v-slider::-webkit-slider-thumb {
+/* ── Tolerable Constraint slider — 😐 neutral-face thumb (amber) ────────────
+   The straight-mouth face marks the constraint border:
+   to the LEFT of thumb = 😟 failure zone (project fails);
+   AT the thumb = 😐 just tolerable (escaping failure, not the promise).
+   SVG data URI: white circle · amber stroke · two dot eyes · straight line mouth.
+   Inline SVG characters that need encoding: # → %23  < → %3C  > → %3E  / → %2F  ' stays as ' ─────── */
+.v-slider-tolerable::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: white;
-  border: 3px solid #4338ca;
   cursor: pointer;
-  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.4);
+  border: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Ccircle cx='13' cy='13' r='12' fill='white' stroke='%23d97706' stroke-width='2.5'/%3E%3Ccircle cx='9.5' cy='10.5' r='1.6' fill='%23d97706'/%3E%3Ccircle cx='16.5' cy='10.5' r='1.6' fill='%23d97706'/%3E%3Cline x1='9' y1='17' x2='17' y2='17' stroke='%23d97706' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
   transition: transform 100ms ease;
 }
-.v-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
+.v-slider-tolerable::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.v-slider-tolerable::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 5px;
 }
 
-.v-slider::-webkit-slider-runnable-track {
+/* ── Wish Target slider — 😊 happy-face thumb (violet) ──────────────────────
+   The smiling face marks the stakeholder dream level:
+   AT the thumb = 😊 full satisfaction — maximum stakeholder value,
+   beyond which they are indifferent to improvement.
+   SVG: white circle · violet stroke · two dot eyes · upward arc mouth. ─── */
+.v-slider-wish::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Ccircle cx='13' cy='13' r='12' fill='white' stroke='%237c3aed' stroke-width='2.5'/%3E%3Ccircle cx='9.5' cy='10.5' r='1.6' fill='%237c3aed'/%3E%3Ccircle cx='16.5' cy='10.5' r='1.6' fill='%237c3aed'/%3E%3Cpath d='M9%2C16.5 Q13%2C21.5 17%2C16.5' fill='none' stroke='%237c3aed' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+  transition: transform 100ms ease;
+}
+.v-slider-wish::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.v-slider-wish::-webkit-slider-runnable-track {
   height: 10px;
   border-radius: 5px;
 }
