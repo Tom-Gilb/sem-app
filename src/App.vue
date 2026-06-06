@@ -1981,24 +1981,57 @@ registerActivityScroll('clarify-load', clarifyLoading, () => specOutputEl.value)
 // what was hung. Tom can also press 🆘 Reset at any time before the timer
 // fires — panicReset() clears the same state instantly.
 let _hangWatchdog: ReturnType<typeof setTimeout> | null = null
+// Tom 2026-06-06: watchdog window bumped 100s → 180s.  The claude-code adapter
+// spawns the local `claude` CLI which can need 30-60s on a cold start before
+// it streams tokens; 100s left too thin a margin and caused frequent false
+// timeouts.  180s = 3 minutes is still snappy enough that a real hang is
+// surfaced to the user within reasonable time.
+//
+// Tom 2026-06-06 NEW: when the watchdog fires we now FALL BACK to a
+// deterministic mock spec built from the user's original stakes/ends/means
+// input instead of leaving them stuck at an error.  This realises Claude-
+// Code-as-AI-Layer's "the SEM App must work without the AI layer" guarantee:
+// even if Claudian is slow / unreachable / hung, the user CAN proceed past
+// Stage 1 with a usable Planguage spec drafted from their own typed input.
+// They can re-run Sharpening (which is a separate, faster cycle) to refine it.
 watch(isLoading, (busy) => {
   if (busy) {
     if (_hangWatchdog) clearTimeout(_hangWatchdog)
     _hangWatchdog = setTimeout(() => {
-      console.error('[HangWatchdog] Loading state stuck for 100s — force-clearing.', {
+      console.error('[HangWatchdog] Loading state stuck for 180s — force-clearing.', {
         sdkError: sdkError.value,
         stage: stage.value,
+        hasPayload: !!pendingPayload.value,
       })
       // Hard-cancel the underlying fetch BEFORE clearing loading state.
-      // Without this, Safari keeps a stalled TCP connection running in the
-      // background even after the UI has been reset, blocking subsequent retries.
       cancelCurrentTranslate()
       _forceClearLoading()
       _doTranslateInFlight = false   // watchdog must also release the in-flight guard
-      sdkError.value = 'Generation took too long and was cancelled. Press Generate Spec again to retry, or 🆘 Reset to start fresh.'
-      stage1Sub.value = 'form'
+
+      // Graceful fallback: if the user had a pending payload, draft a mock
+      // spec from it so they can keep moving.  Otherwise show the error.
+      const payload = pendingPayload.value
+      if (payload && (payload.stakes || payload.ends || payload.means)) {
+        try {
+          const mockSpec = buildMockSpec(payload.stakes, payload.ends, payload.means)
+          currentSpec.value = mockSpec
+          stage.value = 2   // jump to Evo Plan view so the user sees their spec
+          sdkError.value = ''
+          showToast(
+            '⚡ AI was slow — drafted a quick local spec from your input.  Press Sharpen on any dimension to refine, or 🆘 Reset to start fresh.',
+            8000,
+          )
+        } catch (err) {
+          console.error('[HangWatchdog] buildMockSpec fallback also failed', err)
+          sdkError.value = 'Generation took too long and the local fallback also failed. Press Generate Spec again to retry, or 🆘 Reset to start fresh.'
+          stage1Sub.value = 'form'
+        }
+      } else {
+        sdkError.value = 'Generation took too long and was cancelled. Press Generate Spec again to retry, or 🆘 Reset to start fresh.'
+        stage1Sub.value = 'form'
+      }
       _hangWatchdog = null
-    }, 100_000)
+    }, 180_000)
   } else {
     if (_hangWatchdog) {
       clearTimeout(_hangWatchdog)
