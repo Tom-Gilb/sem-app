@@ -21,7 +21,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import PlanguageTerm from './PlanguageTerm.vue'
@@ -83,6 +83,64 @@ const openInfoId = ref<string | null>(null)
 function toggleInfo(id: string): void {
   openInfoId.value = openInfoId.value === id ? null : id
 }
+
+// ── Cross-Value ripple blinking (Tom 2026-06-06) ──────────────────────────────
+// When one Value's slider moves, all OTHER Value cards flash a banner for 2.5 s:
+//   RED  — requirement RAISED → more resource competition → worse for other Values
+//   GREEN — requirement LOWERED → resources freed → better for other Values
+// Design: wrapper functions record direction BEFORE calling the setter so the
+// computed chain (vFeasibility → balanceScore) always sees the new state.
+
+const recentlyRestated = ref<{ id: string; direction: 'up' | 'down' } | null>(null)
+let _rippleTimer: ReturnType<typeof setTimeout> | null = null
+
+function _triggerRipple(id: string, direction: 'up' | 'down'): void {
+  if (_rippleTimer !== null) clearTimeout(_rippleTimer)
+  recentlyRestated.value = { id, direction }
+  _rippleTimer = setTimeout(() => {
+    recentlyRestated.value = null
+    _rippleTimer = null
+  }, 2500)
+}
+
+function handleWishSlider(id: string, newVal: number): void {
+  const old = vWishSliders[id] ?? 75
+  _triggerRipple(id, newVal > old ? 'up' : 'down')
+  setVWishSlider(id, newVal)
+}
+
+function handleTolerableSlider(id: string, newVal: number): void {
+  const old = vTolerableSliders[id] ?? 25
+  _triggerRipple(id, newVal > old ? 'up' : 'down')
+  setVTolerableSlider(id, newVal)
+}
+
+/** True for Value cards OTHER than the one whose slider just moved. */
+function isRippleAffected(id: string): boolean {
+  return recentlyRestated.value !== null && recentlyRestated.value.id !== id
+}
+
+function rippleClass(): string {
+  if (!recentlyRestated.value) return ''
+  return recentlyRestated.value.direction === 'up'
+    ? 'bg-red-50 border-red-400 text-red-800'
+    : 'bg-emerald-50 border-emerald-400 text-emerald-800'
+}
+
+function rippleLabel(): string {
+  if (!recentlyRestated.value) return ''
+  const { id, direction } = recentlyRestated.value
+  return direction === 'up'
+    ? `⬆ ${id} raised — more resource competition here`
+    : `⬇ ${id} lowered — resources freed here`
+}
+
+// ── Gauge pulse on balance-score change ───────────────────────────────────────
+const gaugePulsing = ref(false)
+watch(balanceScore, () => {
+  gaugePulsing.value = true
+  setTimeout(() => { gaugePulsing.value = false }, 1200)
+})
 
 // ── Gauge SVG helpers ─────────────────────────────────────────────────────────
 
@@ -478,6 +536,7 @@ async function exportMultiVision(): Promise<void> {
                       stroke-linecap="round"
                       fill="none"
                       style="transition: all 300ms ease;"
+                      :class="{ 'animate-pulse': gaugePulsing }"
                     />
                     <text
                       x="90"
@@ -905,7 +964,7 @@ async function exportMultiVision(): Promise<void> {
                         :title="`Tolerable Constraint for ${v.id} — failure-avoidance line. Below this number the WHOLE PROJECT fails (Glossary *539). Tom: 'we can actually only set the Wish' → here you also set the Constraint.`"
                         :aria-label="`Tolerable Constraint setting for ${v.description}`"
                         style="background: linear-gradient(to right, #ef4444 0%, #ef4444 50%, #fbbf24 50%, #fbbf24 100%)"
-                        @input="setVTolerableSlider(v.id, +($event.target as HTMLInputElement).value)"
+                        @input="handleTolerableSlider(v.id, +($event.target as HTMLInputElement).value)"
                       />
                     </div>
 
@@ -939,7 +998,7 @@ async function exportMultiVision(): Promise<void> {
                         :title="`Wish Target for ${v.id} — stakeholder dream level (Glossary *244). Per Tom: this is what stakeholders articulated; the project does NOT commit to it. Goal emerges from OPTIMA balancing.`"
                         :aria-label="`Wish Target setting for ${v.description}`"
                         style="background: linear-gradient(to right, #fbbf24 0%, #fbbf24 50%, #a78bfa 50%, #a78bfa 100%)"
-                        @input="setVWishSlider(v.id, +($event.target as HTMLInputElement).value)"
+                        @input="handleWishSlider(v.id, +($event.target as HTMLInputElement).value)"
                       />
                     </div>
 
@@ -1086,6 +1145,29 @@ async function exportMultiVision(): Promise<void> {
                         <span class="text-[9px] text-red-600 italic">— need redesign or replacement</span>
                       </div>
                     </div>
+
+                    <!-- ── Cross-Value ripple banner (Tom 2026-06-06) ────────────
+                         Shows on every Value card OTHER than the one being dragged.
+                         RED  = another Value's requirement was raised → this Value
+                               now faces more resource competition.
+                         GREEN = another Value's requirement was lowered → resources
+                               freed, this Value benefits.
+                         Auto-disappears after 2.5 s via recentlyRestated ref. -->
+                    <Transition name="ripple-fade">
+                      <div
+                        v-if="isRippleAffected(v.id)"
+                        class="animate-pulse rounded-md border px-2.5 py-1.5
+                               text-[10px] font-bold leading-snug flex items-center gap-1.5"
+                        :class="rippleClass()"
+                        aria-live="polite"
+                        :aria-label="rippleLabel()"
+                      >
+                        <span aria-hidden="true" class="text-sm leading-none shrink-0">
+                          {{ recentlyRestated?.direction === 'up' ? '🔴' : '🟢' }}
+                        </span>
+                        <span>{{ rippleLabel() }}</span>
+                      </div>
+                    </Transition>
                   </div>
                 </div>
               </div>
@@ -1544,5 +1626,18 @@ input[type='range'] {
 }
 .solution-list-move {
   transition: transform 280ms ease;
+}
+
+/* ── Cross-Value ripple banner entrance / exit ──────────────────────────── */
+.ripple-fade-enter-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.ripple-fade-leave-active {
+  transition: opacity 350ms ease, transform 350ms ease;
+}
+.ripple-fade-enter-from,
+.ripple-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>
