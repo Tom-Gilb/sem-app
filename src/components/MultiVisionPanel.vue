@@ -21,7 +21,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import PlanguageTerm from './PlanguageTerm.vue'
@@ -294,6 +294,96 @@ function toggleTerms(): void { termsShown.value = !termsShown.value }
 // ── Helper: truncate ──────────────────────────────────────────────────────────
 function trunc(str: string, len: number): string {
   return str.length > len ? str.slice(0, len - 1) + '…' : str
+}
+
+// ── Slider Trace (Tom 2026-06-06) ─────────────────────────────────────────────
+// Capture slider positions when the panel opens as the "initial state".
+// The Trace graphic shows graphically: initial → current, with real Planguage
+// commitment-level values on the actual spec scale, and the % change.
+
+const initialWishSliders      = ref<Record<string, number>>({})
+const initialTolerableSliders = ref<Record<string, number>>({})
+
+onMounted(() => {
+  for (const v of values.value) {
+    initialWishSliders.value[v.id]      = vWishSliders[v.id]      ?? 75
+    initialTolerableSliders.value[v.id] = vTolerableSliders[v.id] ?? 25
+  }
+})
+
+/** Map a 0–100 slider position to the Planguage commitment level it selects,
+ *  returning the level name, keyed icon, the raw spec value string, and the
+ *  parsed numeric (null if non-numeric) for % change calculation. */
+function _levelAt(
+  pos: number,
+  v: { tolerable: string; goal: string; wish?: string | null }
+): { name: string; icon: string; specVal: string; num: number | null } {
+  let raw: string; let name: string; let icon: string
+  if      (pos < 33) { name = 'Tolerable'; icon = '>>'; raw = v.tolerable      }
+  else if (pos < 67) { name = 'Goal';      icon = '>';  raw = v.goal            }
+  else               { name = 'Wish';      icon = '>?'; raw = v.wish ?? ''      }
+  const parsed = parsePlanguageThreshold(raw)
+  return { name, icon, specVal: thresholdDisplay(raw), num: parsed.num }
+}
+
+/** Signed % change: (currNum − initNum) / |initNum| × 100, or null if not numeric. */
+function _realPctChange(initNum: number | null, currNum: number | null): number | null {
+  if (initNum === null || currNum === null || initNum === 0) return null
+  return ((currNum - initNum) / Math.abs(initNum)) * 100
+}
+
+/** Full delta label: "+35pp (+18.7%)" or "no change". */
+function _deltaStr(
+  initPos: number, currPos: number,
+  initNum: number | null, currNum: number | null
+): string {
+  const d = currPos - initPos
+  if (d === 0) return 'no change'
+  const sign  = d > 0 ? '+' : ''
+  const ppStr = `${sign}${d}pp`
+  const pct   = _realPctChange(initNum, currNum)
+  if (pct !== null) {
+    const ps = pct >= 0 ? '+' : ''
+    return `${ppStr}  (${ps}${pct.toFixed(1)}% real scale)`
+  }
+  return ppStr
+}
+
+/** CSS class for the colored delta segment and delta label. */
+function _deltaColor(delta: number): 'red' | 'green' | 'none' {
+  if (delta > 0) return 'red'
+  if (delta < 0) return 'green'
+  return 'none'
+}
+
+/** Segment style for the colored bar between initial and current thumb. */
+function _segStyle(initPos: number, currPos: number): Record<string, string> {
+  const l = Math.min(initPos, currPos)
+  const w = Math.abs(currPos - initPos)
+  return { left: `${l}%`, width: `${w}%` }
+}
+
+// Public accessors used in the template
+type TEntry = { id: string; tolerable: string; goal: string; wish?: string | null }
+
+function traceTolerInit(id: string, v: TEntry)    { return _levelAt(initialTolerableSliders.value[id] ?? 25, v) }
+function traceTolerCurr(id: string, v: TEntry)    { return _levelAt(vTolerableSliders[id] ?? 25, v) }
+function traceWishInit(id: string, v: TEntry)     { return _levelAt(initialWishSliders.value[id] ?? 75, v) }
+function traceWishCurr(id: string, v: TEntry)     { return _levelAt(vWishSliders[id] ?? 75, v) }
+
+function traceTolerDelta(id: string): number      { return (vTolerableSliders[id] ?? 25) - (initialTolerableSliders.value[id] ?? 25) }
+function traceWishDelta(id: string): number       { return (vWishSliders[id] ?? 75)      - (initialWishSliders.value[id]      ?? 75) }
+
+function traceTolerSegStyle(id: string)           { return _segStyle(initialTolerableSliders.value[id] ?? 25, vTolerableSliders[id] ?? 25) }
+function traceWishSegStyle(id: string)            { return _segStyle(initialWishSliders.value[id] ?? 75, vWishSliders[id] ?? 75) }
+
+function traceTolerDeltaStr(id: string, v: TEntry): string {
+  const iL = traceTolerInit(id, v); const cL = traceTolerCurr(id, v)
+  return _deltaStr(initialTolerableSliders.value[id] ?? 25, vTolerableSliders[id] ?? 25, iL.num, cL.num)
+}
+function traceWishDeltaStr(id: string, v: TEntry): string {
+  const iL = traceWishInit(id, v); const cL = traceWishCurr(id, v)
+  return _deltaStr(initialWishSliders.value[id] ?? 75, vWishSliders[id] ?? 75, iL.num, cL.num)
 }
 
 // ── Scale / threshold display per Value entry ─────────────────────────────────
@@ -1019,6 +1109,152 @@ async function exportMultiVision(): Promise<void> {
                       <p class="text-emerald-900">
                         EMERGES from OPTIMA balancing of Tolerable + Wish + Resource Budget.  The user does NOT set Goal directly — it commits only when the 7 Glossary validity conditions hold (technically + economically possible, cost-consistent, effective, profitable, prioritised, qualifying conditions true).
                       </p>
+                    </div>
+
+                    <!-- ── Slider Trace (Tom 2026-06-06) ─────────────────────────────
+                         "SLIDER TRACE: SHOW GRAPHICALLY THE CHANGE FROM INITIAL
+                         CURRENT STATES OF THE SPEC LEVEL, WITH NUMBER ON REAL
+                         SCALE, AND % CHANGE"
+                         Dark instrument-panel strip.  Two rows: Tolerable track
+                         (amber ghost tick) + Wish track (violet ghost tick).
+                         Each track shows:
+                           ◈ initial commitment level · real spec value (left)
+                           colored segment (red = raised, green = lowered)
+                           Δ label: ±pp and ±real% in middle
+                           current commitment level · real spec value (right)
+                         Stable after "no change" — instrument stays on screen
+                         even when nothing has moved, so the user can always
+                         orient themselves relative to the session-start state. -->
+                    <div class="rounded-lg px-3 py-2.5 space-y-2.5"
+                         style="background:#1e293b">
+                      <!-- header -->
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-[7px] font-black uppercase tracking-[0.2em] text-slate-400">
+                          Slider Trace
+                        </span>
+                        <span class="text-[7px] text-slate-500 italic">· vs. session start</span>
+                      </div>
+
+                      <!-- ── Tolerable track ──────────────────────────── -->
+                      <div class="space-y-1">
+                        <div class="text-[7px] font-bold uppercase tracking-wide text-amber-400">
+                          Tolerable &gt;&gt; track
+                        </div>
+                        <!-- graphical bar -->
+                        <div class="relative h-[7px] rounded-full overflow-visible"
+                             style="background:#334155">
+                          <!-- ghost tick: session-start position -->
+                          <div
+                            class="absolute w-[2px] h-[13px] -top-[3px] rounded-sm"
+                            style="background:#f59e0b;opacity:0.8"
+                            :style="{ left: `calc(${initialTolerableSliders[v.id] ?? 25}% - 1px)` }"
+                            :title="`Session start: ${traceTolerInit(v.id, v).name} ${traceTolerInit(v.id, v).icon} = ${traceTolerInit(v.id, v).specVal}`"
+                          />
+                          <!-- delta segment -->
+                          <div
+                            v-if="traceTolerDelta(v.id) !== 0"
+                            class="absolute top-0 h-[7px] rounded-full opacity-80"
+                            :class="traceTolerDelta(v.id) > 0 ? 'bg-red-400' : 'bg-emerald-400'"
+                            :style="traceTolerSegStyle(v.id)"
+                          />
+                          <!-- current position dot -->
+                          <div
+                            class="absolute w-[11px] h-[11px] -top-[2px] rounded-full border-2 bg-slate-900"
+                            :class="traceTolerDelta(v.id) > 0 ? 'border-red-400'
+                                  : traceTolerDelta(v.id) < 0 ? 'border-emerald-400'
+                                  : 'border-amber-400'"
+                            :style="{ left: `calc(${vTolerableSliders[v.id] ?? 25}% - 5px)` }"
+                          />
+                        </div>
+                        <!-- label row: init → delta → curr -->
+                        <div class="flex items-baseline text-[8px] leading-none gap-1 min-w-0">
+                          <!-- initial label -->
+                          <span class="shrink-0 text-amber-300 truncate max-w-[28%]"
+                                :title="`Session start: ${traceTolerInit(v.id, v).name} · ${traceTolerInit(v.id, v).specVal}`">
+                            ◈&nbsp;{{ traceTolerInit(v.id, v).name }}&nbsp;<span class="font-mono">{{ traceTolerInit(v.id, v).icon }}</span>
+                            <span class="text-white font-bold ml-0.5">{{ traceTolerInit(v.id, v).specVal }}</span>
+                          </span>
+                          <!-- delta: centered, colored -->
+                          <span
+                            class="flex-1 text-center font-bold whitespace-nowrap text-[7.5px]"
+                            :class="{
+                              'text-red-400':     traceTolerDelta(v.id) > 0,
+                              'text-emerald-400': traceTolerDelta(v.id) < 0,
+                              'text-slate-500':   traceTolerDelta(v.id) === 0,
+                            }"
+                          >{{ traceTolerDeltaStr(v.id, v) }}</span>
+                          <!-- current label -->
+                          <span class="shrink-0 text-right truncate max-w-[28%]"
+                                :class="{
+                                  'text-red-300':     traceTolerDelta(v.id) > 0,
+                                  'text-emerald-300': traceTolerDelta(v.id) < 0,
+                                  'text-amber-300':   traceTolerDelta(v.id) === 0,
+                                }"
+                                :title="`Now: ${traceTolerCurr(v.id, v).name} · ${traceTolerCurr(v.id, v).specVal}`">
+                            <span class="text-white font-bold">{{ traceTolerCurr(v.id, v).specVal }}</span>
+                            &nbsp;{{ traceTolerCurr(v.id, v).name }}&nbsp;<span class="font-mono">{{ traceTolerCurr(v.id, v).icon }}</span>&nbsp;◉
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- ── Wish track ──────────────────────────────── -->
+                      <div class="space-y-1">
+                        <div class="text-[7px] font-bold uppercase tracking-wide text-violet-400">
+                          Wish &gt;? track
+                        </div>
+                        <!-- graphical bar -->
+                        <div class="relative h-[7px] rounded-full overflow-visible"
+                             style="background:#334155">
+                          <!-- ghost tick -->
+                          <div
+                            class="absolute w-[2px] h-[13px] -top-[3px] rounded-sm"
+                            style="background:#a78bfa;opacity:0.8"
+                            :style="{ left: `calc(${initialWishSliders[v.id] ?? 75}% - 1px)` }"
+                            :title="`Session start: ${traceWishInit(v.id, v).name} ${traceWishInit(v.id, v).icon} = ${traceWishInit(v.id, v).specVal}`"
+                          />
+                          <!-- delta segment -->
+                          <div
+                            v-if="traceWishDelta(v.id) !== 0"
+                            class="absolute top-0 h-[7px] rounded-full opacity-80"
+                            :class="traceWishDelta(v.id) > 0 ? 'bg-red-400' : 'bg-emerald-400'"
+                            :style="traceWishSegStyle(v.id)"
+                          />
+                          <!-- current dot -->
+                          <div
+                            class="absolute w-[11px] h-[11px] -top-[2px] rounded-full border-2 bg-slate-900"
+                            :class="traceWishDelta(v.id) > 0 ? 'border-red-400'
+                                  : traceWishDelta(v.id) < 0 ? 'border-emerald-400'
+                                  : 'border-violet-400'"
+                            :style="{ left: `calc(${vWishSliders[v.id] ?? 75}% - 5px)` }"
+                          />
+                        </div>
+                        <!-- label row -->
+                        <div class="flex items-baseline text-[8px] leading-none gap-1 min-w-0">
+                          <span class="shrink-0 text-violet-300 truncate max-w-[28%]"
+                                :title="`Session start: ${traceWishInit(v.id, v).name} · ${traceWishInit(v.id, v).specVal}`">
+                            ◈&nbsp;{{ traceWishInit(v.id, v).name }}&nbsp;<span class="font-mono">{{ traceWishInit(v.id, v).icon }}</span>
+                            <span class="text-white font-bold ml-0.5">{{ traceWishInit(v.id, v).specVal }}</span>
+                          </span>
+                          <span
+                            class="flex-1 text-center font-bold whitespace-nowrap text-[7.5px]"
+                            :class="{
+                              'text-red-400':     traceWishDelta(v.id) > 0,
+                              'text-emerald-400': traceWishDelta(v.id) < 0,
+                              'text-slate-500':   traceWishDelta(v.id) === 0,
+                            }"
+                          >{{ traceWishDeltaStr(v.id, v) }}</span>
+                          <span class="shrink-0 text-right truncate max-w-[28%]"
+                                :class="{
+                                  'text-red-300':     traceWishDelta(v.id) > 0,
+                                  'text-emerald-300': traceWishDelta(v.id) < 0,
+                                  'text-violet-300':  traceWishDelta(v.id) === 0,
+                                }"
+                                :title="`Now: ${traceWishCurr(v.id, v).name} · ${traceWishCurr(v.id, v).specVal}`">
+                            <span class="text-white font-bold">{{ traceWishCurr(v.id, v).specVal }}</span>
+                            &nbsp;{{ traceWishCurr(v.id, v).name }}&nbsp;<span class="font-mono">{{ traceWishCurr(v.id, v).icon }}</span>&nbsp;◉
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     <!-- ── Live Consequence Scorecard (always visible, real-time) ──────────
