@@ -2004,7 +2004,7 @@ function faceStyle(transform: string): Record<string, string> {
                     :key="lvl"
                     type="button"
                     :class="['text-[10px] px-2 py-1 rounded font-semibold transition-colors', viz3dLevel === lvl ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
-                    :title="`${lvl} level of detail — ${lvl === 'Top' ? 'F entries only' : lvl === 'Medium' ? 'F + V + Stakeholders' : 'All entry types'}`"
+                    :title="`${lvl} level of detail — ${lvl === 'Top' ? 'Function entries only' : lvl === 'Medium' ? 'Function + Value + Stakeholders' : 'All entry types'}`"
                     @click="viz3dLevel = lvl"
                   >{{ lvl }}</button>
                 </div>
@@ -2104,7 +2104,7 @@ function faceStyle(transform: string): Record<string, string> {
               <!-- Level hint overlay -->
               <div class="absolute bottom-3 left-3 flex gap-2">
                 <span v-if="viz3dLevel === 'Top'" class="text-[9px] text-slate-400 bg-slate-800/80 rounded px-2 py-1">Showing: Functions face</span>
-                <span v-else-if="viz3dLevel === 'Medium'" class="text-[9px] text-slate-400 bg-slate-800/80 rounded px-2 py-1">Showing: F · V · S faces</span>
+                <span v-else-if="viz3dLevel === 'Medium'" class="text-[9px] text-slate-400 bg-slate-800/80 rounded px-2 py-1">Showing: Function · Value · Solution faces</span>
                 <span v-else class="text-[9px] text-slate-400 bg-slate-800/80 rounded px-2 py-1">Showing: All 5 entry types</span>
               </div>
             </div>

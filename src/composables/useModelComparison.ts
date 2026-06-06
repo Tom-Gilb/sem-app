@@ -36,7 +36,7 @@ export interface DiffCriterionDef {
 }
 
 export const DIFF_CRITERIA: DiffCriterionDef[] = [
-  { key: 'types',      icon: '📐', label: 'Types',         description: 'F / V / S entry counts per model' },
+  { key: 'types',      icon: '📐', label: 'Types',         description: 'Function / Value / Solution entry counts per model' },
   { key: 'text',       icon: '📝', label: 'Text',          description: 'Description differences for matching IDs' },
   { key: 'values',     icon: '⬆️', label: 'Value Levels',  description: 'Scale / meter / goal / tolerable changes' },
   { key: 'impact',     icon: '💥', label: 'Impact',        description: 'Solution impact statement differences' },

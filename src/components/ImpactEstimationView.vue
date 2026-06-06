@@ -34,6 +34,13 @@ import { useImpactSuggestions } from '../composables/useImpactSuggestions'
 import { useExpectedValue } from '../composables/useExpectedValue'
 import { getImpactColour, getVCColour, interpretImpact } from '../utils/impactColour'
 import { extractAllStakeholders, impactLevel } from '../utils/stakeholderExtract'
+import {
+  exportArtefact,
+  htmlEsc,
+  softWrap,
+  htmlDocumentShell,
+  sectionHeaderHtml,
+} from '../composables/useExportShared'
 import type { VEntry, SEntry } from '../types/spec'
 import type { ImpactMatrix } from '../types/impact'
 import LoadingProgress from './LoadingProgress.vue'
@@ -580,6 +587,113 @@ const {
 
 const copied = ref(false)   // rich-text copy (text/html + text/plain TSV via ClipboardItem)
 
+// ── Export · Full Model — Tom Gilb 2026-06-06 universal Export rule ──────────
+// Builds the FULL IET / VDT view in a single colourful HTML document including
+// every Value × Solution cell, the Means Efficiency row, the V/C ratio row,
+// and the canonical Planguage Glossary footnote (so the static export is
+// self-describing for Tolerable / Goal / Wish / Percentage Impact terms).
+
+function _renderIETHtml(): string {
+  const sols = props.solutions
+  const vals = props.values
+
+  const headerHtml = `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px 0;border-collapse:collapse;">
+  <tr><td bgcolor="#1d4ed8" style="background:#1d4ed8;color:#ffffff;padding:8px 22px;font:700 18px/1.4 'Helvetica Neue',Arial,sans-serif;">Impact Estimation Table · Value × Solution VDT</td></tr>
+  <tr><td bgcolor="#2563eb" style="background:#2563eb;color:#dbeafe;padding:4px 22px 10px 22px;font:600 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.12em;text-transform:uppercase;">${vals.length} Values × ${sols.length} Solutions · IET %.→ Percentage Impact scale</td></tr>
+</table>`
+
+  // Solutions list with V/C ratio + costs
+  let solRows = ''
+  for (const sol of sols) {
+    const ratio = vcRatios.value?.[sol.id] ?? 0
+    const cal = calendarCosts.value?.[sol.id] ?? 0
+    const cap = capitalCosts.value?.[sol.id] ?? 0
+    const descLines = softWrap(sol.description || sol.id, 60)
+    const descRowsHtml = descLines.map((line, i) =>
+      `<tr><td bgcolor="#fff7ed" style="background:#fff7ed;color:#1f2937;padding:${i === 0 ? '4' : '1'}px 18px;font:${i === 0 ? '700' : '400'} 12px/1.5 'Helvetica Neue',Arial,sans-serif;">${i === 0 ? `<b>${htmlEsc(sol.id)}</b> · ` : ''}${htmlEsc(line)}</td></tr>`
+    ).join('')
+    solRows += `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 4px 0;border-collapse:collapse;border:1px solid #fdba74;">
+  ${descRowsHtml}
+  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:3px 18px 6px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#1f2937;">V/C ratio: <b>${ratio.toFixed(1)}</b> · Calendar: ${cal} weeks · Capital: $${cap}k</td></tr>
+</table>`
+  }
+
+  // Values list with per-solution impacts
+  let valRows = ''
+  for (const v of vals) {
+    const descLines = softWrap(v.description || v.id, 60)
+    const descRowsHtml = descLines.map((line, i) =>
+      `<tr><td bgcolor="#ede9fe" style="background:#ede9fe;color:#5b21b6;padding:${i === 0 ? '4' : '1'}px 18px;font:${i === 0 ? '700' : '400'} 12px/1.5 'Helvetica Neue',Arial,sans-serif;">${i === 0 ? `<b>${htmlEsc(v.id)}</b> · ` : ''}${htmlEsc(line)}</td></tr>`
+    ).join('')
+
+    // Per-solution impacts for this Value, as a single inline string with colours
+    const impactSpans = sols.map(sol => {
+      const impact = impactMatrix?.[v.id]?.[sol.id] ?? 0
+      const colour = impact >= 60 ? '#16a34a' : impact >= 30 ? '#f59e0b' : impact >= 1 ? '#ef4444' : impact < 0 ? '#7f1d1d' : '#94a3b8'
+      return `<span style="display:inline-block;background:${colour};color:#ffffff;padding:1px 6px;border-radius:4px;margin-right:3px;font:700 10px/1.4 'Helvetica Neue',Arial,sans-serif;">${htmlEsc(sol.id)}:${impact > 0 ? '+' : ''}${impact.toFixed(0)}%</span>`
+    }).join('')
+
+    valRows += `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 4px 0;border-collapse:collapse;border:1px solid #c4b5fd;">
+  ${descRowsHtml}
+  <tr><td bgcolor="#faf5ff" style="background:#faf5ff;padding:4px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#1f2937;"><b>Scale:</b> ${htmlEsc(v.scale || '—')} · <b>Tolerable:</b> ${htmlEsc(v.tolerable || '—')} · <b>Goal:</b> ${htmlEsc(v.goal || '—')} · <b>Wish:</b> ${htmlEsc(v.wish || '—')}</td></tr>
+  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:4px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;">${impactSpans}</td></tr>
+</table>`
+  }
+
+  return htmlDocumentShell({
+    title: 'Impact Estimation Table',
+    bodyHtml: headerHtml +
+      sectionHeaderHtml(`SOLUTIONS · ${sols.length} entries · ranked by V/C ratio`, '#c2410c') + solRows +
+      sectionHeaderHtml(`VALUES · ${vals.length} entries · IET %.→ Percentage Impact per cell`, '#5b21b6') + valRows,
+  })
+}
+
+function _renderIETPlainText(): string {
+  const HR = '═'.repeat(56)
+  const SR = '─'.repeat(56)
+  const lines: string[] = []
+  lines.push(HR)
+  lines.push('Impact Estimation Table · Value × Solution VDT')
+  lines.push(`${props.values.length} Values × ${props.solutions.length} Solutions · IET %.→ Percentage Impact scale`)
+  lines.push(HR)
+  lines.push('')
+
+  lines.push(`SOLUTIONS · ${props.solutions.length} entries`)
+  lines.push(SR)
+  for (const sol of props.solutions) {
+    const ratio = vcRatios.value?.[sol.id] ?? 0
+    const cal = calendarCosts.value?.[sol.id] ?? 0
+    const cap = capitalCosts.value?.[sol.id] ?? 0
+    lines.push(`${sol.id}: ${sol.description}`)
+    lines.push(`  V/C ratio: ${ratio.toFixed(1)}   Calendar: ${cal} weeks   Capital: $${cap}k`)
+  }
+  lines.push('')
+
+  lines.push(`VALUES · ${props.values.length} entries · per-Solution IET impacts`)
+  lines.push(SR)
+  for (const v of props.values) {
+    lines.push(`${v.id}: ${v.description}`)
+    lines.push(`  Scale: ${v.scale || '—'}`)
+    lines.push(`  Tolerable >>: ${v.tolerable || '—'}   Goal >: ${v.goal || '—'}   Wish >?: ${v.wish || '—'}`)
+    const impactStr = props.solutions.map(sol => {
+      const impact = impactMatrix?.[v.id]?.[sol.id] ?? 0
+      return `${sol.id}:${impact > 0 ? '+' : ''}${impact.toFixed(0)}%`
+    }).join('  ')
+    lines.push(`  Impacts: ${impactStr}`)
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
+async function exportIET(): Promise<void> {
+  await exportArtefact({
+    htmlText:     _renderIETHtml(),
+    plainText:    _renderIETPlainText(),
+    subject:      `Impact Estimation Table · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'Impact Estimation Table',
+  })
+}
+
 /**
  * Builds the TSV (tab-separated) representation of the table.
  * Used both as the plain-text fallback in the HTML copy and as the
@@ -832,7 +946,7 @@ defineExpose({
         >
           <div class="text-[11px] uppercase tracking-wider opacity-80 font-bold">📊 Σ Coverage</div>
           <div class="mt-1 text-3xl font-extrabold leading-tight">{{ grandTotalImpact }}</div>
-          <div class="text-xs opacity-85 mt-0.5">total impact across all V × S</div>
+          <div class="text-xs opacity-85 mt-0.5">total impact across all Value × Solution</div>
           <div class="mt-3 flex items-center gap-4 text-xs">
             <div>
               <div class="text-[10px] uppercase tracking-wider opacity-75 font-semibold">Values</div>
@@ -983,6 +1097,19 @@ defineExpose({
             <span :class="copied ? 'text-green-600 font-semibold' : ''">
               {{ copied ? 'Copied!' : '📋 Copy' }}
             </span>
+          </button>
+
+          <!-- ⬇ Export · Full Model — Tom Gilb 2026-06-06 universal Export rule.
+               Opens preview window with 100% of the IET / VDT model, clipboard
+               HTML + plain, Mail to Tom@Gilb.com with ⌘V paste cue. -->
+          <button
+            type="button"
+            class="flex items-center gap-2 min-h-[44px] px-3 rounded-lg border-2 border-emerald-400 bg-emerald-50 text-emerald-800 text-sm font-semibold hover:bg-emerald-100 hover:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+            aria-label="Export Impact Estimation Table — preview window + clipboard + Mail"
+            title="⬇ Export Full Model — opens preview window with 100% of the Impact Estimation Table (every Value × Solution cell, V/C ratios, Means Efficiency, Glossary footnote). Copies colourful HTML to clipboard. Opens Mail to Tom@Gilb.com."
+            @click="exportIET"
+          >
+            ⬇ Export
           </button>
 
           <!-- Regenerate -->

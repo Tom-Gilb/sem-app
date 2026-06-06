@@ -295,7 +295,7 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
 
           <!-- VDT: criteria model hint -->
           <div v-if="mode === 'vdt' && slots.length >= 2 && !criteriaModel" class="mt-2 text-[11px] text-indigo-600 font-medium">
-            💡 In VDT mode, click <strong>Set Criteria</strong> on one of the models to use its V entries as evaluation rows.
+            💡 In VDT mode, click <strong>Set Criteria</strong> on one of the models to use its Value entries as evaluation rows.
           </div>
           <!-- Set Criteria buttons (VDT mode only) -->
           <div v-if="mode === 'vdt' && slots.length >= 2" class="mt-2 flex flex-wrap gap-1.5">
@@ -372,7 +372,7 @@ function diffCount(rows: { hasDiff: boolean }[]): number {
           <section v-if="activeCriteria.includes('types')" class="px-4 py-5 border-b">
             <h3 class="flex items-center gap-2 text-sm font-bold text-slate-700 mb-3">
               <span aria-hidden="true">📐</span> Types
-              <span class="text-[11px] font-normal text-slate-400">F / V / S entry counts</span>
+              <span class="text-[11px] font-normal text-slate-400">Function / Value / Solution entry counts</span>
             </h3>
             <div class="overflow-x-auto">
               <table class="w-full text-sm border-collapse">

@@ -61,6 +61,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   close:           []
   'open-heatlane': []  // kept for backward-compat; Swimlane is now an inline tab
+  /** r97 — open MultiForks system fork diagram. */
+  'open-multiforks': []
   /** Launch the Evo Simulator modal (closes this modal first via App.vue). */
   'open-evo-simulator': []
   /** Open the full-screen ValueFlowPanel (replaces the old near-view flow tab).
@@ -1274,6 +1276,21 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
             >
               <span class="text-indigo-300 font-mono text-base leading-none" aria-hidden="true">⟶</span>
               Open full-screen Value Flow
+            </button>
+            <!-- r97 — MultiForks launch (Tom Gilb 2026-06-06).  Sibling to Value Flow
+                 because it's the same family of full-screen system diagrams. -->
+            <button
+              type="button"
+              class="flex items-center gap-2 px-5 py-3 rounded-xl
+                     bg-gradient-to-r from-indigo-700 to-violet-700 text-white
+                     text-[13px] font-semibold shadow-lg
+                     hover:from-indigo-600 hover:to-violet-600
+                     focus:outline-none focus:ring-2 focus:ring-violet-400 transition-all"
+              title="Open MultiForks — Resources → System ← Values fork diagram with status colour bands (green/orange/red)"
+              @click="emit('open-multiforks')"
+            >
+              <span class="text-white text-base leading-none" aria-hidden="true">🔱</span>
+              Open MultiForks system diagram
             </button>
           </div>
 

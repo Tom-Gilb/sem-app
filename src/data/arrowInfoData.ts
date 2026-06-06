@@ -132,7 +132,7 @@ export const ARROW_INFO_DATA: ArrowInfo[] = [
       {
         emoji: '📐',
         title: 'Planguage',
-        body: 'Impact Estimation asks: for each F. entry we have, how much does it move each V. entry? This produces an impact matrix linking functions to values. Prioritisation in the next stage uses this matrix to rank by value-per-constraint. Without quantified impact, prioritisation is intuition.',
+        body: 'IET/VDT estimates the causal effect of each SOLUTION (or supporting-level Value acting as a means) on a set of higher-level VALUES and RESOURCES. It models two levels of concern at a time (Keeney: Strategic, Fundamental, Means) and any useful chain of levels. The table can also fold in measured deliveries from Evo cycles, uncertainty ranges (±), credibility of estimates (source, evidence), and computed Solution efficiency for prioritisation. Functions are NOT inputs to the IET — Functions are binary capabilities; Values and Resources are the quantified causal outcomes. (Tom Gilb 2026-06-05 doctrinal correction — refs: CE, VIET, Priority Engineering, Decisioneering.)',
         links: [
           { label: 'Tom Gilb: Value Planning (Gilb.com)', url: 'https://www.gilb.com/value-planning' },
         ],
@@ -343,7 +343,7 @@ export const ARROW_INFO_DATA: ArrowInfo[] = [
     fromStage: 9,
     toStage: 10,
     fromLabel: 'Study-Act',
-    toLabel: 'Plan',
+    toLabel: 'Resources',
     fromType: 'evo-step',
     toType: 'resource',
     sections: [
@@ -381,7 +381,7 @@ export const ARROW_INFO_DATA: ArrowInfo[] = [
     idx: 9,
     fromStage: 10,
     toStage: 11,
-    fromLabel: 'Plan',
+    fromLabel: 'Resources',
     toLabel: 'Export',
     fromType: 'resource',
     toType: 'constraint',

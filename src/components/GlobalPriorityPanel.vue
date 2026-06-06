@@ -70,7 +70,7 @@ const {
 // shows the long form in the body's layer-hint strip.
 const STAGES: Array<{ key: PriorityLayer | 'review' | 'replan'; label: string; longLabel: string; icon: string }> = [
   { key: 'stakeholders',             label: 'Stakeholders',         longLabel: LAYER_LABEL['stakeholders'],             icon: LAYER_ICON['stakeholders'] },
-  { key: 'values-costs-constraints', label: 'V · C · C',             longLabel: LAYER_LABEL['values-costs-constraints'], icon: LAYER_ICON['values-costs-constraints'] },
+  { key: 'values-costs-constraints', label: 'Values · Costs · Constraints', longLabel: LAYER_LABEL['values-costs-constraints'], icon: LAYER_ICON['values-costs-constraints'] },
   { key: 'solutions',                label: 'Solutions',             longLabel: LAYER_LABEL['solutions'],                icon: LAYER_ICON['solutions'] },
   { key: 'review',                   label: 'Review',                longLabel: 'Review & Apply',                        icon: '✅' },
   { key: 'replan',                   label: 'Replan',                longLabel: 'Replan after Evo',                      icon: '🔄' },

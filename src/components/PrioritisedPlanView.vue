@@ -1717,7 +1717,7 @@ onMounted(() => {
           </div>
           <div class="px-2 pt-1.5 pb-2 text-left">
             <p class="text-[11px] font-bold leading-tight truncate text-gray-700">Dependencies</p>
-            <p class="text-[9px] text-gray-400 leading-snug mt-0.5 line-clamp-2">V · F · S cross-links</p>
+            <p class="text-[9px] text-gray-400 leading-snug mt-0.5 line-clamp-2">Value · Function · Solution cross-links</p>
           </div>
         </button>
 

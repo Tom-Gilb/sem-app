@@ -17,7 +17,23 @@
   Dashes: 5 2.5 — longer, bolder than keyed icon (3 2.2) = "clearer"
   Stroke: 2.8 — thicker than keyed icon (2.2) = "clearer"
 
-  No output arrow — INTENTIONAL. Resource is consumed, not produced.
+  No output arrow — INTENTIONAL. The Resource icon's focus is on the INPUT (the "tiger in
+  the tank"). Outputs/consequences of resources exist (primarily: they determine Value
+  delivery levels; one resource change also ripples to other resource needs — more money
+  can reduce time needed). But those belong to V. entries and →O→ (full notation).
+  The Resource icon deliberately shows only the input side.
+
+  DEEPER THEORY (Tom Gilb, 2026-06-05 — not previously written):
+  The resource arrow does not really go into a Function specifically. It goes into the
+  whole SYSTEM — which contains Functions, Values, Stakeholders, Constraints, and other
+  Resources, all interacting. The O is literally the Function keyed icon, but in the
+  →O notation it stands for the system boundary: a productive simplification. Similarly,
+  Values do not really flow out of a single Function — they emerge from the whole system.
+  The O gives both arrows a readable "black box" without requiring the full system diagram.
+
+  Three arrows (vs. one in the keyed →O) make the MULTIPLICITY explicit: resources are
+  always multiple. Still a simplification; closer to reality. Source: Tom Gilb, Multi book.
+  O = Function keyed icon (Tom Gilb CE ~2003).
   Canonical dark green #166534 (Kai "green for money"). color prop overrides.
 
   Spec: ResourceArtsyGlyph 2026-06-05.
@@ -79,7 +95,9 @@ const h = computed(() => props.size === '2xl' ? 96 : props.size === 'xl' ? 56 : 
       :stroke="color" stroke-width="2.8" fill="none"
       stroke-linecap="round" stroke-linejoin="round" />
 
-    <!-- Oval — system boundary. Resource is consumed (no output arrow). -->
+    <!-- Oval — the O is the Planguage keyed icon for FUNCTION (Tom Gilb CE book ~2003).
+         In →O (Resource notation), the oval is the Function that consumes this resource.
+         No output arrow — INTENTIONAL. The resource is consumed by the Function; nothing flows out. -->
     <ellipse cx="29" cy="24" rx="10" ry="9"
       :stroke="color" stroke-width="2.8" />
     <!-- No output arrow — INTENTIONAL. Resource consumed, not produced. -->

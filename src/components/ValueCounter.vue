@@ -10,7 +10,7 @@
                   Arrow/tile hover tooltips now say 'click for INFO' / 'dbl-click for INFO'.
                   ⚡ emoji on amber button darkened via filter brightness(0.1).
 
-  11 stages (left to right), each a 96×96px dark pill with:
+  11 stages (left to right), each a 120px tall dark pill with:
     - Stage number badge (top-left, black/60 bg)
     - Official Planguage type glyph (PlTypeIcon) with neon stage-color glow
     - Stage label below
@@ -91,6 +91,11 @@ const emit = defineEmits<{
 // limitation that disallows arbitrary top-level `export` (r14 attempted that
 // and crashed the dev server). Tom 2026-06-03 — STAGES lives in one place.
 import { PLANNING_STAGES as STAGES } from '../data/planningStages'
+// Arrow info data — Tom 2026-06-06: "stage arrow is single click fi hover text".
+// Hover now reveals the Planguage section body (a teaching surface, per the
+// foundational rule_sem_teaches_incrementally.md), not just "click for INFO".
+// Single click still opens the full ArrowInfoPanel with all 3 sections + links.
+import { ARROW_INFO_DATA } from '../data/arrowInfoData'
 
 // ── Stage drama-popup CTA labels ──────────────────────────────────────────────
 // Labels only — handlers live in App.vue (emits 'stage-action': [stage: number]).
@@ -125,15 +130,34 @@ function pos(s: number): number {
 
 function pillStyle(s: number): Record<string, string> {
   const state = stageStatus(s)
+  // No opacity shortcut — opacity:0.65 dragged text to 65% regardless of text color.
+  // Tom 2026-06-06: "stage 11 text still bad / no change" even after text-white.
+  // pillProgressColor already returns a darker background for 'future' stages (44% sat /
+  // 20% lit vs 72% / 50% for current) — that darker shade signals "not yet" without
+  // killing text legibility.
   return {
     background: pillProgressColor(pos(s), state),
-    opacity:    state === 'future' ? '0.65' : '1',
   }
 }
 
 function glowStyle(s: number): Record<string, string> {
   const col = stageProgressColor(pos(s))
-  return { filter: `drop-shadow(0 0 9px ${col})` }
+  // Active stage: dark disc (bg-slate-900, outside this filter) provides contrast on
+  // any pill background. brightness(3.5) here amplifies canonical glyph colors to vivid
+  // on the dark disc. Do NOT use brightness(10) → white — white on bright teal is just
+  // as invisible as the original dark green.  Tom 2026-06-06: "active stage still invisible."
+  if (s === props.currentStage) {
+    return {
+      filter: `brightness(3.5) drop-shadow(0 0 16px ${col}) drop-shadow(0 0 8px ${col})`,
+      transform: 'scale(1.7)',
+    }
+  }
+  // Non-active: scale(1.4) — slightly larger than before (was 1.25).
+  // Tom 2026-06-06: "most glyphs can be moved down and enlarged."
+  return {
+    filter: `brightness(3) drop-shadow(0 0 18px ${col}) drop-shadow(0 0 8px ${col})`,
+    transform: 'scale(1.4)',
+  }
 }
 
 function badgeClass(s: number): string {
@@ -153,7 +177,10 @@ function labelClass(s: number): string {
   if (state === 'done')    return 'text-emerald-300'
   // Same contrast fix: dark text on the bright current-stage pill.
   if (state === 'current') return 'text-gray-900 font-extrabold'
-  return 'text-slate-400'
+  // text-white: future pills have opacity:0.65 on the whole button — even slate-200
+  // appears dim. text-white at 65% opacity renders as ~rgb(166,166,166) on dark pill
+  // = sufficient contrast. Tom 2026-06-06: "stage 11 text still bad."
+  return 'text-white font-semibold'
 }
 
 // ── Navigation ─────────────────────────────────────────────────────────────────
@@ -175,13 +202,46 @@ const arrowData = computed(() =>
   })
 )
 
-function arrowStyle(idx: number): Record<string, string> {
-  const { from } = arrowProgressColors(idx)
-  const state = stageStatus(idx + 1)  // arrow between stage idx+1 and idx+2
+/** Style for the arrow BUTTON — hero-arrow style matching ArrowInfoPanel header.
+ *  Gradient bg (from→to stage colors) on a rounded button; white SVG arrow on top.
+ *  No negative margins: overlap with adjacent pills caused the right-side arrows to
+ *  disappear because the next pill (later in DOM) rendered over the arrow's right
+ *  portion via flex stacking — even with z-index:10, pill animation contexts
+ *  (transition-all, hover:scale-105) won the compositor layer race.
+ *  Color continuity comes from matching the stage progression palette, not overlap.
+ *  Tom 2026-06-06: "The arrow in the info is really nice. Lets use it in the main
+ *  stages, it can extend from and into the pins." */
+function arrowButtonStyle(idx: number): Record<string, string> {
+  const { from, to } = arrowProgressColors(idx)
+  const state = stageStatus(idx + 1)   // arrow between stage idx+1 and idx+2
   return {
-    filter: `drop-shadow(0 0 4px ${from})`,
+    width: '32px',
+    height: '90px',
+    flexShrink: '0',
+    background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)`,
+    borderRadius: '6px',
     opacity: state === 'future' ? '0.88' : '1',
   }
+}
+
+// ── Arrow hover-info preview (Tom 2026-06-06) ────────────────────────────────
+// Tom verbatim: "stage arrow is single click fi hover text".  The arrow's
+// bare "click for INFO" label is replaced by a richer hover card showing
+// the Planguage section body for that arrow — a teaching surface per the
+// foundational rule_sem_teaches_incrementally.md.  Single click still opens
+// the full ArrowInfoPanel (history + Planguage + fun fact + links).
+
+/** Returns the Planguage section body for a given arrow idx (0..9).
+ *  Truncated to ≈ 220 chars so the hover card stays compact. */
+function arrowPlanguageBody(idx: number): string {
+  const arrow = ARROW_INFO_DATA.find(a => a.idx === idx)
+  if (!arrow) return ''
+  // The Planguage section is the most teaching-relevant for a hover preview
+  // (the History and Fun Fact remain available in the full panel on click).
+  const planguageSection = arrow.sections.find(s => s.title === 'Planguage')
+  if (!planguageSection) return ''
+  const body = planguageSection.body.trim().replace(/\s+/g, ' ')
+  return body.length > 220 ? body.slice(0, 219) + '…' : body
 }
 
 // ── Stage info panel (double-click) ───────────────────────────────────────────
@@ -387,14 +447,17 @@ onUnmounted(() => {
     aria-label="Planning stages"
     role="navigation"
   >
-    <!-- ◀ Prev stage — left edge overlay, gradient fade into dark bar -->
+    <!-- ◀ Prev stage — left edge pin. Tom 2026-06-06: removed bg-gradient-to-r
+         fade which was painting dark navy over the leftmost stage arrow.
+         Now a discrete pin button with no background fade: arrows underneath
+         render cleanly to the edge. -->
     <button
       v-if="currentStage > 1"
       type="button"
-      class="absolute left-0 top-0 bottom-0 z-20 flex items-center px-3
-             bg-gradient-to-r from-[#0f172a] via-[#0f172a]/80 to-transparent
+      class="absolute left-0 top-0 bottom-0 z-20 flex items-center px-1
              text-white/70 hover:text-amber-300 transition-colors duration-200
-             focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+             focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40
+             drop-shadow-[0_0_3px_rgba(15,23,42,0.95)]"
       :aria-label="`Previous stage: ${STAGES[currentStage - 2].label}`"
       :title="`◀ Stage ${currentStage - 1} · ${STAGES[currentStage - 2].label} — click or use arrow keys`"
       @click="navigateToStage(currentStage - 1)"
@@ -414,7 +477,7 @@ onUnmounted(() => {
            keeps stages off the very edge of the nav chrome. No paddingRight
            needed: the stage bar is fixed left-0 right-0 and nothing overlaps it. -->
       <div
-        class="flex items-end gap-0 px-1 pb-1"
+        class="flex items-center gap-0 px-1 pb-1"
       >
       <template v-for="(step, idx) in STAGES" :key="step.stage">
 
@@ -424,10 +487,10 @@ onUnmounted(() => {
         <button
           :ref="(el) => { if (el) pillRefs[idx] = el as HTMLButtonElement }"
           type="button"
-          class="relative flex flex-col items-center gap-1.5 flex-1 min-w-[56px] focus:outline-none
+          class="relative flex flex-col items-center justify-center gap-1.5 flex-1 min-w-[76px] focus:outline-none
                  focus-visible:ring-2 focus-visible:ring-white/60 rounded-2xl
                  transition-all duration-300 hover:scale-105 active:scale-95"
-          :style="{ ...pillStyle(step.stage), height: '96px', borderRadius: '16px' }"
+          :style="{ ...pillStyle(step.stage), height: '120px', borderRadius: '16px' }"
           :aria-label="`Stage ${step.stage}: ${step.label} — click for overview · double-click for detailed stage info`"
           :aria-current="step.stage === currentStage ? 'step' : undefined"
           :title="`${step.title} · single-click for overview · DOUBLE-CLICK for detailed stage info`"
@@ -445,7 +508,7 @@ onUnmounted(() => {
 
           <!-- Number badge (top-left) -->
           <span
-            class="absolute top-1.5 left-2 text-[13px] font-extrabold leading-none
+            class="absolute top-1.5 left-2 text-[14px] font-extrabold leading-none
                    bg-black/60 rounded-md px-1 py-0.5 z-10"
             :class="badgeClass(step.stage)"
             aria-hidden="true"
@@ -462,28 +525,55 @@ onUnmounted(() => {
             <span class="active-beacon block w-2.5 h-2.5 rounded-full bg-white" />
           </div>
 
-          <!-- Planguage type glyph — bob wrapper active only, translated r18 -->
+          <!-- Planguage type glyph — centered in pill by justify-center on pill button.
+               Active stage uses a TWO-LAYER design to guarantee visibility on any pill color:
+               Layer 1 (outer) — bg-slate-900 disc: opaque dark background, NO filter applied,
+                 so the disc stays reliably dark regardless of brightness() on Layer 2.
+               Layer 2 (inner) — glowStyle filter amplifies glyph SVG colors to vivid/bright
+                 on the dark disc; scale(1.7) for active, scale(1.4) for others.
+               Root cause fixed: brightness(10) + white shadows made the glyph white, but
+               white on bright teal (active pill) has exactly the same low contrast as dark
+               green on bright teal. The disc makes the background dark, so brightness
+               amplification produces vivid-color-on-dark = maximally readable.
+               Tom 2026-06-06: "active stage is still an invisible glyph for me" -->
+          <!-- justify-center on pill centers the glyph vertically.
+               No translate: Tom 2026-06-06: "i asked glyphs returned to centered position,
+               i never asked them lowered." -->
           <div :class="step.stage === currentStage ? 'glyph-bob' : ''">
+            <!-- Outer disc: dark backdrop for active stage only (no filter here). -->
             <div
-              class="flex items-center justify-center translate-x-1 translate-y-2"
-              :style="glowStyle(step.stage)"
-              aria-hidden="true"
+              class="flex items-center justify-center"
+              :class="step.stage === currentStage
+                ? 'bg-slate-900 rounded-xl p-2 ring-1 ring-white/20'
+                : ''"
             >
-              <!-- no-detail-click: the tile button owns dblclick (StageInfoPanel via timer).
-                   Allowing GlyphDataPanel to also open on dblclick would give two panels. -->
-              <PlTypeIcon :pl-type="step.plType" size="xl" :no-detail-click="true" />
+              <!-- Inner glyph: brightness filter + scale only affect SVG, not the disc bg -->
+              <div
+                class="flex items-center justify-center"
+                :style="glowStyle(step.stage)"
+                aria-hidden="true"
+              >
+                <!-- no-detail-click: tile button owns dblclick (StageInfoPanel via timer). -->
+                <PlTypeIcon :pl-type="step.plType" size="xl" :no-detail-click="true" />
+              </div>
             </div>
           </div>
 
           <!-- Stage label -->
           <span
-            class="absolute bottom-1.5 left-0 right-0 text-center text-[10px]
+            class="absolute bottom-2 left-0 right-0 text-center text-[11px]
                    font-bold leading-tight tracking-wide whitespace-normal px-1"
             :class="labelClass(step.stage)"
           >{{ step.label }}</span>
         </button>
 
         <!-- ── Arrow connector ──────────────────────────────────────── -->
+        <!-- Hero-arrow style: gradient bg (stage progression colors) + white
+             shaft + white concave arrowhead — matching ArrowInfoPanel header.
+             Slight negative margins (-4px each side) so gradient visually merges
+             into adjacent pills. z-10 ensures it paints over left pill edge.
+             Tom 2026-06-06: "The arrow in the info is really nice. Lets use it
+             in the main stages, it can extend from and into the pins." -->
         <button
           v-if="idx < STAGES.length - 1"
           type="button"
@@ -491,54 +581,90 @@ onUnmounted(() => {
                  hover:scale-110 active:scale-95 transition-transform
                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded
                  group"
-          style="width:20px; height:52px; flex-shrink:0;"
-          :aria-label="`${step.label} to ${STAGES[idx + 1].label} transition — click for INFO`"
-          :title="`Stage ${step.stage}→${step.stage + 1}: ${step.label} → ${STAGES[idx + 1].label} · click for INFO (history · Planguage · fun fact)`"
+          :style="arrowButtonStyle(idx)"
+          :aria-label="`${step.label} to ${STAGES[idx + 1].label} transition — click or double-click for INFO`"
+          :title="`Stage ${step.stage}→${step.stage + 1}: ${step.label} → ${STAGES[idx + 1].label} · click for INFO · double-click for INFO (history · Planguage · fun fact)`"
           @click="openArrow(idx)"
         >
+          <!-- White shaft + white concave swept-back arrowhead on gradient bg.
+               viewBox matches button dimensions (32×90) — no preserveAspectRatio needed.
+               Tom 2026-06-06: "thoe rightmost arows are vaguely visible, what abobut
+               a dark outline round the arrows ar right" — root cause: right-side
+               arrow gradients (stage 9→10→11) use light teal/cyan colors; white
+               shaft+arrowhead loses contrast against light backgrounds. Fix: dark
+               drop-shadow filter gives every arrow a ~1.2 px dark halo (rgba navy
+               0.95 + 0.7 stacked) on every gradient color. Universal halo applies
+               to ALL arrows (consistent style) — works equally well on the indigo
+               sweep AND the lighter cyan/teal end. -->
           <svg
-            viewBox="0 0 64 52"
-            width="20"
-            height="52"
-            preserveAspectRatio="none"
+            viewBox="0 0 32 90"
+            width="32"
+            height="90"
             fill="none"
-            :style="arrowStyle(idx)"
             aria-hidden="true"
+            style="filter: drop-shadow(0 0 1.2px rgba(15, 23, 42, 0.95)) drop-shadow(0 0 1.2px rgba(15, 23, 42, 0.7));"
           >
-            <!-- Shaft — longer for bigger canvas -->
+            <!-- Shaft — horizontal, vertically centered -->
             <line
-              x1="2" y1="26" x2="42" y2="26"
-              :stroke="arrowData[idx].from"
-              :stroke-width="arrowData[idx].w"
-              stroke-linecap="round"
+              x1="3" y1="45" x2="18" y2="45"
+              stroke="white" stroke-width="3" stroke-linecap="round" stroke-opacity="0.95"
             />
-            <!-- Concave swept-back arrowhead -->
+            <!-- Concave swept-back arrowhead — tip at right, base concave-inward -->
             <path
-              d="M 34,6 L 62,26 L 34,46 Q 50,26 34,6 Z"
-              :fill="arrowData[idx].to"
+              d="M 16,30 L 29,45 L 16,60 Q 21,45 16,30 Z"
+              fill="white" fill-opacity="1"
             />
           </svg>
-          <!-- Hover tooltip — stage transition label -->
-          <span
-            class="absolute pointer-events-none -top-8 left-1/2 -translate-x-1/2
-                   bg-[#0f172a]/95 text-white text-[10px] font-medium
-                   rounded-md px-2 py-1 shadow-lg whitespace-nowrap
-                   opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          >✦ {{ step.label }} → {{ STAGES[idx + 1].label }} · click for INFO</span>
+          <!-- Hover card — Tom 2026-06-06 "stage arrow is single click fi hover
+               text".  Replaces the bare label with a rich teaching preview
+               showing the canonical Planguage section body for this transition.
+               Single click still opens the full ArrowInfoPanel (history +
+               Planguage + fun fact + links). -->
+          <div
+            class="absolute pointer-events-none -top-3 left-1/2 -translate-x-1/2 -translate-y-full
+                   w-[300px] max-w-[80vw]
+                   bg-[#0f172a]/96 text-white rounded-lg px-3 py-2 shadow-2xl ring-1 ring-white/10
+                   opacity-0 group-hover:opacity-100 transition-opacity z-30
+                   space-y-1.5"
+            role="tooltip"
+          >
+            <div class="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide">
+              <span class="text-amber-300">✦ Stage {{ step.stage }} → {{ step.stage + 1 }}</span>
+            </div>
+            <div class="text-[11px] font-bold text-white leading-tight">
+              {{ step.label }}
+              <span class="text-slate-400" aria-hidden="true">→</span>
+              {{ STAGES[idx + 1].label }}
+            </div>
+            <div class="text-[10px] text-violet-300 font-semibold uppercase tracking-wide pt-0.5">
+              📐 Planguage
+            </div>
+            <p class="text-[10px] text-slate-200 leading-snug whitespace-normal">
+              {{ arrowPlanguageBody(idx) }}
+            </p>
+            <p class="text-[9px] text-slate-400 italic pt-0.5 border-t border-white/10">
+              Single-click for full INFO · History · Planguage · Fun Fact · links
+            </p>
+          </div>
         </button>
 
       </template>
       </div><!-- end min-w-max flex -->
     </div><!-- end overflow-x-auto -->
 
-    <!-- ▶ Next stage — right edge overlay, gradient fade into dark bar -->
+    <!-- ▶ Next stage — right edge pin. Tom 2026-06-06: "stages arrows are still
+         whiting out at right" — root cause: bg-gradient-to-l from-[#0f172a]
+         was painting a dark navy fade OVER the right-side arrows (z-20 above
+         arrow buttons), making them appear whited-out/ghosted. Fix: removed
+         the gradient. Now a discrete pin button with drop-shadow halo so the
+         glyph still reads clearly on any underlying color. -->
     <button
       v-if="currentStage < STAGES.length"
       type="button"
-      class="absolute right-0 top-0 bottom-0 z-20 flex items-center px-3
-             bg-gradient-to-l from-[#0f172a] via-[#0f172a]/80 to-transparent
+      class="absolute right-0 top-0 bottom-0 z-20 flex items-center px-1
              text-white/70 hover:text-amber-300 transition-colors duration-200
-             focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+             focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40
+             drop-shadow-[0_0_3px_rgba(15,23,42,0.95)]"
       :aria-label="`Next stage: ${STAGES[currentStage].label}`"
       :title="`▶ Stage ${currentStage + 1} · ${STAGES[currentStage].label} — click to advance`"
       @click="navigateToStage(currentStage + 1)"

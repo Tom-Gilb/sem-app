@@ -176,11 +176,11 @@ const GLYPH_DATA: Record<PlGlyphType, GlyphEntry> = {
     fullName:     'Function Requirement',
     abbrev:       'F.',
     notation:     '→O→',
-    notationHint: 'input arrow → process circle → output arrow (capability flow)',
+    notationHint: 'resources in → system (O) → values out — O is literally a Function, but stands for the whole system',
     keyedParts: [
-      { chars: '→', meaning: 'Input arrow — the capability receives a triggering input: a request, an event, a user action. Something flows IN.' },
-      { chars: 'O', meaning: 'Process circle — the capability itself: WHAT the system does. The circle is opaque: quality and quantity live outside it, as V. entries.' },
-      { chars: '→', meaning: 'Output arrow — the capability produces an output: a result, a state change, a transformed artifact. Something flows OUT. If either arrow is absent, the function is absent.' },
+      { chars: '→', meaning: 'Input arrow — resources, requests, events flow INTO the system. In the literal reading: input to a Function. In the deeper reading (Tom Gilb, 2026-06-05): resources flow into the whole system — which contains Functions, Values, Stakeholders, Constraints, and other Resources, all interacting.' },
+      { chars: 'O', meaning: 'System boundary oval — O is literally the Planguage keyed icon for Function (CE book ~2003). But in the →O→ notation it is a productive simplification standing for the whole SYSTEM. The resource does not really flow into a single Function; it flows into the system. The Value does not really emerge from a single Function; it emerges from the system. Function is only one part of the system\'s contents. The O provides the arrows with a boundary — a "black box" — that makes the notation readable without requiring the full system diagram. (Tom Gilb, unpublished theory, 2026-06-05.)' },
+      { chars: '→', meaning: 'Output arrow — Values emerge from the system. In the literal reading: a Function produces a result. In the deeper reading: the whole system produces Value delivery, not any single Function alone. If either arrow is absent, the function is absent — the system neither receives input nor produces output.' },
     ],
     semPosition:  'E (Ends) — Functions define WHAT the system does (binary presence). Like Values, Functions are in the Ends column — they specify required outcomes, not the implementation approach.',
     definition:   `A Function is a binary system capability — it is either PRESENT or ABSENT. There are no thresholds, no quality levels, no "partially present" functions. The quality and quantity of a function's output always attaches as a Value entry, not inside the function definition. This distinction is DD-004: "Function is binary." A well-formed function has a PresenceTest: a sentence that can be answered YES or NO to determine if the function is present. Functions are the structural skeleton of the system — they define WHAT the system does, not HOW WELL it does it.`,
@@ -446,11 +446,11 @@ Stakeholder: GDPR Regulation (inanimate)
     fullName:     'Resource',
     abbrev:       'R.',
     notation:     '→O',
-    notationHint: 'input arrow → oval (resource pool) — consumed, no output arrow',
+    notationHint: 'resource input arrow → system (O) — resources flow into the whole system, not just a Function',
     keyedParts: [
-      { chars: '→', meaning: 'Consumption arrow — something flows INTO the Resource: budget assignment, team allocation, time commitment. The flow goes IN.' },
-      { chars: 'O', meaning: 'Oval / pool — the resource reservoir: the available capacity. The oval is the pool being depleted.' },
-      { chars: '(no →)', meaning: 'NO output arrow — the defining feature. Resources are consumed, not produced. The pool depletes; nothing flows out. Compare with Function (→O→) where output is the point.' },
+      { chars: '→', meaning: 'Resource input arrow — "tiger in the tank." The arrow shows a resource (time, money, people, equipment…) being allocated into the system. The single arrow is a deliberate simplification: it represents the entire SET of real or planned resources. In reality resources are always multiple and interconnected — more money can reduce the time needed; one resource change ripples to others. The Color Artsy Icon (ResourceArtsyGlyph) makes this multiplicity explicit with three fanning arrows, but even that is a simplification. See: Tom Gilb, Multi book.' },
+      { chars: 'O', meaning: 'System boundary oval — O is literally the Planguage keyed icon for Function (Tom Gilb, CE book ~2003). But the O carries a deeper meaning in the →O notation: it represents the whole SYSTEM into which resources flow. A system contains not only Functions but also Stakeholders, Constraints, Values, and other Resources — all interacting. The resource arrow does not really go into a single Function; it goes into this whole system. O is a productive simplification: it stands for the system boundary. (Tom Gilb, unpublished theory, 2026-06-05.)' },
+      { chars: '(no →)', meaning: 'No output arrow — because the Resource icon\'s focus is entirely on the INPUT. Output consequences of resources exist: they primarily determine what levels of Values the system delivers. But Values do not really come from a single Function either — they emerge from the whole system (which the O represents). Those consequences belong to V. entries and to the full notation →O→. The Resource icon shows only the input side, deliberately. (Tom Gilb, 2026-06-05.)' },
     ],
     semPosition:  'Constraint on M (Means) — Resources bound what Means are feasible. Without Resources, all Solutions are equally valid theoretical options. With Resources, VDT determines which Solutions can actually be funded and scheduled.',
     definition:   `A Resource is a budget, capacity, or material allocated to the plan. Resources include time (person-hours, calendar duration), money (financial budget), people (team capacity, named roles), and tooling (licences, infrastructure). Resources are consumed by Tasks and constrained by Budgets (which are Constraints). The Resource dimension of planning ensures that Value delivery is grounded in realistic capacity — no solution can be prioritised that exceeds available Resources. In Planguage, Resources are tracked with initial allocation and remaining-after-depletion status, which feeds the primary prioritisation calculation.`,
@@ -484,7 +484,7 @@ Resource: Engineering Budget
       context: 'Brooks wrote the book while managing IBM\'s OS/360 development — the largest software project to that date. His Law — "adding manpower to a late software project makes it later" — directly challenged the accounting assumption that Resources are interchangeable units. Planguage models this correctly: a Resource must specify its TYPE (senior-architect-days are not substitutable for junior-developer-days). The Budget Constraint must specify the type of Resource, not just the quantity. Resource planning without type constraints is wishful accounting.',
     },
     joke: 'A PM reports: "We are 3 months behind. I have requested 6 more developers." The practitioner asks: "What is the remaining Architect Resource?" PM: "0 days — architects are at 100% allocation." Practitioner: "Adding 6 junior developers to a project with 0 architect capacity means those developers will create their own architecture, which will need to be reviewed by the architects who do not exist, at roughly 3× the time saved. This is Brooks\' Law. Please model it as a C. entry: Architect Capacity ≤ 0 person-days Remaining." PM: "...can I just add the developers anyway?" Practitioner: "Yes. I will update the risk register."',
-    citation: 'Tom Gilb, Competitive Engineering (2005) — Chapter 10 "Resources and Budgets", p.101',
+    citation: 'Tom Gilb, Competitive Engineering [CE] (2005) — Chapter 10 "Resources and Budgets", p.101. Companion free book: Tom Gilb, Cost Engineering (2023) — "How to get 10× better control over resources, and value for money" — tinyurl.com/CostEngFree · leanpub.com/costengineering · researchgate.net/publication/406117055_Cost_Engineering_MASTER',
     url:      'https://www.gilb.com/store/p71/Competitive_Engineering.html',
   },
 }
@@ -1103,15 +1103,15 @@ onUnmounted(() => {
                 class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-400 mb-2">
               Glyph Anatomy — Keyed Notation
             </h3>
-            <!-- Keyed notation display (mono, dark) -->
+            <!-- Keyed notation display (white bg — high contrast for colorblind users) -->
             <div
-              class="flex items-center justify-center gap-1 px-4 py-3 rounded-xl mb-3 font-mono"
-              :style="{ background: '#0f172a', border: `1.5px solid ${data.hex}44` }"
+              class="flex items-center justify-center gap-1 px-4 py-4 rounded-xl mb-3 font-mono bg-white"
+              :style="{ border: `2px solid ${data.hex}` }"
               aria-hidden="true"
             >
               <span
-                class="text-3xl font-extrabold tracking-widest"
-                :style="{ color: data.hex, textShadow: `0 0 16px ${data.hex}80` }"
+                class="text-4xl font-extrabold tracking-widest"
+                :style="{ color: data.hex }"
               >{{ data.notation }}</span>
             </div>
             <!-- Part-by-part breakdown -->
@@ -1123,8 +1123,8 @@ onUnmounted(() => {
               >
                 <span
                   class="shrink-0 inline-flex items-center justify-center w-10 h-6 rounded-md
-                         text-[13px] font-extrabold font-mono"
-                  :style="{ background: data.hex + '15', color: data.hex, border: `1px solid ${data.hex}30` }"
+                         text-[13px] font-extrabold font-mono bg-white"
+                  :style="{ color: data.hex, border: `1.5px solid ${data.hex}` }"
                 >{{ part.chars }}</span>
                 <p class="text-[11px] text-slate-600 leading-snug pt-0.5">{{ part.meaning }}</p>
               </div>

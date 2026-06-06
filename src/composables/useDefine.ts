@@ -236,8 +236,63 @@ Output ONLY a valid JSON object — no prose, no code fences:
     }
   } catch (err) {
     if (myCallId !== _currentCallId) return   // stale error — discard silently
-    _error.value =
-      err instanceof Error ? err.message : 'Illuminate failed — please try again'
+    // Tom Gilb 2026-06-06 r98 — direct Ollama fallback.
+    // Primary path (Anthropic SDK / claude CLI) failed; try local Ollama
+    // /api/generate before giving up.  Ollama's HTTP API is much simpler than
+    // the Anthropic SDK quirks and works reliably when the user has the
+    // daemon running locally.
+    try {
+      const ollamaBase  = (import.meta.env.VITE_OLLAMA_BASE_URL as string | undefined) ?? 'http://localhost:11434'
+      const ollamaModel = (import.meta.env.VITE_OLLAMA_MODEL as string | undefined) ?? 'llama3.2'
+      const cleaned     = term.trim().slice(0, 120)
+      const context     = _specContext(spec)
+      const prompt = `You are a Competitive Engineering (CE) and Planguage methodology expert, trained on Tom Gilb's work.
+
+The user has selected the following term or phrase and wants a precise definition:
+
+Term: "${cleaned}"
+${context ? `\nProject context:\n"${context}"` : ''}
+
+Output ONLY a valid JSON object — no prose, no code fences:
+{"definition": "1-2 sentence definition tailored to Planguage/CE if relevant", "source": "most specific named source you can cite (Gilb CE 2005, ISO, IEEE, TOGAF, or 'general business' if no specific source)", "type": "planguage-term|CE-concept|domain-term|technical-standard|general-business"}`
+      const ollamaCtl = new AbortController()
+      const ollamaTimeout = setTimeout(() => ollamaCtl.abort(), 30_000)
+      const ollamaResp = await fetch(`${ollamaBase}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal:  ollamaCtl.signal,
+        body:    JSON.stringify({
+          model:  ollamaModel,
+          prompt,
+          stream: false,
+          format: 'json',
+        }),
+      })
+      clearTimeout(ollamaTimeout)
+      if (!ollamaResp.ok) throw new Error(`Ollama HTTP ${ollamaResp.status}`)
+      const ollamaJson = await ollamaResp.json() as { response?: string }
+      const raw = (ollamaJson.response ?? '').trim()
+      if (!raw) throw new Error('Empty Ollama response')
+      const parsed = JSON.parse(_stripFences(raw)) as {
+        definition: string
+        source:     string
+        type:       string
+      }
+      if (myCallId !== _currentCallId) return   // stale on fallback success — discard
+      _result.value = {
+        term:       cleaned,
+        definition: parsed.definition,
+        source:     `${parsed.source} · (via local Ollama ${ollamaModel})`,
+        type:       (parsed.type as DefineType) ?? 'domain-term',
+      }
+      _error.value = ''   // clear primary-path error since fallback succeeded
+      return              // skip the error message
+    } catch (ollamaErr) {
+      // Both paths failed — surface a single helpful error.
+      const primaryMsg = err instanceof Error ? err.message : String(err)
+      const fallbackMsg = ollamaErr instanceof Error ? ollamaErr.message : String(ollamaErr)
+      _error.value = `Illuminate failed (primary: ${primaryMsg.slice(0, 60)} · Ollama fallback: ${fallbackMsg.slice(0, 60)})`
+    }
   } finally {
     _clearWatchdog()
     // UNCONDITIONAL: always clear loading when this call's async work ends.

@@ -27,6 +27,13 @@ import type { ResourcesSharpenDimension } from '../data/resourcesSharpenDimensio
 import type { SpecBlock } from '../types/spec'
 import { useToast } from '../composables/useToast'
 import {
+  exportArtefact,
+  htmlEsc,
+  softWrap,
+  htmlDocumentShell,
+  sectionHeaderHtml,
+} from '../composables/useExportShared'
+import {
   parseResourcesAnalysis,
   applyApprovedToSpec,
   SOURCE_LAYER_LABELS,
@@ -250,6 +257,85 @@ async function copyAnalysisRequest(): Promise<void> {
     showToast('Copy blocked — see Console', 5000)
     console.error('[ResourcesSharpenPanel] clipboard copy failed', err)
   }
+}
+
+// ── Export · Full Model — Tom Gilb 2026-06-06 universal Export rule ──────────
+
+function _renderResourcesSharpenHtml(): string {
+  const resources = props.spec?.resources ?? []
+  const headerHtml = `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px 0;border-collapse:collapse;">
+  <tr><td bgcolor="#0f766e" style="background:#0f766e;color:#ffffff;padding:8px 22px;font:700 18px/1.4 'Helvetica Neue',Arial,sans-serif;">Resources Sharpen · 9 Gilb Dimensions</td></tr>
+  <tr><td bgcolor="#14b8a6" style="background:#14b8a6;color:#ccfbf1;padding:4px 22px 10px 22px;font:600 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.12em;text-transform:uppercase;">${resources.length} Resource entries · ${approvalCount.value} approved improvements</td></tr>
+</table>`
+
+  // Resource entries
+  let rRows = ''
+  for (const r of resources) {
+    const descLines = softWrap(r.description || r.id, 60)
+    const descRowsHtml = descLines.map((line, i) =>
+      `<tr><td bgcolor="#ccfbf1" style="background:#ccfbf1;color:#134e4a;padding:${i === 0 ? '4' : '1'}px 18px;font:${i === 0 ? '700' : '400'} 12px/1.5 'Helvetica Neue',Arial,sans-serif;">${i === 0 ? `<b>${htmlEsc(r.id)}</b> · ` : ''}${htmlEsc(line)}</td></tr>`
+    ).join('')
+    rRows += `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 6px 0;border-collapse:collapse;border:1px solid #99f6e4;">
+  ${descRowsHtml}
+  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:4px 18px 6px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#1f2937;"><b>Scale:</b> ${htmlEsc(r.scale || '—')} · <b>Tolerable >>:</b> ${htmlEsc(r.tolerable || '—')} · <b>Goal >:</b> ${htmlEsc(r.goal || '—')} · <b>Wish >?:</b> ${htmlEsc(r.wish || '—')}</td></tr>
+</table>`
+  }
+
+  // 9 Gilb Dimensions list
+  const dimsHtml = RESOURCES_SHARPEN_DIMENSIONS.map((d: ResourcesSharpenDimension) => {
+    const promptLines = softWrap(d.gilbPrompt || '', 64)
+    const promptRowsHtml = promptLines.map((line, i) =>
+      `<tr><td bgcolor="#f0fdfa" style="background:#f0fdfa;color:#134e4a;padding:${i === 0 ? '3' : '1'}px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;">${htmlEsc(line)}</td></tr>`
+    ).join('')
+    return `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 6px 0;border-collapse:collapse;border:1px solid #99f6e4;">
+  <tr><td bgcolor="#0f766e" style="background:#0f766e;color:#ffffff;padding:4px 18px;font:700 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.08em;text-transform:uppercase;">${htmlEsc(d.label)}</td></tr>
+  ${promptRowsHtml}
+</table>`
+  }).join('')
+
+  return htmlDocumentShell({
+    title: 'Resources Sharpen',
+    bodyHtml: headerHtml +
+      sectionHeaderHtml(`RESOURCE ENTRIES · ${resources.length}`, '#0f766e') + rRows +
+      sectionHeaderHtml(`9 GILB SHARPENING DIMENSIONS`, '#14b8a6') + dimsHtml,
+  })
+}
+
+function _renderResourcesSharpenPlainText(): string {
+  const resources = props.spec?.resources ?? []
+  const HR = '═'.repeat(56)
+  const SR = '─'.repeat(56)
+  const lines: string[] = []
+  lines.push(HR)
+  lines.push('Resources Sharpen · 9 Gilb Dimensions')
+  lines.push(`${resources.length} Resource entries · ${approvalCount.value} approved improvements`)
+  lines.push(HR)
+  lines.push('')
+  lines.push('RESOURCE ENTRIES')
+  lines.push(SR)
+  for (const r of resources) {
+    lines.push(`${r.id}: ${r.description}`)
+    lines.push(`  Scale: ${r.scale || '—'}`)
+    lines.push(`  Tolerable >>: ${r.tolerable || '—'}   Goal >: ${r.goal || '—'}   Wish >?: ${r.wish || '—'}`)
+    lines.push('')
+  }
+  lines.push('9 GILB SHARPENING DIMENSIONS')
+  lines.push(SR)
+  for (const d of RESOURCES_SHARPEN_DIMENSIONS) {
+    lines.push(`${d.label}`)
+    lines.push(`  ${d.gilbPrompt || ''}`)
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
+async function exportResourcesSharpen(): Promise<void> {
+  await exportArtefact({
+    htmlText:     _renderResourcesSharpenHtml(),
+    plainText:    _renderResourcesSharpenPlainText(),
+    subject:      `Resources Sharpen · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'Resources Sharpen',
+  })
 }
 </script>
 
@@ -802,10 +888,18 @@ async function copyAnalysisRequest(): Promise<void> {
           </ScrollContainer>
 
           <!-- Footer -->
-          <footer class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-            <div class="text-[11px] text-slate-500 italic">
+          <footer class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+            <div class="text-[11px] text-slate-500 italic flex-1">
               Phase 2 shipped (r88) — paste Claudian JSON above, tick approvals, Apply writes to SpecBlock.  Phase 3 (Tradeoff Opportunities engine) is the next milestone.
             </div>
+            <!-- ⬇ Export · Tom Gilb 2026-06-06 universal Export-on-all-windows rule -->
+            <button
+              type="button"
+              class="px-4 py-2 rounded-lg bg-emerald-50 text-emerald-800 border-2 border-emerald-400 font-semibold text-sm hover:bg-emerald-100 hover:border-emerald-600
+                     focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              title="⬇ Export Resources Sharpen · preview window with 100% of the Resource entries + 9 Gilb dimensions + Glossary footnote · clipboard + Mail"
+              @click="exportResourcesSharpen"
+            >⬇ Export</button>
             <button
               type="button"
               class="px-4 py-2 rounded-lg bg-slate-700 text-white font-semibold text-sm hover:bg-slate-800

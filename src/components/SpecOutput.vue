@@ -6598,7 +6598,7 @@
             >
               <!-- F / V / S / C entry breakdown — replaces meaningless "N entries" -->
               <span class="font-medium text-gray-600 shrink-0">
-                {{ specStats.fCount }}F · {{ specStats.vCount }}V · {{ specStats.sCount }}S<template v-if="(displaySpec?.constraints ?? []).length > 0"> · <span class="text-red-600">{{ (displaySpec?.constraints ?? []).length }}C</span></template>
+                {{ specStats.fCount }} Function · {{ specStats.vCount }} Value · {{ specStats.sCount }} Solution<template v-if="(displaySpec?.constraints ?? []).length > 0"> · <span class="text-red-600">{{ (displaySpec?.constraints ?? []).length }} Constraint</span></template>
               </span>
 
               <!-- Completeness % — fields filled vs expected -->

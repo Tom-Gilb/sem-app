@@ -785,7 +785,7 @@ async function emailMerge(): Promise<void> {
                       @click="copyReadIn('all')"
                     >
                       <span aria-hidden="true">{{ copiedExport === 'ri-all' ? '✓' : '📋' }}</span>
-                      {{ copiedExport === 'ri-all' ? 'Copied!' : 'Copy All · F + V + S' }}
+                      {{ copiedExport === 'ri-all' ? 'Copied!' : 'Copy All · Function + Value + Solution' }}
                     </button>
                     <button
                       type="button"
@@ -1538,7 +1538,7 @@ async function emailMerge(): Promise<void> {
                       @click="copyMerge('all')"
                     >
                       <span aria-hidden="true">{{ copiedExport === 'mg-all' ? '✓' : '📋' }}</span>
-                      {{ copiedExport === 'mg-all' ? 'Copied!' : 'Copy All · F + V + S' }}
+                      {{ copiedExport === 'mg-all' ? 'Copied!' : 'Copy All · Function + Value + Solution' }}
                     </button>
                     <button
                       type="button"

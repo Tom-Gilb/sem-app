@@ -759,10 +759,10 @@ const INDICATOR_OPTIONS: IndicatorType[] = ['leading', 'lagging', 'unspecified']
           <button
             type="button"
             class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow"
-            title="Auto-create a measure row for every Value (V) entry in the current spec.  Idempotent — already-seeded rows are not duplicated.  Resource (R) entries are a v2 wiring path."
+            title="Auto-create a measure row for every Value entry in the current spec.  Idempotent — already-seeded rows are not duplicated.  Resource entries are a v2 wiring path."
             @click="seedMeasuresFromSpec"
           >
-            ✨ Seed measures from spec (V entries)
+            ✨ Seed measures from spec (Value entries)
           </button>
           <button
             type="button"
@@ -778,7 +778,7 @@ const INDICATOR_OPTIONS: IndicatorType[] = ['leading', 'lagging', 'unspecified']
           v-if="!currentFeedback || currentFeedback.measures.length === 0"
           class="text-xs text-slate-500 italic mb-4"
         >
-          No measures yet for this Evo Step.  Click "Seed measures from spec" to auto-populate from V entries,
+          No measures yet for this Evo Step.  Click "Seed measures from spec" to auto-populate from Value entries,
           or add blank rows manually.  Everything is optional — skip what you don't have.
         </p>
 

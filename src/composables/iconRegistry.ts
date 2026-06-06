@@ -18,6 +18,7 @@
 
 import type { Component } from 'vue'
 import EditGlyph from '../components/icons/EditGlyph.vue'
+import MultiForksGlyph from '../components/icons/MultiForksGlyph.vue'
 
 /**
  * Emoji → Component map.
@@ -25,6 +26,9 @@ import EditGlyph from '../components/icons/EditGlyph.vue'
  */
 export const ICON_COMPONENTS: Readonly<Record<string, Component>> = {
   '✏️': EditGlyph,
+  // Tom Gilb 2026-06-06: MultiForks 🔱 trident → canonical MultiForksGlyph
+  // (3 Resource arrows in · System oval · 3 Value arrows out).
+  '🔱': MultiForksGlyph,
   // Future entries:
   // '💾': SaveGlyph,
   // '📋': CopyGlyph,

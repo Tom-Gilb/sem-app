@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import type { SpecBlock, REntry } from '../types/spec'
@@ -99,26 +99,37 @@ function toggleAlts(improvementId: string): void {
 }
 
 // ─── Keyboard close ───────────────────────────────────────────────────────────
-
+// Tom 2026-06-06 fix: this Escape handler used to fire on EVERY keydown, so
+// pressing Esc inside the "add custom resource" input field closed the panel
+// mid-typing.  Now guarded to ignore Esc when focus is inside any text input,
+// textarea, contenteditable, or select — matching the SEM App universal
+// "Escape closes the surface UNLESS the user is editing a field" pattern.
 function onKeyDown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') emit('close')
+  if (e.key !== 'Escape') return
+  const t = e.target as HTMLElement | null
+  if (t) {
+    const tag = (t.tagName || '').toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+    if (t.isContentEditable) return
+  }
+  emit('close')
 }
 
 onMounted(() => document.addEventListener('keydown', onKeyDown))
 onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
 
-// Reset state when panel reopens
-watch(() => props.open, (open) => {
-  if (open) {
-    kissReady.value = false
-    improvements.value = []
-    expandedAltId.value = null
-    setupCollapsed.value = false
-    focusedResourceIds.value = []
-    customResources.value = []
-    newResourceInput.value = ''
-  }
-})
+// Tom Gilb 2026-06-06: "kiss: is unstable, disappears when working with it ·
+// kiss: options are dead now".  Root cause: the previous `watch(() => props.open,
+// ...)` block reset ALL state (kissReady, improvements, focusedResourceIds,
+// setupCollapsed, customResources, newResourceInput) every time `open` flipped
+// to true.  Under Vite HMR — which we use heavily during dev — the parent
+// re-renders frequently as we save other files; if `kissOpen` so much as
+// flickered, the watch wiped the user's selections, their computed KISS
+// results, and dropped them back to the setup phase.  The component is wrapped
+// in `<div v-if="open">` already, which UNMOUNTS the component when closed and
+// remounts it (with fresh state) when reopened — so the watch was redundant +
+// destructive.  Watch removed.  v-if handles natural reset on close/reopen;
+// state survives intra-session HMR safely.
 
 // ─── Visual helpers ───────────────────────────────────────────────────────────
 

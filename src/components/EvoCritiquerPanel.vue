@@ -25,6 +25,13 @@ import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import {
+  exportArtefact,
+  htmlEsc,
+  softWrap,
+  htmlDocumentShell,
+  sectionHeaderHtml,
+} from '../composables/useExportShared'
+import {
   useEvoCritiquer,
   HEALTH_DIMENSION_DEFS,
   scoreToGrade,
@@ -334,6 +341,104 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
   if (!critiqueResult.value) return []
   return critiqueResult.value.stepCritiques.filter(s => s.stepIndex >= 6)
 })
+
+// ── Export · Full Model — Tom Gilb 2026-06-06 universal Export rule ──────────
+// Full Evo Critiquer state: all 10 health dimensions + scores + findings +
+// improvement tasks + per-step critiques + references, all in one HTML doc.
+
+function _scoreColour(score: number): string {
+  if (score >= 80) return '#16a34a'
+  if (score >= 60) return '#f59e0b'
+  if (score >= 40) return '#ea580c'
+  return '#dc2626'
+}
+
+function _renderCritiquerHtml(): string {
+  const c = critiqueResult.value
+  const headerHtml = `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px 0;border-collapse:collapse;">
+  <tr><td bgcolor="#7c3aed" style="background:#7c3aed;color:#ffffff;padding:8px 22px;font:700 18px/1.4 'Helvetica Neue',Arial,sans-serif;">Evo Critiquer · 10-dimension Health Check</td></tr>
+  <tr><td bgcolor="#5b21b6" style="background:#5b21b6;color:#ede9fe;padding:4px 22px 10px 22px;font:600 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.12em;text-transform:uppercase;">${c ? `Overall score: ${c.overallScore}/100` : 'No analysis run yet'}</td></tr>
+</table>`
+
+  if (!c) {
+    return htmlDocumentShell({
+      title: 'Evo Critiquer',
+      bodyHtml: headerHtml + `<p style="padding:14px 18px;font:400 12px 'Helvetica Neue',Arial,sans-serif;color:#6b7280;">No critique result available. Run analysis first.</p>`,
+    })
+  }
+
+  // Dimensions
+  let dimRows = ''
+  for (const d of c.dimensions) {
+    const colour = _scoreColour(d.score)
+    const findingsRows = d.findings.map(f => {
+      const lines = softWrap(f.detail || f.summary, 64)
+      return lines.map((line, i) =>
+        `<tr><td bgcolor="#f9fafb" style="background:#f9fafb;color:#1f2937;padding:${i === 0 ? '3' : '1'}px 18px;font:${i === 0 ? '600' : '400'} 11px/1.4 'Helvetica Neue',Arial,sans-serif;">${i === 0 ? `<b>[${f.severity}]</b> ` : ''}${htmlEsc(line)}</td></tr>`
+      ).join('')
+    }).join('')
+    const tasksRows = d.tasks.map(t => {
+      const lines = softWrap(t.task, 64)
+      return lines.map((line, i) =>
+        `<tr><td bgcolor="#ecfdf5" style="background:#ecfdf5;color:#065f46;padding:${i === 0 ? '3' : '1'}px 18px;font:${i === 0 ? '600' : '400'} 11px/1.4 'Helvetica Neue',Arial,sans-serif;">${i === 0 ? '▸ ' : '   '}${htmlEsc(line)}</td></tr>`
+      ).join('')
+    }).join('')
+
+    dimRows += `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 8px 0;border-collapse:collapse;border:1px solid #d4d4d8;">
+  <tr><td bgcolor="${colour}" style="background:${colour};color:#ffffff;padding:6px 18px;font:700 12px/1.4 'Helvetica Neue',Arial,sans-serif;">${htmlEsc(d.label)} · ${d.score}/100</td></tr>
+  ${findingsRows ? `<tr><td bgcolor="#fef3c7" style="background:#fef3c7;color:#78350f;padding:3px 18px;font:700 10px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.08em;text-transform:uppercase;">Findings</td></tr>${findingsRows}` : ''}
+  ${tasksRows ? `<tr><td bgcolor="#d1fae5" style="background:#d1fae5;color:#065f46;padding:3px 18px;font:700 10px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.08em;text-transform:uppercase;">Improvement Tasks</td></tr>${tasksRows}` : ''}
+</table>`
+  }
+
+  return htmlDocumentShell({
+    title: 'Evo Critiquer Report',
+    bodyHtml: headerHtml + sectionHeaderHtml(`HEALTH DIMENSIONS · ${c.dimensions.length}`, '#5b21b6') + dimRows,
+  })
+}
+
+function _renderCritiquerPlainText(): string {
+  const c = critiqueResult.value
+  const HR = '═'.repeat(56)
+  const SR = '─'.repeat(56)
+  const lines: string[] = []
+  lines.push(HR)
+  lines.push('Evo Critiquer · 10-dimension Health Check')
+  lines.push(c ? `Overall score: ${c.overallScore}/100` : 'No analysis run yet')
+  lines.push(HR)
+  lines.push('')
+  if (!c) {
+    lines.push('No critique result available. Run analysis first.')
+    return lines.join('\n')
+  }
+  for (const d of c.dimensions) {
+    lines.push(`${d.label}: ${d.score}/100`)
+    lines.push(SR)
+    if (d.findings.length > 0) {
+      lines.push('  Findings:')
+      for (const f of d.findings) {
+        lines.push(`    [${f.severity}] ${f.detail || f.summary}`)
+      }
+    }
+    if (d.tasks.length > 0) {
+      lines.push('  Improvement tasks:')
+      for (const t of d.tasks) {
+        lines.push(`    ▸ ${t.task}`)
+      }
+    }
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
+async function exportCritiquer(): Promise<void> {
+  await exportArtefact({
+    htmlText:     _renderCritiquerHtml(),
+    plainText:    _renderCritiquerPlainText(),
+    subject:      `Evo Critiquer Report · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'Evo Critiquer',
+  })
+}
 </script>
 
 <template>
@@ -401,6 +506,19 @@ const vdStepCritiques = computed<EvoStepCritique[]>(() => {
           @click="emit('open-agents')"
         >
           <span aria-hidden="true">🦾</span> Agents
+        </button>
+        <!-- ⬇ Export · Tom Gilb 2026-06-06 universal Export-on-all-windows rule -->
+        <button
+          v-if="critiqueResult"
+          type="button"
+          class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg
+                 bg-emerald-500/30 hover:bg-emerald-500/50 text-white text-xs font-semibold
+                 border border-emerald-300/50 hover:border-emerald-200 transition-colors"
+          title="⬇ Export Critiquer Report — opens preview window with 100% of the 10-dimension report + findings + improvement tasks + Glossary footnote. Clipboard ready, Mail opening."
+          aria-label="Export Evo Critiquer report — preview + clipboard + Mail"
+          @click="exportCritiquer"
+        >
+          ⬇ Export
         </button>
         <CloseDot
           variant="on-dark"

@@ -66,26 +66,34 @@ defineEmits<{ click: [MouseEvent] }>()
     e.g. ContractHub header where the 20px dot is obscured by the mouse pointer.
     ExitGlyph scales proportionally: md=18×8px, lg=26×11px.
   -->
+  <!-- Tom 2026-06-06: "for close button please put the circle line, around
+       the red dot, when cursor is not there".  The previous `ring-1` at 40 %
+       opacity was so subtle the circle line read as a smudge.  Bumped to a
+       visible outline circle at rest (ring-2 + full-opacity colour +
+       ring-offset-1 with white offset) so the dot reads as ⊙ — clearly a
+       red dot inside a circle.  On hover the outline persists, the dot
+       grows (hover:scale-125), and the ExitGlyph fades in. -->
   <button
     type="button"
     :class="[
       'group relative flex items-center justify-center rounded-full shadow-sm',
       'transition-all hover:scale-125 shrink-0',
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+      'ring-offset-1',
       size === 'lg' ? 'h-8 w-8' : 'h-5 w-5',
       variant === 'on-light' && [
-        'bg-red-500 ring-1 ring-red-700/40',
-        'hover:bg-red-600 hover:shadow-md hover:ring-red-800/60',
+        'bg-red-500 ring-2 ring-red-700 ring-offset-white',
+        'hover:bg-red-600 hover:shadow-md hover:ring-red-800',
         'focus-visible:outline-red-500',
       ],
       variant === 'on-dark' && [
-        'bg-red-500/80 ring-1 ring-white/30',
-        'hover:bg-red-500 hover:ring-white/70',
-        'focus-visible:outline-white/70',
+        'bg-red-500/90 ring-2 ring-white/85 ring-offset-transparent',
+        'hover:bg-red-500 hover:ring-white',
+        'focus-visible:outline-white/80',
       ],
       variant === 'subtle' && [
-        'bg-slate-400/60 ring-1 ring-black/15',
-        'hover:bg-red-500 hover:ring-red-700/50',
+        'bg-slate-400/70 ring-2 ring-slate-700/70 ring-offset-white',
+        'hover:bg-red-500 hover:ring-red-700',
         'focus-visible:outline-slate-500',
       ],
     ]"

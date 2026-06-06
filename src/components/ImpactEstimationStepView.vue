@@ -186,11 +186,11 @@ function cellTooltip(valueId: string, step: EvoStep): string {
 
   // Cell is empty — diagnose WHY in order of likelihood
   if (!props.impactMatrix || _nonZeroCellCount() === 0) {
-    return 'Empty: the V × S matrix below has no impact estimates yet. Scroll down to V × S and either fill cells manually or click "Regenerate AI Suggestions" to populate.'
+    return 'Empty: the Value × Solution matrix below has no impact estimates yet. Scroll down to Value × Solution and either fill cells manually or click "Regenerate AI Suggestions" to populate.'
   }
   const valueRow = props.impactMatrix[valueId]
   if (!valueRow) {
-    return `Empty: Value "${valueId}" has no row in the V × S matrix. Add impact estimates for this Value in the V × S table below.`
+    return `Empty: Value "${valueId}" has no row in the Value × Solution matrix. Add impact estimates for this Value in the Value × Solution table below.`
   }
   if (step.linkedSolutions.length === 0) {
     return `Empty: Step "${step.name}" has no linkedSolutions. Edit the step (in the Evo Steps view) to link at least one Solution.`
@@ -207,9 +207,9 @@ function cellTooltip(valueId: string, step: EvoStep): string {
     return `Empty: NONE of this step's linkedSolutions resolve to a known solution. linkedSolutions: [${unmatched.map(u => u.ref).join(', ')}]. Available solutions: ${available || '(none)'}. Likely fix: re-generate the Evo plan or hand-edit linkedSolutions.`
   }
   if (unmatched.length > 0) {
-    return `Empty for ${valueId}: some linkedSolutions resolve but have no V × S impact for this Value. Unresolved refs: [${unmatched.map(u => u.ref).join(', ')}]. Matched refs have 0 impact for this Value in V × S.`
+    return `Empty for ${valueId}: some linkedSolutions resolve but have no Value × Solution impact for this Value. Unresolved refs: [${unmatched.map(u => u.ref).join(', ')}]. Matched refs have 0 impact for this Value in Value × Solution.`
   }
-  return `Empty: linkedSolutions match solutions, but V × S has no impact recorded for this Value × those Solutions. Fill the relevant cells in V × S below.`
+  return `Empty: linkedSolutions match solutions, but Value × Solution has no impact recorded for this Value × those Solutions. Fill the relevant cells in Value × Solution below.`
 }
 
 // ── Top-level diagnostic — what's wrong across the whole table ───────────────
@@ -228,8 +228,8 @@ const diagnostic = computed<Diagnostic>(() => {
   if (!props.impactMatrix || _nonZeroCellCount() === 0) {
     return {
       level: 'warn',
-      message: 'No V × S impact data yet — cells will stay "–" until V × S has values.',
-      detail: 'Scroll down to the V × S table and either fill cells manually OR click "Regenerate AI Suggestions" in the V × S header. This V × Step view derives every cell by summing the step\'s linkedSolutions impacts in V × S.',
+      message: 'No Value × Solution impact data yet — cells will stay "–" until Value × Solution has values.',
+      detail: 'Scroll down to the Value × Solution table and either fill cells manually OR click "Regenerate AI Suggestions" in the Value × Solution header. This Value × Step view derives every cell by summing the step\'s linkedSolutions impacts in Value × Solution.',
     }
   }
   // Matrix has data — check for unresolved linkedSolutions
@@ -265,11 +265,11 @@ const diagnostic = computed<Diagnostic>(() => {
   if (anyCellsEmpty) {
     return {
       level: 'info',
-      message: 'Some cells are empty — the V × S matrix has no impact recorded for those Value × Solution pairs.',
-      detail: 'Hover any empty cell for the specific reason. Fill the relevant V × S cells below to populate these.',
+      message: 'Some cells are empty — the Value × Solution matrix has no impact recorded for those Value × Solution pairs.',
+      detail: 'Hover any empty cell for the specific reason. Fill the relevant Value × Solution cells below to populate these.',
     }
   }
-  return { level: 'ok', message: 'All cells populated from V × S aggregation.' }
+  return { level: 'ok', message: 'All cells populated from Value × Solution aggregation.' }
 })
 
 /** Total impact across all steps for one value row (right-column total) */
@@ -340,7 +340,7 @@ const noSteps = computed<boolean>(() => props.steps.length === 0)
           <span aria-hidden="true">⛢</span> Impact Estimation — Values × Evo Steps
         </h2>
         <p class="text-[11px] text-emerald-100 mt-0.5">
-          One column per Evo Step (the unit of value delivery) · Cells aggregated from V × S via each step's linked Solutions · Edit V × S to influence values here
+          One column per Evo Step (the unit of value delivery) · Cells aggregated from Value × Solution via each step's linked Solutions · Edit Value × Solution to influence values here
         </p>
       </div>
 
@@ -458,13 +458,13 @@ const noSteps = computed<boolean>(() => props.steps.length === 0)
     <div v-if="!noSteps" class="text-[11px] text-slate-500 px-2 space-y-2">
       <p>
         <span class="font-semibold text-slate-700">How cells are derived:</span>
-        Each cell = Σ (V × S impact) across the step's linked Solutions
+        Each cell = Σ (Value × Solution impact) across the step's linked Solutions
         ({{ steps.map(s => s.linkedSolutions.length).join(' + ') }} Solutions total across the {{ steps.length }} Steps).
       </p>
       <p class="rounded border border-amber-200 bg-amber-50/60 px-2 py-1.5 text-amber-800">
         <span class="font-bold uppercase tracking-wide text-[10px]">Estimate provenance:</span>
-        These cells inherit the provenance of the V × S matrix below.  Unless you have entered
-        evidence-backed numbers (logs / measurements / benchmarks) into V × S, the values are
+        These cells inherit the provenance of the Value × Solution matrix below.  Unless you have entered
+        evidence-backed numbers (logs / measurements / benchmarks) into Value × Solution, the values are
         <strong>SWAG</strong> (Scientific Wild-Assed Guess) — user / AI judgement, not measurement.
         Empty cells (<span class="font-mono">–</span>) admit "no estimate at all".  v2 will add per-cell
         evidence + source citations + a SWAG / Measured / Cited badge per cell.

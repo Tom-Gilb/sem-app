@@ -89,7 +89,7 @@ import type { SharpenCategory } from './composables/useSharpen'
 // PlanModelBar removed from active rendering 2026-05-12 (component file kept
 // in src/components/ for reference; no current imports). The persistent
 // purple Plan Identity Bar at the top of App.vue subsumes its functionality.
-import PlanModelPanel from './components/PlanModelPanel.vue'
+import SpecModelPanel from './components/SpecModelPanel.vue'    // r93 Plan→Spec Phase 2 rename; shim at PlanModelPanel.vue still re-exports for legacy consumers
 import ModelComparisonView from './components/ModelComparisonView.vue'
 import GetAPlanPanel from './components/GetAPlanPanel.vue'
 import ContractHub from './components/ContractHub.vue'
@@ -135,6 +135,11 @@ import StakeholderMapperPanel from './components/StakeholderMapperPanel.vue'
 import EvoCritiquerPanel from './components/EvoCritiquerPanel.vue'
 import SpecImporterPanel from './components/SpecImporterPanel.vue'
 import DecisionMapperPanel from './components/DecisionMapperPanel.vue'
+import MultiVisionPanel from './components/MultiVisionPanel.vue'
+import MultiForksPanel from './components/MultiForksPanel.vue'    // r97 — new system fork diagram
+import MultiForksGlyph from './components/icons/MultiForksGlyph.vue' // 2026-06-06 — canonical MultiForks glyph (replaces 🔱 emoji)
+import PageScrollPin   from './components/PageScrollPin.vue'      // 2026-06-06 — universal "% shown" pin for page-level scroll
+import { useMultiVision } from './composables/useMultiVision'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
 import ValueFlowPanel from './components/ValueFlowPanel.vue'
 import ValueFlowDiagram from './components/ValueFlowDiagram.vue'
@@ -189,6 +194,8 @@ import {
   getDeviceUserName,
   setDeviceUserName,
   setWorkingMode,
+  setDeadline,
+
   type SpecModel,
   type PlanModel,
 } from './composables/useSpecModel'
@@ -424,6 +431,25 @@ function cancelTitleEdit(): void {
   titleEditing.value = false
 }
 
+// ── DEADLINE edit handler — Tom 2026-06-06 r98 ──────────────────────────────
+// Extracted from the inline @click on the DEADLINE pill because the Vue
+// template parser cannot handle the `\\'` escapes inside a quoted attribute
+// (Vite parse error: "Expecting Unicode escape sequence"). Named function is
+// the canonical fix for any handler containing string literals with
+// apostrophes / nested quotes / backslashes.
+function editDeadline(): void {
+  if (!specModel.value) return
+  const examples = [
+    String.fromCharCode(39) + '?' + String.fromCharCode(39),
+    String.fromCharCode(39) + '2027-Q1' + String.fromCharCode(39),
+    String.fromCharCode(39) + '60 days from kickoff' + String.fromCharCode(39),
+    String.fromCharCode(39) + 'before EU AI Act enforcement' + String.fromCharCode(39),
+  ].join(', ')
+  const promptMsg = 'Project DEADLINE — scalar Condition [When]. Free text accepted (e.g. ' + examples + ').'
+  const next = window.prompt(promptMsg, specModel.value.deadline || '?')
+  if (next !== null) setDeadline(next)
+}
+
 // ── Floating ⋯ Menu ────────────────────────────────────────────────────────
 // Single toggle that surfaces all secondary actions in a grouped popover.
 const menuOpen      = ref(false)
@@ -645,7 +671,7 @@ function _togglePlanStory(): void {
 // else. Plan Crest sits below it at fixed top-[STAGE_BAR_H].
 // ResizeObserver tracks Plan Crest height so toggling the DNA strip
 // automatically adjusts content padding-top — no hardcoded crest height needed.
-const STAGE_BAR_H  = 124    // ValueCounter nav: py-3(12px) + pill(96px) + pb-1(4px) + py-3(12px) = 124px
+const STAGE_BAR_H  = 148    // ValueCounter nav: py-3(12px) + pill(120px) + pb-1(4px) + py-3(12px) = 148px
 const specCrestEl  = ref<HTMLElement | null>(null)
 const specCrestH   = ref(0)
 let _specCrestRO: ResizeObserver | null = null
@@ -680,6 +706,10 @@ const stakeholderMapperOpen = ref(false)         // StakeholderMapperPanel — A
 const evoCritiquerOpen      = ref(false)         // EvoCritiquerPanel — Evo health check
 const specImporterOpen      = ref(false)         // SpecImporterPanel — universal Planguage converter
 const decisionMapperOpen    = ref(false)         // DecisionMapperPanel — decision analysis
+const { isOpen: multiVisionOpen, openMultiVision } = useMultiVision()
+// Tom 2026-06-06 r97 — MultiForks system fork diagram (accessed from MultiVision footer + Visuals panel).
+const multiForksOpen = ref(false)
+function openMultiForks(): void { multiForksOpen.value = true }
 // --- Spec Direct Relations (SDR) ---
 const sdrOpen      = ref(false)
 const _sdrEntryId  = ref('')
@@ -3295,7 +3325,7 @@ function _buildImpactStepTableHtml(): string {
   const SH_FG = '#374151'
 
   let h = `<table border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin:0 0 14px 0;">`
-  h += `<tr><td colspan="${cols}" bgcolor="${H_BG}" style="background:${H_BG};color:#ffffff;font-weight:bold;font-size:13px;padding:10px 14px;">V × Evo Step Impact — ${name} · ${date}</td></tr>`
+  h += `<tr><td colspan="${cols}" bgcolor="${H_BG}" style="background:${H_BG};color:#ffffff;font-weight:bold;font-size:13px;padding:10px 14px;">Value × Evo Step Impact — ${name} · ${date}</td></tr>`
   h += `<tr bgcolor="${SH_BG}" style="background:${SH_BG};">`
   h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;min-width:160px;">Value \\ Evo Step</td>`
   for (const st of steps) h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;min-width:100px;" title="${st.description}">${st.name}</td>`
@@ -3345,7 +3375,7 @@ function _buildImpactSolutionTableHtml(): string {
   const SH_FG = '#374151'
 
   let h = `<table border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin:0 0 14px 0;">`
-  h += `<tr><td colspan="${cols}" bgcolor="${H_BG}" style="background:${H_BG};color:#ffffff;font-weight:bold;font-size:13px;padding:10px 14px;">V × Solution Impact — ${name} · ${date}</td></tr>`
+  h += `<tr><td colspan="${cols}" bgcolor="${H_BG}" style="background:${H_BG};color:#ffffff;font-weight:bold;font-size:13px;padding:10px 14px;">Value × Solution Impact — ${name} · ${date}</td></tr>`
   h += `<tr bgcolor="${SH_BG}" style="background:${SH_BG};">`
   h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;min-width:160px;">Value \\ Solution</td>`
   for (const sol of solutions) h += `<td style="padding:6px 10px;font-weight:bold;color:${SH_FG};border-bottom:2px solid #94a3b8;min-width:100px;" title="${sol.description}">${sol.id}</td>`
@@ -3371,44 +3401,44 @@ function _buildImpactSolutionTableHtml(): string {
 // ── V × Evo Step — copy / email / download ────────────────────────────────────
 
 async function copyImpactStepTable(): Promise<void> {
-  showToast('Building V × Evo Step table…', 1500)
+  showToast('Building Value × Evo Step table…', 1500)
   try {
     const html = _buildImpactStepTableHtml()
-    if (!html) { showToast('No V × Step data yet — generate an Evo Plan and fill V × S first', 4000); return }
+    if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
     if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
       await navigator.clipboard.write([new ClipboardItem({
-        'text/html':  new Blob([html],                         { type: 'text/html'  }),
-        'text/plain': new Blob(['V × Evo Step Impact table'],  { type: 'text/plain' }),
+        'text/html':  new Blob([html],                                  { type: 'text/html'  }),
+        'text/plain': new Blob(['Value × Evo Step Impact table'],       { type: 'text/plain' }),
       })])
-      showToast('📋 V × Evo Step table copied — paste into Keynote, Mail, or Notes', 5000)
+      showToast('📋 Value × Evo Step table copied — paste into Keynote, Mail, or Notes', 5000)
     } else {
-      await navigator.clipboard.writeText('V × Evo Step Impact table — use Email or Download for the colourful version')
+      await navigator.clipboard.writeText('Value × Evo Step Impact table — use Email or Download for the colourful version')
       showToast('📋 Copied (plain fallback) — use Email or Download for the colourful table', 5000)
     }
   } catch (err) { showToast(`Copy failed: ${String(err).slice(0, 80)}`, 7000) }
 }
 
 async function emailImpactStepTable(): Promise<void> {
-  showToast('Building V × Evo Step email…', 1500)
+  showToast('Building Value × Evo Step email…', 1500)
   try {
     const html = _buildImpactStepTableHtml()
-    if (!html) { showToast('No V × Step data yet — generate an Evo Plan and fill V × S first', 4000); return }
+    if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
     const date    = new Date().toISOString().slice(0, 10)
     const name    = specModel.value?.name ?? 'Evo Impact'
-    const subject = `V × Evo Step Impact — ${name} · ${date}`
+    const subject = `Value × Evo Step Impact — ${name} · ${date}`
     let clipOk = false
     try {
       if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
         await navigator.clipboard.write([new ClipboardItem({
-          'text/html':  new Blob([html],                         { type: 'text/html'  }),
-          'text/plain': new Blob(['V × Evo Step Impact table'],  { type: 'text/plain' }),
+          'text/html':  new Blob([html],                                  { type: 'text/html'  }),
+          'text/plain': new Blob(['Value × Evo Step Impact table'],       { type: 'text/plain' }),
         })])
         clipOk = true
       }
     } catch { /* mail still opens */ }
     const cue  = clipOk ? 'PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION' : '(Auto-copy failed — use Copy first, then ⌘V here.)'
     const HR   = '────────────────────────────────────────────────────────'
-    const body = `${cue}\nExported: ${date}\n${HR}\n\nV × Evo Step Impact — ${name}\nPaste ⌘V above for the colourful table.`
+    const body = `${cue}\nExported: ${date}\n${HR}\n\nValue × Evo Step Impact — ${name}\nPaste ⌘V above for the colourful table.`
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     showToast('Mail opening — press ⌘V in the body to paste the colourful table, then Send', 6000)
   } catch (err) { showToast(`Email failed: ${String(err).slice(0, 80)}`, 7000) }
@@ -3416,11 +3446,11 @@ async function emailImpactStepTable(): Promise<void> {
 
 function downloadImpactStepTable(): void {
   const html = _buildImpactStepTableHtml()
-  if (!html) { showToast('No V × Step data yet — generate an Evo Plan and fill V × S first', 4000); return }
+  if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
   const date = new Date().toISOString().slice(0, 10)
   const name = specModel.value?.name ?? 'Evo Impact'
   const safe = name.replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40)
-  const doc  = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>V × Evo Step Impact — ${name}</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`
+  const doc  = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Value × Evo Step Impact — ${name}</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`
   const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
@@ -3428,50 +3458,50 @@ function downloadImpactStepTable(): void {
   a.download = `${safe}-impact-step-${date}.html`
   document.body.appendChild(a); a.click(); document.body.removeChild(a)
   URL.revokeObjectURL(url)
-  showToast('V × Evo Step table downloaded as HTML', 3000)
+  showToast('Value × Evo Step table downloaded as HTML', 3000)
 }
 
 // ── V × Solution — copy / email / download ────────────────────────────────────
 
 async function copyImpactSolutionTable(): Promise<void> {
-  showToast('Building V × Solution table…', 1500)
+  showToast('Building Value × Solution table…', 1500)
   try {
     const html = _buildImpactSolutionTableHtml()
-    if (!html) { showToast('No V × Solution data yet — fill the impact table first', 4000); return }
+    if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
     if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
       await navigator.clipboard.write([new ClipboardItem({
-        'text/html':  new Blob([html],                           { type: 'text/html'  }),
-        'text/plain': new Blob(['V × Solution Impact table'],    { type: 'text/plain' }),
+        'text/html':  new Blob([html],                                  { type: 'text/html'  }),
+        'text/plain': new Blob(['Value × Solution Impact table'],       { type: 'text/plain' }),
       })])
-      showToast('📋 V × Solution table copied — paste into Keynote, Mail, or Notes', 5000)
+      showToast('📋 Value × Solution table copied — paste into Keynote, Mail, or Notes', 5000)
     } else {
-      await navigator.clipboard.writeText('V × Solution Impact table — use Email or Download for the colourful version')
+      await navigator.clipboard.writeText('Value × Solution Impact table — use Email or Download for the colourful version')
       showToast('📋 Copied (plain fallback) — use Email or Download for the colourful table', 5000)
     }
   } catch (err) { showToast(`Copy failed: ${String(err).slice(0, 80)}`, 7000) }
 }
 
 async function emailImpactSolutionTable(): Promise<void> {
-  showToast('Building V × Solution email…', 1500)
+  showToast('Building Value × Solution email…', 1500)
   try {
     const html = _buildImpactSolutionTableHtml()
-    if (!html) { showToast('No V × Solution data yet — fill the impact table first', 4000); return }
+    if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
     const date    = new Date().toISOString().slice(0, 10)
     const name    = specModel.value?.name ?? 'Evo Impact'
-    const subject = `V × Solution Impact — ${name} · ${date}`
+    const subject = `Value × Solution Impact — ${name} · ${date}`
     let clipOk = false
     try {
       if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
         await navigator.clipboard.write([new ClipboardItem({
-          'text/html':  new Blob([html],                           { type: 'text/html'  }),
-          'text/plain': new Blob(['V × Solution Impact table'],    { type: 'text/plain' }),
+          'text/html':  new Blob([html],                                  { type: 'text/html'  }),
+          'text/plain': new Blob(['Value × Solution Impact table'],       { type: 'text/plain' }),
         })])
         clipOk = true
       }
     } catch { /* mail still opens */ }
     const cue  = clipOk ? 'PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION' : '(Auto-copy failed — use Copy first, then ⌘V here.)'
     const HR   = '────────────────────────────────────────────────────────'
-    const body = `${cue}\nExported: ${date}\n${HR}\n\nV × Solution Impact — ${name}\nPaste ⌘V above for the colourful table.`
+    const body = `${cue}\nExported: ${date}\n${HR}\n\nValue × Solution Impact — ${name}\nPaste ⌘V above for the colourful table.`
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     showToast('Mail opening — press ⌘V in the body to paste the colourful table, then Send', 6000)
   } catch (err) { showToast(`Email failed: ${String(err).slice(0, 80)}`, 7000) }
@@ -3479,11 +3509,11 @@ async function emailImpactSolutionTable(): Promise<void> {
 
 function downloadImpactSolutionTable(): void {
   const html = _buildImpactSolutionTableHtml()
-  if (!html) { showToast('No V × Solution data yet — fill the impact table first', 4000); return }
+  if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
   const date = new Date().toISOString().slice(0, 10)
   const name = specModel.value?.name ?? 'Evo Impact'
   const safe = name.replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40)
-  const doc  = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>V × Solution Impact — ${name}</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`
+  const doc  = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Value × Solution Impact — ${name}</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`
   const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
@@ -3491,7 +3521,7 @@ function downloadImpactSolutionTable(): void {
   a.download = `${safe}-impact-solution-${date}.html`
   document.body.appendChild(a); a.click(); document.body.removeChild(a)
   URL.revokeObjectURL(url)
-  showToast('V × Solution table downloaded as HTML', 3000)
+  showToast('Value × Solution table downloaded as HTML', 3000)
 }
 
 // ── Auto-copy plan to clipboard on stage 5 entry ──────────────────────────────
@@ -4187,6 +4217,23 @@ const searchEntries = computed((): SearchEntry[] => {
       context: 'Planning', action: () => { specHealthTargetOpen.value = true },
       disabled: !hasSpec,
     },
+    // Tom 2026-06-06: MultiVision — VDT-grounded V/R balance sandbox.
+    // Sliders for Value ambition + Resource budget; consequences live.
+    {
+      id: 'multi-vision', icon: '⚡', name: 'MultiVision',
+      description: 'Balance Values and Resources interactively. Value ambition sliders (Tolerable → Goal → Wish), Resource budget sliders, live VDT consequences: which solutions are funded, per-Value delivery %, overall vision balance score. Play with the sliders until the balance feels right, then use that as a starting point for solutions, Evo Steps, and tasks.',
+      keywords: ['multivision', 'multi vision', 'vdt', 'sliders', 'balance', 'value resource', 'v r', 'budget', 'ambition', 'tolerable goal wish', 'consequences', 'sandbox', 'optima', 'tradeoff', 'trade off', 'planning sliders'],
+      context: 'Planning', action: () => { openMultiVision() },
+      disabled: !hasSpec,
+    },
+    // Tom 2026-06-06: MultiForks — paired diagram view of MultiVision.
+    {
+      id: 'multi-forks', icon: '🔱', name: 'MultiForks',
+      description: 'System fork diagram: Resources → System ← Values. Each fork (Value or Resource) has Tolerable / Goal / Wish markers at their real numeric positions, a status colour band (Goal MET / Tolerable Range / VIOLATION), and a status badge. Same Balance score as MultiVision. The diagram-view sibling of the MultiVision slider sandbox.',
+      keywords: ['multiforks', 'multi forks', 'multifork', 'fork', 'fork diagram', 'system fork', 'fork view', 'fork chart', 'resources system values', 'system diagram', 'arrows', 'oval', 'visualize', 'visualization', 'diagram'],
+      context: 'Visualise', action: () => { openMultiForks() },
+      disabled: !hasSpec,
+    },
     // Tom 2026-06-03: EHT (Evo Health Tool).  Mirror PHI structure but focused
     // on Evo Steps + short-term scope.  v1 scaffold; v2 wires real Cure flow.
     {
@@ -4500,6 +4547,8 @@ registerExclusiveSurface('stakeholderMapper', stakeholderMapperOpen)
 registerExclusiveSurface('evoCritiquer',      evoCritiquerOpen)
 registerExclusiveSurface('planImporter',      specImporterOpen)
 registerExclusiveSurface('decisionMapper',    decisionMapperOpen)
+registerExclusiveSurface('multiVision',      multiVisionOpen)
+registerExclusiveSurface('multiForks',       multiForksOpen)    // r97
 registerExclusiveSurface('unifiedHistory',    unifiedHistoryOpen)
 
 // ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
@@ -4569,6 +4618,7 @@ function handleAction(id: string): void {
     case 'stakeholder-mapper': stakeholderMapperOpen.value = true; break
     case 'plan-importer':      specImporterOpen.value     = true; break
     case 'decisions':          decisionMapperOpen.value   = true; break
+    case 'multiVision':        openMultiVision();                  break
     // evo-step-critique lives in ANALYZE section; same routing pattern
     case 'evo-step-critique':  evoCritiquerOpen.value     = true; break
   }
@@ -4859,7 +4909,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <div
     ref="specCrestEl"
     v-if="view === 'app' && specModel"
-    class="fixed top-[124px] left-0 right-0 z-[300] flex flex-col px-4 py-1.5
+    class="fixed top-[148px] left-0 right-0 z-[300] flex flex-col px-4 py-1.5
            bg-gradient-to-r from-indigo-800 via-indigo-600 to-violet-600
            text-white shadow-lg ring-1 ring-black/10 select-none"
     aria-label="Spec Crest — active spec"
@@ -4879,22 +4929,32 @@ function handleApertureLoadPlan(model: PlanModel): void {
          dead-centre in the bar regardless of viewport width. `max-w-[80%]`
          on the title group leaves breathing room either side; `truncate` on
          the title span gracefully clips ultra-long plan names. -->
-    <div class="flex items-center justify-center h-12 relative">
+    <!-- Tom 2026-06-06 — r45 follow-up: "Color Artsy Icons overlp button on word 'PLAN'".
+         Root cause: the left + right tool clusters are absolute-positioned over the row.
+         The centred title group (amber-stripe + PLAN eyebrow + title button + chips with
+         color glyphs) was `justify-center`-ing in the FULL row width, so on viewports
+         where the centred content was wider than the gap between the two absolute
+         clusters, the LEFTMOST item of the centred group — the PLAN eyebrow — slid
+         UNDER the left cluster.  At that point the History glyph (PlTypeIcon for Evo
+         Step — a coloured drawn glyph) visually painted over the PLAN button text.
+         Fix: reserve horizontal padding on the inner row at md+ widths matching the
+         absolute clusters' widths (left ~440px, right ~310px) so centred content has
+         guaranteed clear space.  Below md the PLAN eyebrow is hidden anyway. -->
+    <div class="flex items-center justify-center h-12 relative md:pl-[440px] md:pr-[310px]">
       <!-- ── Left tool cluster: Edit Plan · Find · Illuminate · History · Next Step · Dictate · Speaker
            Moved from Row 2 (removed 2026-06-01 — dark bar). Sit left-absolute on the title
            row, mirroring the right cluster, so the plan title remains cleanly centred. -->
       <div class="absolute top-1.5 left-1 flex items-center gap-1 pl-0.5">
-        <!-- Edit Plan -->
-        <button
-          v-if="specModel"
-          type="button"
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
-                 bg-white text-violet-700 hover:bg-violet-50 shadow-sm
-                 focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-          aria-label="Edit Plan"
-          title="Open Spec Editor"
-          @click="currentSpec = currentSpec ?? specModel.spec; specEditorOpen = true"
-        >Edit Plan</button>
+        <!-- Tom 2026-06-05 r92 — REMOVED "Edit Plan" button.  Tom verbatim:
+             *"I guess the edit plan button on upper br is now superflous, if
+             u agree, drop it"*.  Confirmed: every Spec-editor entry path is
+             now covered by clicking any of Stages 1-5 in the planning bar
+             (STAGE_ACTION_MAP[1..5] = 'to-spec' since r83) AND by the various
+             stage-action pins on Row 2.  Button was redundant.  No-Silent-
+             Removal SUPREME rule honoured by this audit-trail comment +
+             SEM-Design-History log r92.  Permanent-surface drop approved by
+             Tom in chat. -->
+        <!-- (Edit Plan dropped) -->
         <!-- Find ⌘F -->
         <button
           type="button"
@@ -5252,7 +5312,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
            word "Spec" (Tom's confirmed generic term). -->
       <span
         class="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/10 text-white/90 text-[11px] font-semibold"
-        title="Plan / Spec — a container of multiple spec entries (F · V · S · …).  The generic 'Spec' covers Plan, Model, Contract, Meeting Minutes, etc."
+        title="Plan / Spec — a container of multiple spec entries (Function · Value · Solution · …).  The generic 'Spec' covers Plan, Model, Contract, Meeting Minutes, etc."
       >
         <PlanGlyph size="compact" class="h-3.5 w-auto" aria-hidden="true" />
         <span>Spec</span>
@@ -5265,6 +5325,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
                font-mono text-[10px] font-bold text-white/90 tracking-tight"
         :title="`Plan version ${specModel.version}`"
       >v{{ specModel.version }}</span>
+
+      <!-- DEADLINE pill — Tom 2026-06-06 r98: scalar Condition [When] at whole-spec
+           level.  Click to edit (uses browser prompt for v1; richer date picker
+           is a Phase 2 of the scalar-Conditions rollout).  "?" = not yet articulated. -->
+      <button
+        v-if="specModel"
+        type="button"
+        class="shrink-0 px-2 py-0.5 rounded bg-rose-500/30 ring-1 ring-rose-300/50
+               font-mono text-[10px] font-bold text-white tracking-tight
+               hover:bg-rose-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-300"
+        :title="`Project DEADLINE — currently '${specModel.deadline || '?'}' · click to edit (scalar Condition [When]; Tom 2026-06-06).`"
+        @click="editDeadline"
+      >⏱ {{ specModel.deadline || '?' }}</button>
 
       <!-- Sharpen-rounds badge — 🔪 N -->
       <span
@@ -5553,6 +5626,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
     @open-agents="decisionMapperOpen = false; agentMenuOpen = true"
   />
 
+  <!-- MultiVision — VDT-grounded V/R balance slider panel (z-[600]) -->
+  <MultiVisionPanel
+    v-if="view === 'app' && multiVisionOpen"
+    @close="multiVisionOpen = false"
+    @open-multiforks="openMultiForks"
+  />
+
+  <!-- MultiForks — Resources → System ← Values fork diagram (r97, 2026-06-06).
+       Accessed from MultiVision footer + Visuals panel.  Reads currentSpec + balanceScore. -->
+  <MultiForksPanel
+    :open="multiForksOpen"
+    :evo-steps-delivered="confirmedSteps.length"
+    @close="multiForksOpen = false"
+  />
+
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->
   <PriorityRecordPanel
     v-if="view === 'app' && specModel && priorityPanelOpen && _priorityEntryId"
@@ -5765,7 +5853,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <!-- Main content wrapper.
-       When plan loaded: padding-top = STAGE_BAR_H (124px, stage bar fixed at
+       When plan loaded: padding-top = STAGE_BAR_H (148px, stage bar fixed at
        top-0) + specCrestH (live ResizeObserver, tracks Plan Crest including
        DNA strip open/closed so content never starts under either fixed header).
        When no plan: pt-8 static (stage bar is in-flow, not fixed). -->
@@ -5950,7 +6038,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span class="text-base font-bold text-slate-500 group-hover:text-indigo-700 leading-none" aria-hidden="true">←</span>
             <span class="text-[10px] font-extrabold leading-none bg-slate-700 text-white rounded-md px-1.5 py-1"
                   aria-hidden="true">{{ prevStageInfo.stage }}</span>
-            <PlTypeIcon :pl-type="prevStageInfo.plType" size="md" :no-detail-click="true" />
+            <PlTypeIcon :pl-type="prevStageInfo.plType" size="md" />
             <span class="flex flex-col items-start leading-tight">
               <span class="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Back to</span>
               <span class="text-sm font-bold text-slate-800">{{ prevStageInfo.label }}</span>
@@ -5992,7 +6080,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  for me against that background"*. -->
             <span v-if="currentStageInfo"
                   class="shrink-0 inline-flex items-center justify-center bg-white rounded-lg p-1 shadow-sm">
-              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" :no-detail-click="true" />
+              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" />
             </span>
             <span v-if="currentStageInfo" class="flex flex-col items-start leading-tight">
               <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-indigo-200">Stage Now</span>
@@ -6035,7 +6123,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <span class="text-[9px] font-semibold uppercase tracking-wider text-indigo-200">Next →</span>
               <span class="text-sm font-bold text-white">{{ nextStageInfo.label }}</span>
             </span>
-            <PlTypeIcon :pl-type="nextStageInfo.plType" size="md" :no-detail-click="true" />
+            <PlTypeIcon :pl-type="nextStageInfo.plType" size="md" />
             <span class="text-[10px] font-extrabold leading-none bg-black/60 text-white rounded-md px-1.5 py-1"
                   aria-hidden="true">{{ nextStageInfo.stage }}</span>
             <span class="text-base font-bold text-white leading-none" aria-hidden="true">→</span>
@@ -6176,7 +6264,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           >
             <!-- Color Glyph for 'comparison': Value glyph (violet) — comparison is value-assessment.
                  :no-detail-click per DD-013 (parent owns click for comparison action). -->
-            <PlTypeIcon pl-type="value" size="sm" :no-detail-click="true" class="shrink-0" />
+            <PlTypeIcon pl-type="value" size="sm" class="shrink-0" />
             <span>Compare</span>
           </button>
           <!-- Plan History — also in the persistent plan identity bar + in Actions menu -->
@@ -6193,7 +6281,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <!-- Color Glyph for 'history': Evo Step glyph (amber) — encodes past cycles via '<' (past anchor).
                    :no-detail-click per DD-013 (parent owns click for history panel).
                    Tom 2026-06-03 — explicit title overrides PlTypeIcon's canonical Evo-Step label. -->
-              <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" title="Version History" class="shrink-0" />
+              <PlTypeIcon pl-type="evo-step" size="sm" title="Version History" class="shrink-0" />
               <span>History</span>
             </button>
             <span
@@ -6335,7 +6423,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           title="Compare — side-by-side view of two plan models. See which solution scores better against your Values and Constraints."
           @click="comparisonMode = true"
         >
-          <PlTypeIcon pl-type="value" size="sm" :no-detail-click="true" class="shrink-0" />
+          <PlTypeIcon pl-type="value" size="sm" class="shrink-0" />
           <span>Compare</span>
         </button>
         <!-- Plan History — also in the persistent plan identity bar + in Actions menu -->
@@ -6349,7 +6437,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
             @click="historyOpen = true"
           >
-            <PlTypeIcon pl-type="evo-step" size="sm" :no-detail-click="true" title="Version History" class="shrink-0" />
+            <PlTypeIcon pl-type="evo-step" size="sm" title="Version History" class="shrink-0" />
             <span>History</span>
           </button>
           <span
@@ -6734,6 +6822,23 @@ function handleApertureLoadPlan(model: PlanModel): void {
             </svg>
             <span>Value Flow</span>
           </button>
+          <!-- MultiVision button — Stage 2 action bar -->
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   text-white text-sm font-semibold
+                   hover:opacity-90 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)"
+            aria-label="Open MultiVision — balance Values and Resources"
+            title="⚡ MultiVision — slide Value ambition and Resource budget sliders, see consequence live"
+            @click="openMultiVision()"
+          >
+            <span class="text-base" aria-hidden="true">⚡</span>
+            <span>MultiVision</span>
+          </button>
         </div>
         <!-- Dark `PlanModelBar` removed 2026-05-12 — see note in stage-1
              section above. The purple Plan Identity Bar at top of page
@@ -6803,41 +6908,45 @@ function handleApertureLoadPlan(model: PlanModel): void {
             </div>
           </div>
 
-          <!-- Cost Engineering reference — book cover chip + description + CTA button -->
-          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
-            <div class="flex items-start gap-4">
-              <!-- Real Leanpub cover — 130×195px; object-contain shows full cover unclipped -->
-              <BookCoverChip
-                title="Cost Engineering"
-                short-title="Cost Eng"
-                year="2023"
-                cover-color="#1e3a5f"
-                cover-image-url="https://d2sofvawe08yqg.cloudfront.net/costengineering/s_featured2x?1719929333"
-                :cover-width="130"
-                :cover-height="195"
-                leanpub-url="https://leanpub.com/costengineering"
-              />
-              <!-- Description — takes remaining space, always has room to wrap -->
-              <div class="flex-1 min-w-0 pt-0.5">
-                <p class="font-bold text-amber-900 text-sm leading-snug">Cost Engineering</p>
-                <p class="text-amber-700/80 text-[11px] mt-0.5">Gilb · canonical reference for this stage</p>
-                <p class="text-amber-800/70 text-[11px] mt-1.5 leading-relaxed">
-                  Resource planning is grounded in Cost Engineering: Budget types (Calendar, Capital, Effort),
-                  Performance-to-Cost Ratio, Design-to-Cost, and Value-to-Cost scoring.
-                </p>
-                <p class="text-amber-800/60 text-[10px] mt-1 leading-relaxed">
-                  Planguage Glossary: Cost-Budget · Cost-Level · V/C-Ratio · Performance-to-Cost-Ratio.
-                  Companion books: OPTIMA · SEA · DEEP.
-                </p>
-                <div class="mt-2">
-                  <button
-                    type="button"
-                    class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300
-                           rounded-lg px-3 py-1.5 hover:bg-amber-200 hover:border-amber-400 transition-all"
-                    title="Open Cost Engineering Tool — Design to Cost / Value / Constraint, static and dynamic (Evo Step) modes"
-                    @click="costEngineeringOpen = true"
-                  >📐 Open Cost Engineering Tool →</button>
-                </div>
+          <!-- Cost Engineering reference — hero cover + compact strip -->
+          <div class="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+            <!-- Hero cover — full card width -->
+            <!-- object-contain: full cover visible, no crop. No max-height cap — let the
+                 natural aspect ratio determine height. Tom 2026-06-06: "Prefer full cover." -->
+            <img
+              src="https://d2sofvawe08yqg.cloudfront.net/costengineering/s_featured2x?1719929333"
+              alt="Cost Engineering book cover — Tom Gilb 2023"
+              class="w-full block object-contain"
+              loading="lazy"
+            />
+            <!-- Compact info strip below cover -->
+            <div class="flex items-center justify-between gap-2 px-3 py-2 flex-wrap">
+              <div class="min-w-0">
+                <span class="font-bold text-amber-900 text-sm">Cost Engineering</span>
+                <span class="text-amber-700/70 text-[11px] ml-2">Gilb · 2023</span>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300
+                         rounded-lg px-2.5 py-1 hover:bg-amber-200 transition-all whitespace-nowrap"
+                  title="Open Cost Engineering Tool — Design to Cost / Value / Constraint, static and dynamic (Evo Step) modes"
+                  @click="costEngineeringOpen = true"
+                >📐 Open Tool →</button>
+                <a
+                  href="https://www.researchgate.net/publication/406117055_Cost_Engineering_MASTER"
+                  target="_blank" rel="noopener noreferrer"
+                  class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300
+                         rounded-lg px-2.5 py-1 hover:bg-amber-200 transition-all no-underline whitespace-nowrap"
+                  title="Cost Engineering MASTER — free PDF on ResearchGate (Tom Gilb, 2023)"
+                >📄 Free PDF ↗</a>
+                <a
+                  href="https://leanpub.com/costengineering"
+                  target="_blank" rel="noopener noreferrer"
+                  class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300
+                         rounded-lg px-2.5 py-1 hover:bg-amber-200 transition-all no-underline whitespace-nowrap"
+                  title="Cost Engineering on Leanpub — Tom Gilb 2023"
+                >Leanpub ↗</a>
               </div>
             </div>
           </div>
@@ -6993,7 +7102,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            hover:border-blue-500 hover:bg-blue-50 hover:shadow-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-400
                            transition-all duration-100"
-                    title="Review calendar and capital cost estimates from the Impact stage"
+                    title="Review calendar and capital cost estimates from the Impact stage — opens Cost Engineering Tool"
+                    @click="costEngineeringOpen = true"
                   >Calendar &amp; Capital Cost</button>
                   <button
                     type="button"
@@ -7002,7 +7112,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            hover:border-blue-500 hover:bg-blue-50 hover:shadow-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-400
                            transition-all duration-100"
-                    title="Value-to-Resource ratio analysis — how much Value each Resource budget delivers per Evo Step"
+                    title="Value-to-Resource ratio analysis — how much Value each Resource budget delivers per Evo Step — opens OPTIMA"
+                    @click="optimaOpen = true"
                   >Value / Resource Ratio Analysis</button>
                   <!-- Footer: All Tools + Other Tools -->
                   <div class="border-t border-blue-200 mt-1.5 pt-1.5 flex gap-1.5">
@@ -7047,6 +7158,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 </div>
                 <!-- Sub-option buttons -->
                 <div class="bg-violet-50 p-2.5 flex flex-col gap-1.5">
+                  <!-- MultiForks — Tom 2026-06-06: "multifork needs to appear
+                       in resource menu (at least) under visualization and also
+                       multivision".  Placed FIRST in the Visualize sub-options
+                       because it's the most condensed single-frame view of the
+                       whole Resources → System ← Values fork pattern. -->
+                  <button
+                    type="button"
+                    class="text-left text-[11px] font-semibold text-violet-900
+                           bg-white rounded-lg px-3 py-2 border-2 border-indigo-300
+                           hover:border-indigo-500 hover:bg-indigo-50 hover:shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-indigo-400
+                           transition-all duration-100"
+                    title="🔱 MultiForks — Resources → System ← Values fork diagram with status colour bands, real numeric marker positions, and live Balance score."
+                    @click="openMultiForks()"
+                  >
+                    <MultiForksGlyph size="sm" class="inline-block align-middle mr-1" />
+                    MultiForks · System Fork Diagram
+                  </button>
                   <button
                     type="button"
                     class="text-left text-[11px] font-semibold text-violet-900
@@ -7115,7 +7244,118 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 </div>
               </div>
 
-              <!-- ── Pin 4: Potential Resource Optimization (OPTIMA) ──────── -->
+              <!-- ── Pin 4: MultiVision — SINGLE-action pin ──────────────────
+                   Tom 2026-06-06 (r05): "there is only 1 multivision tool, this
+                   has 4 or o pins different names all leading to same tool".
+                   Earlier r03 design used the 3-sub-button layout common to the
+                   other Resources pins (IMPROVE / ANALYZE / VISUALIZE) which has
+                   3 GENUINELY different sub-tools each.  MultiVision is ONE tool
+                   with multiple internal sections — the 4 buttons that all opened
+                   MultiVision misled the user that there were 4 separate tools.
+                   New design: ONE hero CTA + a non-clickable feature list ("What
+                   you get inside") so the pin reads honestly as a single portal
+                   into ONE tool.  No fake sub-buttons. -->
+              <div class="rounded-xl border-2 border-indigo-400 overflow-hidden shadow-md ring-1 ring-violet-300/40">
+                <div
+                  class="px-4 py-6 text-white"
+                  style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)"
+                >
+                  <button
+                    type="button"
+                    class="w-full flex flex-col items-center justify-center gap-1
+                           focus:outline-none focus:ring-2 focus:ring-white/60
+                           rounded-lg hover:bg-white/10 transition-colors duration-100 py-2"
+                    title="⚡ MultiVision — interactive Value ambition + Resource budget sliders · live VDT consequences (funded solutions, per-Value delivery %, balance score, tradeoff insights) · play with the sliders until the balance feels right, then use it as the starting point for solutions, Evo Steps, and tasks · Tom Gilb 2026-06-06: VDT-grounded · click to open"
+                    @click="openMultiVision()"
+                  >
+                    <!-- Custom slider-pair glyph: two horizontal slider tracks with thumbs -->
+                    <svg width="64" height="48" viewBox="0 0 64 48" fill="none" aria-hidden="true">
+                      <rect x="4" y="10" width="20" height="6" rx="3" fill="#fbbf24" />
+                      <rect x="22" y="10" width="20" height="6" rx="3" fill="#10b981" />
+                      <rect x="40" y="10" width="20" height="6" rx="3" fill="#a78bfa" />
+                      <circle cx="34" cy="13" r="5" fill="white" stroke="#4338ca" stroke-width="2" />
+                      <text x="4" y="6" fill="white" font-size="6" font-weight="700" font-family="sans-serif" opacity="0.85">VALUE</text>
+                      <rect x="4" y="32" width="56" height="6" rx="3" fill="rgba(255,255,255,0.25)" />
+                      <rect x="4" y="32" width="38" height="6" rx="3" fill="rgba(255,255,255,0.9)" />
+                      <circle cx="42" cy="35" r="5" fill="white" stroke="#7c3aed" stroke-width="2" />
+                      <text x="4" y="28" fill="white" font-size="6" font-weight="700" font-family="sans-serif" opacity="0.85">RESOURCE</text>
+                    </svg>
+                  </button>
+                  <div class="text-center mt-3">
+                    <span class="text-[9px] font-bold uppercase tracking-[0.18em] opacity-85">⚡ Balance</span>
+                    <div class="text-[14px] font-extrabold leading-tight mt-0.5">MultiVision</div>
+                    <div class="text-[10px] opacity-80 mt-0.5">Value ambition · Resource budget · live VDT</div>
+                  </div>
+                </div>
+                <!-- Single-tool body: non-interactive feature list + one hero CTA -->
+                <div class="bg-indigo-50 p-3 flex flex-col gap-2">
+                  <!-- "What you get inside" — descriptors, NOT buttons -->
+                  <div class="text-[10px] font-bold text-indigo-700 uppercase tracking-wide">
+                    Inside this one tool
+                  </div>
+                  <ul class="space-y-1 text-[11px] text-indigo-900 leading-tight">
+                    <li class="flex items-start gap-1.5">
+                      <span class="text-indigo-500 mt-0.5" aria-hidden="true">●</span>
+                      <span>Value × Resource sliders with 3-zone ambition (Tolerable / Goal / Wish)</span>
+                    </li>
+                    <li class="flex items-start gap-1.5">
+                      <span class="text-indigo-500 mt-0.5" aria-hidden="true">●</span>
+                      <span>Funded solutions preview · ranked by Value-per-Cost</span>
+                    </li>
+                    <li class="flex items-start gap-1.5">
+                      <span class="text-indigo-500 mt-0.5" aria-hidden="true">●</span>
+                      <span>Balance score gauge + green / amber / red breakdown</span>
+                    </li>
+                    <li class="flex items-start gap-1.5">
+                      <span class="text-indigo-500 mt-0.5" aria-hidden="true">●</span>
+                      <span>Tradeoff insights — "lower Wish on X to fund Y"</span>
+                    </li>
+                    <li class="flex items-start gap-1.5">
+                      <MultiForksGlyph size="sm" class="shrink-0 mt-0.5" />
+                      <span>MultiForks · paired system fork diagram</span>
+                    </li>
+                  </ul>
+                  <!-- ONE hero CTA — full width -->
+                  <button
+                    type="button"
+                    class="w-full text-center text-[12px] font-extrabold py-2.5 mt-1
+                           rounded-lg text-white shadow-md
+                           transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]
+                           focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    style="background: linear-gradient(135deg, #4f46e5, #7c3aed)"
+                    title="Open MultiVision — the single Value × Resource balance sandbox"
+                    @click="openMultiVision()"
+                  >⚡ Open MultiVision</button>
+                  <!-- MultiForks secondary CTA — Tom 2026-06-06: "multifork
+                       needs to appear in resource menu under visualization and
+                       also multivision".  Inside the MultiVision pin so users
+                       see MultiForks is the paired-view sibling. -->
+                  <button
+                    type="button"
+                    class="w-full text-center text-[11px] font-bold py-2 rounded-lg
+                           bg-white text-indigo-700 border-2 border-indigo-300
+                           hover:bg-indigo-50 hover:border-indigo-500 shadow-sm
+                           transition-all duration-150
+                           focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    title="MultiForks — paired Resources → System ← Values fork diagram. Marker positions reflect the real numeric thresholds you've specified. Status colour bands. Same Balance score as MultiVision."
+                    @click="openMultiForks()"
+                  >
+                    <MultiForksGlyph size="sm" class="inline-block align-middle mr-1" />
+                    Open MultiForks
+                  </button>
+                  <!-- Smaller secondary link -->
+                  <button
+                    type="button"
+                    class="text-center text-[10px] font-semibold text-slate-600
+                           hover:text-slate-900 hover:underline focus:outline-none
+                           focus-visible:ring-2 focus-visible:ring-slate-400 rounded"
+                    title="Other resource tools — OPTIMA optimization, KISS analysis, Value Flow Diagram"
+                    @click="optimaOpen = true"
+                  >⋯ Other resource tools</button>
+                </div>
+              </div>
+
+              <!-- ── Pin 5: Potential Resource Optimization (OPTIMA) ──────── -->
               <div class="rounded-xl border-2 border-amber-300 overflow-hidden shadow-sm">
                 <!-- Pin header — OptimaGlyph (dots + threshold lines + yellow circle) -->
                 <div class="bg-gradient-to-br from-amber-400 to-orange-600 px-4 py-6 text-white">
@@ -7510,6 +7750,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span>Value Flow</span>
           </button>
 
+          <!-- MultiVision button — Stage 3 action bar -->
+          <button
+            v-if="currentSpec"
+            type="button"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
+                   text-white text-sm font-semibold
+                   hover:opacity-90 hover:shadow-md
+                   focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-1
+                   transition-all duration-150 shadow-sm"
+            style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)"
+            aria-label="Open MultiVision — balance Values and Resources"
+            title="⚡ MultiVision — slide Value ambition and Resource budget sliders, see consequence live"
+            @click="openMultiVision()"
+          >
+            <span class="text-base" aria-hidden="true">⚡</span>
+            <span>MultiVision</span>
+          </button>
+
           <!-- Copy + Email at TOP — Tom 2026-06-04 DD-014 application:
                sharable content (Value Flow + Impact Estimation) needs top + bottom share pins. -->
           <button
@@ -7668,13 +7926,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="flex flex-wrap items-center gap-2 px-4 py-2.5 mb-6 rounded-b-xl
                  bg-amber-50 border border-t-0 border-amber-200"
         >
-          <span class="text-[11px] text-amber-700 font-semibold mr-auto">V × Evo Step Impact</span>
+          <span class="text-[11px] text-amber-700 font-semibold mr-auto">Value × Evo Step Impact</span>
           <button
             type="button"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                    bg-emerald-50 border border-emerald-400 text-emerald-700
                    hover:bg-emerald-100 transition-colors"
-            title="Copy this V × Evo Step table as colourful HTML — paste into Keynote, Mail, or Notes"
+            title="Copy this Value × Evo Step table as colourful HTML — paste into Keynote, Mail, or Notes"
             @click="copyImpactStepTable()"
           ><CopyGlyph size="compact" />Copy</button>
           <button
@@ -7682,7 +7940,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                    bg-blue-50 border border-blue-400 text-blue-700
                    hover:bg-blue-100 transition-colors"
-            title="Email this V × Evo Step table — opens Mail, ⌘V to paste colourful version"
+            title="Email this Value × Evo Step table — opens Mail, ⌘V to paste colourful version"
             @click="emailImpactStepTable()"
           ><EmailGlyph size="compact" />Email</button>
           <button
@@ -7690,7 +7948,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                    bg-violet-50 border border-violet-400 text-violet-700
                    hover:bg-violet-100 transition-colors"
-            title="Download this V × Evo Step table as an HTML file"
+            title="Download this Value × Evo Step table as an HTML file"
             @click="downloadImpactStepTable()"
           ><GetGlyph size="compact" />Download</button>
         </div>
@@ -7712,13 +7970,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="flex flex-wrap items-center gap-2 px-4 py-2.5 mb-6 rounded-b-xl
                  bg-indigo-50 border border-t-0 border-indigo-200"
         >
-          <span class="text-[11px] text-indigo-700 font-semibold mr-auto">V × Solution Impact</span>
+          <span class="text-[11px] text-indigo-700 font-semibold mr-auto">Value × Solution Impact</span>
           <button
             type="button"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                    bg-emerald-50 border border-emerald-400 text-emerald-700
                    hover:bg-emerald-100 transition-colors"
-            title="Copy this V × Solution table as colourful HTML — paste into Keynote, Mail, or Notes"
+            title="Copy this Value × Solution table as colourful HTML — paste into Keynote, Mail, or Notes"
             @click="copyImpactSolutionTable()"
           ><CopyGlyph size="compact" />Copy</button>
           <button
@@ -7726,7 +7984,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                    bg-blue-50 border border-blue-400 text-blue-700
                    hover:bg-blue-100 transition-colors"
-            title="Email this V × Solution table — opens Mail, ⌘V to paste colourful version"
+            title="Email this Value × Solution table — opens Mail, ⌘V to paste colourful version"
             @click="emailImpactSolutionTable()"
           ><EmailGlyph size="compact" />Email</button>
           <button
@@ -7734,7 +7992,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                    bg-violet-50 border border-violet-400 text-violet-700
                    hover:bg-violet-100 transition-colors"
-            title="Download this V × Solution table as an HTML file"
+            title="Download this Value × Solution table as an HTML file"
             @click="downloadImpactSolutionTable()"
           ><GetGlyph size="compact" />Download</button>
         </div>
@@ -7760,7 +8018,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
                   aria-hidden="true">{{ currentStageInfo.stage }}</span>
             <span class="shrink-0 inline-flex items-center justify-center bg-white rounded-lg p-1 shadow-sm">
-              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" :no-detail-click="true" />
+              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" />
             </span>
             <span class="flex flex-col items-start leading-tight">
               <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-indigo-200">Stage Now</span>
@@ -7920,7 +8178,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
                   aria-hidden="true">{{ currentStageInfo.stage }}</span>
             <span class="shrink-0 inline-flex items-center justify-center bg-white rounded-lg p-1 shadow-sm">
-              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" :no-detail-click="true" />
+              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" />
             </span>
             <span class="flex flex-col items-start leading-tight">
               <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-indigo-200">Stage Now</span>
@@ -8199,7 +8457,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span class="text-[11px] font-extrabold leading-none bg-black/60 text-white rounded-md px-2 py-1.5"
                   aria-hidden="true">{{ currentStageInfo.stage }}</span>
             <span class="shrink-0 inline-flex items-center justify-center bg-white rounded-lg p-1 shadow-sm">
-              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" :no-detail-click="true" />
+              <PlTypeIcon :pl-type="currentStageInfo.plType" size="lg" />
             </span>
             <span class="flex flex-col items-start leading-tight">
               <span class="text-[9px] font-semibold uppercase tracking-[0.15em] text-emerald-100">Stage Now</span>
@@ -8487,6 +8745,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
     <!-- Focus mode — blur backdrop + countdown chip (z-[880], below focused panel z-[920]) -->
     <FocusModeBackdrop />
 
+    <!-- Universal page-level scroll pin — Tom 2026-06-06: "the resources stage
+         window, and all other stage windows that scroll need the scroll pin
+         with % and arrows".  Watches window.scrollY and renders the same
+         "% shown" pill ScrollContainer renders inside scrollable panels — but
+         at the VIEWPORT level, so every stage view (Stage 1 entry, Stage 2
+         Evo Plan, Stage 3 Impact, Stage 10 Resources, Study-Act etc.) gets
+         the indicator automatically without per-stage wiring.  Naturally
+         covered by any modal backdrop (z-[400+]) — no explicit suppress
+         needed since the pin sits at z-[60]. -->
+    <PageScrollPin />
+
 <!-- Feature #40: Value Delivery Replay overlay -->
     <ReplayOverlay
       :steps="confirmedSteps"
@@ -8676,6 +8945,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @close="visualiseOpen = false; _vizHighlightId = ''; _vizInitialTab = ''"
       @open-heatlane="visualiseOpen = false; heatLaneOpen = true"
       @open-evo-simulator="visualiseOpen = false; evoSimulatorOpen = true"
+      @open-multiforks="visualiseOpen = false; openMultiForks()"
       @open-value-flow="visualiseOpen = false; valueFlowOpen = true"
       @open-editor="({ tab, entryId }) => _openSpecEditor({ tab, entryId, returnTo: 'visualise' })"
       @node-relations-click="({ tab, entryId }) => _openSdr(tab, entryId, 'visualise')"
@@ -8805,7 +9075,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     />
 
     <!-- Planning Models panel — browse, rename, delete, restore saved models -->
-    <PlanModelPanel
+    <SpecModelPanel
       v-if="modelsOpen"
       @close="modelsOpen = false"
       @load="handleRestoreModel"

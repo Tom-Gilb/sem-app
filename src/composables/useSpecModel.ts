@@ -203,6 +203,19 @@ export interface SpecModel {
    * Optional for backwards-compat: old records default to 'week' via migration.
    */
   evoCycleLength?: 'day' | 'week' | 'month' | 'quarter'
+  /**
+   * Project DEADLINE — scalar Condition [When] applying to the whole spec.
+   * Tom Gilb 2026-06-06: "An evo step is to bring in the date condition. Time
+   * is very critical. It is unrealistic to not include it any longer. Project
+   * DEADLINE, it is sufficient to articulate Deadline = ? initially and have
+   * an edit capability."
+   *
+   * Free-text initially (e.g. "?", "2027-Q1", "60 days from kickoff", "before
+   * EU AI Act enforcement").  Later schema slices should add structured Date /
+   * Event variants and propagate to Benchmark + per-entry Condition fields.
+   * Default '?' means "not yet articulated".
+   */
+  deadline?: string
 }
 
 /** @deprecated Use SpecModel instead */
@@ -395,6 +408,7 @@ function _migrate(raw: any): SpecModel {
 
   // evoCycleLength: new field — default 'week' (the standard Evo sprint cadence)
   if (!raw.evoCycleLength) raw.evoCycleLength = 'week'
+  if (raw.deadline == null) raw.deadline = '?'   // r98 — backfill scalar Deadline default
 
   // CEntry schema migration (2026-05-15): limit → description + scope + rationale + source?
   // Old format: { description (gist), limit (binary rule) }
@@ -618,6 +632,8 @@ export function initSpecModel(spec: SpecBlock, name?: string): SpecModel {
     governance: { ...DEFAULT_GOVERNANCE, specOwners: [] },
     // Evo Cycle Length: default weekly cadence (Tom 2026-06-02 SEM App Book p.179)
     evoCycleLength: 'week',
+    // Project DEADLINE: '?' until the user articulates it (Tom 2026-06-06 r98).
+    deadline: '?',
   }
   _current.value = model
   _persistCurrent()
@@ -688,6 +704,24 @@ export function setEvoCycleLength(length: 'day' | 'week' | 'month' | 'quarter'):
   const updated: SpecModel = {
     ..._current.value,
     evoCycleLength: length,
+    updatedAt: new Date().toISOString(),
+  }
+  _current.value = updated
+  _persistCurrent()
+  _upsertHistory(updated)
+}
+
+/**
+ * Set the project DEADLINE — scalar Condition [When] applying whole-spec.
+ * Tom Gilb 2026-06-06 r98 directive: every spec needs an articulable Deadline,
+ * even if initially "?".  Free-text accepted; future schema slices can add
+ * structured Date / Event variants.
+ */
+export function setDeadline(deadline: string): void {
+  if (!_current.value) return
+  const updated: SpecModel = {
+    ..._current.value,
+    deadline: deadline.trim() || '?',
     updatedAt: new Date().toISOString(),
   }
   _current.value = updated
@@ -1448,6 +1482,7 @@ export function useSpecModel() {
     initModelRecord,
     setWorkingMode,
     setEvoCycleLength,
+    setDeadline,    // r98 — scalar Deadline editor
     // Backward-compat aliases (deprecated — use new names above)
     initPlanModel: initSpecModel,
     bumpPlanVersion: bumpSpecVersion,

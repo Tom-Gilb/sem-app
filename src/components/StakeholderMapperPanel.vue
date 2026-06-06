@@ -30,6 +30,13 @@ import type { MappedStakeholder, StakeholderType, AttributeLevel } from '../comp
 import { useModelLibrary } from '../composables/useModelLibrary'
 import type { ModelEntry } from '../composables/useModelLibrary'
 import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
+import {
+  exportArtefact,
+  htmlEsc,
+  softWrap,
+  htmlDocumentShell,
+  sectionHeaderHtml,
+} from '../composables/useExportShared'
 
 const emit = defineEmits<{
   close: []
@@ -440,6 +447,74 @@ onUnmounted(() => {
   _stopStakeholderLoadingAnim()
   _stopDraftingAnim()
 })
+
+// ── Export · Full Model — Tom Gilb 2026-06-06 universal Export rule ──────────
+
+function _renderStakeholdersHtml(): string {
+  const sh = filteredStakeholders.value
+  const headerHtml = `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px 0;border-collapse:collapse;">
+  <tr><td bgcolor="#1d4ed8" style="background:#1d4ed8;color:#ffffff;padding:8px 22px;font:700 18px/1.4 'Helvetica Neue',Arial,sans-serif;">Stakeholder Mapper · Attribute Profiles</td></tr>
+  <tr><td bgcolor="#2563eb" style="background:#2563eb;color:#dbeafe;padding:4px 22px 10px 22px;font:600 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.12em;text-transform:uppercase;">${sh.length} stakeholders profiled</td></tr>
+</table>`
+
+  let shRows = ''
+  for (const s of sh) {
+    const nameLines = softWrap(s.name, 60)
+    const nameRowsHtml = nameLines.map((line, i) =>
+      `<tr><td bgcolor="#dbeafe" style="background:#dbeafe;color:#1e3a8a;padding:${i === 0 ? '4' : '1'}px 18px;font:${i === 0 ? '700' : '400'} 12px/1.5 'Helvetica Neue',Arial,sans-serif;">${htmlEsc(line)}</td></tr>`
+    ).join('')
+    const attrEntries = Object.entries(s.attributes ?? {})
+    const attrRowsHtml = attrEntries.length > 0
+      ? attrEntries.map(([attr, level]) =>
+          `<tr><td bgcolor="#ffffff" style="background:#ffffff;padding:2px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#1f2937;"><b>${htmlEsc(attr)}:</b> ${htmlEsc(String(level))}</td></tr>`
+        ).join('')
+      : `<tr><td bgcolor="#fef3c7" style="background:#fef3c7;color:#78350f;padding:3px 18px;font:400 10px/1.4 'Helvetica Neue',Arial,sans-serif;font-style:italic;">No attributes profiled yet.</td></tr>`
+    shRows += `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 6px 0;border-collapse:collapse;border:1px solid #93c5fd;">
+  <tr><td bgcolor="#1d4ed8" style="background:#1d4ed8;color:#ffffff;padding:3px 18px;font:700 10px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.08em;text-transform:uppercase;">${htmlEsc(s.type)} · ${htmlEsc(s.id)}</td></tr>
+  ${nameRowsHtml}
+  ${attrRowsHtml}
+</table>`
+  }
+
+  return htmlDocumentShell({
+    title: 'Stakeholder Mapper',
+    bodyHtml: headerHtml + sectionHeaderHtml(`STAKEHOLDERS · ${sh.length}`, '#1d4ed8') + shRows,
+  })
+}
+
+function _renderStakeholdersPlainText(): string {
+  const sh = filteredStakeholders.value
+  const HR = '═'.repeat(56)
+  const SR = '─'.repeat(56)
+  const lines: string[] = []
+  lines.push(HR)
+  lines.push('Stakeholder Mapper · Attribute Profiles')
+  lines.push(`${sh.length} stakeholders profiled`)
+  lines.push(HR)
+  lines.push('')
+  for (const s of sh) {
+    lines.push(`${s.id} (${s.type}): ${s.name}`)
+    const attrEntries = Object.entries(s.attributes ?? {})
+    if (attrEntries.length > 0) {
+      for (const [attr, level] of attrEntries) {
+        lines.push(`  ${attr}: ${level}`)
+      }
+    } else {
+      lines.push('  (no attributes profiled yet)')
+    }
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
+async function exportStakeholders(): Promise<void> {
+  await exportArtefact({
+    htmlText:     _renderStakeholdersHtml(),
+    plainText:    _renderStakeholdersPlainText(),
+    subject:      `Stakeholder Mapper · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'Stakeholder Mapper',
+  })
+}
 </script>
 
 <template>
@@ -488,6 +563,18 @@ onUnmounted(() => {
           @click="emit('open-agents')"
         >
           <span aria-hidden="true">🦾</span> Agents
+        </button>
+        <!-- ⬇ Export · Tom Gilb 2026-06-06 universal Export-on-all-windows rule -->
+        <button
+          type="button"
+          class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg
+                 bg-emerald-500/30 hover:bg-emerald-500/50 text-white text-xs font-semibold
+                 border border-emerald-300/50 hover:border-emerald-200 transition-colors"
+          title="⬇ Export Stakeholder Map — preview window with 100% of the stakeholders + attribute profiles + Glossary footnote · clipboard + Mail to Tom@Gilb.com"
+          aria-label="Export Stakeholder Map — preview + clipboard + Mail"
+          @click="exportStakeholders"
+        >
+          ⬇ Export
         </button>
         <CloseDot
           variant="on-dark"

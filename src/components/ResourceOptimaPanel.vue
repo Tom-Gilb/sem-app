@@ -33,6 +33,13 @@ import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import OptimaGlyph from './icons/OptimaGlyph.vue'
 import ResourceArtsyGlyph from './icons/ResourceArtsyGlyph.vue'
+import {
+  exportArtefact,
+  htmlEsc,
+  softWrap,
+  htmlDocumentShell,
+  sectionHeaderHtml,
+} from '../composables/useExportShared'
 
 // UNIT_TYPE=Panel
 
@@ -49,7 +56,12 @@ const emit = defineEmits<{
 // ── Keyboard close ──────────────────────────────────────────────────────────
 function onKey(e: KeyboardEvent) { if (e.key === 'Escape') emit('close') }
 onMounted(() => document.addEventListener('keydown', onKey))
-onUnmounted(() => document.removeEventListener('keydown', onKey))
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKey)
+  if (vibrateTimer)    clearTimeout(vibrateTimer)
+  if (consequenceTimer) clearTimeout(consequenceTimer)
+  if (rebalanceTimer)  clearTimeout(rebalanceTimer)
+})
 
 // ── Data model ───────────────────────────────────────────────────────────────
 
@@ -125,6 +137,16 @@ watch(() => props.spec, () => { entries.value = makeEntries() }, { deep: true })
 const vibrating = ref<Set<string>>(new Set())  // top-3 impacted — vibrate 2s then stop
 const violating = ref<Set<string>>(new Set())  // below Tolerable — shake continuously
 let vibrateTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Rebalancing feedback — brief confirmation after each action ───────────────
+const lastRebalanceAction = ref<string | null>(null)
+let rebalanceTimer: ReturnType<typeof setTimeout> | null = null
+
+function showRebalanceFeedback(msg: string) {
+  lastRebalanceAction.value = msg
+  if (rebalanceTimer) clearTimeout(rebalanceTimer)
+  rebalanceTimer = setTimeout(() => { lastRebalanceAction.value = null }, 3000)
+}
 
 // ── Consequence log — shows what changed after each slider move ───────────────
 interface ConsequenceEntry {
@@ -212,12 +234,41 @@ function fixViolations() {
   updateViolations()
 }
 
+// ── Rebalancing actions ───────────────────────────────────────────────────────
+
+/**
+ * Lifts every resource currently below its Goal threshold up to the Goal position,
+ * cascading value updates live. This is what the "↑ Lift lowest resources to Goal"
+ * button does — it is NOT the same as fixViolations (which only restores to Tolerable).
+ */
+function liftToGoal() {
+  const belowGoal = resourceEntries.value.filter(r => r.current < r.goalPos)
+  if (belowGoal.length === 0) {
+    showRebalanceFeedback('✓ All resources already at or above Goal — no change needed')
+    return
+  }
+  for (const r of belowGoal) onResourceSlider(r.id, r.goalPos)
+  showRebalanceFeedback(`↑ ${belowGoal.length} resource${belowGoal.length !== 1 ? 's' : ''} lifted to Goal — values updated`)
+}
+
+/**
+ * Reduces every resource slider by 20%, flooring at tolerablePos + 5.
+ * Lets the planner explore whether Values hold at lower cost (DEEP theory).
+ */
+function reduceAllResources() {
+  const resources = resourceEntries.value
+  for (const r of resources)
+    onResourceSlider(r.id, Math.max(r.tolerablePos + 5, Math.round(r.current * 0.8)))
+  showRebalanceFeedback(`↓ All ${resources.length} resources reduced 20% — check values for Tolerable violations`)
+}
+
 // ── Reset ────────────────────────────────────────────────────────────────────
 
 function reset() {
   entries.value = makeEntries()
   vibrating.value = new Set()
   violating.value = new Set()
+  showRebalanceFeedback('↺ All entries reset to starting Goal positions')
 }
 
 // ── Status helpers ───────────────────────────────────────────────────────────
@@ -241,6 +292,97 @@ const valueEntries    = computed(() => entries.value.filter(e => e.type === 'val
 const resourceEntries = computed(() => entries.value.filter(e => e.type === 'resource'))
 const hasViolations   = computed(() => violating.value.size > 0)
 const violationCount  = computed(() => violating.value.size)
+
+// ── Export ───────────────────────────────────────────────────────────────────
+// Tom Gilb 2026-06-06: Export button on every substantial window. OPTIMA's
+// state at export = current slider positions, status colour bands, violation
+// count, V×R ratios (if supplied). One HTML doc, 100% of the model visible.
+
+function statusBgHex(e: OptimaEntry): { bg: string; fg: string; name: string } {
+  if (e.current >= e.wishPos)      return { bg: '#ede9fe', fg: '#5b21b6', name: 'Wish ✦ (beyond commitment)' }
+  if (e.current >= e.goalPos)      return { bg: '#d1fae5', fg: '#065f46', name: 'Goal ✓ (at commitment)' }
+  if (e.current >= e.tolerablePos) return { bg: '#fef3c7', fg: '#78350f', name: 'Tolerable (Constraint MET)' }
+  return                                  { bg: '#fee2e2', fg: '#991b1b', name: 'VIOLATION (Constraint NOT met)' }
+}
+
+function _renderOptimaEntryRow(e: OptimaEntry, accentBg: string): string {
+  const status = statusBgHex(e)
+  const labelLines = softWrap(e.label, 60)
+  const labelRows = labelLines.map((line, i) =>
+    `<tr><td bgcolor="${status.bg}" style="background:${status.bg};color:${status.fg};padding:${i === 0 ? '4' : '1'}px 18px;font:${i === 0 ? '700' : '400'} 12px/1.5 'Helvetica Neue',Arial,sans-serif;">${i === 0 ? `<b>${htmlEsc(e.id)}</b> · ` : ''}${htmlEsc(line)}</td></tr>`
+  ).join('')
+  return `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 4px 0;border-collapse:collapse;border:1px solid #cbd5e1;">
+  <tr><td bgcolor="${accentBg}" style="background:${accentBg};color:#ffffff;padding:3px 18px;font:700 10px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.1em;text-transform:uppercase;">${e.type === 'value' ? 'VALUE' : 'RESOURCE'}</td></tr>
+  ${labelRows}
+  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:4px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#1f2937;">Current: <b>${e.current}</b>${e.unit ? ' ' + htmlEsc(e.unit) : ''} · Tolerable @ ${e.tolerablePos} · Goal @ ${e.goalPos} · Wish @ ${e.wishPos}</td></tr>
+  <tr><td bgcolor="${status.bg}" style="background:${status.bg};color:${status.fg};padding:4px 18px;font:700 11px/1.4 'Helvetica Neue',Arial,sans-serif;">Status: ${status.name}</td></tr>
+</table>`
+}
+
+function _renderOptimaHtml(): string {
+  const vRows = valueEntries.value.map(e => _renderOptimaEntryRow(e, '#7c3aed')).join('')
+  const rRows = resourceEntries.value.map(e => _renderOptimaEntryRow(e, '#c2410c')).join('')
+  const violationHeader = hasViolations.value
+    ? `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 8px 0;border-collapse:collapse;"><tr><td bgcolor="#dc2626" style="background:#dc2626;color:#ffffff;padding:8px 18px;font:700 12px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.12em;text-transform:uppercase;">⚠ ${violationCount.value} Constraint Violation${violationCount.value !== 1 ? 's' : ''} — entry below Tolerable</td></tr></table>`
+    : `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 8px 0;border-collapse:collapse;"><tr><td bgcolor="#16a34a" style="background:#16a34a;color:#ffffff;padding:8px 18px;font:700 12px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.12em;text-transform:uppercase;">✓ No Constraint violations — every entry MEETS its Tolerable threshold</td></tr></table>`
+
+  const headerBlock = `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px 0;border-collapse:collapse;">
+  <tr><td bgcolor="#c2410c" style="background:#c2410c;color:#ffffff;padding:8px 22px;font:700 18px/1.4 'Helvetica Neue',Arial,sans-serif;">OPTIMA · Potential Resource Optimization</td></tr>
+  <tr><td bgcolor="#ea580c" style="background:#ea580c;color:#fff7ed;padding:4px 22px 10px 22px;font:600 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.12em;text-transform:uppercase;">Balancing Critical Values — DEEP theory (Tom Gilb, OPTIMA book 2024)</td></tr>
+</table>`
+
+  return htmlDocumentShell({
+    title: 'OPTIMA Resource Optimization',
+    bodyHtml: headerBlock + violationHeader +
+      sectionHeaderHtml(`VALUES · ${valueEntries.value.length} entries`, '#5b21b6') + vRows +
+      sectionHeaderHtml(`RESOURCES · ${resourceEntries.value.length} entries`, '#c2410c') + rRows,
+  })
+}
+
+function _renderOptimaPlainText(): string {
+  const HR = '═'.repeat(56)
+  const SR = '─'.repeat(56)
+  const lines: string[] = []
+  lines.push(HR)
+  lines.push('OPTIMA · Potential Resource Optimization')
+  lines.push('DEEP theory — Tom Gilb, OPTIMA book 2024')
+  lines.push(HR)
+  lines.push('')
+  if (hasViolations.value) {
+    lines.push(`⚠ ${violationCount.value} Constraint Violation${violationCount.value !== 1 ? 's' : ''} — at least one entry sits below its Tolerable threshold`)
+  } else {
+    lines.push('✓ No Constraint violations — every entry MEETS its Tolerable threshold')
+  }
+  lines.push('')
+  lines.push(`VALUES · ${valueEntries.value.length} entries`)
+  lines.push(SR)
+  for (const e of valueEntries.value) {
+    const s = statusBgHex(e)
+    lines.push(`${e.id}: ${e.label}`)
+    lines.push(`  Current: ${e.current}${e.unit ? ' ' + e.unit : ''}   Tolerable @ ${e.tolerablePos}   Goal @ ${e.goalPos}   Wish @ ${e.wishPos}`)
+    lines.push(`  Status:  ${s.name}`)
+    lines.push('')
+  }
+  lines.push(`RESOURCES · ${resourceEntries.value.length} entries`)
+  lines.push(SR)
+  for (const e of resourceEntries.value) {
+    const s = statusBgHex(e)
+    lines.push(`${e.id}: ${e.label}`)
+    lines.push(`  Current: ${e.current}${e.unit ? ' ' + e.unit : ''}   Tolerable @ ${e.tolerablePos}   Goal @ ${e.goalPos}   Wish @ ${e.wishPos}`)
+    lines.push(`  Status:  ${s.name}`)
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
+async function exportOptima(): Promise<void> {
+  await exportArtefact({
+    htmlText:     _renderOptimaHtml(),
+    plainText:    _renderOptimaPlainText(),
+    subject:      `OPTIMA · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'OPTIMA',
+  })
+}
 </script>
 
 <template>
@@ -521,7 +663,7 @@ const violationCount  = computed(() => violating.value.size)
                   min="0" max="150" step="1"
                   :value="entry.current"
                   :title="`${entry.label} — drag to adjust budget. Current: ${Math.round(entry.current)}% of Goal. Moving this slider recalculates all Value estimates and shows tradeoffs.`"
-                  class="absolute inset-0 w-full opacity-0 cursor-pointer z-20"
+                  class="absolute inset-0 w-full opacity-[0.001] cursor-pointer z-20"
                   @input="onResourceSlider(entry.id, +($event.target as HTMLInputElement).value)"
                 />
                 <!-- Visual progress bar -->
@@ -575,8 +717,8 @@ const violationCount  = computed(() => violating.value.size)
           class="text-[11px] font-semibold bg-emerald-900 text-emerald-300 border border-emerald-700
                  rounded-lg px-3 py-1.5 hover:bg-emerald-800 focus:outline-none focus:ring-2
                  focus:ring-emerald-400 transition-colors"
-          title="Auto-increase resources with lowest current allocation until the most values reach Goal — OPTIMA rebalancing"
-          @click="fixViolations">
+          title="Find any resource currently below Goal and lift it to the Goal position — values cascade live"
+          @click="liftToGoal">
           ↑ Lift lowest resources to Goal
         </button>
         <button type="button"
@@ -584,10 +726,7 @@ const violationCount  = computed(() => violating.value.size)
                  rounded-lg px-3 py-1.5 hover:bg-amber-800 focus:outline-none focus:ring-2
                  focus:ring-amber-400 transition-colors"
           title="Reduce all resource sliders by 20% — explore whether Values hold at lower cost (DEEP theory: find the minimum resource set that still meets all Goals)"
-          @click="() => {
-            for (const r of entries.value.filter((e: OptimaEntry) => e.type === 'resource'))
-              onResourceSlider(r.id, Math.max(r.tolerablePos + 5, Math.round(r.current * 0.8)))
-          }">
+          @click="reduceAllResources">
           ↓ −20% all resources (test Goals hold)
         </button>
         <button type="button"
@@ -599,6 +738,13 @@ const violationCount  = computed(() => violating.value.size)
           ↺ Reset all to Goal
         </button>
       </div>
+      <!-- Action feedback — brief confirmation after any rebalance button -->
+      <Transition name="slide-down">
+        <p v-if="lastRebalanceAction"
+          class="mt-2 text-[11px] font-semibold text-emerald-300">
+          {{ lastRebalanceAction }}
+        </p>
+      </Transition>
     </div>
 
     <!-- ── Bottom action bar ──────────────────────────────────────────────── -->
@@ -609,6 +755,16 @@ const violationCount  = computed(() => violating.value.size)
                rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors"
         @click="fixViolations">
         Fix {{ violationCount }} Constraint Violation{{ violationCount !== 1 ? 's' : '' }} &#8594;
+      </button>
+      <!-- ⬇ Export · Tom Gilb 2026-06-06 universal Export-on-all-windows rule.
+           See useExportShared.ts + rule_export_button_on_all_windows.md. -->
+      <button type="button"
+        class="text-[12px] font-semibold text-emerald-100 bg-emerald-700 hover:bg-emerald-600 px-4 py-2
+               rounded-lg border border-emerald-500
+               focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-colors"
+        title="⬇ Export OPTIMA · opens preview window with 100% of the model · clipboard ready · Mail to Tom@Gilb.com with paste cue · includes Glossary footnote"
+        @click="exportOptima">
+        ⬇ Export · Full Model
       </button>
       <button type="button"
         class="text-[12px] font-semibold text-white bg-slate-700 hover:bg-slate-600 px-4 py-2

@@ -107,6 +107,12 @@ const allSections = computed<SectionDef[]>(() => [
       { id: 'planTargets',      label: 'Spec Targets',    emoji: '🎯', thumb: 'planTargets',   tip: 'Set delivery targets and milestones' },
       { id: 'globalPriority',   label: 'Global Priority', emoji: '🏆', thumb: 'priorityGlyph', tip: 'Full plan priority ranking: [A>B>C] across all entries', disabled: !props.hasSpec },
       {
+        id: 'multiVision', label: 'MultiVision', emoji: '⚡', thumb: 'emoji' as const,
+        tip: 'VDT-grounded sandbox: Value ambition sliders + Resource budget sliders → live consequences (funded solutions, per-Value delivery %, balance score). Play until the balance feels right.',
+        disabled: !props.hasSpec,
+        disabledTip: 'Load or create a spec first — MultiVision balances real Value + Resource entries from your plan.',
+      },
+      {
         id: 'evo-step-critique', label: 'Evo Critiquer',  emoji: '🔬', thumb: 'emoji',
         tip: 'AI reviews plan against all 9 Evo cycle steps — scores 10 health dimensions, critiques each step, deep-dives Value Delivery cycle',
         disabled: !props.hasConfirmedSteps,

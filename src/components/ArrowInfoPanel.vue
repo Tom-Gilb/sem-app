@@ -97,16 +97,21 @@ const SECTION_TINTS = [
             class="shrink-0 px-4 pt-4 pb-3 flex items-center gap-3"
             :style="headerGradient"
           >
-            <!-- FROM glyph (clickable for glyph info) -->
+            <!-- FROM glyph (clickable for glyph info) — dark disc + brightness so
+                 canonical colors read clearly on any gradient header background. -->
             <button
               type="button"
               class="shrink-0 opacity-90 hover:opacity-100 transition-opacity
-                     focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded"
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-xl"
               :title="`${info.fromLabel} (${info.fromType}) — click for glyph info`"
               :aria-label="`${info.fromLabel} glyph — click for info`"
               @click="emit('open-glyph', info!.fromType)"
             >
-              <PlTypeIcon :pl-type="info.fromType" size="md" />
+              <div class="bg-slate-900 rounded-xl p-1.5 ring-1 ring-white/20">
+                <div style="filter: brightness(3.5); transform: scale(1.1)">
+                  <PlTypeIcon :pl-type="info.fromType" size="md" />
+                </div>
+              </div>
             </button>
 
             <!-- Wide concave arrow (88×44) — white on gradient -->
@@ -126,16 +131,22 @@ const SECTION_TINTS = [
                 fill="white" fill-opacity="0.9" />
             </svg>
 
-            <!-- TO glyph (clickable) -->
+            <!-- TO glyph (clickable) — same dark disc as FROM: slate-900 outer keeps
+                 contrast on any gradient header background; brightness(3.5) inner
+                 amplifies canonical glyph colors to vivid on dark disc. -->
             <button
               type="button"
               class="shrink-0 opacity-90 hover:opacity-100 transition-opacity
-                     focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded"
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-xl"
               :title="`${info.toLabel} (${info.toType}) — click for glyph info`"
               :aria-label="`${info.toLabel} glyph — click for info`"
               @click="emit('open-glyph', info!.toType)"
             >
-              <PlTypeIcon :pl-type="info.toType" size="md" />
+              <div class="bg-slate-900 rounded-xl p-1.5 ring-1 ring-white/20">
+                <div style="filter: brightness(3.5); transform: scale(1.1)">
+                  <PlTypeIcon :pl-type="info.toType" size="md" />
+                </div>
+              </div>
             </button>
 
             <!-- Close -->
