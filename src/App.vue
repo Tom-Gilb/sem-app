@@ -3643,10 +3643,19 @@ async function emailPlan(): Promise<void> {
 
 // Stage 7 email uses the shared useExportBanner singleton — no local banner state needed.
 
-/** Build the full colourful Stage 7 HTML: Planguage Spec + Value Flow SVG + IET tables.
- *  Tom 2026-06-06: "this top copy does not paste the contents below" — the Value Flow diagram
- *  was not included in the clipboard export.  Fix: serialize the live SVG from _vfEmbedBodyRef
- *  and embed it between the Spec and the IET table so paste-to-Keynote/Notes/Mail shows all three.
+/** Build the full Stage 7 HTML export: IET grid first (primary Stage 7 artefact),
+ *  then the colourful Planguage Spec for reference.
+ *
+ *  Layout rationale (Tom 2026-06-06: "does not give us the actual table but a series of
+ *  table components and their impacts"):
+ *  — The IET (Values × Solutions percentage grid) is Stage 7's PRIMARY output. It goes FIRST
+ *    so paste-to-Keynote puts the grid at the top slide / first table seen.
+ *  — SVG is NOT included in the clipboard HTML. When serialized SVG is pasted into Keynote
+ *    the diagram nodes (boxes for Tasks/Solutions/Values) render as "table components" and
+ *    the arrows read as "impacts" — exactly the confusion Tom reported. SVG stays in the
+ *    dedicated Download SVG button only.
+ *  — Colourful Planguage Spec follows the IET as secondary context.
+ *  — Every IET cell uses BOTH bgcolor= attribute (Keynote) AND inline style background (Mail/HTML).
  */
 function _buildStage7Html(): string {
   if (!currentSpec.value) return ''
@@ -3654,72 +3663,95 @@ function _buildStage7Html(): string {
   const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
   const date      = new Date().toISOString().slice(0, 10)
 
-  // 1. Colourful Planguage Spec (canonical entry-type colours).
-  let specHtml = ''
-  try { specHtml = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined) }
-  catch { specHtml = '<p style="color:red">Spec HTML build failed</p>' }
-
-  // 2. Value Flow SVG — serialize from the live DOM element so paste targets get the full diagram.
-  //    Wrapped in a section header + scrollable container so it reads cleanly when pasted.
-  let vfHtml = ''
-  try {
-    const svgEl = _vfEmbedBodyRef.value?.querySelector('svg')
-    if (svgEl) {
-      const svgStr = new XMLSerializer().serializeToString(svgEl)
-      vfHtml = `
-        <div style="margin-top:28px;margin-bottom:8px;background:#0f172a;color:#fff;
-                    padding:10px 14px;font-size:13px;font-weight:700;border-radius:6px 6px 0 0">
-          Value Flow Diagram · Tasks → Evo Steps → Solutions → Values → Functions → Stakeholders · ${date}
-        </div>
-        <div style="border:1px solid #e2e8f0;border-radius:0 0 6px 6px;overflow:auto;background:#fff;padding:12px">
-          ${svgStr}
-        </div>`
-    }
-  } catch { /* SVG not yet rendered — skip gracefully */ }
-
-  // 3. Value × Solution IET table (from capturedImpactMatrix).
+  // 1. IET table — Values (rows) × Solutions (columns) with % impact cells.
+  //    PRIMARY export artefact for Stage 7. Uses both bgcolor= (Keynote) + style background (HTML).
   const vals   = currentSpec.value.values
   const sols   = currentSpec.value.solutions
   const matrix = capturedImpactMatrix.value
   let ietHtml  = ''
   if (vals.length > 0 && sols.length > 0 && Object.keys(matrix).length > 0) {
-    const td  = 'padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;'
-    const th  = `${td}background:#1e293b;color:#fff;font-weight:700;`
-    const thV = `${td}background:#7c3aed;color:#fff;font-weight:700;`
-    let rows  = ''
+    const cellBase   = 'padding:8px 12px;border:1px solid #cbd5e1;font-size:12px;'
+    const bgHeader   = '#1e293b'; const fgHeader = '#ffffff'
+    const bgValueCol = '#4c1d95'; const fgValueCol = '#ffffff'
+    const bgHigh     = '#dcfce7'; const bgMid = '#fef9c3'
+    const bgLow      = '#fee2e2'; const bgNone = '#f8fafc'
+
+    // Solution column headers — show name (truncated) not just ID.
+    const hdrs = sols.map((s) =>
+      `<td bgcolor="${bgHeader}" style="${cellBase}background:${bgHeader};color:${fgHeader};font-weight:700;text-align:center">` +
+      `${s.id}<br><span style="font-size:10px;font-weight:400">${(s.description ?? '').slice(0, 28)}</span></td>`
+    ).join('')
+
+    let rows = ''
     for (const v of vals) {
       const cells = sols.map((s) => {
-        const val = matrix[v.id]?.[s.id] ?? 0
-        const bg  = val >= 70 ? '#dcfce7' : val >= 30 ? '#fef9c3' : val > 0 ? '#fee2e2' : '#f8fafc'
-        return `<td style="${td}background:${bg};text-align:center">${val > 0 ? val + '%' : '—'}</td>`
+        const pct = matrix[v.id]?.[s.id] ?? 0
+        const bg  = pct >= 70 ? bgHigh : pct >= 30 ? bgMid : pct > 0 ? bgLow : bgNone
+        const fg  = '#1e293b'
+        const lbl = pct > 0 ? `${pct}%` : '—'
+        return `<td bgcolor="${bg}" style="${cellBase}background:${bg};color:${fg};text-align:center;font-weight:${pct >= 70 ? '700' : '400'}">${lbl}</td>`
       }).join('')
-      rows += `<tr><td style="${thV}">${v.id} · ${v.description.slice(0, 50)}</td>${cells}</tr>`
+      rows += `<tr>
+        <td bgcolor="${bgValueCol}" style="${cellBase}background:${bgValueCol};color:${fgValueCol};font-weight:700">
+          ${v.id}<br><span style="font-size:10px;font-weight:400">${(v.description ?? '').slice(0, 40)}</span>
+        </td>${cells}</tr>`
     }
-    const hdrs = sols.map((s) => `<th style="${th}">${s.id}</th>`).join('')
+
     ietHtml = `
-      <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;margin-top:24px">
-        <tr><td colspan="${sols.length + 1}" style="background:#0f172a;color:#fff;padding:10px 14px;font-size:13px;font-weight:700">
-          Impact Estimation · Values × Solutions (IET) · ${date}
-        </td></tr>
-        <tr><th style="${th}">Value →</th>${hdrs}</tr>
+      <table cellpadding="0" cellspacing="0" border="0"
+             style="border-collapse:collapse;width:100%;margin-bottom:32px">
+        <tr>
+          <td colspan="${sols.length + 1}" bgcolor="${bgHeader}"
+              style="background:${bgHeader};color:${fgHeader};padding:12px 16px;
+                     font-size:14px;font-weight:700;letter-spacing:.02em">
+            ⊕ Impact Estimation Table · Values × Solutions · ${modelName} ${versTxt} · ${date}
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="${bgHeader}" style="${cellBase}background:${bgHeader};color:${fgHeader};font-weight:700">
+            Values ↓ / Solutions →
+          </td>
+          ${hdrs}
+        </tr>
         ${rows}
+        <tr>
+          <td colspan="${sols.length + 1}" style="padding:6px 12px;font-size:10px;color:#64748b">
+            Green ≥70% high impact · Yellow 30–69% partial · Red 1–29% low · — no impact recorded
+          </td>
+        </tr>
       </table>`
+  } else {
+    ietHtml = `<p style="color:#64748b;font-size:13px;margin-bottom:24px">
+      No Impact Estimation data yet — open the Value × Solution table on Stage 7 and enter impact percentages.</p>`
   }
 
-  // 4. Wrap in a minimal page shell.
+  // 2. Colourful Planguage Spec — canonical entry-type colours, secondary reference context.
+  let specHtml = ''
+  try { specHtml = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined) }
+  catch { specHtml = '<p style="color:red">Spec HTML build failed</p>' }
+
+  // 3. Wrap in page shell. IET first, spec second.
   return `<!doctype html><html><head><meta charset="utf-8">
     <title>Stage 7 · Evo Impact — ${modelName} ${versTxt} · ${date}</title>
     <style>body{margin:0;padding:24px;font-family:system-ui,sans-serif;background:#f8fafc}</style>
-    </head><body>${specHtml}${vfHtml}${ietHtml}</body></html>`
+    </head><body>
+      <h2 style="font-size:14px;color:#0f172a;margin:0 0 16px 0;font-family:system-ui,sans-serif">
+        Stage 7 · Evo Impact Export — ${modelName} ${versTxt} · ${date}
+      </h2>
+      ${ietHtml}
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0 24px">
+      <p style="font-size:11px;color:#64748b;margin:0 0 16px">Planguage Spec — full entry reference</p>
+      ${specHtml}
+    </body></html>`
 }
 
-/** Copy Stage 7 colourful HTML (Spec + Value Flow diagram + IET tables) to clipboard.
- *  Tom 2026-06-06: "this top copy does not paste the contents below" — fixed by adding
- *  the Value Flow SVG between the Spec and IET sections in _buildStage7Html(). */
+/** Copy Stage 7 colourful HTML (IET grid first, then full Spec) to clipboard.
+ *  IET is the PRIMARY Stage 7 artefact — it appears first so paste-to-Keynote
+ *  puts the grid at the top.  SVG is kept in the Download button only (not clipboard). */
 async function copyStage7(): Promise<void> {
   if (!currentSpec.value) { showToast('Nothing to copy — generate a Spec first', 4000); return }
   const ok = await exportCopy(_buildStage7Html(), 'Stage 7 · Evo Impact — paste colourful HTML via ⌘V')
-  showToast(ok ? '[*]=[*] Copied Stage 7 — Spec + Value Flow diagram + IET tables on clipboard' : 'Copy failed — check browser clipboard permissions', ok ? 4000 : 7000)
+  showToast(ok ? '[*]=[*] Copied Stage 7 — IET grid + Spec on clipboard (⌘V to paste)' : 'Copy failed — check browser clipboard permissions', ok ? 4000 : 7000)
 }
 
 /** Email Stage 7 — delegates to shared exportEmail() which copies HTML, shows ⌘V banner, opens Mail. */
