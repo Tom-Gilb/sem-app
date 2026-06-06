@@ -594,17 +594,38 @@ async function exportMultiVision(): Promise<void> {
                       <div class="flex items-baseline gap-1.5">
                         <span class="text-base" aria-hidden="true">⚖</span>
                         <span class="text-[11px] font-extrabold text-amber-900 uppercase">Principle of Reasonable Balance</span>
-                        <span class="ml-auto text-[9px] text-amber-700 italic">CE 2005</span>
+                        <span class="ml-auto text-[9px] text-amber-700 italic">CE 2005 · PP 2026</span>
                       </div>
+                      <p class="text-[9px] text-amber-700 italic leading-tight">"Unilateral extremes are extremely unreasonable" — Planguage Principles 2026</p>
                       <blockquote class="text-[11px] text-amber-950 leading-snug border-l-4 border-amber-400 pl-2 italic">
                         "Reach for dreams, but don't let one of them destroy all the others. You cannot require an arbitrary set of requirements. There must be balance between performance requirement levels, resources available and available design technology."
                         <footer class="not-italic text-[10px] text-amber-700 font-semibold mt-0.5">— Tom Gilb, <i>Competitive Engineering</i> (2005)</footer>
                       </blockquote>
+                      <!-- Planguage Principles 2026 full 4-point commentary on this principle -->
+                      <div class="rounded bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[10px] text-amber-900 leading-snug space-y-1">
+                        <p class="font-semibold text-[9px] uppercase tracking-wide text-amber-700">Planguage Principles 2026 — 4-point commentary</p>
+                        <p><b>1.</b> Conventional methods focus on one objective — "Very Yankee" — maximise one thing, ignore the others.</p>
+                        <p><b>2.</b> No one dominating objective exists; every real system serves multiple stakeholders with competing claims.</p>
+                        <p><b>3.</b> <b>Balance is 'harmony', is satisfaction, and maybe — happiness.</b></p>
+                        <p><b>4.</b> The <b>Impact Estimation Table (IET)</b> is the prime tool for balancing multiple factors. [VIET, Optima]</p>
+                      </div>
                       <div class="rounded bg-white/70 border border-amber-200 px-2.5 py-1.5 text-[10px] text-gray-800 leading-snug space-y-1">
                         <p><b>This IS what MultiVision does.</b>  Every slider move tests the principle.  When you raise a Value's required level you SEE the consequence — solutions that no longer reach it, the cost impact of the restatement, the funded set that has to be rebalanced.</p>
-                        <p class="text-gray-600">
-                          The companion principle from <b>Fred Brooks Jr.</b> (<i>The Design of Design</i>, 2010): an architect's job is not to maximise one thing but to <b>hold the system in equilibrium</b> — no single objective destroys the others.  Brooks gives the principle.  Planguage and the Impact Estimation Table give the <b>method</b> — concrete scoring of options against multiple values, defensible tradeoffs.
-                        </p>
+                        <!-- Brooks verbatim quotes from The Design of Design (2010) — Kindle screenshots in assets, 2026-06-06 -->
+                        <p class="text-[9px] font-semibold text-gray-600 uppercase tracking-wide mt-1">Fred Brooks Jr. — <i>The Design of Design</i> (2010) — verbatim</p>
+                        <blockquote class="text-[10px] text-gray-700 italic border-l-2 border-gray-300 pl-2">
+                          "Probably the best balance is achieved with concurrent engineering as the main design practice. Here, the true implementers are intimately involved in the design process; their broad experience provides the balance for a designer's limited implementation examples."
+                          <footer class="not-italic text-[9px] text-gray-500 mt-0.5">Ch. 15, p. 212</footer>
+                        </blockquote>
+                        <blockquote class="text-[10px] text-gray-700 italic border-l-2 border-gray-300 pl-2">
+                          "…driving, capable managers who continually balanced system function against schedule and cost."
+                          <footer class="not-italic text-[9px] text-gray-500 mt-0.5">Ch. 4, p. 63</footer>
+                        </blockquote>
+                        <blockquote class="text-[10px] text-gray-700 italic border-l-2 border-gray-300 pl-2">
+                          "…determining the peculiar needs and balances of each."
+                          <footer class="not-italic text-[9px] text-gray-500 mt-0.5">Ch. 11, p. 160</footer>
+                        </blockquote>
+                        <p class="text-gray-600 mt-1">Brooks gives the principle — balance is non-negotiable in any real design.  Planguage and the <b>Impact Estimation Table</b> give the <b>method</b>: concrete scoring of options against multiple values, defensible tradeoffs, visible to every stakeholder.</p>
                       </div>
                     </div>
 
