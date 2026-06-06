@@ -363,6 +363,30 @@ function _segStyle(initPos: number, currPos: number): Record<string, string> {
   return { left: `${l}%`, width: `${w}%` }
 }
 
+// ── Zone bar + dynamic track helpers (Tom 2026-06-06) ─────────────────────────
+// Three commitment zones driven by BOTH slider positions simultaneously.
+// Handles the edge case where Tolerable > Wish (user crossed thumbs): swap.
+
+function zoneWidths(id: string): { fail: number; tolerable: number; success: number } {
+  const rawT = vTolerableSliders[id] ?? 25
+  const rawW = vWishSliders[id]      ?? 75
+  const t = Math.min(rawT, rawW)
+  const w = Math.max(rawT, rawW)
+  return { fail: t, tolerable: w - t, success: 100 - w }
+}
+
+/** Dynamic track gradient for the Tolerable slider: red left of thumb, amber right. */
+function tolerableTrackStyle(id: string): string {
+  const t = vTolerableSliders[id] ?? 25
+  return `background: linear-gradient(to right, #ef4444 0%, #ef4444 ${t}%, #fbbf24 ${t}%, #fbbf24 100%)`
+}
+
+/** Dynamic track gradient for the Wish slider: amber left of thumb, emerald right. */
+function wishTrackStyle(id: string): string {
+  const w = vWishSliders[id] ?? 75
+  return `background: linear-gradient(to right, #fbbf24 0%, #fbbf24 ${w}%, #10b981 ${w}%, #10b981 100%)`
+}
+
 // Public accessors used in the template
 type TEntry = { id: string; tolerable: string; goal: string; wish?: string | null }
 
@@ -1053,32 +1077,56 @@ async function exportMultiVision(): Promise<void> {
                         class="v-slider-tolerable w-full"
                         :title="`😐 Neutral-face thumb = Tolerable Constraint border. Left of thumb (red zone) = 😟 project failure — below this level the WHOLE PROJECT FAILS (Glossary *539). At or right of thumb = 😐 just tolerable — escaping failure but not the committed promise.`"
                         :aria-label="`Tolerable Constraint setting for ${v.description}`"
-                        style="background: linear-gradient(to right, #ef4444 0%, #ef4444 50%, #fbbf24 50%, #fbbf24 100%)"
+                        :style="tolerableTrackStyle(v.id)"
                         @input="handleTolerableSlider(v.id, +($event.target as HTMLInputElement).value)"
                       />
                     </div>
 
-                    <!-- ── Zone legend — semantic meaning of commitment levels ──────
-                         Tom 2026-06-06: "below is unhappy smily, The wish goal
-                         level is success (Smiley)". Three zones on one horizontal
-                         line, anchored to the track width, so the user sees the
-                         emotional spectrum that maps onto both slider tracks. -->
-                    <div
-                      class="flex items-center justify-between px-0.5 -mt-1 select-none text-[9px]"
-                      aria-hidden="true"
-                    >
-                      <span class="flex flex-col items-center gap-0.5" title="Below Tolerable — project failure">
-                        <span class="text-base leading-none">😟</span>
-                        <span class="text-red-600 font-bold uppercase tracking-wide text-[7px]">Fail</span>
-                      </span>
-                      <span class="flex flex-col items-center gap-0.5" title="At Tolerable — just escaping failure (constraint border)">
-                        <span class="text-base leading-none">😐</span>
-                        <span class="text-amber-700 font-bold uppercase tracking-wide text-[7px]">Tolerable</span>
-                      </span>
-                      <span class="flex flex-col items-center gap-0.5" title="At Goal or Wish — committed promise reached or stakeholder dream satisfied">
-                        <span class="text-base leading-none">😊</span>
-                        <span class="text-violet-700 font-bold uppercase tracking-wide text-[7px]">Wish</span>
-                      </span>
+                    <!-- ── Dynamic 3-zone commitment bar (Tom 2026-06-06) ────────
+                         "colored lines showing RED below the constraint, yellow
+                         between tolerable and wish goal, and green after goals.
+                         With Text for 3 areas FAILED  TOLERABLE  SUCCESS"
+                         Widths driven live from both slider positions.
+                         Tolerable thumb = left boundary of TOLERABLE band.
+                         Wish thumb     = right boundary of TOLERABLE band.
+                         Handles thumb-cross (Tolerable > Wish) via zoneWidths(). -->
+                    <div class="rounded-lg overflow-hidden flex h-8 shadow-inner select-none -mt-0.5">
+                      <!-- FAILED: 0 → Tolerable position -->
+                      <div
+                        class="flex items-center justify-center shrink-0 overflow-hidden
+                               bg-red-500 transition-all duration-75"
+                        :style="{ width: `${zoneWidths(v.id).fail}%` }"
+                        :title="`😟 FAILED zone (${zoneWidths(v.id).fail}%) — below the Tolerable Constraint. The project fails to escape the failure threshold.`"
+                      >
+                        <span
+                          v-if="zoneWidths(v.id).fail >= 15"
+                          class="text-white font-black uppercase tracking-widest text-[7px] whitespace-nowrap px-1"
+                        >😟 FAILED</span>
+                      </div>
+                      <!-- TOLERABLE: Tolerable → Wish -->
+                      <div
+                        class="flex items-center justify-center shrink-0 overflow-hidden
+                               bg-amber-400 transition-all duration-75"
+                        :style="{ width: `${zoneWidths(v.id).tolerable}%` }"
+                        :title="`😐 TOLERABLE zone (${zoneWidths(v.id).tolerable}%) — between the Constraint and the Wish Target. Project survives but has not reached stakeholder satisfaction.`"
+                      >
+                        <span
+                          v-if="zoneWidths(v.id).tolerable >= 18"
+                          class="text-white font-black uppercase tracking-widest text-[7px] whitespace-nowrap px-1"
+                          style="text-shadow: 0 1px 2px rgba(0,0,0,0.4)"
+                        >😐 TOLERABLE</span>
+                      </div>
+                      <!-- SUCCESS: Wish → 100 -->
+                      <div
+                        class="flex items-center justify-center flex-1 overflow-hidden
+                               bg-emerald-500 transition-all duration-75"
+                        :title="`😊 SUCCESS zone (${zoneWidths(v.id).success}%) — at or beyond the Wish Target. Full stakeholder satisfaction.`"
+                      >
+                        <span
+                          v-if="zoneWidths(v.id).success >= 15"
+                          class="text-white font-black uppercase tracking-widest text-[7px] whitespace-nowrap px-1"
+                        >😊 SUCCESS</span>
+                      </div>
                     </div>
 
                     <!-- ── Wish Target slider ──────────────────────────────────── -->
@@ -1110,7 +1158,7 @@ async function exportMultiVision(): Promise<void> {
                         class="v-slider-wish w-full"
                         :title="`😊 Happy-face thumb = Wish Target (stakeholder dream level, Glossary *244). At this thumb: 😊 full stakeholder satisfaction — the best the stakeholder would pay for, beyond which they are indifferent. Project does NOT commit to Wish; Goal emerges from OPTIMA balancing.`"
                         :aria-label="`Wish Target setting for ${v.description}`"
-                        style="background: linear-gradient(to right, #fbbf24 0%, #fbbf24 50%, #a78bfa 50%, #a78bfa 100%)"
+                        :style="wishTrackStyle(v.id)"
                         @input="handleWishSlider(v.id, +($event.target as HTMLInputElement).value)"
                       />
                     </div>
