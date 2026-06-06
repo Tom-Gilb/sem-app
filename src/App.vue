@@ -63,6 +63,8 @@ import { useClarifyingQuestions } from './composables/useClarifyingQuestions'
 import { useSpecExport, exportPrioritisedPlan, exportWithTasks, serialisePlainText, exportWithTasksPlainText } from './composables/useSpecExport'
 import { openEml, textToEmailHtml } from './composables/useEmlExport'
 import { renderColorfulSpecHtml } from './composables/useColorfulSpecHtml'
+import { exportCopy, exportEmail, exportDownload } from './composables/useExportShared'
+import { useExportBanner } from './composables/useExportBanner'
 import { useAuth } from './composables/useAuth'
 import { useWorkspace } from './composables/useWorkspace'
 import { useLoadingState, _resetLoadingStateForTest as _forceClearLoading } from './composables/useLoadingState'
@@ -266,6 +268,7 @@ const { startLoading, stopLoading, isLoading } = useLoadingState()
 // --- Session persistence (crash/eviction recovery) ---
 const { save: _saveSession, load: _loadSession, clear: _clearSession, timeAgo } = useSessionPersist()
 const { toast: globalToast, showToast } = useToast()
+const { bannerVisible: exportBannerVisible, bannerLabel: exportBannerLabel, hideExportEmailBanner } = useExportBanner()
 /** True when the current view was restored from a saved session (shows "Start fresh" pill). */
 const sessionRestored = ref(false)
 
@@ -3432,128 +3435,62 @@ function _buildImpactSolutionTableHtml(): string {
 }
 
 // ── V × Evo Step — copy / email / download ────────────────────────────────────
+// All three use the shared exportCopy / exportEmail / exportDownload primitives
+// (Tom 2026-06-06: "this design applies for all export in sem").
 
 async function copyImpactStepTable(): Promise<void> {
-  showToast('Building Value × Evo Step table…', 1500)
-  try {
-    const html = _buildImpactStepTableHtml()
-    if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
-    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
-      await navigator.clipboard.write([new ClipboardItem({
-        'text/html':  new Blob([html],                                  { type: 'text/html'  }),
-        'text/plain': new Blob(['Value × Evo Step Impact table'],       { type: 'text/plain' }),
-      })])
-      showToast('📋 Value × Evo Step table copied — paste into Keynote, Mail, or Notes', 5000)
-    } else {
-      await navigator.clipboard.writeText('Value × Evo Step Impact table — use Email or Download for the colourful version')
-      showToast('📋 Copied (plain fallback) — use Email or Download for the colourful table', 5000)
-    }
-  } catch (err) { showToast(`Copy failed: ${String(err).slice(0, 80)}`, 7000) }
+  const html = _buildImpactStepTableHtml()
+  if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
+  const ok = await exportCopy(html, 'Value × Evo Step Impact table')
+  showToast(ok ? '[*]=[*] Value × Evo Step table copied' : 'Copy failed — check browser clipboard permissions', ok ? 4000 : 7000)
 }
 
 async function emailImpactStepTable(): Promise<void> {
-  showToast('Building Value × Evo Step email…', 1500)
-  try {
-    const html = _buildImpactStepTableHtml()
-    if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
-    const date    = new Date().toISOString().slice(0, 10)
-    const name    = specModel.value?.name ?? 'Evo Impact'
-    const subject = `Value × Evo Step Impact — ${name} · ${date}`
-    let clipOk = false
-    try {
-      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
-        await navigator.clipboard.write([new ClipboardItem({
-          'text/html':  new Blob([html],                                  { type: 'text/html'  }),
-          'text/plain': new Blob(['Value × Evo Step Impact table'],       { type: 'text/plain' }),
-        })])
-        clipOk = true
-      }
-    } catch { /* mail still opens */ }
-    const cue  = clipOk ? 'PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION' : '(Auto-copy failed — use Copy first, then ⌘V here.)'
-    const HR   = '────────────────────────────────────────────────────────'
-    const body = `${cue}\nExported: ${date}\n${HR}\n\nValue × Evo Step Impact — ${name}\nPaste ⌘V above for the colourful table.`
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    showToast('Mail opening — press ⌘V in the body to paste the colourful table, then Send', 6000)
-  } catch (err) { showToast(`Email failed: ${String(err).slice(0, 80)}`, 7000) }
+  const html = _buildImpactStepTableHtml()
+  if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
+  const date = new Date().toISOString().slice(0, 10)
+  const name = specModel.value?.name ?? 'Evo Impact'
+  await exportEmail(html, `Value × Evo Step Impact — ${name} · ${date}`, 'Value × Evo Step Impact table')
 }
 
 function downloadImpactStepTable(): void {
   const html = _buildImpactStepTableHtml()
   if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
+  const name = specModel.value?.name?.replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40) ?? 'evo-impact'
   const date = new Date().toISOString().slice(0, 10)
-  const name = specModel.value?.name ?? 'Evo Impact'
-  const safe = name.replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40)
-  const doc  = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Value × Evo Step Impact — ${name}</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`
-  const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = `${safe}-impact-step-${date}.html`
-  document.body.appendChild(a); a.click(); document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  exportDownload(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Value × Evo Step Impact</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`,
+    `${name}-impact-step-${date}`,
+  )
   showToast('Value × Evo Step table downloaded as HTML', 3000)
 }
 
 // ── V × Solution — copy / email / download ────────────────────────────────────
 
 async function copyImpactSolutionTable(): Promise<void> {
-  showToast('Building Value × Solution table…', 1500)
-  try {
-    const html = _buildImpactSolutionTableHtml()
-    if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
-    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
-      await navigator.clipboard.write([new ClipboardItem({
-        'text/html':  new Blob([html],                                  { type: 'text/html'  }),
-        'text/plain': new Blob(['Value × Solution Impact table'],       { type: 'text/plain' }),
-      })])
-      showToast('📋 Value × Solution table copied — paste into Keynote, Mail, or Notes', 5000)
-    } else {
-      await navigator.clipboard.writeText('Value × Solution Impact table — use Email or Download for the colourful version')
-      showToast('📋 Copied (plain fallback) — use Email or Download for the colourful table', 5000)
-    }
-  } catch (err) { showToast(`Copy failed: ${String(err).slice(0, 80)}`, 7000) }
+  const html = _buildImpactSolutionTableHtml()
+  if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
+  const ok = await exportCopy(html, 'Value × Solution Impact table')
+  showToast(ok ? '[*]=[*] Value × Solution table copied' : 'Copy failed — check browser clipboard permissions', ok ? 4000 : 7000)
 }
 
 async function emailImpactSolutionTable(): Promise<void> {
-  showToast('Building Value × Solution email…', 1500)
-  try {
-    const html = _buildImpactSolutionTableHtml()
-    if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
-    const date    = new Date().toISOString().slice(0, 10)
-    const name    = specModel.value?.name ?? 'Evo Impact'
-    const subject = `Value × Solution Impact — ${name} · ${date}`
-    let clipOk = false
-    try {
-      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
-        await navigator.clipboard.write([new ClipboardItem({
-          'text/html':  new Blob([html],                                  { type: 'text/html'  }),
-          'text/plain': new Blob(['Value × Solution Impact table'],       { type: 'text/plain' }),
-        })])
-        clipOk = true
-      }
-    } catch { /* mail still opens */ }
-    const cue  = clipOk ? 'PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION' : '(Auto-copy failed — use Copy first, then ⌘V here.)'
-    const HR   = '────────────────────────────────────────────────────────'
-    const body = `${cue}\nExported: ${date}\n${HR}\n\nValue × Solution Impact — ${name}\nPaste ⌘V above for the colourful table.`
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    showToast('Mail opening — press ⌘V in the body to paste the colourful table, then Send', 6000)
-  } catch (err) { showToast(`Email failed: ${String(err).slice(0, 80)}`, 7000) }
+  const html = _buildImpactSolutionTableHtml()
+  if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
+  const date = new Date().toISOString().slice(0, 10)
+  const name = specModel.value?.name ?? 'Evo Impact'
+  await exportEmail(html, `Value × Solution Impact — ${name} · ${date}`, 'Value × Solution Impact table')
 }
 
 function downloadImpactSolutionTable(): void {
   const html = _buildImpactSolutionTableHtml()
   if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
+  const name = specModel.value?.name?.replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40) ?? 'evo-impact'
   const date = new Date().toISOString().slice(0, 10)
-  const name = specModel.value?.name ?? 'Evo Impact'
-  const safe = name.replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '-').slice(0, 40)
-  const doc  = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Value × Solution Impact — ${name}</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`
-  const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = `${safe}-impact-solution-${date}.html`
-  document.body.appendChild(a); a.click(); document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  exportDownload(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Value × Solution Impact</title></head><body style="font-family:Arial,sans-serif;padding:20px;">${html}</body></html>`,
+    `${name}-impact-solution-${date}`,
+  )
   showToast('Value × Solution table downloaded as HTML', 3000)
 }
 
@@ -3665,184 +3602,146 @@ async function autoCopyPlan(): Promise<void> {
     showToast(`Copy crashed: ${String(outerErr).slice(0, 80)} (see Console)`, 8000)
   }
 }
-
 // ── Email entire plan ─────────────────────────────────────────────────────────
-// Tom 2026-06-04 — TWO SUPREME design rules ratified for ALL SEM App emailing:
-//
-//   RULE A (Colorful HTML Spec Export):  *"WHEN EMAILING I LIKE always
-//          (design rule) to send colorful html version of the spec.  more
-//          fun and dramatic, by far."*  Every email body is the COLOURFUL
-//          HTML render of the spec — not plain text.  Per-entry-type sections
-//          with canonical Planguage colours (Function = green, Value = violet,
-//          Solution = orange, Constraint = red, Stakeholder = blue).
-//
-//   RULE B (Pre-pasted Body — no manual paste):  *"please do the paste into
-//          the email for me."*  The user MUST NOT have to manually paste the
-//          spec into the email body — it must arrive already pre-filled.
-//
-// STRATEGY satisfying both rules:
-//   The .eml file format is the only mechanism that pre-fills BOTH the
-//   subject AND the rich HTML body in the user's mail client.  `mailto:` only
-//   supports plain text and length-capped bodies — it FAILS rule A.  A
-//   colourful HTML clipboard paste FAILS rule B (manual paste required).
-//
-//   So: build the colourful HTML via `renderColorfulSpecHtml()`, wrap it in
-//   a multipart/alternative .eml with a plain-text fallback for screen
-//   readers + ancient mail clients, download the .eml, and Mail.app (or
-//   whatever app is registered as the macOS `message/rfc822` handler) opens
-//   it as a compose-draft window with the colourful body already in place.
-//
-//   To prevent Tom's previous "downloaded a file, no Mail opened" surprise,
-//   ALSO copy the colourful HTML to the clipboard as text/html (so any rich
-//   paste anywhere lands coloured), AND show a prominent toast naming the
-//   .eml file so Tom knows what to look for if Mail.app doesn't auto-open.
+// Uses shared exportEmail() — copies HTML to clipboard, shows ⌘V banner, opens Mail.
+// Tom 2026-06-06: "this design applies for all export in sem."
 async function emailPlan(): Promise<void> {
-  // Tom 2026-06-04 amendment to the email export rules:
-  //   *"It does not go to eail, auto, I have to click on email myself.
-  //    I think it should go to emai forme"* + *"email has old -md not the
-  //    color stuff"*.
-  //
-  // Constraint trade-off (web-platform reality):
-  //   • mailto:  → reliably auto-opens Mail.app, but body is TEXT-ONLY
-  //                (mail clients refuse to render HTML received via mailto)
-  //   • .eml     → carries HTML body, but Safari saves to ~/Downloads and
-  //                does not auto-open in Mail unless "Open safe files" is on
-  //                — Tom hit exactly that and saw an .md-looking blob.
-  //
-  // Resolution Tom approved:
-  //   • Render the colourful HTML once.
-  //   • PRIMARY:  put the colourful HTML on the clipboard as text/html
-  //     (Apple Mail and most desktop clients accept rich HTML on paste —
-  //     pasting lands coloured).
-  //   • PRIMARY:  fire mailto: which auto-opens Mail.app's compose window
-  //     with the subject pre-filled and a 1-line cue body that says
-  //     "Press ⌘V here to paste the colourful Spec."  One keystroke from
-  //     Tom; auto-open satisfied; colourful satisfied; no .md confusion.
-  //   • The old .eml download path is RETIRED for emailPlan() — it caused
-  //     the "old .md" + "no auto-open" problems Tom is reporting.
-  console.log('[emailPlan] handler entered')
-  showToast('Email clicked — building colourful HTML…', 1800)
-
+  if (!currentSpec.value) { showToast('Nothing to email yet — load or generate a Spec first', 4000); return }
+  _saveNow()
+  if (specModel.value) saveSpecSnapshot(currentSpec.value)
+  const date      = new Date().toISOString().slice(0, 10)
+  const modelName = specModel.value?.name ?? 'Planning Spec'
+  const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
+  let htmlBody = ''
   try {
-    if (!currentSpec.value) {
-      showToast('Nothing to email yet — load or generate a Spec first', 4000)
-      return
-    }
-
-    _saveNow()
-    if (specModel.value) savePlanSnapshot(currentSpec.value)
-
-    const now       = new Date()
-    const date      = now.toISOString().slice(0, 10)
-    const modelName = specModel.value?.name ?? 'Planning Spec'
-    const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
-    const subject   = `Spec: ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`
-
-    let htmlBody = ''
-    try {
-      htmlBody = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined)
-      console.log(`[emailPlan] HTML body built — ${htmlBody.length} chars`)
-    } catch (rErr) {
-      console.error('[emailPlan] renderColorfulSpecHtml threw', rErr)
-      showToast(`Email HTML build failed: ${String(rErr).slice(0, 80)}`, 7000)
-      return
-    }
-
-    let plainBody = ''
-    try {
-      plainBody = confirmedSteps.value.length > 0
-        ? exportWithTasksPlainText(currentSpec.value, confirmedSteps.value, tasksByStep.value)
-        : serialisePlainText(currentSpec.value)
-    } catch (sErr) {
-      console.error('[emailPlan] plain-text serialiser threw', sErr)
-      showToast(`Email plain-fallback build failed: ${String(sErr).slice(0, 80)}`, 7000)
-      return
-    }
-
-    // PRIMARY: put colourful HTML on clipboard as text/html (Apple Mail
-    // and most desktop clients render this on paste).
-    let clipOk = false
-    try {
-      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/html':  new Blob([htmlBody],  { type: 'text/html'  }),
-            'text/plain': new Blob([plainBody], { type: 'text/plain' }),
-          }),
-        ])
-        clipOk = true
-      } else {
-        await navigator.clipboard.writeText(plainBody)
-        clipOk = true
-      }
-    } catch (cErr) {
-      console.warn('[emailPlan] clipboard copy failed — mailto will still open', cErr)
-    }
-
-    // SEM Email Body Standard (Tom 2026-06-04 — ratified for ALL SEM emails):
-    //   Line 1     : the LOUD paste cue (so Tom always sees it at the top)
-    //   Line 2     : exported-date stamp
-    //   Line 3     : separator
-    //   Line 4+    : the FULL plain-text spec inline as the always-present
-    //                fallback body — so the email is complete and meaningful
-    //                even if Tom does NOT paste.
-    //
-    // Mailto URL length is browser-capped (~2-8 KB depending on browser/OS).
-    // If the encoded URL exceeds 7000 chars we truncate the inline body with
-    // a clear marker so the cue + first portion still go through; the colour
-    // paste (⌘V) restores the full content.
-    const PASTE_HEADER  = clipOk
-      ? `PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION`
-      : `(Auto-copy failed — use Copy on the Spec page first, then ⌘V here for colour.)`
-    const HR            = '────────────────────────────────────────────────────────'
-    const stamp         = `Exported: ${date}`
-    const fullBody      = `${PASTE_HEADER}\n${stamp}\n${HR}\n\n${plainBody}`
-
-    // Probe encoded length and truncate the INLINE plain text if needed.
-    let body = fullBody
-    let encoded = encodeURIComponent(body)
-    const SAFE_LEN = 7000   // headroom below the 8 KB mailto ceiling Safari enforces
-    if (encoded.length > SAFE_LEN) {
-      // Reserve space for header + stamp + truncation marker, fill the rest with the plain text.
-      const fixed = `${PASTE_HEADER}\n${stamp}\n${HR}\n\n`
-      const marker = `\n\n…[plain-text truncated to fit mailto: limit — press ⌘V above for the full colour version]`
-      const budget = SAFE_LEN - encodeURIComponent(fixed + marker).length
-      // Binary-shrink the inline plain text until the encoded slice fits.
-      let lo = 0, hi = plainBody.length, fit = ''
-      while (lo <= hi) {
-        const mid = Math.floor((lo + hi) / 2)
-        const candidate = plainBody.slice(0, mid)
-        if (encodeURIComponent(candidate).length <= budget) {
-          fit = candidate
-          lo  = mid + 1
-        } else {
-          hi  = mid - 1
-        }
-      }
-      body    = `${fixed}${fit}${marker}`
-      encoded = encodeURIComponent(body)
-      console.log(`[emailPlan] inline plain-text truncated ${plainBody.length} → ${fit.length} chars to fit mailto cap`)
-    }
-
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encoded}`
-
-    // Fire mailto: — Mail.app (or whatever the default mail client is) opens
-    // a compose window automatically.  window.location.href is reliable
-    // across Safari, Chrome, Firefox; window.open is sometimes popup-blocked
-    // for mailto: in non-gesture contexts.
-    window.location.href = mailtoUrl
-    console.log('[emailPlan] mailto: fired')
-
-    showToast(
-      clipOk
-        ? `✉️ Mail opening — click in the body and press ⌘V to paste the colourful Spec, then Send.`
-        : `✉️ Mail opening — clipboard copy failed; use Copy first, then paste in the email.`,
-      8500,
-    )
-  } catch (outerErr) {
-    console.error('[emailPlan] outer catch — unexpected throw', outerErr)
-    showToast(`Email crashed: ${String(outerErr).slice(0, 80)} (see Console)`, 9000)
+    htmlBody = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined)
+  } catch (rErr) {
+    showToast(`Email HTML build failed: ${String(rErr).slice(0, 80)}`, 7000)
+    return
   }
+  await exportEmail(
+    htmlBody,
+    `Spec: ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`,
+    'Planguage Spec HTML',
+  )
+}
+
+// ── Stage 7 (Evo Impact) Export — split-button pattern ───────────────────────
+// Tom Gilb, 2026-06-06 (clarification):
+//   "the agreement was, one click, copied, and then download or email are menu options.
+//    what was copied was NOT the tables and charts on the main page.
+//    When we go to email, we want the HTML, not boring text."
+//
+// Pattern:
+//   • Primary button → copyStage7()  : copies colourful HTML (spec + IET tables) to clipboard
+//   • ▼ dropdown → two options:
+//       – emailStage7()         : opens mailto:Tom@Gilb.com with MINIMAL body (paste cue only)
+//       – downloadStage7Html()  : saves the HTML file
+//
+// The email body is intentionally MINIMAL — just the paste cue so ⌘V fills the whole body
+// with HTML. No boring plain-text dump below the paste.
+
+// Stage 7 email uses the shared useExportBanner singleton — no local banner state needed.
+
+/** Build the full colourful Stage 7 HTML: Planguage Spec + Value Flow SVG + IET tables.
+ *  Tom 2026-06-06: "this top copy does not paste the contents below" — the Value Flow diagram
+ *  was not included in the clipboard export.  Fix: serialize the live SVG from _vfEmbedBodyRef
+ *  and embed it between the Spec and the IET table so paste-to-Keynote/Notes/Mail shows all three.
+ */
+function _buildStage7Html(): string {
+  if (!currentSpec.value) return ''
+  const modelName = specModel.value?.name ?? 'Evo Impact'
+  const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
+  const date      = new Date().toISOString().slice(0, 10)
+
+  // 1. Colourful Planguage Spec (canonical entry-type colours).
+  let specHtml = ''
+  try { specHtml = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined) }
+  catch { specHtml = '<p style="color:red">Spec HTML build failed</p>' }
+
+  // 2. Value Flow SVG — serialize from the live DOM element so paste targets get the full diagram.
+  //    Wrapped in a section header + scrollable container so it reads cleanly when pasted.
+  let vfHtml = ''
+  try {
+    const svgEl = _vfEmbedBodyRef.value?.querySelector('svg')
+    if (svgEl) {
+      const svgStr = new XMLSerializer().serializeToString(svgEl)
+      vfHtml = `
+        <div style="margin-top:28px;margin-bottom:8px;background:#0f172a;color:#fff;
+                    padding:10px 14px;font-size:13px;font-weight:700;border-radius:6px 6px 0 0">
+          Value Flow Diagram · Tasks → Evo Steps → Solutions → Values → Functions → Stakeholders · ${date}
+        </div>
+        <div style="border:1px solid #e2e8f0;border-radius:0 0 6px 6px;overflow:auto;background:#fff;padding:12px">
+          ${svgStr}
+        </div>`
+    }
+  } catch { /* SVG not yet rendered — skip gracefully */ }
+
+  // 3. Value × Solution IET table (from capturedImpactMatrix).
+  const vals   = currentSpec.value.values
+  const sols   = currentSpec.value.solutions
+  const matrix = capturedImpactMatrix.value
+  let ietHtml  = ''
+  if (vals.length > 0 && sols.length > 0 && Object.keys(matrix).length > 0) {
+    const td  = 'padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;'
+    const th  = `${td}background:#1e293b;color:#fff;font-weight:700;`
+    const thV = `${td}background:#7c3aed;color:#fff;font-weight:700;`
+    let rows  = ''
+    for (const v of vals) {
+      const cells = sols.map((s) => {
+        const val = matrix[v.id]?.[s.id] ?? 0
+        const bg  = val >= 70 ? '#dcfce7' : val >= 30 ? '#fef9c3' : val > 0 ? '#fee2e2' : '#f8fafc'
+        return `<td style="${td}background:${bg};text-align:center">${val > 0 ? val + '%' : '—'}</td>`
+      }).join('')
+      rows += `<tr><td style="${thV}">${v.id} · ${v.description.slice(0, 50)}</td>${cells}</tr>`
+    }
+    const hdrs = sols.map((s) => `<th style="${th}">${s.id}</th>`).join('')
+    ietHtml = `
+      <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;margin-top:24px">
+        <tr><td colspan="${sols.length + 1}" style="background:#0f172a;color:#fff;padding:10px 14px;font-size:13px;font-weight:700">
+          Impact Estimation · Values × Solutions (IET) · ${date}
+        </td></tr>
+        <tr><th style="${th}">Value →</th>${hdrs}</tr>
+        ${rows}
+      </table>`
+  }
+
+  // 4. Wrap in a minimal page shell.
+  return `<!doctype html><html><head><meta charset="utf-8">
+    <title>Stage 7 · Evo Impact — ${modelName} ${versTxt} · ${date}</title>
+    <style>body{margin:0;padding:24px;font-family:system-ui,sans-serif;background:#f8fafc}</style>
+    </head><body>${specHtml}${vfHtml}${ietHtml}</body></html>`
+}
+
+/** Copy Stage 7 colourful HTML (Spec + Value Flow diagram + IET tables) to clipboard.
+ *  Tom 2026-06-06: "this top copy does not paste the contents below" — fixed by adding
+ *  the Value Flow SVG between the Spec and IET sections in _buildStage7Html(). */
+async function copyStage7(): Promise<void> {
+  if (!currentSpec.value) { showToast('Nothing to copy — generate a Spec first', 4000); return }
+  const ok = await exportCopy(_buildStage7Html(), 'Stage 7 · Evo Impact — paste colourful HTML via ⌘V')
+  showToast(ok ? '[*]=[*] Copied Stage 7 — Spec + Value Flow diagram + IET tables on clipboard' : 'Copy failed — check browser clipboard permissions', ok ? 4000 : 7000)
+}
+
+/** Email Stage 7 — delegates to shared exportEmail() which copies HTML, shows ⌘V banner, opens Mail. */
+async function emailStage7(): Promise<void> {
+  if (!currentSpec.value) { showToast('Nothing to email', 4000); return }
+  const modelName = specModel.value?.name ?? 'Evo Impact'
+  const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
+  const date      = new Date().toISOString().slice(0, 10)
+  await exportEmail(
+    _buildStage7Html(),
+    `Stage 7 · Evo Impact — ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`,
+    'Stage 7 Evo Impact HTML',
+  )
+}
+
+/** Download Stage 7 HTML as a standalone file. */
+function downloadStage7Html(): void {
+  if (!currentSpec.value) { showToast('Nothing to download', 4000); return }
+  const modelName = specModel.value?.name?.replace(/[^a-z0-9]/gi, '-') ?? 'evo-impact'
+  const date      = new Date().toISOString().slice(0, 10)
+  exportDownload(_buildStage7Html(), `stage7-evo-impact-${modelName}-${date}`)
+  showToast('⬇ Stage 7 HTML downloaded', 4000)
 }
 
 // ── Send entire plan as iMessage / SMS via Messages.app ───────────────────────
@@ -7801,38 +7700,20 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span>MultiVision</span>
           </button>
 
-          <!-- Copy + Email at TOP — Tom 2026-06-04 DD-014 application:
-               sharable content (Value Flow + Impact Estimation) needs top + bottom share pins. -->
-          <button
+          <!-- Stage 7 export — ExportSpecPin (Tom 2026-06-06: "I want one button EXPORT to avoid
+               clutter, and when clicked it copies and exposes the other choices email/download/messages").
+               Auto-copies on click, 20-second countdown channel menu, collapses to clipboard confirm.
+               Rule: rule_export_button_on_all_windows.md (SUPREME). -->
+          <ExportSpecPin
             v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-sm font-semibold
-                   hover:bg-emerald-100 hover:border-emerald-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Copy plan to clipboard"
-            title="COPY — duplicate this Spec to your clipboard.&#10;Paste into Notes, Mail, Slack, or anywhere.&#10;&#10;Planguage glyph [*]=[*] reads &quot;vessel equals vessel&quot;:&#10;the Spec is duplicated, both copies are identical."
-            @click="autoCopyPlan()"
-          >
-            <CopyGlyph size="standard" />
-            <span>Copy</span>
-          </button>
-          <button
-            v-if="currentSpec"
-            type="button"
-            class="flex items-center gap-2 px-4 py-2.5 rounded-xl min-h-[44px]
-                   bg-blue-50 border-2 border-blue-400 text-blue-700 text-sm font-semibold
-                   hover:bg-blue-100 hover:border-blue-500 hover:shadow-md
-                   focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
-                   transition-all duration-150 shadow-sm"
-            aria-label="Email plan via Mail.app"
-            title="EMAIL — open your default mail client with the Spec ready to paste.&#10;The full Spec is auto-copied to your clipboard;&#10;paste it into the email body, then send.&#10;&#10;Planguage glyph [*]→@ reads &quot;vessel sent to address&quot;:&#10;the Spec is sent to a remote recipient at an @ address."
-            @click="emailPlan()"
-          >
-            <EmailGlyph size="standard" />
-            <span>Email</span>
-          </button>
+            :has-spec="!!currentSpec"
+            :spec-name="specModel?.name ? specModel.name + ' · Evo Impact' : 'Evo Impact'"
+            @copy="copyStage7()"
+            @email="emailStage7()"
+            @download="downloadStage7Html()"
+            @message="messagePlan()"
+            @copy-for-chat="copyPlanForChat()"
+          />
         </div>
         <!-- ── Embedded Value Flow (Tom 2026-06-03) ────────────────────────────
              "WHAT IF, AT THIS STAGE (EVO JUST DONE) WE COULD ALSO DISPLAY THE
@@ -7854,7 +7735,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
              on this embedded view because the full-screen "Expand ↗" still shows it. -->
         <div
           v-if="currentSpec"
-          class="w-full max-w-none mb-6 rounded-2xl border-2 border-indigo-200
+          class="w-full max-w-none mb-6 rounded-2xl border-2 border-indigo-500
                  bg-gradient-to-br from-white to-indigo-50/30 shadow-lg overflow-hidden"
         >
           <div class="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600">
@@ -7893,36 +7774,39 @@ function handleApertureLoadPlan(model: PlanModel): void {
             />
           </div>
           <!-- Footer: Copy + Email + Download SVG + Enlarge — DD-014 bottom mirror.
-               Tom 2026-06-05: "each diagram needs copy, email, download buttons" +
-               "the enlarge button now needs to be visible when we scroll down." -->
+               Tom 2026-06-05: "each diagram needs copy, email, download buttons"
+               Tom 2026-06-06: "put the name of exactly what is being copied in the bar" -->
           <div class="flex items-center flex-wrap gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 border-t border-indigo-500/40">
-            <!-- Copy -->
+            <!-- Section label — tells user WHAT the footer acts on -->
+            <span class="text-[10px] font-bold text-indigo-200 uppercase tracking-wider mr-1">Value Flow Diagram</span>
+            <span class="text-indigo-400/60 text-xs">·</span>
+            <!-- Copy Full Spec (NOT just the diagram — autoCopyPlan copies whole Planguage Spec) -->
             <button
               type="button"
               class="flex items-center gap-1.5 text-[11px] font-semibold text-white/90
                      bg-white/15 hover:bg-white/25 border border-white/30
                      rounded-lg px-3 py-1.5 transition-colors"
-              title="Copy the full Spec as colourful HTML to clipboard (⌘V to paste)"
+              title="Copy the FULL Planguage Spec as colourful HTML to clipboard (⌘V to paste) — this copies the whole spec, not only the diagram"
               @click="autoCopyPlan()"
-            ><CopyGlyph size="compact" />Copy</button>
-            <!-- Email -->
+            ><CopyGlyph size="compact" />Copy Full Spec</button>
+            <!-- Email Full Spec -->
             <button
               type="button"
               class="flex items-center gap-1.5 text-[11px] font-semibold text-white/90
                      bg-white/15 hover:bg-white/25 border border-white/30
                      rounded-lg px-3 py-1.5 transition-colors"
-              title="Email the Spec — opens Mail, ⌘V to paste the colourful version"
+              title="Email the FULL Planguage Spec — opens Mail, ⌘V to paste the colourful version"
               @click="emailPlan()"
-            ><EmailGlyph size="compact" />Email</button>
-            <!-- Download SVG -->
+            ><EmailGlyph size="compact" />Email Full Spec</button>
+            <!-- Download Value Flow SVG -->
             <button
               type="button"
               class="flex items-center gap-1.5 text-[11px] font-semibold text-white/90
                      bg-white/15 hover:bg-white/25 border border-white/30
                      rounded-lg px-3 py-1.5 transition-colors"
-              title="Download the Value Flow diagram as an SVG file"
+              title="Download this Value Flow Diagram as an SVG file"
               @click="downloadValueFlowSvg()"
-            ><GetGlyph size="compact" />Download SVG</button>
+            ><GetGlyph size="compact" />Download Value Flow SVG</button>
             <!-- Enlarge (spacer + right-aligned) -->
             <span class="flex-1" />
             <button
@@ -7931,7 +7815,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                      border border-white/30 rounded-lg px-3 py-1.5 transition-colors"
               title="Open the full-screen Value Flow diagram"
               @click="valueFlowOpen = true"
-            >Enlarge ↗</button>
+            >Enlarge The Value Flow Diagram ↗</button>
           </div>
         </div>
 
@@ -7945,89 +7829,78 @@ function handleApertureLoadPlan(model: PlanModel): void {
              is empty (no plan generated yet), the step view shows an empty-state
              hint and the V × S editor below is the only impact table the user sees.
         -->
-        <ImpactEstimationStepView
-          v-if="_stepsForDiagram.length > 0"
-          :values="currentSpec.values"
-          :steps="_stepsForDiagram"
-          :solutions="currentSpec.solutions"
-          :impact-matrix="capturedImpactMatrix"
-        />
-        <!-- V × Evo Step table actions — Tom 2026-06-05: "each diagram needs copy, email, download buttons"
-             These buttons export THIS TABLE specifically, not the full Planguage spec. -->
+        <!-- Tom 2026-06-06: "make the weak blue lines around these tools much clearer"
+             + "put the term ABOVE AS APPROPRIATE" — strong teal border + label banner above -->
         <div
-          v-if="_stepsForDiagram.length > 0 && currentSpec"
-          class="flex flex-wrap items-center gap-2 px-4 py-2.5 mb-6 rounded-b-xl
-                 bg-amber-50 border border-t-0 border-amber-200"
+          v-if="_stepsForDiagram.length > 0"
+          class="w-full mb-6 rounded-2xl border-2 border-teal-500 shadow-md overflow-hidden"
         >
-          <span class="text-[11px] text-amber-700 font-semibold mr-auto">Value × Evo Step Impact</span>
-          <button
-            type="button"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                   bg-emerald-50 border border-emerald-400 text-emerald-700
-                   hover:bg-emerald-100 transition-colors"
-            title="Copy this Value × Evo Step table as colourful HTML — paste into Keynote, Mail, or Notes"
-            @click="copyImpactStepTable()"
-          ><CopyGlyph size="compact" />Copy</button>
-          <button
-            type="button"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                   bg-blue-50 border border-blue-400 text-blue-700
-                   hover:bg-blue-100 transition-colors"
-            title="Email this Value × Evo Step table — opens Mail, ⌘V to paste colourful version"
-            @click="emailImpactStepTable()"
-          ><EmailGlyph size="compact" />Email</button>
-          <button
-            type="button"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                   bg-violet-50 border border-violet-400 text-violet-700
-                   hover:bg-violet-100 transition-colors"
-            title="Download this Value × Evo Step table as an HTML file"
-            @click="downloadImpactStepTable()"
-          ><GetGlyph size="compact" />Download</button>
+          <!-- Label banner ABOVE the table -->
+          <div class="flex items-center gap-3 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600">
+            <span class="text-sm font-bold text-white">Impact Estimation — Values × Evo Steps</span>
+            <span class="text-[11px] text-teal-100 ml-1">IET · one column per Evo Step (unit of value delivery)</span>
+          </div>
+          <ImpactEstimationStepView
+            :values="currentSpec.values"
+            :steps="_stepsForDiagram"
+            :solutions="currentSpec.solutions"
+            :impact-matrix="capturedImpactMatrix"
+          />
+          <!-- V × Evo Step table actions — ExportSpecPin (Tom 2026-06-06: one-button export design) -->
+          <div
+            v-if="currentSpec"
+            class="flex flex-col gap-2 px-4 py-2.5
+                   bg-teal-50 border-t border-teal-300"
+          >
+            <span class="text-[10px] text-teal-700 font-bold uppercase tracking-wider">Value × Evo Step Impact Table</span>
+            <ExportSpecPin
+              :has-spec="!!currentSpec"
+              spec-name="Value × Evo Step Impact Table"
+              @copy="copyImpactStepTable()"
+              @email="emailImpactStepTable()"
+              @download="downloadImpactStepTable()"
+              @message="messagePlan()"
+              @copy-for-chat="copyPlanForChat()"
+            />
+          </div>
         </div>
 
         <!-- ── V × Solution editor (SECONDARY here — feeds the V × Step view above)
              Kept on this page so users can sharpen the underlying V × S estimates
-             and watch the V × Step aggregations update reactively above. -->
-        <ImpactEstimationView
-          ref="ietRef"
-          :values="currentSpec.values"
-          :solutions="currentSpec.solutions"
-          :resource-claims="{}"
-          @matrix-updated="(matrix, efficiency, cal, cap) => _onMatrixUpdated(matrix, efficiency, cal, cap)"
-        />
-        <!-- V × Solution table actions — Tom 2026-06-05: "each diagram needs copy, email, download buttons"
-             These buttons export THIS TABLE specifically, not the full Planguage spec. -->
+             and watch the V × Step aggregations update reactively above.
+             Tom 2026-06-06: strong border + label banner above. -->
         <div
           v-if="currentSpec"
-          class="flex flex-wrap items-center gap-2 px-4 py-2.5 mb-6 rounded-b-xl
-                 bg-indigo-50 border border-t-0 border-indigo-200"
+          class="w-full mb-6 rounded-2xl border-2 border-indigo-500 shadow-md overflow-hidden"
         >
-          <span class="text-[11px] text-indigo-700 font-semibold mr-auto">Value × Solution Impact</span>
-          <button
-            type="button"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                   bg-emerald-50 border border-emerald-400 text-emerald-700
-                   hover:bg-emerald-100 transition-colors"
-            title="Copy this Value × Solution table as colourful HTML — paste into Keynote, Mail, or Notes"
-            @click="copyImpactSolutionTable()"
-          ><CopyGlyph size="compact" />Copy</button>
-          <button
-            type="button"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                   bg-blue-50 border border-blue-400 text-blue-700
-                   hover:bg-blue-100 transition-colors"
-            title="Email this Value × Solution table — opens Mail, ⌘V to paste colourful version"
-            @click="emailImpactSolutionTable()"
-          ><EmailGlyph size="compact" />Email</button>
-          <button
-            type="button"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                   bg-violet-50 border border-violet-400 text-violet-700
-                   hover:bg-violet-100 transition-colors"
-            title="Download this Value × Solution table as an HTML file"
-            @click="downloadImpactSolutionTable()"
-          ><GetGlyph size="compact" />Download</button>
+          <!-- Label banner ABOVE the table -->
+          <div class="flex items-center gap-3 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600">
+            <span class="text-sm font-bold text-white">Impact Estimation — Values × Solutions</span>
+            <span class="text-[11px] text-indigo-100 ml-1">IET · edit here to feed the Evo Step table above</span>
+          </div>
+          <ImpactEstimationView
+            ref="ietRef"
+            :values="currentSpec.values"
+            :solutions="currentSpec.solutions"
+            :resource-claims="{}"
+            @matrix-updated="(matrix, efficiency, cal, cap) => _onMatrixUpdated(matrix, efficiency, cal, cap)"
+          />
+          <!-- V × Solution table actions — ExportSpecPin (Tom 2026-06-06: one-button export design) -->
+          <div
+            class="flex flex-col gap-2 px-4 py-2.5
+                   bg-indigo-50 border-t border-indigo-300"
+          >
+            <span class="text-[10px] text-indigo-700 font-bold uppercase tracking-wider">Value × Solution Impact Table</span>
+            <ExportSpecPin
+              :has-spec="!!currentSpec"
+              spec-name="Value × Solution Impact Table"
+              @copy="copyImpactSolutionTable()"
+              @email="emailImpactSolutionTable()"
+              @download="downloadImpactSolutionTable()"
+              @message="messagePlan()"
+              @copy-for-chat="copyPlanForChat()"
+            />
+          </div>
         </div>
         <!-- Bottom mirror — Tom 2026-06-04 DD-014 (Top-and-Bottom Navigation
              Mirror): top has Return + Value Flow + Copy + Email; bottom
@@ -8763,6 +8636,46 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
       </div><!-- /control-pins + dropdowns container -->
     </Teleport>
+
+    <!-- 📬 Universal Export Email Banner — unmissable ⌘V instruction that appears
+         whenever ANY exportEmail() call fires (Stage 7, IET tables, Spec Output, etc.).
+         Shared singleton via useExportBanner — one banner for the whole app.
+         z-[10050] sits above all panels (below SelectionDefiner z-[10100]).
+         Tom 2026-06-06: "this design applies for all export in sem." -->
+    <Transition
+      enter-active-class="transition-all duration-300 ease-out"
+      enter-from-class="-translate-y-full opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition-all duration-200 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="-translate-y-full opacity-0"
+    >
+      <div
+        v-if="exportBannerVisible"
+        class="fixed top-0 left-0 right-0 z-[10050] flex items-center gap-4 px-6 py-4 shadow-2xl"
+        style="background: linear-gradient(135deg, #7c3aed 0%, #059669 100%)"
+        role="status"
+        aria-live="assertive"
+      >
+        <EmailGlyph size="standard" class="shrink-0 text-white" />
+        <div class="flex-1 min-w-0">
+          <p class="text-white text-lg font-black leading-tight tracking-tight">
+            Mail is opening — press <kbd class="bg-white/20 text-white rounded px-2 py-0.5 font-mono text-base">⌘V</kbd> in the Mail body to paste the colourful HTML
+          </p>
+          <p class="text-white/80 text-sm mt-0.5">
+            {{ exportBannerLabel }} is on your clipboard · Tom@Gilb.com · auto-dismisses in 25 s
+          </p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 text-white/70 hover:text-white text-2xl font-light leading-none
+                 focus:outline-none focus:ring-2 focus:ring-white/50 rounded px-1"
+          aria-label="Dismiss email instruction"
+          title="Dismiss"
+          @click="hideExportEmailBanner()"
+        >✕</button>
+      </div>
+    </Transition>
 
     <!-- 💡 SelectionDefiner — global floating "Illuminate" pill + result panel.
          Listens to all text selections; also responds to Opt+I and voice "Illuminate". -->
