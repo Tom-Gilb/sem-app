@@ -3448,9 +3448,12 @@ async function copyImpactStepTable(): Promise<void> {
 async function emailImpactStepTable(): Promise<void> {
   const html = _buildImpactStepTableHtml()
   if (!html) { showToast('No Value × Step data yet — generate an Evo Plan and fill Value × Solution first', 4000); return }
-  const date = new Date().toISOString().slice(0, 10)
-  const name = specModel.value?.name ?? 'Evo Impact'
-  await exportEmail(html, `Value × Evo Step Impact — ${name} · ${date}`, 'Value × Evo Step Impact table')
+  const date    = new Date().toISOString().slice(0, 10)
+  const name    = specModel.value?.name ?? 'Evo Impact'
+  const subject = `Value × Evo Step Impact — ${name} · ${date}`
+  await exportCopy(html, subject).catch(() => { /* non-fatal */ })
+  openEml(html, subject, { to: ['Tom@Gilb.com'] })
+  showToast('📨 Mail opening — Value × Evo Step table HTML already in body.', 5000)
 }
 
 function downloadImpactStepTable(): void {
@@ -3477,9 +3480,12 @@ async function copyImpactSolutionTable(): Promise<void> {
 async function emailImpactSolutionTable(): Promise<void> {
   const html = _buildImpactSolutionTableHtml()
   if (!html) { showToast('No Value × Solution data yet — fill the impact table first', 4000); return }
-  const date = new Date().toISOString().slice(0, 10)
-  const name = specModel.value?.name ?? 'Evo Impact'
-  await exportEmail(html, `Value × Solution Impact — ${name} · ${date}`, 'Value × Solution Impact table')
+  const date    = new Date().toISOString().slice(0, 10)
+  const name    = specModel.value?.name ?? 'Evo Impact'
+  const subject = `Value × Solution Impact — ${name} · ${date}`
+  await exportCopy(html, subject).catch(() => { /* non-fatal */ })
+  openEml(html, subject, { to: ['Tom@Gilb.com'] })
+  showToast('📨 Mail opening — Value × Solution table HTML already in body.', 5000)
 }
 
 function downloadImpactSolutionTable(): void {
@@ -3603,8 +3609,12 @@ async function autoCopyPlan(): Promise<void> {
   }
 }
 // ── Email entire plan ─────────────────────────────────────────────────────────
-// Uses shared exportEmail() — copies HTML to clipboard, shows ⌘V banner, opens Mail.
-// Tom 2026-06-06: "this design applies for all export in sem."
+// Tom 2026-06-06: "you still refuse to actually paste the html in the email, there is a way around, right?"
+// Answer: YES. We switch from mailto: (plain-text body) to openEml() which generates a proper
+// RFC 2822 .eml file with the colourful HTML as the multipart/alternative body.
+// Safari's AutoOpenSafeDownloads=true (default, confirmed 2026-06-06) means the .eml downloads
+// instantly and Mail.app opens it as a compose draft with the HTML body pre-filled — no paste.
+// Clipboard is ALSO written so ⌘V still works for Keynote/Notes paste targets.
 async function emailPlan(): Promise<void> {
   if (!currentSpec.value) { showToast('Nothing to email yet — load or generate a Spec first', 4000); return }
   _saveNow()
@@ -3619,11 +3629,12 @@ async function emailPlan(): Promise<void> {
     showToast(`Email HTML build failed: ${String(rErr).slice(0, 80)}`, 7000)
     return
   }
-  await exportEmail(
-    htmlBody,
-    `Spec: ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`,
-    'Planguage Spec HTML',
-  )
+  const subject = `Spec: ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`
+  // 1. Write HTML to clipboard so ⌘V also works for Keynote/Notes.
+  await exportCopy(htmlBody, subject).catch(() => { /* clipboard failure is non-fatal */ })
+  // 2. Download .eml — Mail.app auto-opens it as a compose draft with HTML body pre-filled.
+  openEml(htmlBody, subject, { to: ['Tom@Gilb.com'] })
+  showToast('📨 Mail opening — HTML already in the body. ⌘V also ready for Keynote.', 6000)
 }
 
 // ── Stage 7 (Evo Impact) Export — split-button pattern ───────────────────────
@@ -3754,17 +3765,18 @@ async function copyStage7(): Promise<void> {
   showToast(ok ? '[*]=[*] Copied Stage 7 — IET grid + Spec on clipboard (⌘V to paste)' : 'Copy failed — check browser clipboard permissions', ok ? 4000 : 7000)
 }
 
-/** Email Stage 7 — delegates to shared exportEmail() which copies HTML, shows ⌘V banner, opens Mail. */
+/** Email Stage 7 — openEml() puts the full IET + Spec HTML directly in the Mail.app body.
+ *  No paste needed — Safari's AutoOpenSafeDownloads=true auto-opens the .eml as a compose draft. */
 async function emailStage7(): Promise<void> {
   if (!currentSpec.value) { showToast('Nothing to email', 4000); return }
   const modelName = specModel.value?.name ?? 'Evo Impact'
   const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
   const date      = new Date().toISOString().slice(0, 10)
-  await exportEmail(
-    _buildStage7Html(),
-    `Stage 7 · Evo Impact — ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`,
-    'Stage 7 Evo Impact HTML',
-  )
+  const html    = _buildStage7Html()
+  const subject = `Stage 7 · Evo Impact — ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`
+  await exportCopy(html, subject).catch(() => { /* non-fatal */ })
+  openEml(html, subject, { to: ['Tom@Gilb.com'] })
+  showToast('📨 Mail opening — IET grid + Spec HTML already in the body. ⌘V also ready for Keynote.', 6000)
 }
 
 /** Download Stage 7 HTML as a standalone file. */
