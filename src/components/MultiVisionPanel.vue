@@ -962,31 +962,128 @@ async function exportMultiVision(): Promise<void> {
                       </p>
                     </div>
 
-                    <!-- Restatement consequences (read from the legacy single-thumb
-                         vSliders alias = vWishSliders — still meaningful when the
-                         user moves the Wish away from default) -->
+                    <!-- ── Live Consequence Scorecard (always visible, real-time) ──────────
+                         Tom 2026-06-06: "I am not seeing any feedback or reaction in any
+                         indicators. We need to know what happens, does it redesign? Does it
+                         take more or less resources. We need an additional panel that gives
+                         us the scorecard in real time. Can you design an insert at the
+                         location of the particular spec that is being slider adjusted."
+                         Replaces the old delta>=5 restatement card with a permanent
+                         per-Value consequence strip that updates on EVERY slider move. -->
                     <div
-                      v-if="restatementConsequences[v.id] && Math.abs(restatementConsequences[v.id].deltaFromDefault) >= 5"
-                      class="mt-2 rounded-md border px-2.5 py-1.5 text-[10px] leading-snug space-y-1"
-                      :class="restatementConsequences[v.id].deltaFromDefault > 0
-                        ? 'bg-amber-50 border-amber-300 text-amber-900'
-                        : 'bg-emerald-50 border-emerald-300 text-emerald-900'"
+                      class="mt-2 rounded-lg border-2 px-3 py-2 space-y-2 transition-colors duration-200"
+                      :class="{
+                        'bg-emerald-50 border-emerald-400': vFeasibility[v.id] === 'green',
+                        'bg-amber-50  border-amber-400':   vFeasibility[v.id] === 'amber',
+                        'bg-red-50    border-red-400':     vFeasibility[v.id] === 'red',
+                      }"
                     >
-                      <div class="font-bold uppercase tracking-wide text-[9px] flex items-center gap-1">
-                        <span aria-hidden="true">↻</span> Restatement consequence
-                      </div>
-                      <p>{{ restatementConsequences[v.id].hint }}</p>
-                      <div v-if="restatementConsequences[v.id].solutionsToReconsider.length > 0"
-                           class="flex flex-wrap gap-1 pt-0.5">
-                        <span class="text-[9px] font-semibold opacity-75">Solutions to reconsider:</span>
-                        <span v-for="solId in restatementConsequences[v.id].solutionsToReconsider"
-                              :key="solId"
-                              class="inline-block bg-white border rounded px-1.5 py-0.5 text-[9px] font-bold"
-                              :class="restatementConsequences[v.id].deltaFromDefault > 0
-                                ? 'border-amber-400 text-amber-800'
-                                : 'border-emerald-400 text-emerald-800'">
-                          {{ solId }}
+                      <!-- Header: status badge + label -->
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm leading-none" aria-hidden="true">
+                          {{ vFeasibility[v.id] === 'green' ? '✅' : vFeasibility[v.id] === 'amber' ? '🟡' : '🔴' }}
                         </span>
+                        <span
+                          class="text-[11px] font-extrabold uppercase tracking-wide"
+                          :class="{
+                            'text-emerald-800': vFeasibility[v.id] === 'green',
+                            'text-amber-800':   vFeasibility[v.id] === 'amber',
+                            'text-red-800':     vFeasibility[v.id] === 'red',
+                          }"
+                        >{{ feasibilityLabel(v.id) }}</span>
+                        <span class="ml-auto text-[9px] font-bold uppercase tracking-wide text-gray-400">
+                          Live Scorecard
+                        </span>
+                      </div>
+
+                      <!-- 3-column delivery / requirement / gap -->
+                      <div class="grid grid-cols-3 gap-1.5">
+                        <div class="rounded bg-white/80 border border-gray-200 px-2 py-1 text-center">
+                          <div class="text-[8px] uppercase tracking-wide text-gray-500 mb-0.5">IET Delivery</div>
+                          <div
+                            class="font-bold text-[15px] leading-none transition-all duration-200"
+                            :class="{
+                              'text-emerald-700': vFeasibility[v.id] === 'green',
+                              'text-amber-700':   vFeasibility[v.id] === 'amber',
+                              'text-red-700':     vFeasibility[v.id] === 'red',
+                            }"
+                          >{{ (vDelivery[v.id] ?? 0).toFixed(0) }}%</div>
+                          <div class="text-[8px] text-gray-400 mt-0.5">achieved</div>
+                        </div>
+                        <div class="rounded bg-white/80 border border-gray-200 px-2 py-1 text-center">
+                          <div class="text-[8px] uppercase tracking-wide text-gray-500 mb-0.5">Wish Required</div>
+                          <div class="font-bold text-[15px] leading-none text-violet-700">
+                            {{ vWishSliders[v.id] ?? 75 }}
+                          </div>
+                          <div class="text-[8px] text-gray-400 mt-0.5">commitment</div>
+                        </div>
+                        <div class="rounded bg-white/80 border border-gray-200 px-2 py-1 text-center">
+                          <div class="text-[8px] uppercase tracking-wide text-gray-500 mb-0.5">Gap</div>
+                          <div
+                            class="font-bold text-[15px] leading-none transition-all duration-200"
+                            :class="(vDelivery[v.id] ?? 0) >= (vWishSliders[v.id] ?? 75) ? 'text-emerald-700' : 'text-red-700'"
+                          >
+                            {{ ((vDelivery[v.id] ?? 0) - (vWishSliders[v.id] ?? 75)).toFixed(0) }}
+                          </div>
+                          <div class="text-[8px] text-gray-400 mt-0.5">
+                            {{ (vDelivery[v.id] ?? 0) >= (vWishSliders[v.id] ?? 75) ? 'surplus' : 'shortfall' }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Resource impact + Redesign row -->
+                      <div v-if="restatementConsequences[v.id]" class="grid grid-cols-2 gap-1.5">
+                        <div class="rounded bg-white/80 border border-gray-200 px-2 py-1.5">
+                          <div class="text-[8px] uppercase tracking-wide text-gray-500 mb-0.5">Resource Impact</div>
+                          <div
+                            class="text-[11px] font-bold leading-snug transition-all duration-200"
+                            :class="restatementConsequences[v.id].estimatedCostImpactK > 0
+                              ? 'text-red-700'
+                              : restatementConsequences[v.id].estimatedCostImpactK < 0
+                                ? 'text-emerald-700'
+                                : 'text-gray-500'"
+                          >
+                            <template v-if="restatementConsequences[v.id].estimatedCostImpactK > 0">
+                              +${{ restatementConsequences[v.id].estimatedCostImpactK }}k more needed
+                            </template>
+                            <template v-else-if="restatementConsequences[v.id].estimatedCostImpactK < 0">
+                              −${{ Math.abs(restatementConsequences[v.id].estimatedCostImpactK) }}k freed
+                            </template>
+                            <template v-else>
+                              No cost change at current level
+                            </template>
+                          </div>
+                        </div>
+                        <div class="rounded bg-white/80 border border-gray-200 px-2 py-1.5">
+                          <div class="text-[8px] uppercase tracking-wide text-gray-500 mb-0.5">Redesign needed?</div>
+                          <div
+                            v-if="restatementConsequences[v.id].solutionsToReconsider.length > 0"
+                            class="text-[11px] font-bold text-red-700 leading-snug"
+                          >
+                            Yes — {{ restatementConsequences[v.id].solutionsToReconsider.length }}
+                            solution{{ restatementConsequences[v.id].solutionsToReconsider.length !== 1 ? 's' : '' }}
+                          </div>
+                          <div v-else class="text-[11px] font-bold text-emerald-700 leading-snug">
+                            No — funded solutions sufficient
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Solutions to reconsider pills -->
+                      <div
+                        v-if="restatementConsequences[v.id]?.solutionsToReconsider?.length > 0"
+                        class="flex flex-wrap gap-1 items-center pt-0.5"
+                      >
+                        <span class="text-[9px] text-red-700 font-bold uppercase tracking-wide shrink-0">
+                          Below new requirement:
+                        </span>
+                        <span
+                          v-for="solId in restatementConsequences[v.id].solutionsToReconsider"
+                          :key="solId"
+                          class="inline-block bg-red-100 border border-red-400 text-red-800
+                                 rounded px-1.5 py-0.5 text-[9px] font-bold"
+                        >{{ solId }}</span>
+                        <span class="text-[9px] text-red-600 italic">— need redesign or replacement</span>
                       </div>
                     </div>
                   </div>

@@ -178,14 +178,21 @@ const vDelivery = computed<Record<string, number>>(() => {
 type Feasibility = 'green' | 'amber' | 'red'
 
 /**
- * Feasibility status for each V entry relative to its commitment-level slider position.
+ * Feasibility status for each V entry relative to its Wish Target slider position.
+ *
+ * BUG FIX 2026-06-06 (Tom: "I am not seeing any feedback or reaction in any indicators
+ * when I move the sliders"): was using `vSliders[v.id]` — the OLD deprecated single-thumb
+ * slider — which is NEVER written by the two-thumb UI (@input calls setVWishSlider /
+ * setVTolerableSlider, NOT setVSlider). Gauge and breakdown chips were frozen at their
+ * initial values regardless of slider movement. Fixed: now reads vWishSliders (the active
+ * Wish Target the user sets), which IS updated on every slider @input event.
  */
 const vFeasibility = computed<Record<string, Feasibility>>(() => {
   const vals = values.value
   const result: Record<string, Feasibility> = {}
   for (const v of vals) {
     const delivery = vDelivery.value[v.id] ?? 0
-    const target = vSliders[v.id] ?? 50 // default uninitialized sliders to 50
+    const target = vWishSliders[v.id] ?? 75 // FIXED: was vSliders (deprecated, never updated by current UI)
     if (delivery >= target) {
       result[v.id] = 'green'
     } else if (delivery >= target * 0.7) {
@@ -326,8 +333,11 @@ const restatementConsequences = computed<Record<string, RestatementConsequence>>
   const { matrix, capitalCosts } = snapshot.value
 
   for (const v of vals) {
-    const required = vSliders[v.id] ?? 50
-    const deltaFromDefault = required - 50 // negative = lowered, positive = raised
+    // BUG FIX 2026-06-06: was vSliders[v.id] ?? 50 (deprecated, never updated by current UI).
+    // Wish slider default is 75; delta is measured from that baseline.
+    const required = vWishSliders[v.id] ?? 75
+    const WISH_DEFAULT = 75
+    const deltaFromDefault = required - WISH_DEFAULT // negative = lowered, positive = raised
 
     // Funded solutions whose impact on this Value falls below the new required level
     // need reconsideration.  We compare the per-solution impact (already on the IET %
