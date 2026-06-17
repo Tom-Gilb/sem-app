@@ -1,0 +1,34 @@
+<!--
+  Incorruptible Sharpening icon — Tom Gilb 2026-06-17 verbatim "SHARP KNIFE +
+  INCORR COVER SYMBOL".  Composite: a knife blade crossing a stylized book
+  spine labeled "INCORR".  Indigo (Incorruptible accent) + amber (sharpening
+  accent) per the canonical palette.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-label="Incorruptible Sharpening — knife + Incorruptible book cover">
+  <!-- Book (Incorruptible cover) -->
+  <g>
+    <rect x="14" y="10" width="22" height="42" rx="2" fill="#312e81" stroke="#a5b4fc" stroke-width="1.5"/>
+    <!-- Book spine highlight -->
+    <rect x="14" y="10" width="3" height="42" fill="#1e1b4b"/>
+    <!-- Title bands -->
+    <rect x="19" y="16" width="14" height="2.5" fill="#fbbf24"/>
+    <rect x="19" y="20" width="14" height="2.5" fill="#fbbf24"/>
+    <!-- Title text INCORR -->
+    <text x="26" y="34" font-family="ui-sans-serif,system-ui,sans-serif" font-size="6" font-weight="800" text-anchor="middle" fill="#fde68a" letter-spacing="0.5">INCORR</text>
+    <text x="26" y="42" font-family="ui-sans-serif,system-ui,sans-serif" font-size="5" font-weight="700" text-anchor="middle" fill="#a5b4fc">RIES</text>
+  </g>
+  <!-- Knife — angled blade + handle, crossing the book -->
+  <g transform="rotate(-30 38 32)">
+    <!-- Blade -->
+    <polygon points="38,8 54,32 38,32" fill="#e2e8f0" stroke="#64748b" stroke-width="1"/>
+    <!-- Blade edge highlight -->
+    <line x1="38" y1="8" x2="54" y2="32" stroke="#ffffff" stroke-width="1.2"/>
+    <!-- Bolster -->
+    <rect x="36" y="32" width="6" height="3" fill="#475569"/>
+    <!-- Handle (wood) -->
+    <rect x="36" y="35" width="6" height="18" fill="#92400e" stroke="#451a03" stroke-width="0.8"/>
+    <!-- Handle rivets -->
+    <circle cx="39" cy="40" r="0.8" fill="#fde68a"/>
+    <circle cx="39" cy="48" r="0.8" fill="#fde68a"/>
+  </g>
+</svg>

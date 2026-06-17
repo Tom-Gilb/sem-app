@@ -1,0 +1,27 @@
+<!--
+  Contracts agent icon — Tom Gilb 2026-06-17 verbatim "Contracts: §".  Large
+  stylized § (section/legal symbol) on a parchment-coloured contract sheet
+  with a sealed wax stamp.  Teal accent (canonical Contracts colour).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-label="Contracts — § section symbol">
+  <!-- Background -->
+  <rect width="64" height="64" fill="#134e4a" rx="6"/>
+  <!-- Parchment contract sheet, slightly tilted -->
+  <g transform="rotate(-4 32 32)">
+    <rect x="14" y="8" width="36" height="48" fill="#fef3c7" stroke="#a16207" stroke-width="1.2" rx="1"/>
+    <!-- Horizontal contract text lines -->
+    <line x1="18" y1="14" x2="46" y2="14" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="18" y1="17" x2="46" y2="17" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="18" y1="46" x2="38" y2="46" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="18" y1="49" x2="42" y2="49" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="18" y1="52" x2="36" y2="52" stroke="#92400e" stroke-width="0.6"/>
+    <!-- Large § in the centre -->
+    <text x="32" y="38" font-family="Georgia, 'Times New Roman', serif" font-size="32" font-weight="900" text-anchor="middle" fill="#0f766e">§</text>
+  </g>
+  <!-- Red wax seal at bottom-right -->
+  <g>
+    <circle cx="49" cy="51" r="6" fill="#991b1b" stroke="#fef3c7" stroke-width="1"/>
+    <circle cx="49" cy="51" r="3.5" fill="#7f1d1d"/>
+    <text x="49" y="53.5" font-family="Georgia, serif" font-size="5" font-weight="900" text-anchor="middle" fill="#fef3c7">§</text>
+  </g>
+</svg>

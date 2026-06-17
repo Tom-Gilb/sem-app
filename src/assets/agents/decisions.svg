@@ -1,0 +1,35 @@
+<!--
+  Decisions agent icon — Tom Gilb 2026-06-17 verbatim "FORK AND ?".  Fork in
+  the road (Y-shape divergence) with a large question mark hovering above
+  the decision point.  Rose palette per canonical Decisions accent.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-label="Decisions — fork in the road + question mark">
+  <!-- Sky/background gradient -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fda4af"/>
+      <stop offset="1" stop-color="#fecdd3"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#475569"/>
+      <stop offset="1" stop-color="#1f2937"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#sky)" rx="6"/>
+  <!-- Ground -->
+  <rect y="40" width="64" height="24" fill="#16a34a" rx="0"/>
+  <!-- Y-shaped road fork -->
+  <!-- Trunk -->
+  <polygon points="28,64 36,64 38,40 26,40" fill="url(#road)"/>
+  <!-- Left branch -->
+  <polygon points="26,40 38,40 24,22 18,24" fill="url(#road)"/>
+  <!-- Right branch -->
+  <polygon points="26,40 38,40 50,24 44,22" fill="url(#road)"/>
+  <!-- Dashed centre line on trunk -->
+  <line x1="32" y1="42" x2="32" y2="60" stroke="#fde68a" stroke-width="1" stroke-dasharray="2 2"/>
+  <!-- Question mark over the divergence point -->
+  <g transform="translate(32 18)">
+    <circle r="11" fill="#fff" stroke="#9f1239" stroke-width="2"/>
+    <text x="0" y="5" font-family="ui-sans-serif,system-ui,sans-serif" font-size="16" font-weight="900" text-anchor="middle" fill="#9f1239">?</text>
+  </g>
+</svg>

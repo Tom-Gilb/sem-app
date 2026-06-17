@@ -1,0 +1,36 @@
+<!--
+  Evo Critiquer icon — Tom Gilb 2026-06-17 verbatim "EVO HEALTH: EVO CYCLE
+  MINIATURE WITH HEART + ? INSIDE CYCLE".  Composite: the 9-step Evo cycle
+  rendered as a circular arrow with 9 marker dots, with a HEART (health)
+  and ? (diagnostic question) layered at the centre.  Violet palette per
+  canonical Critiquer accent.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-label="Evo Critiquer — Evo cycle miniature with heart + question mark inside">
+  <!-- Background -->
+  <rect width="64" height="64" fill="#1e1b4b" rx="6"/>
+  <!-- Cycle ring -->
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="0"/>
+  <!-- 9 step markers along the ring (Evo's 9 steps) -->
+  <g fill="#fbbf24">
+    <!-- 9 markers at evenly spaced angles -->
+    <circle cx="32" cy="10" r="2.5"/>
+    <circle cx="46.5" cy="14.8" r="2.5"/>
+    <circle cx="53.6" cy="27.7" r="2.5"/>
+    <circle cx="51.0" cy="42.5" r="2.5"/>
+    <circle cx="39.5" cy="52.1" r="2.5"/>
+    <circle cx="24.5" cy="52.1" r="2.5"/>
+    <circle cx="13.0" cy="42.5" r="2.5"/>
+    <circle cx="10.4" cy="27.7" r="2.5"/>
+    <circle cx="17.5" cy="14.8" r="2.5"/>
+  </g>
+  <!-- Arrowhead at top of cycle (direction) -->
+  <polygon points="36,9 32,5 28,9 30,10 30,14 34,14 34,10" fill="#a78bfa"/>
+
+  <!-- Heart at centre (HEALTH) -->
+  <g transform="translate(32 32)">
+    <path d="M 0,4 C -8,-2 -10,-10 -5,-12 C -2,-13 0,-10 0,-8 C 0,-10 2,-13 5,-12 C 10,-10 8,-2 0,4 Z"
+          fill="#f43f5e" stroke="#fecdd3" stroke-width="0.8"/>
+    <!-- Question mark on top of the heart -->
+    <text x="0" y="2" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" font-weight="900" text-anchor="middle" fill="#ffffff">?</text>
+  </g>
+</svg>

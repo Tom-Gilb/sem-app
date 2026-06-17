@@ -1,0 +1,94 @@
+<!--
+  Spec Agent icon — r41 v131 (Tom Gilb 2026-06-17 verbatim "spec agent icon
+  F V etc, THis is against the rules (no F V S  S etc), Suggest a Planguage
+  glyph color").
+
+  CANONICAL PLANGUAGE PLAN GLYPH (DD-015 / DD-016 compliant):  [*+*+*+*+*]
+  — brackets containing 5 colored asterisks joined by + symbols.  Each
+  asterisk is the canonical Planguage type-glyph for ONE entry type, in
+  its canonical color:
+     ✻ Function  (green   #16a34a)
+     ✻ Value     (violet  #7c3aed)
+     ✻ Solution  (orange  #ea580c)
+     ✻ Constraint (red    #dc2626)
+     ✻ Resource  (blue    #2563eb)
+
+  Brackets are slate-600 #475569; + signs are slate-500 #64748b.  Direct
+  extension of PlanGlyph.vue (the canonical 3-asterisk [*+*+*] form) to
+  5 asterisks since Spec Agent generates ALL FIVE entry types.
+
+  ZERO English letters — pure Planguage symbology per DD-015 International
+  Icons rule + Spell-out-Type-Names SUPREME rule.  Composes with DD-016
+  Color Keyed Icon family (canonical type colors carry semantic meaning).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-label="Spec Agent — canonical Plan glyph [*+*+*+*+*]: brackets containing 5 colored asterisks (Function green, Value violet, Solution orange, Constraint red, Resource blue)">
+  <!-- Background — dark slate so colored glyph elements pop -->
+  <rect width="64" height="64" fill="#0f172a" rx="6"/>
+
+  <!-- Bracket [  (slate-400 for visibility on dark) -->
+  <g stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <polyline points="9,12 4,12 4,52 9,52"/>
+  </g>
+
+  <!-- Asterisk 1 — Function (green) — at x=12 -->
+  <g stroke="#22c55e" stroke-width="2.5" stroke-linecap="round">
+    <line x1="12" y1="22" x2="12" y2="42"/>
+    <line x1="3.5" y1="37" x2="20.5" y2="27"/>
+    <line x1="3.5" y1="27" x2="20.5" y2="37"/>
+  </g>
+
+  <!-- + separator (slate-500) -->
+  <g stroke="#94a3b8" stroke-width="2" stroke-linecap="round">
+    <line x1="22" y1="32" x2="26" y2="32"/>
+    <line x1="24" y1="30" x2="24" y2="34"/>
+  </g>
+
+  <!-- Asterisk 2 — Value (violet) — at x=28 -->
+  <g stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round">
+    <line x1="28" y1="22" x2="28" y2="42"/>
+    <line x1="19.5" y1="37" x2="36.5" y2="27"/>
+    <line x1="19.5" y1="27" x2="36.5" y2="37"/>
+  </g>
+
+  <!-- + separator -->
+  <g stroke="#94a3b8" stroke-width="2" stroke-linecap="round">
+    <line x1="38" y1="32" x2="42" y2="32"/>
+    <line x1="40" y1="30" x2="40" y2="34"/>
+  </g>
+
+  <!-- Asterisk 3 — Solution (orange) — at x=44 -->
+  <g stroke="#fb923c" stroke-width="2.5" stroke-linecap="round">
+    <line x1="44" y1="22" x2="44" y2="42"/>
+    <line x1="35.5" y1="37" x2="52.5" y2="27"/>
+    <line x1="35.5" y1="27" x2="52.5" y2="37"/>
+  </g>
+
+  <!-- Bracket ] -->
+  <g stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <polyline points="55,12 60,12 60,52 55,52"/>
+  </g>
+
+  <!-- Second row inside brackets — visually conveys "and more entries" via
+       two smaller asterisks for Constraint (red) and Resource (blue) below.
+       This compactly fits 5 colors into a 64×64 viewBox while keeping the
+       canonical [*+*+*] structure intact for the first row. -->
+  <g transform="translate(0 0)">
+    <!-- Asterisk 4 — Constraint (red) — at x=20, smaller -->
+    <g stroke="#f87171" stroke-width="2" stroke-linecap="round">
+      <line x1="22" y1="48" x2="22" y2="60"/>
+      <line x1="16" y1="57" x2="28" y2="51"/>
+      <line x1="16" y1="51" x2="28" y2="57"/>
+    </g>
+    <!-- + separator -->
+    <g stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round">
+      <line x1="30" y1="54" x2="33" y2="54"/>
+      <line x1="31.5" y1="52.5" x2="31.5" y2="55.5"/>
+    </g>
+    <!-- Asterisk 5 — Resource (blue) — at x=38, smaller -->
+    <g stroke="#60a5fa" stroke-width="2" stroke-linecap="round">
+      <line x1="38" y1="48" x2="38" y2="60"/>
+      <line x1="32" y1="57" x2="44" y2="51"/>
+      <line x1="32" y1="51" x2="44" y2="57"/>
+    </g>
+  </g>
+</svg>

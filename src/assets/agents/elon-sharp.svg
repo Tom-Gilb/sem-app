@@ -1,0 +1,60 @@
+<!--
+  Elon Sharpening icon — Tom Gilb 2026-06-17 verbatim "ELON SHARPENING:
+  SPACEX ROCKET AND SHARP KNIFE".  Composite: a Falcon-9-style rocket
+  silhouette rising on flames, crossed by an angled chef's knife.  Cyan
+  rocket + amber flames + steel blade + wood handle.  Cyan accent
+  (canonical Elon family colour) + amber (sharpening accent).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-label="Elon Sharpening — SpaceX rocket + knife">
+  <!-- Sky/space background — gradient from dark cyan at top to light at bottom -->
+  <defs>
+    <linearGradient id="elonSharpSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c4a6e"/>
+      <stop offset="1" stop-color="#0e7490"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#elonSharpSky)" rx="6"/>
+  <!-- Stars in the background -->
+  <g fill="#fff" opacity="0.7">
+    <circle cx="8"  cy="8"  r="0.7"/>
+    <circle cx="56" cy="6"  r="0.5"/>
+    <circle cx="50" cy="14" r="0.6"/>
+    <circle cx="14" cy="20" r="0.5"/>
+    <circle cx="6"  cy="30" r="0.4"/>
+  </g>
+
+  <!-- Falcon 9 rocket — vertical, slim, on the left-centre -->
+  <g transform="translate(22 0)">
+    <!-- Nosecone -->
+    <polygon points="6,4 0,16 12,16" fill="#e0f2fe" stroke="#0369a1" stroke-width="0.8"/>
+    <!-- Body -->
+    <rect x="0" y="16" width="12" height="28" fill="#f0f9ff" stroke="#0369a1" stroke-width="0.8"/>
+    <!-- Body details — SpaceX horizontal lines -->
+    <line x1="0" y1="22" x2="12" y2="22" stroke="#0369a1" stroke-width="0.6"/>
+    <line x1="0" y1="32" x2="12" y2="32" stroke="#0369a1" stroke-width="0.6"/>
+    <line x1="0" y1="40" x2="12" y2="40" stroke="#0369a1" stroke-width="0.6"/>
+    <!-- Grid fins -->
+    <rect x="-2" y="18" width="2" height="4" fill="#0369a1"/>
+    <rect x="12" y="18" width="2" height="4" fill="#0369a1"/>
+    <!-- Side boosters -->
+    <rect x="-3" y="36" width="3" height="8" fill="#0369a1"/>
+    <rect x="12" y="36" width="3" height="8" fill="#0369a1"/>
+    <!-- Engine flames -->
+    <polygon points="2,44 0,52 4,46 6,54 8,46 12,52 10,44" fill="#fbbf24"/>
+    <polygon points="3,46 5,50 7,46 9,50" fill="#fff"/>
+  </g>
+
+  <!-- Knife — angled across the rocket -->
+  <g transform="rotate(35 40 40)">
+    <!-- Blade -->
+    <polygon points="20,38 50,38 50,42" fill="#e2e8f0" stroke="#475569" stroke-width="0.8"/>
+    <line x1="20" y1="38" x2="50" y2="38" stroke="#ffffff" stroke-width="1"/>
+    <!-- Bolster -->
+    <rect x="18" y="37" width="3" height="6" fill="#334155"/>
+    <!-- Wood handle -->
+    <rect x="4" y="37" width="14" height="6" fill="#92400e" stroke="#451a03" stroke-width="0.6" rx="0.8"/>
+    <!-- Rivets -->
+    <circle cx="8"  cy="40" r="0.7" fill="#fde68a"/>
+    <circle cx="14" cy="40" r="0.7" fill="#fde68a"/>
+  </g>
+</svg>
