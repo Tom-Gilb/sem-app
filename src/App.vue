@@ -33,7 +33,14 @@ import EvoSharpInterview from './components/EvoSharpInterview.vue'
 import EvoStepImprovement from './components/EvoStepImprovement.vue'
 import FeedMePanel from './components/FeedMePanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+// r41 v49 — Top-level Mode pin + popover + governance dialog (Tom Gilb 2026-06-16).
+import ActiveModeButton from './components/ActiveModeButton.vue'
+import ActiveModePopover from './components/ActiveModePopover.vue'
+import ModeSwitchGovernanceDialog from './components/ModeSwitchGovernanceDialog.vue'
+import { useActiveMode, type ActiveMode, type ModeSwitchChoice } from './composables/useActiveMode'
+import TwinChip from './components/TwinChip.vue'
 import PrioritisedPlanView from './components/PrioritisedPlanView.vue'
+import RefineSolutionsView from './components/RefineSolutionsView.vue'
 import ClarifyView from './components/ClarifyView.vue'
 import ThinkingIndicator from './components/ThinkingIndicator.vue'
 import CelebrationEffect from './components/CelebrationEffect.vue'
@@ -61,9 +68,8 @@ import { useCollaborationCursors } from './composables/useCollaborationCursors'
 import { useCollabConflict } from './composables/useCollabConflict'
 import { useClarifyingQuestions } from './composables/useClarifyingQuestions'
 import { useSpecExport, exportPrioritisedPlan, exportWithTasks, serialisePlainText, exportWithTasksPlainText } from './composables/useSpecExport'
-import { openEml, textToEmailHtml } from './composables/useEmlExport'
 import { renderColorfulSpecHtml } from './composables/useColorfulSpecHtml'
-import { exportCopy, exportEmail, exportDownload } from './composables/useExportShared'
+import { exportCopy, exportEmail, exportDownload, getLastClipboardResult } from './composables/useExportShared'
 import { useExportBanner } from './composables/useExportBanner'
 import { useAuth } from './composables/useAuth'
 import { useWorkspace } from './composables/useWorkspace'
@@ -75,6 +81,8 @@ import { useReplay } from './composables/useReplay'
 import { useProjectDashboard } from './composables/useProjectDashboard'
 import { useSessionPersist } from './composables/useSessionPersist'
 import { useToast } from './composables/useToast'
+import { useStrategyMode } from './composables/useStrategyMode'
+import { useSettings } from './composables/useSettings'
 import { useInputSafetyNet } from './composables/useInputSafetyNet'
 import { useAnalyticsEvents } from './composables/useAnalyticsEvents'
 import { useSurveyGate } from './composables/useSurveyGate'
@@ -123,6 +131,17 @@ import PlannerGlyph from './components/icons/PlannerGlyph.vue'
 import ScribeGlyph from './components/icons/ScribeGlyph.vue'
 import SpecStoryGlyph from './components/icons/SpecStoryGlyph.vue'
 import SpecHealthBadge from './components/SpecHealthBadge.vue'
+// r41 v116 — IdentityStrip (Group 3 identity) + StageToolsStrip (Group 2)
+// per Tom Gilb 2026-06-17 redesign mandate ("organize into clear groups").
+import IdentityStrip from './components/IdentityStrip.vue'
+import StageToolsStrip from './components/StageToolsStrip.vue'
+// r41 v123 — Level 3 · Agents as its own component (Tom Gilb 2026-06-17
+// "ship phase 2 — I want all 3 new groups asap").
+import AgentsStrip from './components/AgentsStrip.vue'
+// r41 v141 — Level 1 · Process Tools as its own component (Tom Gilb 2026-06-17
+// "keep working, real progress").  Achieves full Level-1/2/3 architectural
+// parity; removes ~200 LOC of inline cluster markup × 2 from App.vue.
+import ProcessToolsStrip from './components/ProcessToolsStrip.vue'
 import { useSpecHealth, type SpecHealthContext, type PlanHealthContext } from './composables/useSpecHealth'
 import CopyrightPanel from './components/CopyrightPanel.vue'
 import SaveGlyphHistoryPanel from './components/SaveGlyphHistoryPanel.vue'
@@ -140,6 +159,13 @@ import DecisionMapperPanel from './components/DecisionMapperPanel.vue'
 import MultiVisionPanel from './components/MultiVisionPanel.vue'
 import MultiForksPanel from './components/MultiForksPanel.vue'    // r97 — new system fork diagram
 import MultiForksGlyph from './components/icons/MultiForksGlyph.vue' // 2026-06-06 — canonical MultiForks glyph (replaces 🔱 emoji)
+import GilbIllustrationPicker from './components/GilbIllustrationPicker.vue' // 2026-06-12 r93qqq — TwinPod illustration catalog picker
+// r41 v42 — BookKaleidoscope import REMOVED from App.vue (Tom Gilb 2026-06-16:
+// "I did never intend the kaliadeobooks would be on normal pages, for now only
+// when cmnd i").  The component is still used inside GilbIllustrationPicker's
+// 📚 Books tab — that's its only mounting point now.
+import IlluminationGlyph from './components/icons/IlluminationGlyph.vue'    // 2026-06-13 r93qqq — canonical ⌘I pin glyph
+import PlanguageOntologyDiagram from './components/PlanguageOntologyDiagram.vue' // 2026-06-13 r93qqq r23 — 663-concept clickable ontology tree
 import PageScrollPin   from './components/PageScrollPin.vue'      // 2026-06-06 — universal "% shown" pin for page-level scroll
 import { useMultiVision } from './composables/useMultiVision'
 import SemMetadataPanel from './components/SemMetadataPanel.vue'
@@ -157,6 +183,10 @@ import PlResourceIcon from './components/icons/PlResourceIcon.vue'
 import ResourceArtsyGlyph from './components/icons/ResourceArtsyGlyph.vue'
 import OptimaGlyph from './components/icons/OptimaGlyph.vue'
 import ResourceOptimaPanel from './components/ResourceOptimaPanel.vue'
+import AutoDboPanel from './components/AutoDboPanel.vue'       // Auto-DBO — Design By Objectives (Tom 2026-06-07)
+import PlanguageToolsButton from './components/PlanguageToolsButton.vue'  // Planguage Tools pin (Tom 2026-06-07)
+import PlanguageToolsPanel  from './components/PlanguageToolsPanel.vue'   // Planguage Tools catalogue
+import PentaPanel from './components/PentaPanel.vue'           // Penta Model — Gilb-Shalloway 2022 SVERD pinwheel
 import PriorityTripleGlyph from './components/icons/PriorityTripleGlyph.vue'
 import GetGlyph from './components/icons/GetGlyph.vue'
 import CopyGlyph from './components/icons/CopyGlyph.vue'
@@ -175,6 +205,23 @@ import { useTaskSuggestions } from './composables/useTaskSuggestions'
 import ResourcesSharpenPanel from './components/ResourcesSharpenPanel.vue'
 import ResourcesKissPanel from './components/ResourcesKissPanel.vue'
 import ResourceCostEngineeringPanel from './components/ResourceCostEngineeringPanel.vue'
+import SolutionSharpenPanel from './components/SolutionSharpenPanel.vue'
+import StrategyAgentPanel from './components/StrategyAgentPanel.vue'
+import IncorruptiblePanel from './components/IncorruptiblePanel.vue'  // Eric Ries 2026 — strategic resilience agent
+import ValueAspectsPanel from './components/ValueAspectsPanel.vue'    // Tom Gilb 2026-06-11 22:45 CET — Value Aspects Articulation Tool
+import type { PentaItem } from './types/penta'
+import IncorruptibleSharpeningPanel from './components/IncorruptibleSharpeningPanel.vue'  // r93aa Q&A flow
+import { applyIncorruptibleFix, generateIncorruptibleReport } from './composables/useIncorruptibleFindings'
+import type { IncorruptibleFinding } from './types/incorruptible'
+// Elon Agent (Tom Gilb 2026-06-12 — Musk's Methods book + Dove et al. Pace-of-Innovation paper):
+//   plan check + sharpening. Mirrors the Incorruptible pattern exactly. Pace-of-Innovation is
+//   the DOMINANT Requirement per Dove et al. (cited by Tom Gilb).
+import ElonPanel from './components/ElonPanel.vue'
+import ElonSharpeningPanel from './components/ElonSharpeningPanel.vue'
+import { applyElonFix, generateElonReport } from './composables/useElonFindings'
+import type { ElonFinding } from './types/elon'
+// Universal Undo System (Tom Gilb SUPREME rule 2026-06-11 r93v).
+import { useUndoHistory, registerUndoSpecRestorer } from './composables/useUndoHistory'
 import BookCoverChip from './components/BookCoverChip.vue'
 import ScrollContainer from './components/ScrollContainer.vue'
 import {
@@ -197,6 +244,7 @@ import {
   setDeviceUserName,
   setWorkingMode,
   setDeadline,
+  updateSpecModelGenesis,
 
   type SpecModel,
   type PlanModel,
@@ -209,13 +257,17 @@ import SelectionDefiner from './components/SelectionDefiner.vue'
 import FreshStartMenu from './components/FreshStartMenu.vue'
 import InputSafetyNetToast from './components/InputSafetyNetToast.vue'
 import { formatBackupTimestamp } from './composables/useFreshStart'
-import { defineCurrentSelection, openDefineSearch } from './composables/useDefine'
+import { defineCurrentSelection, openDefineSearch, defineTerm, closeDefine, useDefine as _useDefineForPickerSuppress } from './composables/useDefine'
 import SpecWizard from './components/SpecWizard.vue'
 import SpecPresentation from './components/SpecPresentation.vue'
 import BullockPanel from './components/BullockPanel.vue'
 // AmuseMeButton is used inside SpecOutput.vue directly — not imported at App level
 import OnboardingTour from './components/OnboardingTour.vue'
-import type { SpecBlock } from './types/spec'
+import type { SpecBlock, FieldSource, VEntry, FEntry, CEntry, REntry, SEntry } from './types/spec'
+// ModelLibraryEntry needed for the Incorruptible Model-mode converter (r93q).
+import type { ModelLibraryEntry } from './composables/useModelLibrary'
+import { useModelLibrary } from './composables/useModelLibrary'
+import { rBudget, rBudgetLabel } from './types/spec'
 import GlobalSearch from './components/GlobalSearch.vue'
 import { useGlobalSearch, type SearchEntry } from './composables/useGlobalSearch'
 import { useToolInfo } from './composables/useToolInfo'
@@ -267,7 +319,8 @@ const { startLoading, stopLoading, isLoading } = useLoadingState()
 
 // --- Session persistence (crash/eviction recovery) ---
 const { save: _saveSession, load: _loadSession, clear: _clearSession, timeAgo } = useSessionPersist()
-const { toast: globalToast, showToast } = useToast()
+const { toast: globalToast, showToast, dismissToast } = useToast()
+const { termFor: strategyTermFor, isStrategyMode, setStrategyMode } = useStrategyMode()
 const { bannerVisible: exportBannerVisible, bannerLabel: exportBannerLabel, hideExportEmailBanner } = useExportBanner()
 /** True when the current view was restored from a saved session (shows "Start fresh" pill). */
 const sessionRestored = ref(false)
@@ -289,12 +342,18 @@ const presentationOpen = ref(false)
 // sharpeningDone: true once the planner clicks "Sharp Enough" in Stage 1.
 // Resets whenever a new spec is generated so each spec starts unsharped.
 const sharpeningDone = ref(false)
+// changesListOpen: whether the post-sharpening "changes to Planguage model"
+// panel is expanded in the sharpeningDone block.
+const changesListOpen = ref(true)
 // sharpenModalOpen: true when the nav "Sharpen ▾" dropdown opens the modal.
 const sharpenModalOpen = ref(false)
 // resourcesSharpenOpen: true when Stage 10 · Resources Sharpening panel is open.
 const resourcesSharpenOpen = ref(false)
 // optimaOpen: true when Stage 10 · OPTIMA Resource Optimization panel is open.
-const optimaOpen = ref(false)
+const optimaOpen  = ref(false)
+const autoDboOpen          = ref(false)     // Auto-DBO — Design By Objectives (Tom 2026-06-07)
+const planguageToolsOpen   = ref(false)     // Planguage Tools catalogue (Tom 2026-06-07)
+const pentaOpen            = ref(false)     // Penta Model — Gilb-Shalloway 2022 SVERD pinwheel
 // kissOpen: true when Stage 10 · KISS panel is open.
 // KISS = Keep Improvement Super Surprising — 5 most cost-effective spec improvements.
 const kissOpen = ref(false)
@@ -310,6 +369,15 @@ const costEngineeringOpen = ref(false)
 // currentSpec.value, persist the snapshot to the active specModel, and
 // log a one-line provenance breadcrumb.
 function _onResourcesAnalysisApplied(updatedSpec: SpecBlock): void {
+  // r93x — Universal Undo P2 sweep: record before mutation
+  if (currentSpec.value) {
+    undoHistory.record({
+      label:    'Resources Analysis Applied',
+      source:   'ResourcesAnalysis',
+      prevSpec: JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock,
+      nextSpec: JSON.parse(JSON.stringify(updatedSpec))       as SpecBlock,
+    })
+  }
   currentSpec.value = updatedSpec
   if (specModel.value) saveSpecSnapshot(updatedSpec)
   console.log('[ResourcesAnalysis] applied — spec now has',
@@ -317,6 +385,428 @@ function _onResourcesAnalysisApplied(updatedSpec: SpecBlock): void {
     updatedSpec.solutions?.length ?? 0, 'S.,',
     updatedSpec.constraints?.length ?? 0, 'C.')
 }
+// ── Incorruptible Agent: Model-mode launch + ModelLibraryEntry → SpecBlock converter ────
+//
+// Tom Gilb 2026-06-11: "for sure also a tool in the Model mode, so duplicate it there".
+// ModelLibraryEntry is a slim shape (ModelEntry[] with type + description + details), not a
+// full SpecBlock. To run the Incorruptible deterministic engine on it, we convert each
+// ModelEntry to the corresponding V/F/C/R/S entry with best-effort field mapping. The
+// details field is parsed for Goal / Tolerable / Wish / Scale fragments where present.
+function _modelEntryToSpec(entry: ModelLibraryEntry): SpecBlock {
+  const values: VEntry[]         = []
+  const functions: FEntry[]      = []
+  const constraints: CEntry[]    = []
+  const resources: REntry[]      = []
+  const solutions: SEntry[]      = []
+
+  for (const me of entry.entries ?? []) {
+    const id = me.description.split(/[.,;:]/)[0].slice(0, 40).trim() || `${me.type}-entry`
+
+    const parseDetail = (label: string): string => {
+      // Tolerant match — "Goal: 99.9" or "Goal 99.9" or "Goal=99.9"
+      const re = new RegExp(`${label}\\s*[:=]?\\s*([^·|;]+)`, 'i')
+      const m  = (me.details ?? '').match(re)
+      return m ? m[1].trim().split(/\s*·\s*/)[0].trim() : ''
+    }
+
+    switch (me.type) {
+      case 'V':
+        values.push({
+          id, type: 'Value', level: 'Business',
+          description:    me.description,
+          scale:          parseDetail('Scale')     || '',
+          meter:          parseDetail('Meter')     || '',
+          status:         parseDetail('Status')    || '',
+          tolerable:      parseDetail('Tolerable') || '',
+          goal:           parseDetail('Goal')      || '',
+          wish:           parseDetail('Wish')      || '',
+          valueOfFunction: '',
+        } as VEntry)
+        break
+      case 'F':
+        functions.push({
+          id, type: 'Function', level: 'Business',
+          description:   me.description,
+          presenceTest:  me.details ?? '',
+        } as FEntry)
+        break
+      case 'C':
+        constraints.push({
+          id, type: 'Constraint', level: 'Business',
+          description:  me.description,
+          scope:        'plan-level',
+          rationale:    me.details ?? '',
+        } as CEntry)
+        break
+      case 'R':
+        resources.push({
+          id, type: 'Resource', level: 'Business',
+          description:  me.description,
+          budget:       parseDetail('Budget') || parseDetail('Goal') || '',
+          scale:        parseDetail('Scale')  || '',
+          meter:        parseDetail('Meter')  || '',
+        } as REntry)
+        break
+      case 'S':
+        solutions.push({
+          id, type: 'Solution', level: 'Business',
+          description:  me.description,
+        } as SEntry)
+        break
+    }
+  }
+
+  return {
+    functions,
+    values,
+    solutions,
+    constraints,
+    resources,
+    stakes: (entry.stakeholders ?? []).join(', '),
+    stakeholderEntries: (entry.stakeholders ?? []).map(name => ({
+      id: name,
+      type: 'Stakeholder',
+      definition: '',
+      description: '',
+    })),
+  } as SpecBlock
+}
+
+/** Local library instance — shares module-level state with ModelLibraryPanel via the
+ *  composable pattern (refs wrap module-level _userEntries / _activeModelId etc.). */
+const _incorruptibleLibrary = useModelLibrary()
+
+/** Launch Incorruptible in MODEL MODE against the currently active Library entry. */
+function _launchIncorruptibleOnActiveModel(): void {
+  const entry = _incorruptibleLibrary.activeModel.value
+  if (!entry) {
+    showToast('⚖️ Incorruptible — no active model. Select one in Model Library first.', 5000)
+    return
+  }
+  incorruptibleTargetSpec.value  = _modelEntryToSpec(entry)
+  incorruptibleTargetTitle.value = `Model: ${entry.title}`
+  incorruptibleIsModel.value     = true
+  incorruptibleOpen.value        = true
+}
+
+// ── Incorruptible Agent: Accept Fix (Sharpen capability) ───────────────────
+// Tom Gilb 2026-06-11: "we should be able to use it health check and sharpen
+//   (it needs both capabilities) on any plan or organizational model"
+//
+// Accept Fix takes a finding + applies its suggestedFix to the bound target spec.
+// Two routing modes:
+//   (a) Library-model mode (incorruptibleIsModel = true) — mutations are not persisted
+//       to the user's plan; we just show a toast explaining why and pointing to the
+//       Phase 2 "Save as Custom Model" workflow.
+//   (b) Current-plan mode (incorruptibleIsModel = false) — fix is applied to currentSpec
+//       via the standard pattern (set + snapshot). Toast names the affected entry.
+function onIncorruptibleAcceptFix(finding: IncorruptibleFinding): void {
+  const target = incorruptibleTargetSpec.value ?? currentSpec.value
+  if (!target) {
+    showToast('⚖️ Incorruptible — no plan bound. Open a plan first.', 4000)
+    return
+  }
+
+  const result = applyIncorruptibleFix(finding, target)
+  if (!result) {
+    // Phase 1 cannot apply this fix type (e.g. add-evo-step). Inform user.
+    showToast(
+      `⚖️ Incorruptible — fix type "${finding.suggestedFix.type}" pending Phase 2. ` +
+      `Use the suggested Planguage manually for now.`,
+      6000,
+    )
+    return
+  }
+
+  // r93u: snapshot the PRE-FIX target spec so Undo can restore it. Deep-clone via JSON
+  // round-trip — same approach applyIncorruptibleFix itself uses internally.
+  const preFixSnapshot: SpecBlock = JSON.parse(JSON.stringify(target))
+  _incorruptibleUndoSnapshots.value.set(finding.id, preFixSnapshot)
+  // Mark this finding as accepted (drives the "Fix Is Accepted" button state)
+  const nextAccepted = new Set(incorruptibleAcceptedIds.value)
+  nextAccepted.add(finding.id)
+  incorruptibleAcceptedIds.value = nextAccepted
+
+  // Library-model mode: preview only — show toast but DO NOT write back to currentSpec.
+  // The preview state lives in incorruptibleTargetSpec so the panel re-renders findings
+  // against the post-fix model.
+  if (incorruptibleIsModel.value) {
+    incorruptibleTargetSpec.value = result.newSpec
+    showToast(
+      `⚖️ Incorruptible — model preview applied. ` +
+      `${result.summary} (not saved to library — Phase 2 will add "Save as Custom Model")`,
+      8000,
+    )
+    return
+  }
+
+  // Current-plan mode: persist via the standard write-back path + record on undo stack.
+  // r93v: every Incorruptible fix is now on the universal undo stack — ⌘Z works at the
+  // global level. The per-finding Undo Fix button (r93u) still works for selective undo
+  // of a specific finding without affecting more-recent unrelated actions.
+  undoHistory.record({
+    label:          `Incorruptible Fix · ${finding.principleViolated}`,
+    source:         'Incorruptible',
+    prevSpec:       preFixSnapshot,
+    nextSpec:       JSON.parse(JSON.stringify(result.newSpec)) as SpecBlock,
+    affectedFields: [`${result.affectedItemType}.${result.affectedItemId}`],
+    principle:      finding.principleViolated,
+  })
+  currentSpec.value = result.newSpec
+  if (specModel.value) saveSpecSnapshot(result.newSpec)
+  // r93x — Universal Undo P2: toast now carries [Undo] action that triggers global undo
+  showToast(`⚖️ Incorruptible — ${result.summary}`, 7000, { label: '[Undo]', handler: handleGlobalUndo })
+  console.log('[Incorruptible] fix applied:', finding.suggestedFix.type, '→', result.affectedItemType, result.affectedItemId)
+}
+
+/** r93aa — Synthesise & Apply: when the Sharpening panel emits findings, route each through
+ *  onIncorruptibleAcceptFix to get the full pipeline (source-stamping + undo + cascade).
+ *  r93ff — capture before/after Incorruptibility Score so the toast can name the delta. */
+function onIncorruptibleSynthesiseFindings(findings: IncorruptibleFinding[]): void {
+  if (findings.length === 0) return
+  // Compute BEFORE score (against currentSpec OR target-spec for model mode)
+  const beforeSpec = incorruptibleIsModel.value
+    ? incorruptibleTargetSpec.value
+    : currentSpec.value
+  const beforeScore = beforeSpec
+    ? generateIncorruptibleReport(beforeSpec, specModel.value?.name ?? '').incorruptibilityScore
+    : null
+  for (const f of findings) {
+    onIncorruptibleAcceptFix(f)
+  }
+  // Compute AFTER score on the post-fix spec
+  const afterSpec = incorruptibleIsModel.value
+    ? incorruptibleTargetSpec.value
+    : currentSpec.value
+  const afterScore = afterSpec
+    ? generateIncorruptibleReport(afterSpec, specModel.value?.name ?? '').incorruptibilityScore
+    : null
+  const delta = (beforeScore !== null && afterScore !== null) ? afterScore - beforeScore : null
+  const deltaStr = delta !== null
+    ? ` · Score ${beforeScore} → ${afterScore} (${delta >= 0 ? '+' : ''}${delta})`
+    : ''
+  showToast(
+    `🔪 Incorruptible Sharpening — synthesised ${findings.length} fix${findings.length === 1 ? '' : 'es'} from your answers${deltaStr}.`,
+    8000,
+    { label: '[Undo]', handler: handleGlobalUndo },
+  )
+  // Close the Sharpening panel so the user sees the resulting findings in the health-check panel
+  incorruptibleSharpeningOpen.value = false
+  incorruptibleOpen.value           = true
+}
+
+/** Launch helpers for Incorruptible Sharpening — r93aa three access paths. */
+function _launchIncorruptibleSharpeningOnCurrentPlan(): void {
+  incorruptibleTargetSpec.value  = null   // null = use currentSpec via ?? in panel
+  incorruptibleTargetTitle.value = ''
+  incorruptibleIsModel.value     = false
+  incorruptibleSharpeningOpen.value = true
+}
+function _launchIncorruptibleSharpeningOnActiveModel(): void {
+  const entry = _incorruptibleLibrary.activeModel.value
+  if (!entry) {
+    showToast('🔪 Incorruptible Sharpening — no active model. Select one in Model Library first.', 5000)
+    return
+  }
+  incorruptibleTargetSpec.value  = _modelEntryToSpec(entry)
+  incorruptibleTargetTitle.value = `Model: ${entry.title}`
+  incorruptibleIsModel.value     = true
+  incorruptibleSharpeningOpen.value = true
+}
+
+/** r93u — Undo Fix: restore the pre-fix snapshot taken at accept-time. */
+function onIncorruptibleUndoFix(finding: IncorruptibleFinding): void {
+  const snapshot = _incorruptibleUndoSnapshots.value.get(finding.id)
+  if (!snapshot) {
+    showToast('⚖️ Incorruptible — no undo snapshot found (was the fix applied this session?)', 5000)
+    return
+  }
+
+  if (incorruptibleIsModel.value) {
+    // Model mode: restore the target preview spec; currentSpec untouched
+    incorruptibleTargetSpec.value = snapshot
+    showToast(`⚖️ Incorruptible — model fix undone (preview restored).`, 5000)
+  } else {
+    // Current-plan mode: restore currentSpec + snapshot
+    currentSpec.value = snapshot
+    if (specModel.value) saveSpecSnapshot(snapshot)
+    showToast(`⚖️ Incorruptible — fix undone for ${finding.triggeredBy}. Plan restored.`, 6000)
+  }
+
+  // Remove from accepted set + clear snapshot
+  const nextAccepted = new Set(incorruptibleAcceptedIds.value)
+  nextAccepted.delete(finding.id)
+  incorruptibleAcceptedIds.value = nextAccepted
+  const nextSnapshots = new Map(_incorruptibleUndoSnapshots.value)
+  nextSnapshots.delete(finding.id)
+  _incorruptibleUndoSnapshots.value = nextSnapshots
+
+  console.log('[Incorruptible] fix undone:', finding.id)
+}
+
+// ── Elon Agent: Model-mode launch + Accept Fix + Undo Fix + Synthesise ────
+//
+// Tom Gilb 2026-06-12: "OK Major new Agent: 'Elon': will be based on my Musks Methods
+//   book... The pattern is Incorruptible (based on Ries). Just make it."
+//
+// Plumbing mirrors Incorruptible exactly. Pace-of-Innovation is the DOMINANT Requirement;
+// the panel + synthesis honour it (cyan accent, 2× score weight, sorts first).
+
+function _launchElonOnActiveModel(): void {
+  const entry = _incorruptibleLibrary.activeModel.value
+  if (!entry) {
+    showToast('⚡ Elon — no active model. Select one in Model Library first.', 5000)
+    return
+  }
+  elonTargetSpec.value  = _modelEntryToSpec(entry)
+  elonTargetTitle.value = `Model: ${entry.title}`
+  elonIsModel.value     = true
+  elonOpen.value        = true
+}
+
+function _launchElonSharpeningOnCurrentPlan(): void {
+  elonTargetSpec.value  = null   // null = use currentSpec via ?? in panel
+  elonTargetTitle.value = ''
+  elonIsModel.value     = false
+  elonSharpeningOpen.value = true
+}
+
+function _launchElonSharpeningOnActiveModel(): void {
+  const entry = _incorruptibleLibrary.activeModel.value
+  if (!entry) {
+    showToast('⚡ Elon Sharpening — no active model. Select one in Model Library first.', 5000)
+    return
+  }
+  elonTargetSpec.value  = _modelEntryToSpec(entry)
+  elonTargetTitle.value = `Model: ${entry.title}`
+  elonIsModel.value     = true
+  elonSharpeningOpen.value = true
+}
+
+function onElonAcceptFix(finding: ElonFinding): void {
+  const target = elonTargetSpec.value ?? currentSpec.value
+  if (!target) {
+    showToast('⚡ Elon — no plan bound. Open a plan first.', 4000)
+    return
+  }
+
+  const result = applyElonFix(finding, target)
+  if (!result) {
+    showToast(
+      `⚡ Elon — fix type "${finding.suggestedFix.type}" pending Phase 2. ` +
+      `Use the suggested Planguage manually for now.`,
+      6000,
+    )
+    return
+  }
+
+  // Snapshot pre-fix spec for per-finding Undo Fix
+  const preFixSnapshot: SpecBlock = JSON.parse(JSON.stringify(target))
+  _elonUndoSnapshots.value.set(finding.id, preFixSnapshot)
+  const nextAccepted = new Set(elonAcceptedIds.value)
+  nextAccepted.add(finding.id)
+  elonAcceptedIds.value = nextAccepted
+
+  // Library-model mode: preview only
+  if (elonIsModel.value) {
+    elonTargetSpec.value = result.newSpec
+    showToast(
+      `⚡ Elon — model preview applied. ` +
+      `${result.summary} (not saved to library — Phase 2 will add "Save as Custom Model")`,
+      8000,
+    )
+    return
+  }
+
+  // Current-plan mode: persist via standard path + universal undo stack
+  undoHistory.record({
+    label:          `Elon Fix · ${finding.principleViolated}`,
+    source:         'Elon',
+    prevSpec:       preFixSnapshot,
+    nextSpec:       JSON.parse(JSON.stringify(result.newSpec)) as SpecBlock,
+    affectedFields: [`${result.affectedItemType}.${result.affectedItemId}`],
+    principle:      finding.principleViolated,
+  })
+  currentSpec.value = result.newSpec
+  if (specModel.value) saveSpecSnapshot(result.newSpec)
+  showToast(`⚡ Elon — ${result.summary}`, 7000, { label: '[Undo]', handler: handleGlobalUndo })
+  console.log('[Elon] fix applied:', finding.suggestedFix.type, '→', result.affectedItemType, result.affectedItemId)
+}
+
+function onElonSynthesiseFindings(findings: ElonFinding[]): void {
+  if (findings.length === 0) return
+  // Compute BEFORE Velocity Score
+  const beforeSpec = elonIsModel.value ? elonTargetSpec.value : currentSpec.value
+  const beforeScore = beforeSpec
+    ? generateElonReport(beforeSpec, specModel.value?.name ?? '').velocityScore
+    : null
+  for (const f of findings) {
+    onElonAcceptFix(f)
+  }
+  const afterSpec = elonIsModel.value ? elonTargetSpec.value : currentSpec.value
+  const afterScore = afterSpec
+    ? generateElonReport(afterSpec, specModel.value?.name ?? '').velocityScore
+    : null
+  const delta = (beforeScore !== null && afterScore !== null) ? afterScore - beforeScore : null
+  const deltaStr = delta !== null
+    ? ` · Velocity ${beforeScore} → ${afterScore} (${delta >= 0 ? '+' : ''}${delta})`
+    : ''
+  showToast(
+    `🔪 Elon Sharpening — synthesised ${findings.length} fix${findings.length === 1 ? '' : 'es'} from your answers${deltaStr}.`,
+    8000,
+    { label: '[Undo]', handler: handleGlobalUndo },
+  )
+  elonSharpeningOpen.value = false
+  elonOpen.value           = true
+}
+
+function onElonUndoFix(finding: ElonFinding): void {
+  const snapshot = _elonUndoSnapshots.value.get(finding.id)
+  if (!snapshot) {
+    showToast('⚡ Elon — no undo snapshot found (was the fix applied this session?)', 5000)
+    return
+  }
+
+  if (elonIsModel.value) {
+    elonTargetSpec.value = snapshot
+    showToast(`⚡ Elon — model fix undone (preview restored).`, 5000)
+  } else {
+    currentSpec.value = snapshot
+    if (specModel.value) saveSpecSnapshot(snapshot)
+    showToast(`⚡ Elon — fix undone for ${finding.triggeredBy}. Plan restored.`, 6000)
+  }
+
+  const nextAccepted = new Set(elonAcceptedIds.value)
+  nextAccepted.delete(finding.id)
+  elonAcceptedIds.value = nextAccepted
+  const nextSnapshots = new Map(_elonUndoSnapshots.value)
+  nextSnapshots.delete(finding.id)
+  _elonUndoSnapshots.value = nextSnapshots
+
+  console.log('[Elon] fix undone:', finding.id)
+}
+
+// ── Penta Model: spec write-back ──────────────────────────────────────────────
+// PentaPanel emits 'update-spec' when the user applies edits in the detail panel
+// or applies a Claudian response from PentaOptima. We set currentSpec and persist.
+// r93v: record on the universal undo stack BEFORE mutation per the Universal Undo Rule.
+function onPentaUpdateSpec(updatedSpec: SpecBlock): void {
+  if (currentSpec.value) {
+    undoHistory.record({
+      label:    'Penta Apply Edits',
+      source:   'PentaPanel',
+      prevSpec: JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock,
+      nextSpec: JSON.parse(JSON.stringify(updatedSpec)) as SpecBlock,
+    })
+  }
+  currentSpec.value = updatedSpec
+  if (specModel.value) saveSpecSnapshot(updatedSpec)
+  console.log('[PentaPanel] update-spec applied —',
+    updatedSpec.values?.length ?? 0, 'V.,',
+    updatedSpec.resources?.length ?? 0, 'R.,',
+    updatedSpec.solutions?.length ?? 0, 'S.')
+}
+
 // bullockOpen: true when the Bullock Audit Trail modal is open.
 const bullockOpen = ref(false)
 // sharpenedEntryIds: reactive list of entry IDs touched by sharpening rounds.
@@ -504,6 +994,8 @@ const evoToolsOpen           = ref(false)
 // Sharp Interview).  12-category structured interview that crystallises
 // the next Evo Step before commit.  Tom's 8 categories + 4 PROPOSED.
 const evoSharpOpen           = ref(false)
+const solutionSharpenOpen    = ref(false)  // Stage 5 · Solution Sharpening Interview (Tom 2026-06-08)
+const strategyAgentOpen      = ref(false)  // Strategy Agent — Strategy Sharpening (Tom 2026-06-09)
 // Tom 2026-06-03 — second Evo Tool detailed: "Evo Step Improvement".  The
 // Evo Planner proposes a crazy first shot, critiques it, offers 1–5 better
 // ideas, plus a Skunkworks section of Daring and Wild Evo Ideas (2×–10×
@@ -519,6 +1011,119 @@ const feedMeOpen             = ref(false)
 // Visual + Workflow + Export + Collab + Diagnostics.  v1: panel + persistence;
 // component consumption of individual settings ships incrementally.
 const settingsOpen           = ref(false)
+// r41 v112 (Tom Gilb 2026-06-17 verbatim "owner button does not open, and
+// where is Stewards?") — pre-spec Stewards manager.  Lets the planner add
+// Owners / Planners / Scribes BEFORE the first generation; the list is
+// persisted in localStorage + applied to the Plan Model at generation time.
+const preSpecStewardsOpen    = ref(false)
+interface PreSpecSteward { name: string; role: 'Owner' | 'Planner' | 'Scribe' }
+const preSpecStewards        = ref<PreSpecSteward[]>([])
+const preSpecStewardDraft    = ref<PreSpecSteward>({ name: '', role: 'Owner' })
+const PRESPEC_STEWARDS_KEY   = 'sem-prespec-stewards-v1'
+function _loadPreSpecStewards(): void {
+  try {
+    const raw = localStorage.getItem(PRESPEC_STEWARDS_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) preSpecStewards.value = parsed as PreSpecSteward[]
+    }
+  } catch (err) {
+    console.warn('[preSpecStewards] load failed', err)
+  }
+}
+function _savePreSpecStewards(): void {
+  try {
+    localStorage.setItem(PRESPEC_STEWARDS_KEY, JSON.stringify(preSpecStewards.value))
+  } catch (err) {
+    console.warn('[preSpecStewards] save failed', err)
+  }
+}
+function addPreSpecSteward(): void {
+  const name = preSpecStewardDraft.value.name.trim()
+  if (!name) return
+  preSpecStewards.value.push({ name, role: preSpecStewardDraft.value.role })
+  preSpecStewardDraft.value = { name: '', role: preSpecStewardDraft.value.role }
+  _savePreSpecStewards()
+}
+function removePreSpecSteward(idx: number): void {
+  preSpecStewards.value.splice(idx, 1)
+  _savePreSpecStewards()
+}
+
+// r41 v49 — Top-level Mode pin state (Tom Gilb 2026-06-16).
+const activeModePopoverOpen = ref(false)
+const modeSwitchGovOpen     = ref(false)
+const { activeMode: _activeMode, pendingSwitch: _pendingModeSwitch, requestSwitch: _requestModeSwitch, resolveSwitch: _resolveModeSwitch, cancelSwitch: _cancelModeSwitch } = useActiveMode()
+
+// r41 v50 (Tom Gilb 2026-06-16 "strategy mode needs to be a part of the set
+// of modes, not a separate function") — auto-sync the existing
+// `Settings.strategyMode` boolean with the new top-level `activeMode ===
+// 'strategy'`.  Every consumer of `useStrategyMode` continues to work without
+// any re-plumbing — terminology overrides (Values → Strategic Objectives etc.)
+// take effect across the entire app whenever the user switches to Strategy
+// Mode via the title-bar Mode pin.  Two-way: changing the boolean directly
+// in Settings also flips the activeMode (preserves the existing settings UX
+// alongside the new top-level Mode pin).
+import { useSettings as _useSettingsForStrategySync } from './composables/useSettings'
+const { settings: _strategySyncSettings, setOne: _strategySyncSetOne } = _useSettingsForStrategySync()
+// r41 v58 — Top-level settings ref for the export-format choice (Tom Gilb
+// 2026-06-16).  Singleton via useSettings; alias for clarity at the 3 export
+// call sites that need `appSettings.value.specExportFormat`.
+const appSettings = _strategySyncSettings
+watch(_activeMode, (mode) => {
+  const shouldBeStrategy = mode === 'strategy'
+  if (_strategySyncSettings.value.strategyMode !== shouldBeStrategy) {
+    _strategySyncSetOne('strategyMode', shouldBeStrategy)
+  }
+}, { immediate: true })
+watch(() => _strategySyncSettings.value.strategyMode, (isStrategy) => {
+  const wantedMode: ActiveMode = isStrategy ? 'strategy' : 'plan'
+  if (_activeMode.value !== wantedMode && !isStrategy && _activeMode.value === 'strategy') {
+    // Settings turned strategy OFF while in Strategy mode → drop back to Plan
+    // without firing the governance dialog (this is a user-explicit settings
+    // change, not a mode-pin click, so the user already consented).
+    useActiveMode()._setForce('plan')
+  } else if (isStrategy && _activeMode.value !== 'strategy') {
+    // Settings turned strategy ON while in a different mode → switch to
+    // Strategy without governance (same user-consent reasoning).
+    useActiveMode()._setForce('strategy')
+  }
+})
+
+function _onModeSwitchRequest(target: ActiveMode): void {
+  _requestModeSwitch(target)
+  activeModePopoverOpen.value = false
+  modeSwitchGovOpen.value     = true
+}
+function _onModeSwitchResolve(choice: ModeSwitchChoice): void {
+  // r41 v49 — Auto-save the outgoing mode's current artifact to the right
+  // history BEFORE switching.  Per Tom Gilb 2026-06-16 verbatim "there must
+  // be a governance of auto save of the version, in the right history".
+  // For now we record a version of the current spec to the existing spec
+  // history (Plan + Model both use it).  Contract history is per-contract +
+  // already auto-saves on every parse; nothing extra needed here.
+  try {
+    if (currentSpec.value) {
+      const fromMode = _pendingModeSwitch.value?.fromMode ?? 'plan'
+      addVersion(currentSpec.value, `Mode switch · ${fromMode} → ${_pendingModeSwitch.value?.toMode ?? 'plan'}`, null, specModel.value?.name ?? '', _specOwnerNames())
+    }
+  } catch (err) {
+    console.warn('[mode-switch] auto-save failed', err)
+  }
+  // 'fresh' = start blank in new mode.  'reuse' = keep currentSpec across.
+  if (choice === 'fresh') {
+    currentSpec.value     = null
+    specGeneratedAt.value = null
+    stage.value           = 1
+    planningStage.value   = 1
+  }
+  _resolveModeSwitch(choice)
+  modeSwitchGovOpen.value = false
+}
+function _onModeSwitchCancel(): void {
+  _cancelModeSwitch()
+  modeSwitchGovOpen.value = false
+}
 const conflictAnalysisOpen   = ref(false)
 const collaboratorOpen       = ref(false)
 
@@ -690,10 +1295,13 @@ watch(specCrestEl, (el) => {
 })
 onUnmounted(() => _specCrestRO?.disconnect())
 // contentTopPad: padding-top on the main content div.
-// When plan loaded: stage bar (STAGE_BAR_H) + Plan Crest (live height) cleared.
-// When no plan: stage bar is in document flow (not fixed), pt-8 static used.
+// r41 v142 — Tom Gilb 2026-06-17 verbatim "I do not like the 3 bars covering
+// the plan.  Can you insert them fixed right under the stages bar?" — the
+// Spec Crest wrapper now ALWAYS renders (v140 dropped its specModel gate
+// to make the 3 Level strips visible pre-spec).  So the padding must
+// ALWAYS clear stage bar + crest height, not only when a plan is loaded.
 const contentTopPad = computed(() =>
-  (view.value === 'app' && specModel.value)
+  view.value === 'app'
     ? STAGE_BAR_H + specCrestH.value
     : undefined
 )
@@ -703,6 +1311,129 @@ const specTargetsOpen     = ref(false)
 const agentMenuOpen       = ref(false)
 const mariaOpen           = ref(false)           // MariaAgentBoard — analysis panel
 const mariaBoardOpen      = ref(false)           // MariaBoardHub   — settings + activity log
+// Incorruptible Agent (Tom Gilb 2026-06-11 — Eric Ries 2026 book): strategic-resilience check.
+// Tom 2026-06-11 (Phase 1.1): "we should be able to use it health check and sharpen ... on any
+// plan or organizational model (for sure also a tool in the Model mode, so duplicate it there)".
+// Tom 2026-06-11 (r93u): "after click accept fix, the button need change to 'Fix Is Accepted',
+// maybe with an Undo Fix button" — accept/undo state tracked at App level so we can snapshot
+// the pre-fix spec for undo restore.
+const incorruptibleOpen        = ref(false)
+const incorruptibleTargetSpec  = ref<SpecBlock | null>(null)
+const incorruptibleTargetTitle = ref<string>('')
+/** True when Incorruptible is checking a Library model (not the user's current plan) —
+ *  Accept Fix in that mode just shows toast (model mutation is library-level concern). */
+const incorruptibleIsModel     = ref<boolean>(false)
+/** Finding-ids the user has accepted in this session — drives the "Fix Is Accepted" button
+ *  state in IncorruptiblePanel. Cleared on panel close. */
+const incorruptibleAcceptedIds = ref<Set<string>>(new Set())
+/** Pre-fix spec snapshots, keyed by finding-id — Undo Fix restores from these.
+ *  In model-mode we snapshot the target spec; in current-plan mode we snapshot currentSpec.
+ *  Map is in-memory only (per-session); cleared on panel close. */
+const _incorruptibleUndoSnapshots = ref<Map<string, SpecBlock>>(new Map())
+
+/** Incorruptible Sharpening panel (r93aa) — Q&A-driven sharpening tool. Inherits the same
+ *  target-spec + model-mode refs as the health-check panel. */
+const incorruptibleSharpeningOpen = ref(false)
+
+// Elon Agent (Tom Gilb 2026-06-12 — Musk's Methods + Dove et al. Pace-of-Innovation paper).
+//   Mirrors Incorruptible plumbing 1:1: target-spec, model-mode flag, accepted-id set,
+//   undo-snapshot map. Pace-of-Innovation is the DOMINANT Requirement; UI + scoring respect it.
+const elonOpen        = ref(false)
+const elonTargetSpec  = ref<SpecBlock | null>(null)
+const elonTargetTitle = ref<string>('')
+const elonIsModel     = ref<boolean>(false)
+const elonAcceptedIds = ref<Set<string>>(new Set())
+const _elonUndoSnapshots = ref<Map<string, SpecBlock>>(new Map())
+const elonSharpeningOpen = ref(false)
+
+/** r93qq — Value Aspects Articulation Tool (Tom Gilb 2026-06-11 22:45 CET) */
+const valueAspectsOpen   = ref(false)
+const valueAspectsTarget = ref<PentaItem | null>(null)
+
+function onOpenValueAspects(item: PentaItem): void {
+  valueAspectsTarget.value = item
+  valueAspectsOpen.value   = true
+}
+
+/** When the planner clicks Apply in Value Aspects, route the Aspects through to a record on
+ *  the Universal Undo stack and show a toast. Full spec-write integration (storing aspects[]
+ *  on the V. entry) is queued for Phase 2; Phase 1 emits the locked set + toasts confirmation.
+ *
+ *  r93sss — payload now carries Tom Gilb's apply-mode choice ('keep-and-add' default, or
+ *  'replace') + the Umbrella Tag + the parent Value identity. Phase-2 spec-write integration
+ *  will honor the mode: 'keep-and-add' preserves the original V entry and re-tags it as
+ *  `<Umbrella>.<original>` while adding new V entries for each Aspect; 'replace' deletes the
+ *  original V entry first then adds the new V entries. The toast confirms which mode fired
+ *  so the planner can ⌘Z if it was the wrong choice (Universal Undo SUPREME).
+ */
+function onApplyValueAspects(payload: {
+  setId: string
+  aspects: unknown[]
+  umbrellaTag?: string
+  applyMode?: 'keep-and-add' | 'replace'
+  parentValueId?: string
+  parentValueName?: string
+}): void {
+  const modeLabel = payload.applyMode === 'replace' ? '⚡ REPLACED' : 'KEPT + ADDED'
+  const parentName = payload.parentValueName || payload.parentValueId || '(unknown)'
+  const umbrella = payload.umbrellaTag || '(unknown set)'
+  showToast(
+    `🧬 ${modeLabel}: "${parentName}" → "${umbrella}" set. ${payload.aspects.length} Aspect(s) locked. (Phase 2 will persist to Value entries; ⌘Z to undo.)`,
+    8000,
+    { label: '[Undo]', handler: handleGlobalUndo },
+  )
+  console.log('[ValueAspects] Apply', { mode: payload.applyMode, umbrella, parent: parentName, aspects: payload.aspects.length })
+}
+
+// ── Universal Undo System (Tom Gilb SUPREME rule 2026-06-11, r93v) ────────
+// Singleton stack — every spec-mutating tool routes through this. App.vue:
+//   1. Registers the spec-restorer callback ONCE at startup
+//   2. Calls undoHistory.record() before every currentSpec mutation
+//   3. Renders the global Undo button + handles ⌘Z / ⌘⇧Z keyboard shortcuts
+const undoHistory = useUndoHistory()
+// Register the restorer — undo() / redo() invoke this to write the spec back.
+registerUndoSpecRestorer((spec: SpecBlock) => {
+  currentSpec.value = spec
+  if (specModel.value) saveSpecSnapshot(spec)
+})
+
+/** Global Undo handler — ⌘Z + button click both route here. */
+function handleGlobalUndo(): void {
+  const entry = undoHistory.undo()
+  if (entry) {
+    showToast(`↶ Undone: ${entry.label} (${entry.source})`, 4000)
+  } else {
+    showToast('Nothing to undo.', 2000)
+  }
+}
+
+/** Global Redo handler — ⌘⇧Z. */
+function handleGlobalRedo(): void {
+  const entry = undoHistory.redo()
+  if (entry) {
+    showToast(`↷ Redone: ${entry.label} (${entry.source})`, 4000)
+  } else {
+    showToast('Nothing to redo.', 2000)
+  }
+}
+
+// ⌘Z / ⌘⇧Z keyboard shortcuts. Skip if user is inside an input/textarea/contenteditable —
+// browsers handle ⌘Z natively in text fields and we don't want to fight that.
+// NOTE: `_isTypingTarget` is declared further down in this file (line ~4624 region) as a
+// shared utility used by Global Find + Actions Menu. We use the SAME function via hoisting
+// (function declarations are hoisted; const/let are not) — do NOT redeclare it here or the
+// SFC compiler errors with "Identifier '_isTypingTarget' has already been declared".
+function _onUndoKeydown(e: KeyboardEvent): void {
+  // ⌘Z = undo · ⌘⇧Z = redo (Mac convention)
+  if (!e.metaKey || e.key.toLowerCase() !== 'z') return
+  if (_isTypingTarget(e)) return  // let text fields handle their own undo
+  e.preventDefault()
+  if (e.shiftKey) handleGlobalRedo()
+  else            handleGlobalUndo()
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', _onUndoKeydown)
+}
 const unifiedHistoryOpen  = ref(false)           // HistoryPanel — unified history across all entities
 const modelLibraryOpen    = ref(false)           // ModelLibraryPanel — domain model library
 const stakeholderMapperOpen = ref(false)         // StakeholderMapperPanel — AI attribute profiles
@@ -713,6 +1444,71 @@ const { isOpen: multiVisionOpen, openMultiVision } = useMultiVision()
 // Tom 2026-06-06 r97 — MultiForks system fork diagram (accessed from MultiVision footer + Visuals panel).
 const multiForksOpen = ref(false)
 function openMultiForks(): void { multiForksOpen.value = true }
+
+// r93qqq 2026-06-12 — TwinPod illustration catalog picker.
+// Searches every illustration across every public Tom Gilb book pod
+// (e.g. competitiveengineering.gilb.com/public/<Book>/_images/), pairs
+// each one with its caption from the chapter MD frontmatter, and
+// inserts (via clipboard) into any SEM surface that accepts paste.
+// Composes with Conjunction-of-Technologies SUPREME (every insert carries
+// a citation) and r93ppp Twin promotional discipline (citation links to
+// the paid Tom Gilb Consultant Twin).
+const gilbIllustrationsOpen = ref(false)
+// r41 v27 — Tom Gilb 2026-06-15 verbatim "i cannot see how to get to
+// bookkaleidoscope, and anyway maybe it needs a surface tool button" — new
+// 📚 Books title-bar pin opens the picker pre-selected on the Books tab.
+// Also allows the picker to default to its last-used tab on a plain ⌘I open.
+import type { IlluminateTab } from './components/GilbIllustrationPicker.vue'
+const gilbIllustrationsInitialTab = ref<IlluminateTab | undefined>(undefined)
+function openGilbIllustrations(): void {
+  gilbIllustrationsInitialTab.value = undefined  // respect last-used tab
+  gilbIllustrationsOpen.value = true
+}
+function openBookKaleidoscope(): void {
+  gilbIllustrationsInitialTab.value = 'books'
+  gilbIllustrationsOpen.value = true
+}
+
+// r41 (Tom Gilb 2026-06-14 verbatim: "the illuminate any term box at right is
+// blocking and i did not ask for it") — when the GilbIllustrationPicker is
+// open, suppress the always-mounted SelectionDefiner side aperture so it
+// doesn't compete for attention or block content. Cause: ⌘I fires BOTH
+// openGilbIllustrations() AND SelectionDefiner's own keydown handler that
+// opens its term-search aperture. The two race; the aperture loses but stays
+// visible to the right of the picker. Fix: watch gilbIllustrationsOpen → close
+// the SelectionDefiner panel + aperture immediately and on re-open.
+const _defineState = _useDefineForPickerSuppress()
+watch(gilbIllustrationsOpen, (open) => {
+  if (open) {
+    closeDefine()
+    _defineState.defineSearchOpen.value = false
+  }
+})
+
+// r93qqq r23 — Tom Gilb 2026-06-13: "I want all diagrams clickable. But I
+// was only referring to the diagram with ontologies in almost all glossary
+// terms, the 700".  663-concept clickable ontology tree.  Sourced from
+// 10.Standard/2.Glossary/PlanguageGlossary/.  Every concept node opens in
+// the Tom Gilb Consultant Twin (free, r93ppp aligned).
+const ontologyDiagramOpen = ref(false)
+function openOntologyDiagram(): void { ontologyDiagramOpen.value = true }
+async function onGilbIllustrationInsert(payload: { illustration: { id: string, bookTitle: string, page: number | null } | null, html: string, markdown: string }): Promise<void> {
+  // r93qqq 2026-06-13 — payload is either an illustration OR a text card
+  // (Planguage Glossary entry / chapter excerpt).  Both carry .html + .markdown.
+  // Clipboard carries BOTH formats (rich HTML + plain markdown) so ⌘V into any
+  // target — Mail / Notes / Keynote / spec rich field / code editor — works.
+  try {
+    await exportCopy(payload.html, payload.markdown)
+    if (payload.illustration) {
+      const where = `${payload.illustration.bookTitle}${payload.illustration.page ? ` p.${payload.illustration.page}` : ''}`
+      showToast(`📖 Illustration on clipboard — ${where}. ⌘V into your spec field.`, 7000)
+    } else {
+      showToast(`💡 Text on clipboard. ⌘V into your spec field.`, 6000)
+    }
+  } catch (e) {
+    showToast(`Could not copy: ${(e as Error).message}`, 5000)
+  }
+}
 // --- Spec Direct Relations (SDR) ---
 const sdrOpen      = ref(false)
 const _sdrEntryId  = ref('')
@@ -1084,6 +1880,24 @@ function onHistoryRestore(
 }
 
 /**
+ * Unified History Panel — load a SpecVersion snapshot (sem-spec-history-v1).
+ * Called when the user clicks "Load" on a Session Spec row in HistoryPanel.
+ * Closes unifiedHistoryOpen, then delegates to onHistoryRestore (which handles
+ * currentSpec, markdown, plan model switching, owner reinstatement, and stage).
+ * The historyOpen.value = false call inside onHistoryRestore is harmless (it's
+ * a different ref — the slide-out history drawer, not the unified panel).
+ */
+function onUnifiedHistoryLoadSpec(version: SpecVersion): void {
+  unifiedHistoryOpen.value = false
+  onHistoryRestore(
+    version.spec,
+    version.plan,
+    version.specName ?? (version as unknown as Record<string, string>).planName ?? '',
+    version.specOwners ?? (version as unknown as Record<string, string[]>).planOwners ?? [],
+  )
+}
+
+/**
  * Tom 2026-05-15: "I actually want to be able to load in files which are the
  * final output from this app!" — when the user imports a .md or .txt file
  * that is recognised as a serialised Planguage spec (by useSpecImport), load
@@ -1118,6 +1932,13 @@ function onRewriteCopy(rewritten: SpecBlock): void {
 function onRewriteReplace(rewritten: SpecBlock): void {
   if (currentSpec.value) {
     addVersion(currentSpec.value, 'Pre-Rewrite', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
+    // r93x — Universal Undo P2 sweep: record before mutation
+    undoHistory.record({
+      label:    'Spec Rewrite: Replaced full spec',
+      source:   'SpecImporter',
+      prevSpec: JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock,
+      nextSpec: JSON.parse(JSON.stringify(rewritten))         as SpecBlock,
+    })
   }
   currentSpec.value = rewritten
   addVersion(rewritten, 'Rewrite: Applied', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
@@ -1134,6 +1955,14 @@ function onRewriteEntry(payload: { id: string; type: 'F' | 'V' | 'S'; descriptio
     solutions: spec.solutions.map(s => s.id === payload.id ? { ...s, description: payload.description } : s),
   }
   addVersion(patched, `Rewrite: ${payload.id}`, _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
+  // r93x — Universal Undo P2 sweep: record before mutation
+  undoHistory.record({
+    label:          `Spec Rewrite: ${payload.id}`,
+    source:         'SpecEditor',
+    prevSpec:       JSON.parse(JSON.stringify(spec))    as SpecBlock,
+    nextSpec:       JSON.parse(JSON.stringify(patched)) as SpecBlock,
+    affectedFields: [`${payload.type}.${payload.id}.description`],
+  })
   currentSpec.value = patched
 }
 
@@ -1196,9 +2025,50 @@ const originalInput = ref<{ stakes: string; ends: string; means: string } | null
 // Stashed from the SEMEntryForm submit payload, attached to V. entries after generation.
 const pendingWish = ref<{ wish: string; wishStakeholder?: string } | null>(null)
 
+// --- Plan name + owner name side-channel (Tom 2026-06-08) ---
+// Collected upfront in SEMEntryForm; applied in doTranslate after initSpecModel.
+const pendingPlanName  = ref<string | null>(null)
+const pendingOwnerName = ref<string | null>(null)
+
+// --- Genesis re-parse side-channel (Tom 2026-06-09) ---
+// When user clicks "Edit & Re-parse" in SpecOutput, the genesis values are stored here
+// so SEMEntryForm can pre-fill them. Cleared once consumed by the form.
+const pendingGenesisRepopulate = ref<{ stakes: string; ends: string; means: string } | null>(null)
+
+// --- App session stamp — discrete CET date/time on Plan Crest Row 2 (Tom 2026-06-08) ---
+// Computed once at app load; shows when this browser session started.
+const appLoadedStamp: string = (() => {
+  const d = new Date()
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+    timeZoneName: 'short',
+  }).formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')} · ${get('hour')}:${get('minute')} ${get('timeZoneName')}`
+})()
+
 // --- Spec state ---
 // The raw SpecBlock generated from the SEM entry (needed for Evo Plan + Impact Estimation)
 const currentSpec = ref<SpecBlock | null>(null)
+
+// r41 v39 — Tom Gilb 2026-06-15 "penta did not catch the planguage stuff" —
+// `currentSpec` (the App.vue local ref) and `specModel.spec` (the persisted
+// SpecModel via useSpecModel composable) can drift apart.  MultiForks /
+// useMultiVision read from specModel directly; PentaPanel / many other
+// surfaces read from currentSpec through props.  If one is populated and the
+// other null, surfaces disagree about whether a spec exists at all.
+//
+// Reconciliation watcher: whenever the persisted specModel has a spec but
+// currentSpec is null, hydrate currentSpec from it.  Non-destructive — only
+// fires when one side is empty.  Declared AFTER both refs to avoid a TDZ.
+watch([currentSpec, () => specModel.value?.spec], ([curSpec, modelSpec]) => {
+  if (!curSpec && modelSpec) {
+    console.log('[spec-sync] hydrating currentSpec from specModel.spec')
+    currentSpec.value = modelSpec
+  }
+}, { immediate: true })
 
 // History is saved explicitly at each meaningful action (Generated, Make Ambitious,
 // Lean Plan, Restored) — not via a watch, which would fire on session restore and
@@ -1272,13 +2142,38 @@ const nextStageInfo = computed(() => {
  * See src/composables/useStageNavigation.ts for the full routing contract and tests.
  */
 function handleStageBarNav(n: number): void {
+  // Guard: never navigate into Evo stages (≥6) while a sharpening round is active.
+  // Sharpening phases 'questions'/'answering'/'refining' mean the AI is working or the
+  // user is mid-answer. Jumping to Evo Steps mid-round would lose the in-progress answers
+  // and leave the phase stuck. Tom 2026-06-07: "I was in middle of stage 2 sharpening,
+  // answered 2 questions, and it jumped to evo stage" — caused by the new single-click
+  // stage navigation being too eager during an active sharpen session.
+  // Allow stages 1-5 freely (spec stages — reviewing your spec while sharpening is normal).
+  if (sharpenPhase.value !== 'idle' && n >= 6) {
+    showToast(
+      '⚠️ A sharpening round is in progress — finish or cancel it before advancing to Evo Steps.',
+      4500,
+    )
+    return
+  }
+
   planningStage.value = n  // stages never locked (DD-007)
 
+  // r41 v82 (Tom Gilb 2026-06-16 "tried to go st 2, msg stakeholders not
+  // defined, but we know that are, please fix bug") — pass actual V. entry
+  // count so Stage 3 fires 'values-missing' (honest) instead of 'spec-
+  // missing' (which claimed "needs a Spec" even when Tom can SEE his spec
+  // on screen).  Defensive diagnostic so we can verify in DevTools what
+  // resolveStageNavAction is seeing at click-time vs what Tom is seeing
+  // visually.
+  const _vCount = currentSpec.value?.values?.length ?? 0
+  console.info('[goToStage] n=', n, '· hasCurrentSpec=', !!currentSpec.value, '· valuesCount=', _vCount, '· hasEvoSteps=', confirmedSteps.value.length > 0)
   const { action, toast } = resolveStageNavAction(
     n,
     specEditorOpen.value,
     !!currentSpec.value,
     confirmedSteps.value.length > 0,
+    _vCount,
   )
 
   if (toast !== null) {
@@ -1344,9 +2239,9 @@ const planningStageAction = computed<{ label: string; handler: () => void } | nu
   switch (planningStage.value) {
     case 1:  return { label: '✏️ Enter Stakes',        handler: () => goToStage1() }
     case 2:  return { label: '0→* Edit Values',         handler: () => _openSpecEditor({ tab: 'values' }) }
-    case 3:  return { label: '[*] Edit Solutions',      handler: () => _openSpecEditor({ tab: 'solutions' }) }
-    case 4:  return { label: '✨ Sharpen Spec',         handler: () => { sharpenModalOpen.value = true } }
-    case 5:  return { label: '📊 Estimate Impacts',     handler: () => goToImpactStage() }
+    case 3:  return { label: '✨ Sharpen Spec',         handler: () => { sharpenModalOpen.value = true } }
+    case 4:  return { label: '📊 Estimate Impacts',     handler: () => goToImpactStage() }
+    case 5:  return { label: '[*] Refine Solutions',    handler: () => _openSpecEditor({ tab: 'solutions' }) }
     case 6:  return { label: '⚡ Generate Evo Steps',   handler: () => { void _triggerEvoGeneration() } }
     case 7:  return { label: '📈 Evo Simulator',        handler: () => { evoSimulatorOpen.value = true } }
     case 8:  return { label: '✅ Spec Tasks',             handler: () => goToTasksStage() }
@@ -1437,6 +2332,18 @@ watch(stage, (newStage, oldStage) => {
   // Coach z-[370]) at the next stage. _closeAllOverlays is defined later in the
   // file but is in scope here at call-time (closure).
   _closeAllOverlays()
+  // r41 v38 — Tom Gilb 2026-06-15 verbatim "said failed to complete generating"
+  // — a "Could not generate spec" error from a TIMED-OUT earlier Stage 1
+  // attempt was still showing AFTER the user had advanced to Stage 2 (visible
+  // in his screenshot: Stage 2 active, sharpening panel rendered, but the red
+  // banner persisted).  Fix: clear sdkError on any stage transition AWAY from
+  // Stage 1.  The error is Stage-1-scoped (generate from form) and stale once
+  // the user has a spec and is past it.  Composes with No-Silent-Data-Loss
+  // (the error is informational, not data — clearing it is safe).
+  if (newStage !== 1 && oldStage === 1 && sdkError.value) {
+    console.log('[stage-watch] clearing stale sdkError on stage 1 → ', newStage)
+    sdkError.value = ''
+  }
 })
 
 console.log('[boot] script-setup end — onMounted scheduled', new Date().toISOString())
@@ -1445,6 +2352,12 @@ onMounted(async () => {
   // Phase 2 Plan→Spec localStorage key migration: copy sem-plan-* → sem-spec-* on first run.
   // Idempotent: skips any new key that is already populated. Never deletes old keys.
   backfillSpecKeysFromPlanKeys()
+  // r41 v111 — restore pre-spec draft (typed Plan Name / Owner / Specifications)
+  // BEFORE the form mounts so the pendingPlanName / pendingOwnerName /
+  // pendingGenesisRepopulate refs are populated for SEMEntryForm to pick up.
+  // Only kicks in when there's no currentSpec to load.
+  if (!currentSpec.value) _restorePreSpecDraft()
+  if (!currentSpec.value) _loadPreSpecStewards()
   console.log('[boot] onMounted entered', new Date().toISOString())
   // ── Hard watchdog (2026-05-12) ─────────────────────────────────────────────
   // Tom hit a "starts but does not come in after 300 seconds" boot hang.
@@ -1661,12 +2574,16 @@ function _tryRestoreSession(): void {
   capturedCapitalCosts.value  = _migrateRecordKeys(saved.capturedCapitalCosts ?? {})
 
   // Restore the 11-step Evo planning bar position.
-  // Fallback table for sessions saved before planningStage was persisted (version <3):
+  // Fallback table for sessions saved before planningStage was persisted (version <3).
+  // 2026-06-07 fix: stage 2 (EvoPlanView) was mapped → planningStage 6 (Evo Steps) which
+  // was wrong — EvoPlanView is where the user GENERATES Evo Steps, not where they've already
+  // completed Sharpen/Impacts/Refine.  Corrected to planningStage 2 (spec entered, Evo plan
+  // not yet generated). This stops the bar jumping to stage 6 on every session restore.
   //   stage 1 (spec entry)  → planningStage 1  (Stakes)
-  //   stage 2 (EvoPlanView) → planningStage 6  (Evo Steps — minimum sensible for this view)
+  //   stage 2 (EvoPlanView) → planningStage 2  (Solutions — user is about to plan Evo Steps)
   //   stage 3 (ImpactView)  → planningStage 5  (Estimate Impacts)
   //   stage 4 (TasksView)   → planningStage 8  (Plan Tasks)
-  const fallbackPlanningStage: Record<number, number> = { 1: 1, 2: 6, 3: 5, 4: 8, 5: 8 }
+  const fallbackPlanningStage: Record<number, number> = { 1: 1, 2: 2, 3: 5, 4: 8, 5: 8 }
   const restoredPlanningStage = (saved as any).planningStage
     ?? fallbackPlanningStage[(saved.stage ?? 1) as number]
     ?? 1
@@ -1687,13 +2604,26 @@ function _tryRestoreSession(): void {
     // manually via "Generate Evo Steps" inside EvoPlanView.
     _resetPlanForLoad()
     stage.value = 2
-    // Sync the planning bar: if it was sitting at a spec-entry stage (1-4),
-    // advance it to 6 (Evo Steps) to match the view the user lands on.
-    if (planningStage.value < 6) planningStage.value = 6
+    // Sync the planning bar to at least stage 2. Do NOT jump to 6 — the user
+    // has a spec but has not yet been through Sharpen (3) → Impacts (4) →
+    // Refine (5) → Evo Steps (6). Forcing planningStage=6 made the bar show
+    // "Evo Steps" on every session restore, confusing the planning journey.
+    // 2026-06-07 fix: was `if (planningStage.value < 6) planningStage.value = 6`
+    if (planningStage.value < 2) planningStage.value = 2
+    // r14 2026-06-09: if the restored model was already sharpened (specModel has
+    // sharpenRounds > 0) advance the bar to at least 3 (Sharpen) so the bar
+    // reflects actual progress after a page reload. sharpenRounds is in-memory
+    // only (not in the session snapshot) so the 0→>0 watcher never fires on
+    // restore. specModel is available here because _ensurePlanModel ran above.
+    const restoredSharpenRounds = specModel.value?.sharpenRounds ?? 0
+    if (restoredSharpenRounds > 0 && planningStage.value < 3) planningStage.value = 3
   } else {
     // Staying at the restored stage — still ensure specModel if spec exists,
     // because the user may have a spec at stage 1 and navigate to stage 2.
     if (saved.currentSpec) _ensurePlanModel(saved.currentSpec)
+    // r14 2026-06-09: same sharpenRounds floor for the non-auto-advance path.
+    const restoredSharpenRoundsB = specModel.value?.sharpenRounds ?? 0
+    if (restoredSharpenRoundsB > 0 && planningStage.value < 3) planningStage.value = 3
     // Same protection: if the session was saved at stage 2, EvoPlanView will
     // mount immediately. Without this flag fetchPlan() fires and the app
     // launches an AI call the user never asked for.
@@ -1705,6 +2635,20 @@ function _tryRestoreSession(): void {
     // All session data (confirmedSteps, tasksByStep, impactMatrix, etc.) is fully
     // restored so the re-export is one click away.
     stage.value = (restoredStage === 5) ? 4 : restoredStage
+  }
+
+  // r93qqq 2026-06-12 — defensive clamp after session restore.
+  // Tom report: opened SEM with prior session ending at Stage 9 (Study-Act),
+  // navigated to Stage 2 Solutions and clicked Next, but the view immediately
+  // showed Stage 9 again — Stage 9 is a dead-end when no Evo Steps exist
+  // (the body just says "No Evo Steps yet" and offers no work).
+  // Rule: if restored to Stage 9+ but no confirmed steps exist, drop back to
+  // Stage 5 (Refine).  The user lands on something they can actually DO.
+  // The session payload is fully retained — only the bar position changes.
+  if (planningStage.value >= 9 && (saved.confirmedSteps?.length ?? 0) === 0) {
+    const clampedFrom = planningStage.value
+    planningStage.value = 5
+    console.log(`[stage-restore-clamp] ${clampedFrom} → 5 (no confirmed steps on restore)`)
   }
 
   sessionRestored.value = true
@@ -1852,6 +2796,95 @@ watch([stage, planningStage, currentSpec], () => {
   if (stage.value === 3) _backfillImpactMatrixIfEmpty()
 }, { immediate: true })
 
+// r93qqq 2026-06-12 — diagnostic trace for non-adjacent stage jumps.
+// Tom 2026-06-12 report: stage bar jumped from 2 (Solutions) → 9 (Study-Act)
+// on a single Next click — no intermediate steps.  No single function in the
+// codebase advances planningStage by more than 1 explicitly, so the cause must
+// be a watcher-cascade or a race condition.  This trace fires a toast whenever
+// the stage changes by more than 1 in either direction, naming the JS call
+// stack — so the next time it happens, the trace points at the culprit.
+// Surgical: passive, no behaviour change, can be removed after root cause is found.
+// r41 v37 — better stage-jump diagnostic (Tom Gilb 2026-06-15 "export plan
+// stage 11 not working" — log showed `11 → 9` with Vue's flushJobs stack only,
+// which doesn't name the actual write site).  New approach: log EVERY
+// planningStage change with its delta, plus a debounced toast for jumps > 1.
+// The console.warn fires synchronously on the next microtask after the write,
+// but the stack trace it captures will still be Vue's reactive system — the
+// real fix is to instrument _setPlanningStage at the source (next step).
+watch(planningStage, (newStage, oldStage) => {
+  const delta = newStage - oldStage
+  console.log(`[planningStage] ${oldStage} → ${newStage} (Δ${delta >= 0 ? '+' : ''}${delta})`)
+  if (Math.abs(delta) > 1) {
+    const stack = new Error().stack?.split('\n').slice(1, 8).join(' | ') ?? ''
+    console.warn(`[stage-jump] ${oldStage} → ${newStage}`, { stack })
+    showToast(`⚠️ Stage jumped ${oldStage} → ${newStage} (more than 1 step). Investigating — please screenshot this toast.`, 8000)
+  }
+})
+
+// r41 v37 — Synchronous instrumentation of every planningStage write so we
+// can see the JS call site (not just the Vue watcher microtask).  Wraps the
+// ref's setter via a Proxy-like indirection: any code that touches
+// `planningStage.value = X` now lands here.  Console output names the source
+// function via Error().stack inspection AT THE WRITE TIME, before any
+// reactive flush.  Tom 2026-06-15 "export plan stage 11 not working" — this
+// will name the watcher / handler that pulls 11 back to 9.
+const _planningStageRaw = planningStage
+const _origPlanningStageSet = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(_planningStageRaw),
+  'value',
+)
+if (_origPlanningStageSet?.set) {
+  const _origSet = _origPlanningStageSet.set
+  const _origGet = _origPlanningStageSet.get!
+  Object.defineProperty(_planningStageRaw, 'value', {
+    get: function () { return _origGet.call(this) },
+    set: function (newVal: number) {
+      const cur = _origGet.call(this)
+      if (cur !== newVal) {
+        const stack = new Error().stack?.split('\n').slice(2, 7).map(s => s.trim()).join(' | ') ?? ''
+        console.log(`[planningStage.SET] ${cur} → ${newVal}  via: ${stack.slice(0, 280)}`)
+      }
+      _origSet.call(this, newVal)
+    },
+    configurable: true,
+  })
+}
+
+// Auto-advance to Solutions stage (planningStage 2) when the first solutions
+// appear in the spec while the user is still on the Stakes stage (1).
+// Tom 2026-06-09: "I think the stage should move on to solutions as soon as the
+// first solutions are generated."
+// Only fires on the 0→>0 transition so it never interrupts a user who has
+// already manually navigated past Stage 1.
+watch(
+  () => currentSpec.value?.solutions?.length ?? 0,
+  (newCount, oldCount) => {
+    if (newCount > 0 && oldCount === 0 && planningStage.value === 1) {
+      planningStage.value = 2
+    }
+  }
+)
+
+// Auto-advance to Sharpen stage (planningStage 3) when the first sharpening
+// round completes.  Tom 2026-06-09: "we should be in stage 3 sharpening."
+// Only advances forward — never pulls the user back to 3 if already past it.
+watch(
+  () => sharpenRounds.value.length,
+  (n, prev) => {
+    if (n > 0 && prev === 0 && planningStage.value < 3) {
+      planningStage.value = 3
+    }
+  }
+)
+
+// NOTE: the "Done Sharpening → Continue to Evo Steps" button (below, in the
+// sharpeningDone block) handles the planningStage 3 → 6 advance when the user
+// explicitly clicks "Continue".  No watcher needed here — a watcher firing
+// automatically on sharpeningDone=true was causing the "Done Sharpening →
+// Continue" button to call handleStageBarNav(planningStage+1) = (4+1)=5, which
+// resolves to 'to-impact' → stage.value=3 (Evo Impact view) — an unexpected
+// jump.  Removed 2026-06-09 per Tom's circular-navigation bug report.
+
 // Tom 2026-06-04 r87: smart @matrix-updated handler.  Previous handler was a
 // raw assignment — when ImpactEstimationView mounted and emitted its
 // initial (often empty) matrix, it OVERWROTE the r84 backfill, leaving
@@ -1920,8 +2953,8 @@ const ietRef = ref<(ComponentPublicInstance & { getSnapshot: () => {
 // Template ref to the SpecOutput wrapper — used to scroll into view after ClarifyView
 // completes (skip or generate). On mobile the spec renders below the form and is off-screen.
 const specOutputEl   = ref<HTMLElement | null>(null)
-/** Template ref to SEMEntryForm — used by handleApertureSubmit to trigger Parse */
-const semEntryFormRef = ref<{ loadAndParse: (text: string) => void } | null>(null)
+/** Template ref to SEMEntryForm — used by handleApertureSubmit to trigger Parse and genesis re-parse */
+const semEntryFormRef = ref<{ loadAndParse: (text: string) => void; prefillGenesis: (genesis: { stakes: string; ends: string; means: string }) => void } | null>(null)
 
 /**
  * Text committed from the Apperture that is waiting for SEMEntryForm to mount.
@@ -1940,6 +2973,13 @@ watch(semEntryFormRef, (form) => {
     const t = _pendingApertureText.value
     _pendingApertureText.value = null
     form.loadAndParse(t)
+  }
+  // Genesis re-parse: when the form mounts after handleReParse() set stage = 1,
+  // pre-fill it with the saved genesis input so the planner can edit and regenerate.
+  if (form && pendingGenesisRepopulate.value !== null) {
+    const genesis = pendingGenesisRepopulate.value
+    pendingGenesisRepopulate.value = null
+    form.prefillGenesis(genesis)
   }
 })
 
@@ -1990,6 +3030,19 @@ let _hangWatchdog: ReturnType<typeof setTimeout> | null = null
 // timeouts.  180s = 3 minutes is still snappy enough that a real hang is
 // surfaced to the user within reasonable time.
 //
+// r41 v61 (Tom Gilb 2026-06-16 screenshot "timedout, but did work a moment
+// ago"): 180s bumped to 300s = 5 minutes.  Tom's screenshot showed a real
+// generation completing at 245s WITH a "Could not generate spec" error
+// banner already painted by the watchdog at 180s — false-positive timeout.
+// Sonnet + larger inputs (≥800 words across Stakes / Ends / Means) routinely
+// take 200-280s; 300s gives comfortable headroom while still surfacing a
+// real hang within reasonable time.  Composes with the late-success
+// stale-error clear added at line 4117 — if the watchdog DOES still false-
+// trigger and the real spec lands afterwards, the error banner clears on
+// `currentSpec.value` assignment so the user is never shown a contradictory
+// "error + success" pair.
+const _HANG_WATCHDOG_MS = 300_000
+//
 // Tom 2026-06-06 NEW: when the watchdog fires we now FALL BACK to a
 // deterministic mock spec built from the user's original stakes/ends/means
 // input instead of leaving them stuck at an error.  This realises Claude-
@@ -2001,7 +3054,7 @@ watch(isLoading, (busy) => {
   if (busy) {
     if (_hangWatchdog) clearTimeout(_hangWatchdog)
     _hangWatchdog = setTimeout(() => {
-      console.error('[HangWatchdog] Loading state stuck for 180s — force-clearing.', {
+      console.error(`[HangWatchdog] Loading state stuck for ${_HANG_WATCHDOG_MS / 1000}s — force-clearing.`, {
         sdkError: sdkError.value,
         stage: stage.value,
         hasPayload: !!pendingPayload.value,
@@ -2013,15 +3066,31 @@ watch(isLoading, (busy) => {
 
       // Graceful fallback: if the user had a pending payload, draft a mock
       // spec from it so they can keep moving.  Otherwise show the error.
+      // r41 v38 — Tom Gilb 2026-06-15 "said failed to complete generating" —
+      // when the user typed ONLY a plan name (no stakes/ends/means) and
+      // generation timed out, the previous code fell through to the bare
+      // error message with no escape hatch.  Now we ALSO accept a plan-name-
+      // only fallback: build a generic seed spec keyed off the plan title so
+      // the user can at least START working + sharpen the rest.
       const payload = pendingPayload.value
-      if (payload && (payload.stakes || payload.ends || payload.means)) {
+      const planTitle = (specModel.value?.name ?? 'New Plan').trim()
+      const hasPayloadContent = !!(payload && (payload.stakes || payload.ends || payload.means))
+      const hasPlanName = planTitle.length > 0 && planTitle !== 'New Plan'
+      if (hasPayloadContent || hasPlanName) {
         try {
-          const mockSpec = buildMockSpec(payload.stakes, payload.ends, payload.means)
+          // Prefer the user's own stakes/ends/means if present, otherwise seed
+          // from the plan title so the spec is at least named correctly.
+          const seedStakes = payload?.stakes || hasPlanName ? planTitle : ''
+          const seedEnds   = payload?.ends   || hasPlanName ? `Successful delivery of ${planTitle}` : ''
+          const seedMeans  = payload?.means  || ''
+          const mockSpec = buildMockSpec(seedStakes, seedEnds, seedMeans)
           currentSpec.value = mockSpec
           stage.value = 2   // jump to Evo Plan view so the user sees their spec
           sdkError.value = ''
           showToast(
-            '⚡ AI was slow — drafted a quick local spec from your input.  Press Sharpen on any dimension to refine, or 🆘 Reset to start fresh.',
+            hasPayloadContent
+              ? '⚡ AI was slow — drafted a quick local spec from your input.  Press Sharpen on any dimension to refine, or 🆘 Reset to start fresh.'
+              : `⚡ AI was slow — drafted a starter spec for "${planTitle}".  Sharpen any dimension to refine, or 🆘 Reset to start fresh.`,
             8000,
           )
         } catch (err) {
@@ -2034,7 +3103,7 @@ watch(isLoading, (busy) => {
         stage1Sub.value = 'form'
       }
       _hangWatchdog = null
-    }, 180_000)
+    }, _HANG_WATCHDOG_MS)
   } else {
     if (_hangWatchdog) {
       clearTimeout(_hangWatchdog)
@@ -2197,6 +3266,78 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') _saveNow()
   })
+}
+
+// ── Pre-spec Save Draft (r41 v111) ─────────────────────────────────────────
+// Tom Gilb 2026-06-17 verbatim "i think a whole line of actions like save
+// are missing".  The Plan Crest v-if-gates on specModel; before the first
+// generation there's no persistent save surface.  This pre-spec draft saves
+// the planner's typed Plan Name / Owner Name / Specifications into
+// localStorage so a browser reload doesn't lose typed work.  Auto-restored
+// at mount when no specModel exists.
+const PRESPEC_DRAFT_KEY = 'sem-prespec-draft-v1'
+
+interface PreSpecDraft {
+  planName?: string
+  ownerName?: string
+  specifications?: string
+  savedAt?: string
+}
+
+function savePreSpecDraft(): void {
+  try {
+    // Read visible inputs from the DOM — the form may have multiple input
+    // fields; we use aria-label / placeholder selectors to find them robustly.
+    const planEl = (document.querySelector('input[placeholder*="Improve Crew" i], input[placeholder*="Plan" i][placeholder*="Name" i]') as HTMLInputElement | null)
+    const ownerEl = (document.querySelector('input[placeholder*="Tom Gilb" i], input[placeholder*="Owner" i]') as HTMLInputElement | null)
+    const specEl = (document.querySelector('textarea[placeholder*="specifications" i], textarea[placeholder*="reduce churn" i]') as HTMLTextAreaElement | null)
+    const draft: PreSpecDraft = {
+      planName:       planEl?.value  ?? '',
+      ownerName:      ownerEl?.value ?? '',
+      specifications: specEl?.value  ?? '',
+      savedAt:        new Date().toISOString(),
+    }
+    localStorage.setItem(PRESPEC_DRAFT_KEY, JSON.stringify(draft))
+    const wordCount = (draft.specifications ?? '').trim().split(/\s+/).filter(Boolean).length
+    const summary = [
+      draft.planName ? `Plan: "${draft.planName}"` : '',
+      draft.ownerName ? `Owner: ${draft.ownerName}` : '',
+      wordCount > 0 ? `${wordCount} ${wordCount === 1 ? 'word' : 'words'} of specifications` : '',
+    ].filter(Boolean).join(' · ')
+    showToast(`💾 Draft saved · ${summary || '(empty)'} — restored on next visit`, 5000)
+    console.info('[savePreSpecDraft]', draft)
+  } catch (err) {
+    console.error('[savePreSpecDraft] failed', err)
+    showToast('⚠ Draft save failed — see DevTools', 4500)
+  }
+}
+
+/**
+ * Restore the pre-spec draft into the form on mount when no spec is loaded.
+ * Sets the pending-* refs (which the SEMEntryForm reads on mount via the
+ * existing prepopulate pathway).  Safe: if the draft is empty or malformed
+ * the fields stay blank.
+ */
+function _restorePreSpecDraft(): void {
+  try {
+    const raw = localStorage.getItem(PRESPEC_DRAFT_KEY)
+    if (!raw) return
+    const draft = JSON.parse(raw) as PreSpecDraft
+    if (draft.planName)  pendingPlanName.value  = draft.planName
+    if (draft.ownerName) pendingOwnerName.value = draft.ownerName
+    if (draft.specifications) pendingGenesisRepopulate.value = {
+      stakes: draft.specifications,
+      ends:   '',
+      means:  '',
+    }
+    if (draft.planName || draft.ownerName || draft.specifications) {
+      const stamp = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : 'earlier'
+      showToast(`📂 Draft restored from ${stamp} — clear with 🆘 Reset if you want to start over`, 5500)
+      console.info('[restorePreSpecDraft]', draft)
+    }
+  } catch (err) {
+    console.warn('[restorePreSpecDraft] failed', err)
+  }
 }
 
 // ── Start fresh ───────────────────────────────────────────────────────────────
@@ -2394,8 +3535,36 @@ function panicReset(): void {
 }
 
 function goToStage1(): void {
-  _closeAllOverlays()
-  stage.value = 1
+  // r41 v102 (Tom Gilb 2026-06-16 verbatim "total failure to go to stage 2
+  // even after successful stage 1") — root cause: this function was firing
+  // startFresh() (which wipes currentSpec) whenever called with stage.value
+  // === 1 && currentSpec.value, regardless of WHY it was called.  But the
+  // stage-bar handler routes EVERY click on stages 1-4 through 'to-spec'
+  // → goToStage1() because all four spec-editor stages share the same
+  // underlying view (stage.value = 1).  So when Tom clicked stage 2 with a
+  // generated spec already showing, this fired startFresh() and bounced
+  // him back to a blank form — total nav failure.
+  //
+  // Fix: only trigger startFresh()-and-repopulate when the breadcrumb
+  // explicitly TARGETS stage 1 (planningStage.value === 1).  Otherwise
+  // just close overlays + set stage.value = 1 silently (the spec editor
+  // for stages 2, 3, 4 navigates within stage.value=1 with the breadcrumb
+  // marking the conceptual stage 2/3/4).  The r16 "press Stage 1 from
+  // Stage 1 review = start fresh" behaviour is preserved — it only fires
+  // when the user actually clicks Stage 1.
+  const goingToStage1 = planningStage.value === 1
+  if (goingToStage1 && stage.value === 1 && currentSpec.value) {
+    // r16 2026-06-09: user pressed Stage 1 bar while already reviewing a spec — they want
+    // to go back and re-generate ("unhappy with volume, pressed stage 1 button, nothing").
+    // Fix: stash originalInput, then startFresh() (which clears currentSpec + calls
+    // _closeAllOverlays internally) so the entry form mounts pre-filled for easy retry.
+    const genesis = originalInput.value
+    startFresh()
+    if (genesis) pendingGenesisRepopulate.value = genesis
+  } else {
+    _closeAllOverlays()
+    stage.value = 1
+  }
 }
 
 /**
@@ -2472,14 +3641,12 @@ function improveCurrentVersion(): void {
 async function goNext(): Promise<void> {
   if (stage.value === 1) {
     if (currentSpec.value) {
-      // Tom 2026-06-04 r87 BUG fix: was `goToPlanStage()` (no arg) which
-      // jumped `planningStage` from 1 → 6 in a single click, skipping
-      // Solutions / Sharpen / Impacts / Refine and quickly cascading to
-      // Stage 7 if the user pressed Next again.  Tom verbatim:
-      // *"it did jump to 7! skipping many steps"*.  Now passes
-      // `fromFreshGeneration=true` which keeps `planningStage` at ≥2 only
-      // (Solutions review) — user advances stage-by-stage from there.
-      goToPlanStage(true)
+      // Tom 2026-06-07 r26: Sequential one-at-a-time stage navigation —
+      // advance planningStage by exactly 1 each click (1→2→3→4→5→6→…).
+      // handleStageBarNav resolves the correct internal stage view transition
+      // (spec view for stages 1–5, EvoPlanView for stage 6, etc.)
+      // and enforces the sharpening-round guard before jumping to Evo stages.
+      handleStageBarNav(planningStage.value + 1)
     } else {
       // SEMEntryForm review stage — click the Generate Spec button.
       // Guard: if the SDK is already generating, clicking again would queue a
@@ -2520,7 +3687,16 @@ async function goNext(): Promise<void> {
 const nextActionLabel = computed<string | null>(() => {
   if (view.value !== 'app') return null
   if (stage.value === 1) {
-    if (currentSpec.value)         return 'Plan Evo Steps'
+    if (currentSpec.value) {
+      // r26 (2026-06-07): sequential label — shows the name of the NEXT planning
+      // stage so the user knows exactly where Next will take them (never "Plan Evo
+      // Steps" when still in spec stages 1-4).
+      const nextStageLabels: Record<number, string> = {
+        1: 'Edit Solutions', 2: 'Sharpen Spec', 3: 'Estimate Impacts',
+        4: 'Refine Spec',    5: 'Plan Evo Steps',
+      }
+      return nextStageLabels[planningStage.value] ?? 'Plan Evo Steps'
+    }
     if (formSubStage.value === 'review') return 'Generate Spec'
     return null   // input sub-stage: user still typing, no single next step
   }
@@ -2575,6 +3751,16 @@ function onSpecSharpened(refined: SpecBlock): void {
     : 0
   const sharpenLabel = lastRound?.category.label
 
+  // r93x — Universal Undo P2 sweep: record before mutation. Covers Sharpen + Strategy
+  // Improvements (applyStrategyImprovements calls into this same function).
+  if (beforeSpec) {
+    undoHistory.record({
+      label:    sharpenLabel ? `Sharpened: ${sharpenLabel}` : 'Sharpened',
+      source:   'Sharpen',
+      prevSpec: JSON.parse(JSON.stringify(beforeSpec)) as SpecBlock,
+      nextSpec: JSON.parse(JSON.stringify(refined))    as SpecBlock,
+    })
+  }
   currentSpec.value = refined
   addVersion(refined, 'Sharpened', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
   markdown.value = serialise(refined)
@@ -2624,6 +3810,54 @@ async function handleOpenSharpen(cat: SharpenCategory): Promise<void> {
 }
 
 /**
+ * Apply approved StrategyAgent improvements back into the spec.
+ * Each improvement carries a targetEntryId (S. entry) + newFieldValues.
+ * After patching, routes through onSpecSharpened for versioning + history.
+ * Tom Gilb 2026-06-09 — Strategy Agent Tool.
+ */
+function applyStrategyImprovements(
+  improvements: import('./data/strategySharpenDimensions').StrategyImprovement[]
+): void {
+  if (!currentSpec.value || improvements.length === 0) return
+  const updated = JSON.parse(JSON.stringify(currentSpec.value)) as typeof currentSpec.value
+  let changed = 0
+  for (const imp of improvements) {
+    if (!imp.targetEntryId || !imp.newFieldValues) continue
+    // Find matching solution entry (match on id field)
+    const sol = updated.solutions?.find((s: { id: string }) => s.id === imp.targetEntryId)
+    if (sol) {
+      Object.assign(sol, imp.newFieldValues)
+      changed++
+    }
+  }
+  if (changed > 0) {
+    onSpecSharpened(updated)
+    // r93x — Universal Undo P2: toast-level [Undo] action
+    showToast(`✓ ${changed} strategy improvement(s) applied to spec.`, 5000, { label: '[Undo]', handler: handleGlobalUndo })
+  }
+}
+
+/**
+ * r41 v91 (Tom Gilb 2026-06-16) — Strategy Agent history-picker handler.
+ * The panel emits `select-history` with a SpecVersion id; we look it up via
+ * useSpecHistory.restoreVersion (deep-cloned spec + plan), then route it
+ * through the existing onHistoryRestore flow so the spec model + plan +
+ * sharpen rounds all swap together exactly the way the global History panel
+ * does.  Strategy Agent stays open (does NOT auto-close) — Tom can immediately
+ * re-analyze the newly-loaded plan.
+ */
+function handleStrategyAgentHistoryPick(versionId: string): void {
+  const sv = specHistory.value.find((v) => v.id === versionId)
+  if (!sv) return
+  onHistoryRestore(
+    JSON.parse(JSON.stringify(sv.spec)),
+    sv.plan ? JSON.parse(JSON.stringify(sv.plan)) : null,
+    sv.specName ?? sv.planName ?? '',
+    sv.specOwners ?? sv.planOwners ?? [],
+  )
+}
+
+/**
  * Called when the SharpenPanel modal emits 'done' (user clicked "Done sharpening"
  * or CloseDot). Closes the modal and shows a toast so the user gets clear
  * confirmation that sharpening was applied — "no feedback" fix (r26, 2026-05-19).
@@ -2632,7 +3866,8 @@ function handleSharpenModalDone(): void {
   sharpenModalOpen.value = false
   const n = sharpenRounds.value.length
   if (n > 0) {
-    showToast(`🔪 ${n} sharpening round${n !== 1 ? 's' : ''} applied — plan updated`, 4000)
+    // r93x — Universal Undo P2: toast-level [Undo] action
+    showToast(`🔪 ${n} sharpening round${n !== 1 ? 's' : ''} applied — plan updated`, 5000, { label: '[Undo]', handler: handleGlobalUndo })
   }
 }
 
@@ -2684,6 +3919,40 @@ function handlePlanImportedAndSharpen(spec: SpecBlock): void {
 }
 
 /**
+ * Called when GetAPlanPanel emits 'imported-with-meta' (r25, Tom 2026-06-07).
+ * Imports the spec then immediately applies the user-supplied plan name and/or
+ * owner name. Supports "name a project early, before input and parsing".
+ */
+function handlePlanImportedWithMeta(
+  spec: SpecBlock,
+  meta: { planName: string; ownerName: string },
+): void {
+  handlePlanImported(spec)
+  if (meta.planName && specModel.value) {
+    renameSpecModel(specModel.value.id, meta.planName)
+  }
+  if (meta.ownerName) {
+    const today = new Date().toISOString().slice(0, 10)
+    addOwner({
+      name: meta.ownerName, email: '', phone: '', organization: '',
+      location: '', responsibility: '', startDate: today, endDate: '',
+    })
+  }
+}
+
+/**
+ * Called when GetAPlanPanel emits 'imported-and-sharpen-with-meta' (r25).
+ * Same as handlePlanImportedWithMeta but opens the SharpenPanel immediately.
+ */
+function handlePlanImportedAndSharpenWithMeta(
+  spec: SpecBlock,
+  meta: { planName: string; ownerName: string },
+): void {
+  handlePlanImportedWithMeta(spec, meta)
+  sharpenModalOpen.value = true
+}
+
+/**
  * Called when PlanInputPanel emits 'add-to'.
  * Merges the imported spec's F./V./S. entries into the current live spec.
  * Entries whose id already exists in the current spec are skipped (no overwrites).
@@ -2706,6 +3975,13 @@ function handlePlanAddTo(imported: SpecBlock): void {
     solutions: mergeById(currentSpec.value.solutions, imported.solutions),
   }
 
+  // r93x — Universal Undo P2 sweep: record before mutation
+  undoHistory.record({
+    label:    `Spec Import: merged ${imported.functions?.length ?? 0} F. / ${imported.values?.length ?? 0} V. / ${imported.solutions?.length ?? 0} S.`,
+    source:   'SpecImporter',
+    prevSpec: JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock,
+    nextSpec: JSON.parse(JSON.stringify(merged))            as SpecBlock,
+  })
   currentSpec.value = merged
   markdown.value    = serialise(merged)
   addVersion(merged, 'Added from import', _evoPlan.value, specModel.value?.name ?? '', _specOwnerNames())
@@ -2744,7 +4020,11 @@ function _applyLoadedModel(model: PlanModel): void {
   // banner reflects only the CURRENT plan.  The banner falls back to a hidden
   // state when stakes is empty (v-if="rawInput?.stakes?.trim()") — user can
   // re-enter Stage 1 to populate it for the loaded plan if desired.
-  originalInput.value = null
+  // Restore genesis input so Stage 1 "What you wrote" reflects THIS plan's original input.
+  // Tom 2026-06-09: genesis is now persisted in the SpecModel so it survives across sessions.
+  originalInput.value = model.genesis
+    ? { stakes: model.genesis.stakes, ends: model.genesis.ends, means: model.genesis.means }
+    : null
   // Suppress auto-generation — when a plan model is loaded/replaced the user
   // should choose when to generate steps, not have it fire automatically on mount.
   _resetPlanForLoad()
@@ -2777,6 +4057,24 @@ function handleGetAPlanLoadModel(model: PlanModel): void {
 function handleGetAPlanRestoreVersion(sv: SpecVersion): void {
   onHistoryRestore(sv.spec, sv.plan, sv.planName ?? '', sv.planOwners ?? [])
   specInputOpen.value = false
+}
+
+/**
+ * Called when SpecOutput emits 'reparse' — user wants to edit the genesis
+ * Stakes/Ends/Means and regenerate the spec.  Pre-fills SEMEntryForm and
+ * scrolls back to stage 1.
+ * Tom Gilb 2026-06-09: "initial input specs she got parsed were gone — go back to the genesis."
+ */
+function handleReParse(genesis: { stakes: string; ends: string; means: string }): void {
+  if (semEntryFormRef.value) {
+    // Form is already mounted (we're already on Stage 1 with both form and spec visible).
+    semEntryFormRef.value.prefillGenesis(genesis)
+  } else {
+    // Form not yet in DOM — stash and the semEntryFormRef watcher will apply on mount.
+    pendingGenesisRepopulate.value = genesis
+  }
+  stage.value = 1
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 /**
@@ -2817,7 +4115,7 @@ function savePlanNow(): void {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function handleSubmit(payload: { stakes: string; ends: string; means: string; wish?: string; wishStakeholder?: string }) {
+async function handleSubmit(payload: { stakes: string; ends: string; means: string; wish?: string; wishStakeholder?: string; planName?: string; ownerName?: string }) {
   // Close any open panels/overlays before starting — prevents invisible backdrops
   // from persisting through the generation and blocking all clicks afterward.
   _closeAllOverlays()
@@ -2880,9 +4178,20 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
   // Change 3 — stash Wish for post-generation attachment
   pendingWish.value = payload.wish ? { wish: payload.wish, wishStakeholder: payload.wishStakeholder } : null
 
+  // Stash plan name + owner name for post-generation application (Tom 2026-06-08)
+  pendingPlanName.value  = payload.planName  ?? null
+  pendingOwnerName.value = payload.ownerName ?? null
+
+  // r41 v70 (Tom Gilb 2026-06-16 screenshot "I started generating and 2x it
+  // aborted and jumped back here to start") — pendingPayload was only being
+  // stashed in PRECISE mode.  In "Just do it" mode (the path Tom uses), it
+  // was never set, so when the HangWatchdog fired it saw `hasPayload: false`
+  // and dropped Tom back to the empty form instead of building the safety-
+  // net mock spec from his input.  Fix: stash pendingPayload UNCONDITIONALLY
+  // so the watchdog (and any other recovery path) can always recover.
+  pendingPayload.value = { stakes: payload.stakes, ends: payload.ends, means: payload.means }
   if (analysisMode.value === 'precise') {
     // Stash the payload and go to the clarification sub-stage
-    pendingPayload.value = { stakes: payload.stakes, ends: payload.ends, means: payload.means }
     stage1Sub.value = 'questions'
     await generateQuestions({ stakes: payload.stakes, ends: payload.ends, means: payload.means })
   } else {
@@ -2899,6 +4208,61 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
       activatePlanModel(_specModelBeforeSubmit as Parameters<typeof activatePlanModel>[0])
     }
     showToast('⚠️ Generation failed — your previous spec has been restored. Try again.', 5000)
+  }
+}
+
+// ── Generation-time fieldSources stamping ────────────────────────────────────
+// Tom Gilb 2026-06-09: "when we now generate specs, and spec parameters like
+// Scale, is the logic there to append the source (ideally, like this:
+// SEM, Stage 1, Based on User Script, 9June26 19:04)"
+
+/** Format a date as Tom's preferred short form: "9Jun26 19:04" */
+function _formatShortDate(d: Date): string {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const day = d.getDate()
+  const mon = months[d.getMonth()]
+  const yr  = String(d.getFullYear()).slice(2)
+  const hh  = String(d.getHours()).padStart(2, '0')
+  const mm  = String(d.getMinutes()).padStart(2, '0')
+  return `${day}${mon}${yr} ${hh}:${mm}`
+}
+
+/**
+ * Stamp per-field `fieldSources` on every entry of a freshly generated SpecBlock.
+ * Only stamps non-empty string fields — leaves empty/undefined fields un-attributed.
+ * Pure function: returns a new SpecBlock, does not mutate input.
+ *
+ * Source label follows Tom's preferred format:
+ *   "SEM Stage 1, Based on User Script, 9Jun26 19:04"
+ */
+function stampGenerationFieldSources(spec: SpecBlock, generatedAt: Date): SpecBlock {
+  const fs: FieldSource = {
+    source:     `SEM Stage 1, Based on User Script, ${_formatShortDate(generatedAt)}`,
+    sourceType: 'ai',
+    timestamp:  generatedAt.toISOString(),
+    tool:       'SEM LLM Parser',
+  }
+
+  /** Stamp every non-empty string field in `fields` with the generation FieldSource. */
+  function stampEntry<T extends { fieldSources?: Record<string, FieldSource> }>(
+    entry: T,
+    fields: (keyof T & string)[],
+  ): T {
+    const merged: Record<string, FieldSource> = { ...(entry.fieldSources ?? {}) }
+    for (const f of fields) {
+      const v = entry[f]
+      if (typeof v === 'string' && v.trim()) merged[f] = fs
+    }
+    return { ...entry, fieldSources: merged }
+  }
+
+  return {
+    ...spec,
+    functions:   (spec.functions   ?? []).map(e => stampEntry(e, ['description', 'presenceTest', 'functionOfValue', 'level', 'stakeholders'])),
+    values:      (spec.values      ?? []).map(e => stampEntry(e, ['description', 'scale', 'meter', 'status', 'tolerable', 'goal', 'wish', 'wishStakeholder', 'valueOfFunction', 'level', 'stakeholders', 'forecast', 'statusWhen', 'tolerableWhen', 'goalWhen', 'wishWhen'])),
+    solutions:   (spec.solutions   ?? []).map(e => stampEntry(e, ['description', 'impact', 'function', 'impactsValues', 'impactsCosts', 'level', 'stakeholders'])),
+    constraints: (spec.constraints ?? []).map(e => stampEntry(e, ['description', 'scope', 'rationale', 'source', 'level', 'stakeholders'])),
+    resources:   (spec.resources   ?? []).map(e => stampEntry(e, ['description', 'scale', 'meter', 'status', 'tolerable', 'goal', 'budget', 'wish', 'wishStakeholder', 'level', 'stakeholders', 'forecast'])),
   }
 }
 
@@ -2932,7 +4296,7 @@ async function doTranslate(
     if (spec) {
       // Change 3 — attach Wish to all V. entries when the user provided one
       const wish = pendingWish.value
-      const annotatedSpec = wish
+      const _wishAnnotated = wish
         ? {
             ...spec,
             values: spec.values.map((v) => ({
@@ -2942,8 +4306,24 @@ async function doTranslate(
             })),
           }
         : spec
-      currentSpec.value = annotatedSpec
-      specGeneratedAt.value = new Date()   // Feature #177 — capture generation timestamp
+      // Stamp per-field fieldSources for all generated entries.
+      // Tom Gilb 2026-06-09: "when we now generate specs, and spec parameters like
+      // Scale, is the logic there to append the source (ideally, like this:
+      // SEM, Stage 1, Based on User Script, 9June26 19:04)"
+      const _generatedAt  = new Date()
+      const annotatedSpec = stampGenerationFieldSources(_wishAnnotated, _generatedAt)
+      currentSpec.value   = annotatedSpec
+      specGeneratedAt.value = _generatedAt   // Feature #177 — capture generation timestamp
+      // r41 v61 (Tom Gilb 2026-06-16 screenshot "timedout, but did work a moment ago"):
+      // if the HangWatchdog already false-fired and painted the red "Could not
+      // generate spec" banner, the late real success would land alongside it —
+      // user sees a contradictory error + success pair.  Defensive clear: when
+      // a real generation succeeds, ALWAYS wipe any stale error first so the
+      // banner can't outlive the success.
+      if (sdkError.value) {
+        console.info('[doTranslate] Late success arrived after a prior error banner — clearing stale error.', { stale: sdkError.value })
+        sdkError.value = ''
+      }
 
       // Preserve stewards across re-generation — Tom 2026-05-28: "save stewards were delete."
       // initPlanModel() creates a blank team (owners:[], planners:[], scribes:[default]).
@@ -2953,7 +4333,42 @@ async function doTranslate(
       // Non-default scribes only — initPlanModel re-creates the default device-user scribe.
       const _prevScribes  = (specModel.value?.scribes ?? []).filter(s => !s.isDefault).map(s => ({ ...s }))
 
-      initSpecModel(annotatedSpec)          // Spec Model — auto-name from first F. entry, version 0.1
+      // Pass user-supplied plan name to initSpecModel; falls back to auto-derive when null/empty.
+      // Tom 2026-06-08: "reminder I wnt plan name and owner name up front from new plans"
+      initSpecModel(annotatedSpec, pendingPlanName.value || undefined)
+
+      // Record genesis so Stage 1 always shows original input when this plan is reloaded.
+      // Tom Gilb 2026-06-09: "initial input specs she got parsed were gone."
+      if (payload.stakes || payload.ends || payload.means) {
+        updateSpecModelGenesis({ stakes: payload.stakes, ends: payload.ends, means: payload.means, generatedAt: new Date().toISOString() })
+      }
+
+      // If the user supplied an owner name upfront, add them before restoring previous owners.
+      if (pendingOwnerName.value) {
+        addOwner({ name: pendingOwnerName.value, email: '', phone: '', organization: '', location: '', responsibility: '' })
+      }
+      // r41 v112 — apply pre-spec Stewards collected via the pre-spec Stewards
+      // manager (preSpecStewardsOpen modal).  Each role routes to the
+      // appropriate addOwner / addPlanner / addScribe call so the Plan Crest
+      // chips light up on first generation with the planner's pre-spec choices.
+      if (preSpecStewards.value.length > 0) {
+        for (const s of preSpecStewards.value) {
+          const data = { name: s.name, email: '', phone: '', organization: '', location: '', responsibility: '' }
+          try {
+            if      (s.role === 'Owner')   addOwner(data)
+            else if (s.role === 'Planner') addPlanner(data)
+            else if (s.role === 'Scribe')  addScribe(data)
+          } catch (err) {
+            console.warn('[preSpecStewards] addSteward failed', { s, err })
+          }
+        }
+        // Clear the pre-spec list so it doesn't re-apply on next generation.
+        preSpecStewards.value = []
+        try { localStorage.removeItem(PRESPEC_STEWARDS_KEY) } catch { /* best-effort */ }
+      }
+      // Clear so they don't bleed into a future re-generate.
+      pendingPlanName.value  = null
+      pendingOwnerName.value = null
 
       // Restore team (new IDs generated; all contact + role fields preserved).
       for (const { id: _o, ...ownerData }   of _prevOwners)   addOwner(ownerData)
@@ -2992,11 +4407,106 @@ async function doTranslate(
       )
       analytics.logSpecGenerated(annotatedSpec.values.length, allFieldsPresent, Date.now() - _translateStart)
       survey.triggerPostGeneration()
+      // r41 v52 (Tom Gilb 2026-06-16 "give a narrative about which phase it
+      // is in and how many of each type of spec it has generated") —
+      // post-generation count summary toast.  Names exactly what the AI
+      // produced so the user has a concrete report instead of an opaque
+      // "your spec is ready" message.
+      const _gCounts = {
+        f: annotatedSpec.functions?.length   ?? 0,
+        v: annotatedSpec.values?.length      ?? 0,
+        s: annotatedSpec.solutions?.length   ?? 0,
+        c: annotatedSpec.constraints?.length ?? 0,
+        r: (annotatedSpec as { resources?: unknown[] }).resources?.length ?? 0,
+      }
+      const _gElapsedSec = Math.round((Date.now() - _translateStart) / 1000)
+      showToast(
+        `✓ Spec generated in ${_gElapsedSec}s — ${_gCounts.f} Function${_gCounts.f === 1 ? '' : 's'} · ${_gCounts.v} Value${_gCounts.v === 1 ? '' : 's'} · ${_gCounts.s} Solution${_gCounts.s === 1 ? '' : 's'} · ${_gCounts.c} Constraint${_gCounts.c === 1 ? '' : 's'}${_gCounts.r > 0 ? ` · ${_gCounts.r} Resource${_gCounts.r === 1 ? '' : 's'}` : ''}. ${allFieldsPresent ? 'All measurement fields present.' : 'Some V. fields are blank — Sharpen panel will help.'}`,
+        9000,
+      )
     }
   } finally {
     stopLoading('sdk:translate')
     _doTranslateInFlight = false
-    console.info('[doTranslate] finished', { succeeded, elapsedMs: Date.now() - _translateStart, sdkError: sdkError.value })
+    const elapsedMs = Date.now() - _translateStart
+    console.info('[doTranslate] finished', { succeeded, elapsedMs, sdkError: sdkError.value })
+    // r41 v52 (Tom Gilb 2026-06-16 "started generating, then after 10 sec
+    // went back to this state") — if generation failed fast (<30 s) the
+    // visible toast names WHY so the user can see the cause + retry path
+    // instead of just bouncing back to the form silently.  Common 10-15 s
+    // failure modes: rate-limit (429), credit exhausted (402), auth (401),
+    // overloaded (529), local-model unreachable, prompt validation reject.
+    if (!succeeded && elapsedMs < 30_000 && sdkError.value) {
+      const reason = sdkError.value.slice(0, 200)
+      showToast(`⚠ AI generation failed after ${Math.round(elapsedMs / 1000)}s — ${reason}.  Press Generate Spec to retry.`, 9000)
+      console.warn('[doTranslate] fast-fail diagnostic', { elapsedMs, reason })
+    }
+    // r41 v40 — Tom Gilb 2026-06-15 "failed to parse" — when translate()
+    // returned null (parse failure, API error, etc.) the user was previously
+    // stranded with a red error banner and no way to continue working.
+    // Architectural Resilience + AI-Max + Claude-Code-as-AI-Layer all say
+    // the SEM App must keep working when AI fails.  Fix: if generation
+    // failed AND we have user input (payload.stakes/ends/means OR plan
+    // name), auto-fall-back to buildMockSpec — same recovery path as the
+    // HangWatchdog timeout — so the user gets a starter spec they can
+    // sharpen instead of a dead end.
+    // r41 v44 (Tom Gilb 2026-06-16 verbatim "THIS SPECS GENERATED IS JUST
+    // SILLY SOMETHING VERY WRONG, BETTER BEFORE") — narrowed the r41 v40
+    // auto-fallback.  Original v40 fired on ANY translate() failure +
+    // payload-or-plan-name, then ran buildMockSpec on whatever input Tom had
+    // typed.  Problem: when Tom pastes verbose source material (a 1635 ship
+    // contract, a long brief, a multi-paragraph history), `buildMockSpec`
+    // splits on commas and turns "flat of the floor — 13 ft 0 in" into a
+    // stakeholder name and URL fragments into "HttpsWww" CamelCase IDs.
+    // The result is the "silly spec" Tom called out.  Pre-v40 behaviour was
+    // better: red error banner + ⟳ Generate Spec retry button.  Fix: ONLY
+    // run the local fallback when the input is SHORT enough that the mock
+    // builder won't choke (≤ 200 chars total across stakes/ends/means).
+    // That preserves the v38/v40 plan-name-only escape hatch (Tom typed
+    // just "UK Ship Contract" → buildMockSpec produces "F.UkShip…" which
+    // is reasonable) but skips the fallback for verbose input — Tom gets
+    // back the original error + retry flow that he preferred.
+    if (!succeeded && sdkError.value) {
+      const planTitle = (specModel.value?.name ?? 'New Plan').trim()
+      const payloadCharCount = (payload.stakes?.length ?? 0) + (payload.ends?.length ?? 0) + (payload.means?.length ?? 0)
+      const hasPlanName = planTitle.length > 0 && planTitle !== 'New Plan'
+      const inputIsShortEnough = payloadCharCount <= 200  // verbose input → don't mock
+      // Auto-fallback only fires for the plan-name-only OR very-short-payload case.
+      // For verbose input the error banner + ⟳ Retry stays — pre-r41-v40 behaviour.
+      const shouldRunFallback = inputIsShortEnough && (hasPlanName || payloadCharCount > 0)
+      if (shouldRunFallback) {
+        try {
+          const seedStakes = payload.stakes || (hasPlanName ? planTitle : '')
+          const seedEnds   = payload.ends   || (hasPlanName ? `Successful delivery of ${planTitle}` : '')
+          const seedMeans  = payload.means  || ''
+          const mockSpec = buildMockSpec(seedStakes, seedEnds, seedMeans)
+          const _generatedAt = new Date()
+          const annotatedSpec = stampGenerationFieldSources(mockSpec, _generatedAt)
+          currentSpec.value = annotatedSpec
+          specGeneratedAt.value = _generatedAt
+          initSpecModel(annotatedSpec, pendingPlanName.value || undefined)
+          if (payload.stakes || payload.ends || payload.means) {
+            updateSpecModelGenesis({ stakes: payload.stakes, ends: payload.ends, means: payload.means, generatedAt: _generatedAt.toISOString() })
+          }
+          addVersion(annotatedSpec, 'Generated-LocalFallback', null, specModel.value?.name ?? '', _specOwnerNames())
+          markdown.value = serialise(annotatedSpec)
+          sdkError.value = ''  // clear the parse-failure banner — user has a usable spec
+          showToast(
+            `⚡ AI was unavailable — built a local starter spec for "${planTitle}".  Sharpen any dimension to refine, or 🆘 Reset to start fresh.`,
+            8000,
+          )
+          succeeded = true
+          console.info('[doTranslate] local-fallback recovery applied (short input only)')
+        } catch (err) {
+          console.error('[doTranslate] local-fallback also failed', err)
+        }
+      } else if (payloadCharCount > 200) {
+        // Verbose input + AI failure → keep the original error visible so
+        // Tom can press ⟳ Generate Spec to retry the AI call.  No silly
+        // auto-mock.  Tom 2026-06-16 verbatim: "BETTER BEFORE".
+        console.info('[doTranslate] skipping local-fallback for verbose input — pre-v40 retry flow active', { chars: payloadCharCount })
+      }
+    }
     // Only leave ClarifyView on success — on failure keep the user's answers visible
     // so they can see the error and retry without losing context.
     if (succeeded || stage1Sub.value === 'form') {
@@ -3080,10 +4590,12 @@ function goToPlanStage(fromFreshGeneration = false): void {
     stage.value = 2
     // Never REGRESS a bar position — if the user was already at stage 7+, keep them there.
     if (fromFreshGeneration) {
-      // After AI generates spec: advance bar from stage 1 → 2 (Edit Values).
-      // The user still needs to go through Edit Values → Edit Solutions → Sharpen →
-      // Estimate Impacts before reaching Evo Steps at stage 6.
-      if (planningStage.value < 2) planningStage.value = 2
+      // After AI generates spec: reset bar to stage 2 (Edit Values / Solutions).
+      // A fresh generation means the user has a NEW spec and hasn't yet been through
+      // Sharpen (3), Impacts (4), Refine (5) — so the bar must not sit above 2 even
+      // if a previous session had advanced it to 6+.  Hard-set to 2 (not just advance
+      // from <2) so a session-restore that pre-set planningStage=6 is correctly reset.
+      planningStage.value = Math.min(planningStage.value, 2)
     } else {
       // Explicit navigation to Evo Steps view: jump bar to stage 6 if not already there.
       if (planningStage.value < 6) planningStage.value = 6
@@ -3135,6 +4647,51 @@ function goToImpactStage(): void {
  * Always closes the Evo Tools panel after dispatch so the user lands directly
  * on the tool.
  */
+/** Auto-DBO: user approved a Solution Version — apply its snapshot to the master spec. */
+function onAutoDboApproveToMaster(snapshot: import('./types/spec').SpecBlock): void {
+  currentSpec.value = snapshot
+  bumpSpecVersion(snapshot)
+}
+
+/**
+ * Auto-DBO: user chose "Save as New Plan" — load the Design Version's spec snapshot
+ * as a fresh independent plan with the specified title and stewards, then close DBO.
+ * Tom 2026-06-07: "I suspect that we need an option to store a design version as a
+ * distinct new plan with different title and stewards."
+ */
+function onAutoDboSaveAsNewPlan(payload: { spec: import('./types/spec').SpecBlock; planName: string; planOwners: string[] }): void {
+  autoDboOpen.value = false
+  onHistoryRestore(payload.spec, null, payload.planName, payload.planOwners)
+}
+
+/**
+ * PlanguageToolsPanel emits 'tool-activated' with the tool's emitEvent name.
+ * Maps to the same handleAction / openX handlers used everywhere else.
+ * Tom Gilb 2026-06-07: Planguage Tools are pre-Evo-Step-derivation design tools.
+ */
+function onPlanguageToolActivated(payload: { id: string; emitEvent: string; payload?: Record<string, unknown> }): void {
+  planguageToolsOpen.value = false
+  switch (payload.emitEvent) {
+    case 'open-auto-dbo':            autoDboOpen.value          = true; break
+    case 'open-penta':               pentaOpen.value             = true; break
+    case 'open-optima':              optimaOpen.value            = true; break
+    case 'open-multi-vision':        openMultiVision();                  break
+    case 'open-multi-forks':         multiForksOpen.value        = true; break
+    case 'open-sharpen':             handleSharpenPlan();                break
+    case 'open-kiss':                kissOpen.value              = true; break
+    case 'open-resources-sharpen':   resourcesSharpenOpen.value  = true; break
+    case 'open-standards-auditor':   standardsAuditorOpen.value  = true; break
+    case 'open-planguage-analyzer':  planguageAnalyzerOpen.value = true; break
+    case 'open-conflicts':           conflictAnalysisOpen.value  = true; break
+    case 'open-internet-context':    internetContextOpen.value   = true; break
+    case 'open-plan-health':         specHealthStatusOpen.value  = true; break
+    case 'open-spec-editor':         specEditorOpen.value        = true; break
+    case 'open-feed-me-planguage':   feedMeOpen.value            = true; break
+    default:
+      console.warn(`[PlanguageTools] No dispatcher for emitEvent "${payload.emitEvent}" (tool id: "${payload.id}").`)
+  }
+}
+
 function onEvoToolActivated(payload: { id: string; emitEvent: string; payload?: Record<string, unknown> }): void {
   evoToolsOpen.value = false
   switch (payload.emitEvent) {
@@ -3162,6 +4719,9 @@ function onEvoToolActivated(payload: { id: string; emitEvent: string; payload?: 
       break
     case 'open-feed-me':
       feedMeOpen.value = true
+      break
+    case 'open-auto-dbo':
+      autoDboOpen.value = true
       break
     case 'go-to-evo-impact-stage':
       goToImpactStage()
@@ -3451,9 +5011,8 @@ async function emailImpactStepTable(): Promise<void> {
   const date    = new Date().toISOString().slice(0, 10)
   const name    = specModel.value?.name ?? 'Evo Impact'
   const subject = `Value × Evo Step Impact — ${name} · ${date}`
-  await exportCopy(html, subject).catch(() => { /* non-fatal */ })
-  openEml(html, subject, { to: ['Tom@Gilb.com'] })
-  showToast('📨 Mail opening — Value × Evo Step table HTML already in body.', 5000)
+  await exportEmail(html, subject, 'Value × Evo Step table')
+  showToast('📨 Mail opening — press ⌘V to paste the colour table, then Send.', 5000)
 }
 
 function downloadImpactStepTable(): void {
@@ -3483,9 +5042,8 @@ async function emailImpactSolutionTable(): Promise<void> {
   const date    = new Date().toISOString().slice(0, 10)
   const name    = specModel.value?.name ?? 'Evo Impact'
   const subject = `Value × Solution Impact — ${name} · ${date}`
-  await exportCopy(html, subject).catch(() => { /* non-fatal */ })
-  openEml(html, subject, { to: ['Tom@Gilb.com'] })
-  showToast('📨 Mail opening — Value × Solution table HTML already in body.', 5000)
+  await exportEmail(html, subject, 'Value × Solution table')
+  showToast('📨 Mail opening — press ⌘V to paste the colour table, then Send.', 5000)
 }
 
 function downloadImpactSolutionTable(): void {
@@ -3555,12 +5113,19 @@ async function autoCopyPlan(): Promise<void> {
     // HTML, plain-text-only targets fall back to the text.
     let htmlText = ''
     try {
-      htmlText = renderColorfulSpecHtml(currentSpec.value, modelName, version.trim() || undefined)
+      // r41 v77 — hard-force 'full' (see emailPlan comment) so the Copy flow
+      // matches Tom's in-app card detail with no chance of mode drift.
+      htmlText = renderColorfulSpecHtml(
+        currentSpec.value,
+        modelName,
+        version.trim() || undefined,
+        { mode: 'full' },
+      )
     } catch (rErr) {
       console.warn('[autoCopyPlan] colourful HTML build failed — plain text only', rErr)
     }
 
-    console.log(`[autoCopyPlan] built plain=${fullText.length} html=${htmlText.length} chars`)
+    console.log(`[autoCopyPlan] mode=full · built plain=${fullText.length} html=${htmlText.length} chars · sample (first 800):`, htmlText.slice(0, 800))
 
     // Primary: ClipboardItem dual-MIME write (text/html + text/plain).
     try {
@@ -3609,12 +5174,9 @@ async function autoCopyPlan(): Promise<void> {
   }
 }
 // ── Email entire plan ─────────────────────────────────────────────────────────
-// Tom 2026-06-06: "you still refuse to actually paste the html in the email, there is a way around, right?"
-// Answer: YES. We switch from mailto: (plain-text body) to openEml() which generates a proper
-// RFC 2822 .eml file with the colourful HTML as the multipart/alternative body.
-// Safari's AutoOpenSafeDownloads=true (default, confirmed 2026-06-06) means the .eml downloads
-// instantly and Mail.app opens it as a compose draft with the HTML body pre-filled — no paste.
-// Clipboard is ALSO written so ⌘V still works for Keynote/Notes paste targets.
+// Auto-Open Email Rule (SUPREME, CLAUDE.md): mailto: + clipboard replaces .eml download.
+// .eml silently lands in Downloads without opening Mail (Tom's browser config 2026-06-07).
+// mailto: auto-opens Mail.app; colourful HTML on clipboard → one ⌘V paste.
 async function emailPlan(): Promise<void> {
   if (!currentSpec.value) { showToast('Nothing to email yet — load or generate a Spec first', 4000); return }
   _saveNow()
@@ -3622,19 +5184,45 @@ async function emailPlan(): Promise<void> {
   const date      = new Date().toISOString().slice(0, 10)
   const modelName = specModel.value?.name ?? 'Planning Spec'
   const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
-  let htmlBody = ''
+  let htmlBody  = ''
+  let plainBody = ''
+  // r41 v77 (Tom Gilb 2026-06-16 "for the 3rd time today the email paste is
+  // not the detaied spec in my mac pleaseeeee") — HARD-FORCE 'full' mode at
+  // the call site so even if Settings.specExportFormat got corrupted to
+  // 'condensed' / 'table' / undefined via a stale localStorage record from
+  // before r41 v58 shipped, the email export ALWAYS carries the rich detail
+  // Tom sees in-app: Ambition Level + Source + Rationale + Justification +
+  // Risks + Assumptions + fieldSources + Stakeholder Source row.  Defensive
+  // diagnostic console.info so Tom can verify in DevTools what's actually
+  // being put on the clipboard.
+  const exportMode = 'full' as const
   try {
-    htmlBody = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined)
+    htmlBody  = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined, { mode: exportMode })
+    plainBody = serialisePlainText(currentSpec.value)
   } catch (rErr) {
-    showToast(`Email HTML build failed: ${String(rErr).slice(0, 80)}`, 7000)
+    showToast(`Email build failed: ${String(rErr).slice(0, 80)}`, 7000)
     return
   }
+  console.info('[emailPlan] mode=', exportMode, '· html size:', htmlBody.length, 'chars · sample (first 800):', htmlBody.slice(0, 800))
   const subject = `Spec: ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`
-  // 1. Write HTML to clipboard so ⌘V also works for Keynote/Notes.
-  await exportCopy(htmlBody, subject).catch(() => { /* clipboard failure is non-fatal */ })
-  // 2. Download .eml — Mail.app auto-opens it as a compose draft with HTML body pre-filled.
-  openEml(htmlBody, subject, { to: ['Tom@Gilb.com'] })
-  showToast('📨 Mail opening — HTML already in the body. ⌘V also ready for Keynote.', 6000)
+  // r41 v113 (Tom Gilb 2026-06-17 verbatim "I think the owner email, or
+  // default tom@gilb.com (default scribe) should already be there, others
+  // can be added, but the paste should only end up in the top of the
+  // text") — SUPERSEDES the r41 v80 Mailto-No-Self-To rule.  Pre-fill the
+  // To: field so ⌘V lands in the body, not the empty To: slot.  Pass
+  // `undefined` so exportEmail's `to = 'Tom@Gilb.com'` default kicks in.
+  // Per-Owner email override pending plan-model wiring.
+  await exportEmail(htmlBody, subject, 'Planguage Spec', undefined, plainBody)
+  // r41 v81 — surface the TRUTH about what landed on clipboard so Tom isn't
+  // misled when the HTML write silently fails.
+  const result = getLastClipboardResult()
+  if (result === 'html+plain') {
+    showToast('📨 Mail opening — type recipient + ⌘V to paste the COLOUR Spec.  ✓ Colour HTML written to clipboard.  If paste lands plain anyway: Mail → Format → Make Rich Text.', 9000)
+  } else if (result === 'plain-fallback') {
+    showToast('⚠ Colour HTML write FAILED — Mail will open with plain-text-only on clipboard.  Open Safari DevTools → Console for the real error.  Common fix: click somewhere in the SEM App first, then click Email again (document focus is required for clipboard).', 12000)
+  } else {
+    showToast('⚠ Clipboard write FAILED entirely.  Mail will open but nothing will paste.  Open Console for the error.', 12000)
+  }
 }
 
 // ── Stage 7 (Evo Impact) Export — split-button pattern ───────────────────────
@@ -3738,7 +5326,8 @@ function _buildStage7Html(): string {
 
   // 2. Colourful Planguage Spec — canonical entry-type colours, secondary reference context.
   let specHtml = ''
-  try { specHtml = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined) }
+  // r41 v77 — hard-force 'full' mode (see emailPlan comment).
+  try { specHtml = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined, { mode: 'full' }) }
   catch { specHtml = '<p style="color:red">Spec HTML build failed</p>' }
 
   // 3. Wrap in page shell. IET first, spec second.
@@ -3765,8 +5354,8 @@ async function copyStage7(): Promise<void> {
   showToast(ok ? '[*]=[*] Copied Stage 7 — IET grid + Spec on clipboard (⌘V to paste)' : 'Copy failed — check browser clipboard permissions', ok ? 4000 : 7000)
 }
 
-/** Email Stage 7 — openEml() puts the full IET + Spec HTML directly in the Mail.app body.
- *  No paste needed — Safari's AutoOpenSafeDownloads=true auto-opens the .eml as a compose draft. */
+/** Email Stage 7 — mailto: + clipboard pattern (Auto-Open Email Rule, CLAUDE.md).
+ *  IET grid + Spec HTML on clipboard (⌘V); Mail opens automatically via mailto:. */
 async function emailStage7(): Promise<void> {
   if (!currentSpec.value) { showToast('Nothing to email', 4000); return }
   const modelName = specModel.value?.name ?? 'Evo Impact'
@@ -3774,9 +5363,8 @@ async function emailStage7(): Promise<void> {
   const date      = new Date().toISOString().slice(0, 10)
   const html    = _buildStage7Html()
   const subject = `Stage 7 · Evo Impact — ${modelName}${versTxt ? ' ' + versTxt : ''} · ${date}`
-  await exportCopy(html, subject).catch(() => { /* non-fatal */ })
-  openEml(html, subject, { to: ['Tom@Gilb.com'] })
-  showToast('📨 Mail opening — IET grid + Spec HTML already in the body. ⌘V also ready for Keynote.', 6000)
+  await exportEmail(html, subject, 'Stage 7 Evo Impact')
+  showToast('📨 Mail opening — press ⌘V to paste the colour IET + Spec, then Send.', 6000)
 }
 
 /** Download Stage 7 HTML as a standalone file. */
@@ -3850,9 +5438,34 @@ function messagePlan(): void {
 // HTML tags that some chat UIs surface as literal markup.
 async function copyPlanForChat(): Promise<void> {
   if (!currentSpec.value) return
+  // r41 v78 (Tom Gilb 2026-06-16 verbatim "why cant chat be color and
+  // detail????") — was plain-text-only.  Chat now gets the same dual-MIME
+  // ClipboardItem treatment as Email/Copy: full colourful HTML on
+  // `text/html` + markdown fallback on `text/plain`.  Chat apps that
+  // support rich paste (Claude.ai, ChatGPT Web, Notion, Obsidian, Linear,
+  // …) will use the colour version; plain-only targets get markdown.
+  const modelName = specModel.value?.name ?? 'Planning Spec'
+  const versTxt   = specModel.value ? `v${specModel.value.version}` : ''
+  const plain     = serialisePlainText(currentSpec.value)
+  let html = ''
   try {
-    const text = serialisePlainText(currentSpec.value)
-    await navigator.clipboard.writeText(text)
+    html = renderColorfulSpecHtml(currentSpec.value, modelName, versTxt || undefined, { mode: 'full' })
+  } catch (err) {
+    console.warn('[copyPlanForChat] colourful HTML build failed — plain only', err)
+  }
+  console.info('[copyPlanForChat] mode=full · html size:', html.length, 'chars · plain size:', plain.length)
+  try {
+    if (html && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html':  new Blob([html],  { type: 'text/html'  }),
+          'text/plain': new Blob([plain], { type: 'text/plain' }),
+        }),
+      ])
+      showToast('📋 Copied (colour + plain) — paste into Claude, ChatGPT, Notion, or any AI chat.', 5000)
+      return
+    }
+    await navigator.clipboard.writeText(plain)
     showToast('📋 Copied as plain text — paste into Claude, ChatGPT, or any AI chat.', 5000)
   } catch {
     showToast('Copy failed — try the Copy Spec button instead.', 5000)
@@ -3993,6 +5606,36 @@ function _onGlobalKeydown(e: KeyboardEvent) {
     e.preventDefault()
     toggleMenu()
   }
+  // ⌘I — Illumination · Information · Illustrations (Tom 2026-06-13, r93qqq + r17).
+  // Tom verbatim r17: "TELL ME WHEN YOU HAVE FIXED THE TOTAL FAILURE OF THE I SEARCH"
+  //   Root cause discovered: previous version SKIPPED text inputs ("let native
+  //   Italic run inside text inputs") which meant ⌘I from a spec editor (where
+  //   Tom's focus almost always lives) silently triggered native italic instead
+  //   of opening the picker.  Native italic is a no-op in SEM textareas (no rich
+  //   text rendering), so the skip cost Tom the keyboard path for ZERO benefit.
+  //   Fix: ALWAYS open the picker on ⌘I, including inside text inputs.
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'i' || e.key === 'I')) {
+    e.preventDefault()
+    openGilbIllustrations()
+    return
+  }
+  // ⌘, — SEM Settings (Tom Gilb 2026-06-16 verbatim "I CANT FIND SETTINGS
+  // ANYWHERE").  Mac convention is ⌘, for app settings/preferences.
+  if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+    e.preventDefault()
+    settingsOpen.value = true
+    return
+  }
+  // ⌘S — Save Draft pre-spec (Tom Gilb 2026-06-17 "i think a whole line of
+  // actions like save are missing"). r41 v111.  Pre-spec drafts only fire
+  // when there's no specModel yet; with a spec loaded ⌘S falls through to
+  // the auto-save pathway that's already in place per the No-Silent-Data-
+  // Loss Rule.
+  if ((e.metaKey || e.ctrlKey) && e.key === 's' && !specModel.value) {
+    e.preventDefault()
+    savePreSpecDraft()
+    return
+  }
   // ── Escape key — two-tier emergency recovery ────────────────────────────
   // Tier 1: close whatever overlay is open.
   //   closeActiveSurface() walks the exclusive-surfaces registry and sets the
@@ -4075,35 +5718,35 @@ const searchEntries = computed((): SearchEntry[] => {
       id: 'present', icon: '🖥️', name: 'Present',
       description: 'Full-screen spec presentation slides',
       keywords: ['slides', 'slide show', 'presentation', 'present', 'fullscreen'],
-      context: 'Visualise', action: () => { presentationOpen.value = true },
+      context: 'Visualize', action: () => { presentationOpen.value = true },
       disabled: !hasSpec,
     },
     {
       id: 'diagrams', icon: '🗺️', name: 'Diagrams & Visuals',
       description: 'Value flow, radar, architecture, risk, finance charts',
       keywords: ['chart', 'sankey', 'radar', 'svg', 'graph', 'visualize', 'visualise', 'diagrams'],
-      context: 'Visualise', action: () => { visualiseOpen.value = true },
+      context: 'Visualize', action: () => { visualiseOpen.value = true },
       disabled: !hasSpec,
     },
     {
       id: 'swimlane', icon: '🏊', name: 'Swimlane View',
       description: 'Value Stage Map — Functions / Values / Solutions across delivery stages',
       keywords: ['value stage map', 'heat lane', 'swim lane', 'swimlane', 'lanes', 'matrix', 'stages'],
-      context: 'Visualise', action: () => { heatLaneOpen.value = true },
+      context: 'Visualize', action: () => { heatLaneOpen.value = true },
       disabled: !hasSpec,
     },
     {
       id: 'evo-simulator', icon: '▶', name: 'Evo Simulator',
       description: 'Animated delivery timeline across 26 weeks',
       keywords: ['simulate', 'simulator', 'animation', 'timeline', 'delivery', 'weeks'],
-      context: 'Visualise', action: () => { evoSimulatorOpen.value = true },
+      context: 'Visualize', action: () => { evoSimulatorOpen.value = true },
       disabled: !hasSteps,
     },
     {
       id: 'replay', icon: '🔁', name: 'Replay',
       description: 'Replay the spec entry and AI generation from the start',
       keywords: ['replay', 'playback', 'demo', 'rerun', 'again'],
-      context: 'Visualise', action: () => { if (hasSteps) startReplay(confirmedSteps.value) },
+      context: 'Visualize', action: () => { if (hasSteps) startReplay(confirmedSteps.value) },
       disabled: !hasSteps,
     },
 
@@ -4207,8 +5850,29 @@ const searchEntries = computed((): SearchEntry[] => {
       id: 'multi-forks', icon: '🔱', name: 'MultiForks',
       description: 'System fork diagram: Resources → System ← Values. Each fork (Value or Resource) has Tolerable / Goal / Wish markers at their real numeric positions, a status colour band (Goal MET / Tolerable Range / VIOLATION), and a status badge. Same Balance score as MultiVision. The diagram-view sibling of the MultiVision slider sandbox.',
       keywords: ['multiforks', 'multi forks', 'multifork', 'fork', 'fork diagram', 'system fork', 'fork view', 'fork chart', 'resources system values', 'system diagram', 'arrows', 'oval', 'visualize', 'visualization', 'diagram'],
-      context: 'Visualise', action: () => { openMultiForks() },
+      context: 'Visualize', action: () => { openMultiForks() },
       disabled: !hasSpec,
+    },
+    // r93qqq 2026-06-12 — Gilb Illustration Picker.
+    // Tom: "I want you to be able to find and bring into sem the illustrations
+    // in my books, kai says I should just ask".  Public TwinPod containers
+    // expose /public/<Book>/_images/ folders openly (no Solid OAuth needed for
+    // GET — only HEAD trips the 401).  Catalog covers every book in
+    // twinPodBooksRegistry.ts, paired with chapter MD captions.  Insertion
+    // copies HTML + markdown to clipboard with citation footer per the
+    // Conjunction-of-Technologies SUPREME rule + r93ppp Twin promo discipline.
+    {
+      id: 'gilb-illustrations', icon: '💡', name: 'Illumination · Information · Illustrations  (⌘I)',
+      description: 'Unified Tom Gilb knowledge finder.  ONE search box — TEXT column (Planguage Glossary definitions + chapter titles + captions) AND IMAGES column (4,363 illustrations across 61 books).  Pick either side → ⌘V into any spec field with citation.  Keyboard: ⌘I (outside text inputs).',
+      keywords: ['illumination', 'information', 'illustration', 'illustrations', 'figure', 'figures', 'picture', 'pictures', 'diagram', 'diagrams', 'image', 'images', 'gilb book', 'tom gilb book', 'twinpod', 'twin pod', 'picker', 'insert image', 'embed', 'catalog', 'visual', 'planguage illustrations', 'glossary', 'definitions', 'knowledge', 'cmd i', 'shortcut'],
+      context: 'Reference', action: () => { openGilbIllustrations() },
+    },
+    // r93qqq r23 2026-06-13 — Planguage Ontology Diagram (663 concepts).
+    {
+      id: 'ontology-diagram', icon: '🌳', name: 'Planguage Ontology — Clickable Concept Tree',
+      description: '663-concept Planguage Glossary as a collapsible hierarchical tree.  Every concept node opens in Tom Gilb Consultant Twin (free, no login).  Live filter + expand/collapse all.  Source: 10.Standard/2.Glossary/PlanguageGlossary/.',
+      keywords: ['ontology', 'ontologies', 'planguage ontology', 'concept tree', 'glossary tree', 'glossary hierarchy', 'class hierarchy', 'parent class', 'tree', 'taxonomy', '663 concepts', '700 concepts', 'clickable tree', 'concept browser', 'gilb glossary', 'twin'],
+      context: 'Reference', action: () => { openOntologyDiagram() },
     },
     // Tom 2026-06-03: EHT (Evo Health Tool).  Mirror PHI structure but focused
     // on Evo Steps + short-term scope.  v1 scaffold; v2 wires real Cure flow.
@@ -4245,7 +5909,7 @@ const searchEntries = computed((): SearchEntry[] => {
     },
     {
       id: 'spec-editor', icon: '✏️', name: 'Spec Editor',
-      description: 'Edit F./V./S. entries directly — produce Edit Versions or commit to Master',
+      description: 'Edit Function / Value / Solution entries directly — produce Edit Versions or commit to Master',
       keywords: ['editor', 'edit spec', 'edit plan', 'edit entries', 'planguage editor', 'rewrite', 'edit version', 'master'],
       context: 'Planning', action: () => { specEditorOpen.value = true },
       disabled: !hasSpec,
@@ -4293,6 +5957,30 @@ const searchEntries = computed((): SearchEntry[] => {
       disabled: !hasModel,
     },
 
+    // ── App-level utilities — r41 v113 (Tom Gilb 2026-06-17 "all the buttons
+    //    at the top are getting messy. Time to reorganize") — items that
+    //    used to live in the title-bar right pin cluster but get demoted to
+    //    the Actions menu (⌘A) as part of the aggressive cleanup.  Reachable
+    //    via ⌘A → type "Reload" / "Twin" / "Mode" / etc.
+    {
+      id: 'force-reload', icon: '🔄', name: 'Force Fresh Reload',
+      description: 'Equivalent to ⌘R — reloads the SEM App with a cache-bust query so no stale Vue HMR state survives. Useful when the UI feels off and a clean refresh is needed.',
+      keywords: ['reload', 'refresh', 'fresh', 'hard refresh', 'cache bust', 'cmd r'],
+      context: 'App', action: () => { window.location.href = window.location.pathname + '?reload=' + Date.now() },
+    },
+    {
+      id: 'twin-link', icon: '🔗', name: 'Open Tom Gilb Consultant Twin',
+      description: 'Opens Tom Gilb Consultant Twin (gilb.com/tomtwin) in a new tab — Tom Gilb knowledge consultant built by Kai Gilb.',
+      keywords: ['twin', 'tt', 'tom', 'gilb', 'consultant', 'kai'],
+      context: 'App', action: () => { window.open('https://www.gilb.com/tomtwin', '_blank', 'noopener') },
+    },
+    {
+      id: 'active-mode-switch', icon: '🎚', name: 'Switch Active Mode',
+      description: 'Switch between Ultra Light / Pro SEM / Plan / Contract / Model / Maria modes. Opens the Active Mode popover so you can review the current rich-config summary and pick a different mode.',
+      keywords: ['mode', 'switch', 'ultra light', 'pro sem', 'plan', 'contract', 'model', 'maria'],
+      context: 'App', action: () => { activeModePopoverOpen.value = true },
+    },
+
     // ── Voice ─────────────────────────────────────────────────────────────
     {
       id: 'dictation', icon: '🎤', name: dictationActive.value ? 'Turn Off Mic' : 'Turn On Mic',
@@ -4314,20 +6002,20 @@ const searchEntries = computed((): SearchEntry[] => {
       id: 'sharpen', icon: '🔪', name: 'Sharpen Spec',
       description: 'AI refinement across 6 dimensions: constraints, scale, stakeholders…',
       keywords: ['sharpen', 'refine', 'improve spec', 'ai refine', 'dimensions', 'constraints', 'aspects', 'scale'],
-      context: 'Analyse', action: () => { sharpenModalOpen.value = true },
+      context: 'Analyze', action: () => { sharpenModalOpen.value = true },
       disabled: !hasSpec,
     },
     {
       id: 'compare', icon: '📊', name: 'Compare Spec Models',
       description: 'Side-by-side A/B comparison of two spec models',
       keywords: ['compare', 'comparison', 'a/b', 'side by side', 'diff models'],
-      context: 'Analyse', action: () => { comparisonOpen.value = true },
+      context: 'Analyze', action: () => { comparisonOpen.value = true },
     },
     {
       id: 'collaborate', icon: '🤝', name: 'Collaborate',
       description: 'Invite collaborators and manage real-time editing access',
       keywords: ['collaborate', 'invite', 'team', 'share', 'collaborator', 'rbac'],
-      context: 'Analyse', action: () => { collaboratorOpen.value = true },
+      context: 'Analyze', action: () => { collaboratorOpen.value = true },
     },
 
     // ── Get A Plan ────────────────────────────────────────────────────────
@@ -4456,6 +6144,9 @@ const searchEntries = computed((): SearchEntry[] => {
 registerExclusiveSurface('presentation',      presentationOpen)
 registerExclusiveSurface('resourcesSharpen',  resourcesSharpenOpen)
 registerExclusiveSurface('optima',            optimaOpen)
+registerExclusiveSurface('autoDbo',           autoDboOpen)
+registerExclusiveSurface('planguageTools',    planguageToolsOpen)
+registerExclusiveSurface('penta',             pentaOpen)
 registerExclusiveSurface('kiss',              kissOpen)
 registerExclusiveSurface('costEngineering',   costEngineeringOpen)
 registerExclusiveSurface('sharpenModal',      sharpenModalOpen)
@@ -4465,6 +6156,8 @@ registerExclusiveSurface('heatLane',          heatLaneOpen)
 registerExclusiveSurface('evoSimulator',      evoSimulatorOpen)
 registerExclusiveSurface('evoTools',          evoToolsOpen)
 registerExclusiveSurface('evoSharp',          evoSharpOpen)
+registerExclusiveSurface('solutionSharpen',   solutionSharpenOpen)
+registerExclusiveSurface('strategyAgent',     strategyAgentOpen)
 registerExclusiveSurface('evoStepImprovement', evoStepImprovementOpen)
 registerExclusiveSurface('feedMe',            feedMeOpen)
 registerExclusiveSurface('settings',          settingsOpen)
@@ -4518,6 +6211,10 @@ registerExclusiveSurface('actionsHub',        menuOpen)
 registerExclusiveSurface('agentMenu',         agentMenuOpen)
 registerExclusiveSurface('mariaAgent',        mariaOpen)
 registerExclusiveSurface('mariaBoardHub',     mariaBoardOpen)
+registerExclusiveSurface('incorruptible',     incorruptibleOpen)
+registerExclusiveSurface('incorruptibleSharp', incorruptibleSharpeningOpen)
+registerExclusiveSurface('elon',              elonOpen)
+registerExclusiveSurface('elonSharp',         elonSharpeningOpen)
 registerExclusiveSurface('modelLibrary',      modelLibraryOpen)
 registerExclusiveSurface('stakeholderMapper', stakeholderMapperOpen)
 registerExclusiveSurface('evoCritiquer',      evoCritiquerOpen)
@@ -4525,6 +6222,8 @@ registerExclusiveSurface('planImporter',      specImporterOpen)
 registerExclusiveSurface('decisionMapper',    decisionMapperOpen)
 registerExclusiveSurface('multiVision',      multiVisionOpen)
 registerExclusiveSurface('multiForks',       multiForksOpen)    // r97
+registerExclusiveSurface('gilbIllustrations',gilbIllustrationsOpen) // r93qqq 2026-06-12
+registerExclusiveSurface('ontologyDiagram',  ontologyDiagramOpen)   // r93qqq r23 2026-06-13
 registerExclusiveSurface('unifiedHistory',    unifiedHistoryOpen)
 
 // ── ActionsHub: route action IDs to panel opens / functions (2026-05-27) ─────
@@ -4551,6 +6250,10 @@ function handleAction(id: string): void {
     case 'scribes':          specPeopleTab.value = 'scribes';  specOwnerPanelOpen.value = true; break
     case 'specOwners':       govPanelOpen.value         = true; break
     // ── EXPLORE ────────────────────────────────────────────────────────────
+    // r41 v29 (Tom Gilb 2026-06-15 "To Actions menu: 'Illumination AI'") —
+    // routes to the same picker the ⌘I shortcut opens, no preset tab so the
+    // planner lands on their last-used tab (default: Define glance).
+    case 'illuminationAI':   openGilbIllustrations();             break
     case 'evoSim':           evoSimulatorOpen.value     = true; break
     case 'replay':           startReplay(confirmedSteps.value); break
     case 'visualise':        visualiseOpen.value        = true; break
@@ -4575,6 +6278,11 @@ function handleAction(id: string): void {
     case 'backup':           backupAllModels();                  break
     case 'codeSnapshot':     showCodeSnapshotTip();              break
     // ── ABOUT ──────────────────────────────────────────────────────────────
+    // r41 v43 (Tom Gilb 2026-06-16 "I CANT FIND SETTINGS ANYWHERE") —
+    // route the new Settings tile in the ABOUT section to the existing
+    // settingsOpen ref so all three entry points (title-bar pin, ⌘,
+    // shortcut, this Actions tile) land on the same SettingsPanel.
+    case 'settings':         settingsOpen.value         = true; break
     case 'toolInfo':         toolInfoPanelOpen.value    = true; break
     case 'semMetadata':      semMetadataPanelOpen.value = true; break
     case 'copyright':        copyrightPanelOpen.value   = true; break
@@ -4597,6 +6305,10 @@ function handleAction(id: string): void {
     case 'multiVision':        openMultiVision();                  break
     // evo-step-critique lives in ANALYZE section; same routing pattern
     case 'evo-step-critique':  evoCritiquerOpen.value     = true; break
+    // ── PLANGUAGE DESIGN TOOLS ─────────────────────────────────────────────
+    // Tom 2026-06-07: "Auto-DBO belongs to the more general class of Planguage Tools,
+    // not Evo Tools. Pre-Evo step derivation. Available at any stage."
+    case 'autoDbo':            autoDboOpen.value          = true; break
   }
 }
 
@@ -4674,6 +6386,26 @@ function _onCloseStuckUi(): void {
 // other view drops the overlay so the existing surfaces show through.
 // <MenuPin/> stays visible whenever the aperture mode is enabled.
 const aperture = useApertureMode()
+
+// Bridge: keep aperture enabled-state in sync with Settings mode.
+// Bug 2026-06-09: _readEnabled() was patched to read semSettings:v1 on
+// refresh (covers F5/hard-reload). This watcher covers the LIVE case —
+// when the user changes Settings mode without reloading.
+//   ultra-light → enable aperture + reset to Plan view
+//   pro-sem     → disable aperture
+// Uses { immediate: false } because _readEnabled() already sets the initial
+// value correctly from localStorage; firing immediately would be redundant.
+{
+  const { settings: _appSettings } = useSettings()
+  watch(() => _appSettings.value.mode, (mode) => {
+    if (mode === 'ultra-light') {
+      aperture.setEnabled(true)
+      aperture.setView('plan')   // always land on the naked Plan circle
+    } else {
+      aperture.setEnabled(false)
+    }
+  })
+}
 
 /**
  * Aperture submit — the user typed (or spoke) a single sentence into the
@@ -4820,8 +6552,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
          comes and goes in Ultra — can we make it stable?" -->
     <button
       type="button"
-      title="Illuminate any Planguage term  (⌥I)"
-      aria-label="Illuminate a term (Opt+I)"
+      title="Illuminate any Planguage term  (⌘I or ⌥I)"
+      aria-label="Illuminate a term (Cmd+I or Opt+I)"
       class="fixed top-4 right-20 z-[400] p-2 rounded-full text-base leading-none
              text-slate-500 hover:text-slate-900
              bg-white/0 hover:bg-slate-100
@@ -4884,12 +6616,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
        z-[300] sits above normal content and below the demo bar (z-50+).  -->
   <div
     ref="specCrestEl"
-    v-if="view === 'app' && specModel"
+    v-if="view === 'app'"
     class="fixed top-[148px] left-0 right-0 z-[300] flex flex-col px-4 py-1.5
            bg-gradient-to-r from-indigo-800 via-indigo-600 to-violet-600
            text-white shadow-lg ring-1 ring-black/10 select-none"
     aria-label="Spec Crest — active spec"
   >
+    <!-- r41 v140 — wrapper-level specModel gate dropped (Tom Gilb 2026-06-17
+         verbatim "not bars back after c r" — Trace-Before-Patch revealed
+         the v139 inner-gate removal was masked by THIS outer wrapper gate).
+         Row 1 hero content now wrapped with its OWN <template v-if="specModel">
+         so the gradient bar + the 3 Level strips render in pre-spec state
+         while specModel-dependent hero markup stays gated. -->
+    <template v-if="specModel">
     <!-- ── Row 1: HERO TITLE ───────────────────────────────────────────────
          Tom 2026-05-12 (third pass): "the title is still not what I asked
          for, large long color, drama attention, own line if necessary".
@@ -4952,12 +6691,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
                  text-white bg-white/10 hover:bg-white/20
                  focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-          aria-label="Illuminate a Planguage term (Opt+I)"
-          title="Illuminate any term — select text first, or click to type one  (⌥I)"
+          aria-label="Illuminate a Planguage term (Cmd+I or Opt+I)"
+          title="Illuminate any term — select text first, or click to type one  (⌘I or ⌥I)"
           @click="openDefineSearch()"
         >
           <span class="text-sm leading-none" aria-hidden="true">💡</span>
-          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌥I</kbd>
+          <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘I</kbd>
         </button>
         <!-- History — Evo Step Color Glyph (amber < ->+-> encodes past cycles).
              :no-detail-click per DD-013 (parent owns click for history panel).
@@ -4976,8 +6715,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    text-white bg-white/10 hover:bg-white/20
                    focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
             aria-label="Version History"
-            title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
-            @click="historyOpen = true"
+            title="History — browse Session Specs, Imported Plans, Models, Contracts and Maria analyses. Load any previous spec or plan back into your workspace. Single-click to open."
+            @click="unifiedHistoryOpen = true"
           >
             <!-- Tom 2026-06-03: HistoryGlyph [*]→[*] replaces the misleading
                  Evo-Step glyph.  History IS the file-to-file restoration
@@ -5104,8 +6843,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
         @click="specPeopleTab = 'owners'; specOwnerPanelOpen = true"
       >
         <!-- OwnerGlyph `[*]!` — Tom 2026-06-04 approved Planguage-family
-             replacement for the dated 🔑 emoji. -->
-        <OwnerGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
+             replacement for the dated 🔑 emoji.
+             Tom 2026-06-07: compact (50×20, h-4=16px) was invisible — upgraded to standard (64×24, stroke 2.2px). -->
+        <OwnerGlyph size="standard" class="shrink-0" aria-hidden="true" />
         <span class="truncate max-w-[140px]">
           {{ specModel.owners && specModel.owners.length > 0
             ? specModel.owners[0].name
@@ -5175,273 +6915,160 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
     </div>
 
-    <!-- ── Right pin cluster: 🆘 SOS · ⚡ Actions · 🦾 Agents ─────────────────
-         Absolute on the OUTER crest bar (relative), pinned top-right.
-         Sits at the very top of the screen — maximum distance from stage bar.
-         Control-pins-at-top rule. Moved to outer crest bar 2026-05-31:
-         was vertically centred in Row 1 which felt too close to stage buttons. -->
-    <div class="absolute top-1.5 right-1 flex items-center gap-1 pr-0.5">
-      <!-- ⚙ Settings (Tom 2026-06-03 — long-requested SEM Settings panel).
-           Sits first in the cluster so it's adjacent to the SOS escape hatch
-           — the two "meta" pins together, separated from the action pins.
-           Tom 2026-06-04: *"setting gear is small, could be larger in same pin"*.
-           Button enlarged from h-8 w-8 → h-10 w-10 and glyph from text-base
-           (16px) → text-2xl (~24px) for clear visibility. -->
-      <button
-        type="button"
-        class="h-10 w-10 flex items-center justify-center rounded-lg text-2xl leading-none
-               bg-slate-700/80 text-white hover:bg-slate-600 ring-1 ring-slate-400/60 hover:ring-slate-300
-               focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all shrink-0"
-        aria-label="Open SEM Settings panel"
-        title="⚙ SEM Settings — Mode (Ultra Light / Pro SEM) · AI level · Privacy · Evo defaults · Visual · Workflow · Export · Collab · Diagnostics"
-        @click="settingsOpen = true"
-      >⚙</button>
-      <!-- 🆘 SOS -->
-      <button
-        type="button"
-        class="h-8 w-8 flex items-center justify-center rounded-lg text-base
-               bg-red-600/80 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300
-               focus:outline-none focus:ring-2 focus:ring-red-300 transition-all shrink-0"
-        aria-label="SOS — open reset menu (Blank Canvas, Save & Stop, Rollback, Close stuck UI)"
-        title="🆘 SOS — Blank Canvas / Save & Stop / Cancel Changes / Close stuck UI"
-        @click="freshStartOpen = true"
-      >🆘</button>
-      <!-- ⚡ Actions hub -->
-      <button
-        type="button"
-        :aria-expanded="menuOpen"
-        aria-haspopup="true"
-        aria-label="Open Actions menu (⌘A)"
-        title="Actions menu — press ⌘A from anywhere"
-        data-crest-tip="⚡ Actions — plan management, saves, exports & shortcuts (⌘A)"
-        class="w-8 h-8 flex items-center justify-center rounded-lg text-lg
-               select-none transition-all shrink-0
-               focus:outline-none focus:ring-2 focus:ring-amber-300"
-        :class="menuOpen
-          ? 'bg-amber-300 text-amber-900 ring-2 ring-amber-200'
-          : 'bg-amber-400/80 text-amber-900 hover:bg-amber-400'"
-        @click="toggleMenu"
-      ><span aria-hidden="true" style="filter: brightness(0.1);">⚡</span></button>
-      <!-- ⌗ Evo Tools — Tom 2026-06-03 marker: catalogue of Evo-specialised tools
-           (Value Flow, Evo Simulator, V × Step VDT, Critique, etc.).  Goes between
-           Actions and Agents because Evo Tools are a specialised sibling of Actions,
-           and conceptually "below" Agents (tools < AI workers).  Always visible
-           per Control-Pins-at-Top rule. -->
-      <EvoToolsButton @open="evoToolsOpen = true" />
-      <!-- 🦾 Agents -->
-      <button
-        type="button"
-        :aria-expanded="agentMenuOpen"
-        aria-haspopup="true"
-        aria-label="Open Agent Menu"
-        title="Agent Menu — Maria · Contracts · Models — single-click to open"
-        data-crest-tip="🦾 Agents — Maria: Board governance · Contracts: Planguage analysis · Models: Plan library"
-        class="flex items-center gap-1.5 px-3 h-10 rounded-xl
-               select-none transition-all shrink-0
-               focus:outline-none focus:ring-2 focus:ring-emerald-300"
-        :class="agentMenuOpen
-          ? 'bg-emerald-300 text-emerald-900 ring-2 ring-emerald-200'
-          : 'bg-emerald-500/80 text-emerald-950 hover:bg-emerald-500'"
-        @click="agentMenuOpen = true"
-      >
-        <span class="text-2xl leading-none" aria-hidden="true">🦾</span>
-        <span class="text-sm font-bold leading-none">Agents</span>
-      </button>
-    </div>
+    <!-- ── Right pin cluster — r41 v113 (Tom Gilb 2026-06-17 verbatim "all
+         the buttons at the top are getting messy. Time to reorganize, first
+         cut, a box of the permanent buttons. then a box for the phase
+         relevant buttons, then a tools box?  help me with great redesign,
+         and with much better icons and buttons, a consistent pattern").
+         Approved Option B (two rows) + aggressive demotion.
+         FIRST CUT: Row 1 right pin cluster becomes TWO clean groups —
+         CONTROLS (search + undo/redo + illuminate + settings + SOS) and
+         TOOLS (agents + books + actions).  All h-10 uniform height.  All
+         glyph + text label per Icon-Plus-Text SUPREME.  Thin vertical
+         separator between groups.  DEMOTED to Actions menu (each one is
+         now in the Actions catalog with a search keyword set so they
+         remain one-click reachable via ⌘A): 🔄 Reload · 🔗 Twin · 🎚 Mode
+         switch.  No-Silent-Removal SUPREME: every demoted button is
+         registered in the Actions catalog above (r41 v113 entries).
+         Plan Crest Row 2 (PHI · Spec · Version · Stewards · Story · Tools)
+         is a SECOND PASS — left alone in this first cut.  Composes with:
+         Icon-Plus-Text SUPREME, MOVE Principle (every button visible at-a-
+         glance), DD-009 (HoverHints on every button), Trace-Before-Patch
+         SUPREME (audited before refactor; every removed surface accounted
+         for). -->
+    <!-- r41 v141 — Level 1 · Process Tools as own component (post-spec
+         variant: shows Find · Undo · Redo · Search Term · Settings · SOS
+         + Books · Agents · Actions). -->
+    <ProcessToolsStrip
+      variant="post-spec"
+      :can-undo="undoHistory.canUndo.value"
+      :can-redo="undoHistory.canRedo.value"
+      :undo-label="undoHistory.lastEntry.value?.label ?? ''"
+      :undo-source="undoHistory.lastEntry.value?.source ?? ''"
+      :undo-time="undoHistory.lastEntry.value?.timestamp.slice(11, 19) ?? ''"
+      :agent-menu-open="agentMenuOpen"
+      :menu-open="menuOpen"
+      @open-find="toggleMenu()"
+      @undo="handleGlobalUndo"
+      @redo="handleGlobalRedo"
+      @open-search-term="openGilbIllustrations()"
+      @open-settings="settingsOpen = true"
+      @open-sos="freshStartOpen = true"
+      @open-books="openBookKaleidoscope()"
+      @open-agents="agentMenuOpen = true"
+      @open-actions="toggleMenu"
+    />
+    </template>
 
+    <!-- ── Row 2: GROUP 3 · IDENTITY STRIP + GROUP 2 · STAGE TOOLS STRIP ──
+         r41 v116 (Tom Gilb 2026-06-17 verbatim "I want all pins or buttons
+         to be organized into clear groups. 1. The permanent, always there
+         pins., 2. Tools for use at this stage (likePenta) and 3. Specific
+         Pins for this particular stage").  Replaces the chaotic Plan Crest
+         Row 2 (PHI + Spec + Version + Deadline + Sharpen + Saved + Spec
+         Story + Planner + Scribe + EvoTools + SpecTools all mashed
+         together) with TWO clean components, each owning its group:
 
+           <IdentityStrip>    → Group 3 (identity for THIS spec)
+             PHI · Plan · Version · Deadline · Sharpen rounds · Owner ·
+             Planner · Scribe · Saved · Spec Story toggle
 
-    <!-- ── Row 2: META CHIPS ROW — Tom 2026-06-04 *"It is ok if you need
-         an extra line at top to organize things intelligibly. Intelligibility
-         and utility have priority over 'lines' of control stuff"*.
-         Moved out of Row 1 to stop the cramped-overlap shown in Tom's
-         screenshot.  flex-wrap so chips stack on narrow widths instead of
-         truncating.  Subtle indigo tint distinguishes meta from the title
-         row above. -->
-    <div
-      v-if="specModel"
-      class="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-indigo-900/40 border-t border-white/10"
-      aria-label="Plan meta — Spec Health Index, version, sharpening, save status, story toggle, stewards"
-    >
-      <!-- Spec Health Index badge (SHI, formerly PHI) — Tom 2026-06-04 *"shi
-           awol"* — moved here from Row 1 to be the FIRST visible item, the
-           anchoring leftmost element of the meta row.  Matches the 21 May
-           18:42 reference layout where the PHI sat at the far-left of the
-           Plan Crest row.  Click opens Spec Health Status panel. -->
-      <SpecHealthBadge
-        v-if="currentSpec"
-        :index="specHealthIndexValue"
-        :threshold="specHealthThresholdValue"
-        :size="32"
-        :has-alert="specHealthAlertCount > 0"
-        :alert-count="specHealthAlertCount"
-        :alert-hint="specHealthAlertCount === 1
-          ? '1 Spec Health alert pending — click to review'
-          : `${specHealthAlertCount} Spec Health alerts pending — click to review`"
-        class="shrink-0"
-        @click="specHealthStatusOpen = true"
-      />
+           <StageToolsStrip>  → Group 2 (tools relevant at THIS stage)
+             reactive on planningStage — Penta, Sharpen, IET, MultiVision,
+             EvoPlan, Tasks, Resources, Export… etc., plus 🦾 Agents
 
-      <!-- Plan / Spec chip — RESTORED 2026-06-04 (silent-drop catch from
-           PlanGlyph wiring discussion; default=yes per No-Silent-Removal
-           SUPREME rule). Uses the Color Keyed Icon `[*+*+*]` + the literal
-           word "Spec" (Tom's confirmed generic term). -->
-      <span
-        class="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/10 text-white/90 text-[11px] font-semibold"
-        title="Plan / Spec — a container of multiple spec entries (Function · Value · Solution · …).  The generic 'Spec' covers Plan, Model, Contract, Meeting Minutes, etc."
-      >
-        <PlanGlyph size="compact" class="h-3.5 w-auto" aria-hidden="true" />
-        <span>Spec</span>
-      </span>
+         Group 1 (permanent: Find, Undo, Redo, Illuminate, Settings, SOS,
+         Mic, Read, Actions) lives in v113/v114 pin cluster — unchanged.
+         All handlers preserved; old markup KEPT below as `v-if="false"`
+         (No-Silent-Removal SUPREME) so any caller that still references
+         the old structure can be traced and migrated.  Delete after one
+         clean session of verified parity. -->
+    <!-- r41 v139 — null-safe prop bindings so the IdentityStrip renders in
+         the pre-spec / empty-form state too (Tom Gilb 2026-06-17 "retro
+         all the new menu bars disappeared").  Optional chaining + sensible
+         empty-string fallbacks. -->
+    <IdentityStrip
+      :plan-name="specModel?.name ?? '(no plan loaded)'"
+      :plan-version="specModel?.version ?? ''"
+      :phi-score="currentSpec ? specHealthIndexValue : undefined"
+      :phi-threshold="specHealthThresholdValue"
+      :phi-alert-count="specHealthAlertCount"
+      :owners="specModel?.owners ?? []"
+      :planners="specModel?.planners ?? []"
+      :scribes="specModel?.scribes ?? []"
+      :saved-label="specBarSavedLabel"
+      :unsaved="specBarUnsaved"
+      :save-flash="_saveFlash"
+      :spec-story-open="specStoryOpen"
+      :deadline="specModel?.deadline ?? ''"
+      :sharpen-rounds="specModel?.sharpenRounds ?? 0"
+      @open-phi="specHealthStatusOpen = true"
+      @open-spec="modelsOpen = true"
+      @open-history="unifiedHistoryOpen = true"
+      @open-owners="specPeopleTab = 'owners'; specOwnerPanelOpen = true"
+      @open-planners="specPeopleTab = 'planners'; specOwnerPanelOpen = true"
+      @open-scribes="specPeopleTab = 'scribes'; specOwnerPanelOpen = true"
+      @save-now="savedLabelClick"
+      @toggle-spec-story="_togglePlanStory()"
+      @edit-deadline="editDeadline"
+    />
+    <!-- r41 v139 — Tom Gilb 2026-06-17 verbatim "retro all the new menu bars
+         disappeared" — v-if="specModel" gate dropped so Stage Tools is
+         visible in the pre-spec / empty-form state too.  StageToolsStrip
+         reads `planning-stage` only; works for any stage including 1. -->
+    <StageToolsStrip
+      :planning-stage="planningStage"
+      :has-spec="!!currentSpec"
+      @open-penta="pentaOpen = true"
+      @open-get-a-plan="specInputOpen = true"
+      @open-compare="comparisonMode = true"
+      @open-templates="modelLibraryOpen = true"
+      @open-sharpen-tools="planguageToolsOpen = true"
+      @open-sharpen-spec="sharpenModalOpen = true"
+      @open-standards-auditor="standardsAuditorOpen = true"
+      @open-phi-dashboard="specHealthStatusOpen = true"
+      @open-iet="planningStage = 7"
+      @open-multivision="openMultiVision()"
+      @open-impact-estimator="planningStage = 4"
+      @open-refine-solutions="planningStage = 5"
+      @open-evo-plan="planningStage = 6"
+      @open-evo-critiquer="evoCritiquerOpen = true"
+      @open-evo-tools="evoToolsOpen = true"
+      @open-spec-tools="planguageToolsOpen = true"
+      @open-tasks="planningStage = 8"
+      @open-study-act="planningStage = 9"
+      @open-resources-sharpening="resourcesSharpenOpen = true"
+      @open-optima="planningStage = 10"
+      @open-export="planningStage = 11"
+    />
 
-      <!-- Version pill (v0.1, v1.0, …) -->
-      <span
-        v-if="specModel.version"
-        class="shrink-0 px-1.5 py-0.5 rounded bg-white/15 ring-1 ring-white/25
-               font-mono text-[10px] font-bold text-white/90 tracking-tight"
-        :title="`Plan version ${specModel.version}`"
-      >v{{ specModel.version }}</span>
+    <!-- r41 v123 — LEVEL 3 · AGENTS strip (Tom Gilb 2026-06-17 "ship phase
+         2 — I want all 3 new groups asap").  Extracted from StageToolsStrip
+         for architectural separation matching its conceptual rank on the
+         autonomy axis.  Five direct-launch agent pins (Maria / Contracts /
+         Strategy / Stakeholder / Incorruptible) + More ▾ fallback for the
+         remaining 4 (Models / Decision Mapper / Spec Importer / Elon).
+         Per MOVE Principle: the emerging category is visibly growing. -->
+    <!-- r41 v139 — v-if="specModel" gate dropped so Agents is visible in
+         the pre-spec / empty-form state too. -->
+    <AgentsStrip
+      :has-spec="!!currentSpec"
+      @open-maria="mariaOpen = true"
+      @open-contracts="contractsOpen = true"
+      @open-models="modelLibraryOpen = true"
+      @open-stakeholder-mapper="stakeholderMapperOpen = true"
+      @open-evo-critiquer="evoCritiquerOpen = true"
+      @open-spec-importer="specImporterOpen = true"
+      @open-decisions="decisionMapperOpen = true"
+      @open-strategy="strategyAgentOpen = true"
+      @open-incorruptible="incorruptibleOpen = true"
+      @open-incorruptible-sharpen="_launchIncorruptibleSharpeningOnCurrentPlan()"
+      @open-elon="elonOpen = true"
+      @open-elon-sharpen="_launchElonSharpeningOnCurrentPlan()"
+      @open-auto-dbo="autoDboOpen = true"
+    />
 
-      <!-- DEADLINE pill — Tom 2026-06-06 r98: scalar Condition [When] at whole-spec
-           level.  Click to edit (uses browser prompt for v1; richer date picker
-           is a Phase 2 of the scalar-Conditions rollout).  "?" = not yet articulated. -->
-      <button
-        v-if="specModel"
-        type="button"
-        class="shrink-0 px-2 py-0.5 rounded bg-rose-500/30 ring-1 ring-rose-300/50
-               font-mono text-[10px] font-bold text-white tracking-tight
-               hover:bg-rose-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-300"
-        :title="`Project DEADLINE — currently '${specModel.deadline || '?'}' · click to edit (scalar Condition [When]; Tom 2026-06-06).`"
-        @click="editDeadline"
-      >⏱ {{ specModel.deadline || '?' }}</button>
-
-      <!-- Sharpen-rounds badge — 🔪 N -->
-      <span
-        v-if="specModel.sharpenRounds && specModel.sharpenRounds > 0"
-        class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-               bg-amber-400/90 text-amber-950 text-[11px] font-bold"
-        :title="`${specModel.sharpenRounds} sharpening round${specModel.sharpenRounds !== 1 ? 's' : ''} applied`"
-      ><span class="text-base leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" aria-hidden="true">🔪</span><span class="leading-none">{{ specModel.sharpenRounds }}</span></span>
-
-      <!-- "Saved N min ago" pill — IS the Save Now button (dual-coded). -->
-      <button
-        v-if="specBarSavedLabel || specModel"
-        type="button"
-        class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-               text-[11px] font-semibold transition-all duration-150
-               focus:outline-none focus:ring-2 focus:ring-white/80 group"
-        :class="_saveFlash === 'flash'
-          ? 'bg-emerald-400/95 text-emerald-950 ring-1 ring-emerald-200/70'
-          : specBarUnsaved
-            ? 'bg-amber-400/95 text-amber-950 ring-1 ring-amber-200/70 hover:bg-amber-300 hover:scale-[1.04]'
-            : 'bg-white/10 text-white/90 hover:bg-white/25 hover:text-white'"
-        :title="_saveFlash === 'flash'
-          ? 'Saved!'
-          : specBarUnsaved
-            ? `${specBarSavedLabel} — click to save now (you have unsaved changes)`
-            : `${specBarSavedLabel || 'Not saved yet'} — click to save now`"
-        :aria-label="_saveFlash === 'flash'
-          ? 'Saved just now'
-          : specBarUnsaved
-            ? `${specBarSavedLabel}. Click to save now — you have unsaved changes.`
-            : `${specBarSavedLabel || 'Not saved yet'}. Click to save now.`"
-        @click="savedLabelClick"
-      >
-        <template v-if="_saveFlash === 'flash'">
-          <span aria-hidden="true">✓</span><span>Saved just now</span>
-        </template>
-        <template v-else>
-          <span class="inline group-hover:hidden" aria-hidden="true">
-            <SaveGlyph v-if="specBarUnsaved" size="compact" class="inline-block h-3 w-auto mr-1 -mt-0.5" />{{ specBarSavedLabel || 'Save plan' }}
-          </span>
-          <span class="hidden group-hover:inline" aria-hidden="true">
-            <SaveGlyph size="compact" class="inline-block h-3 w-auto mr-1 -mt-0.5" />Save now
-          </span>
-        </template>
-      </button>
-
-      <!-- 📖 Plan Story — toggles the Plan Story / Plan-DNA strip below. -->
-      <button
-        type="button"
-        :class="[
-          'shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg',
-          'text-xs font-bold tracking-wide transition-all duration-200',
-          'focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm',
-          specStoryOpen
-            ? 'bg-gradient-to-r from-fuchsia-300 to-pink-300 text-fuchsia-950 ring-2 ring-fuchsia-200/90 shadow-md'
-            : 'bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:from-fuchsia-400 hover:to-pink-400 hover:shadow-md hover:scale-[1.03] ring-1 ring-fuchsia-200/50',
-        ]"
-        :title="specStoryOpen
-          ? 'Hide Spec Story — origin, hand-tuning, sharpen rounds, stewards, age'
-          : 'Show Spec Story — origin, hand-tuning, sharpen rounds, stewards, age'"
-        :aria-pressed="specStoryOpen"
-        aria-label="Toggle Spec Story (origin, hand-tuning, sharpening, stewards, age)"
-        data-testid="plancrest-story-toggle"
-        @click="_togglePlanStory()"
-      >
-        <!-- SpecStoryGlyph `[*] ← §` — Tom 2026-06-04 approved replacement
-             for 📖 emoji.  Semantic: spec sourced from stakeholder.
-             Affordance renamed "Plan Story" → "Spec Story" 2026-06-04
-             after Tom confirmed Spec as the generic for Plan/Model/Contract/MM. -->
-        <SpecStoryGlyph size="compact" class="h-4 w-auto shrink-0 drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" aria-hidden="true" />
-        <span>Spec Story</span>
-        <span class="text-[10px] opacity-90 leading-none font-extrabold" aria-hidden="true">{{ specStoryOpen ? '▾' : '▸' }}</span>
-      </button>
-
-      <!-- 💡 Planner chip — distinct from Owner. -->
-      <button
-        type="button"
-        :class="[
-          'shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
-          'focus:outline-none focus:ring-2 focus:ring-white/60',
-          specModel.planners?.length
-            ? 'bg-white/15 text-white hover:bg-white/25'
-            : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
-        ]"
-        :title="specModel.planners?.length
-          ? `Planners: ${specModel.planners.map(p => p.name).join(', ')} — click to edit`
-          : 'Add a Spec Planner'"
-        aria-label="Spec Planners"
-        @click="specPeopleTab = 'planners'; specOwnerPanelOpen = true"
-      >
-        <!-- PlannerGlyph `[?]→[*]` — Tom 2026-06-04 approved replacement for 💡. -->
-        <PlannerGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
-        <span class="text-[9px] uppercase tracking-wider opacity-70">Planner</span>
-        <template v-if="specModel.planners?.length">
-          <span class="truncate max-w-[90px]">{{ specModel.planners[0].name }}</span>
-          <span v-if="specModel.planners.length > 1" class="text-white/70">+{{ specModel.planners.length - 1 }}</span>
-        </template>
-        <span v-else aria-hidden="true">+</span>
-      </button>
-
-      <!-- ⌨️ Scribe chip — distinct from Owner / Planner. -->
-      <button
-        type="button"
-        :class="[
-          'shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
-          'focus:outline-none focus:ring-2 focus:ring-white/60',
-          specModel.scribes?.length && specModel.scribes[0]?.name
-            ? 'bg-white/15 text-white hover:bg-white/25'
-            : 'border border-dashed border-white/40 text-white/80 hover:bg-white/10 hover:border-white/70',
-        ]"
-        :title="!specModel.scribes?.length
-          ? 'Add a Spec Scribe'
-          : specModel.scribes[0]?.isDefault
-            ? `Scribe (default — ${specModel.scribes[0].name || 'tap to set your name'}) — click to edit`
-            : `Scribes: ${specModel.scribes.map(s => s.name).join(', ')} — click to edit`"
-        aria-label="Spec Scribes"
-        @click="specPeopleTab = 'scribes'; specOwnerPanelOpen = true"
-      >
-        <!-- ScribeGlyph `[ ]→[*]` — Tom 2026-06-04 approved replacement for ⌨. -->
-        <ScribeGlyph size="compact" class="h-4 w-auto shrink-0" aria-hidden="true" />
-        <span class="text-[9px] uppercase tracking-wider opacity-70">Scribe</span>
-        <template v-if="specModel.scribes?.length">
-          <span v-if="specModel.scribes[0].name" class="truncate max-w-[90px]">{{ specModel.scribes[0].name }}</span>
-          <span v-if="specModel.scribes.length > 1" class="text-white/70">+{{ specModel.scribes.length - 1 }}</span>
-        </template>
-        <span v-else aria-hidden="true">+</span>
-      </button>
-    </div>
+    <!-- ── LEGACY META CHIPS ROW (~228 lines) deleted in r41 v118 — v116/v117 IdentityStrip + StageToolsStrip verified producing parity output.  All handlers preserved via the new component emits.  See SEM-Design-History.md r41 v116 / v117 / v118 rows for the migration audit.  Removed per No-Silent-Removal SUPREME (every demoted affordance lives in the new component or the ⌘A Actions catalog). -->
 
     <!-- Row 3: Plan Story strip (toggled by the bright 📖 Plan Story button) -->
     <SpecStoryStrip
@@ -5453,11 +7080,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
   </div>
 
-  <!-- Plan Owner Data panel — pinned below the plan bar when open -->
+  <!-- Plan Owner Data panel — pinned below the plan bar when open.
+       topOffset = contentTopPad (stage bar 148px + plan crest live height) so the
+       panel always clears both fixed headers regardless of DNA strip state. -->
   <SpecOwnerPanel
     v-if="view === 'app' && specModel && specOwnerPanelOpen"
     :initial-tab="specPeopleTab"
     :plan-model="specModel"
+    :top-offset="contentTopPad"
     @close="specOwnerPanelOpen = false"
   />
 
@@ -5499,7 +7129,20 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <!-- Contracts mode — 3rd major SEM surface (Plans · Models · Contracts). z-[600]. -->
   <ContractHub
     v-if="view === 'app' && contractsOpen"
+    :plan-name="specModel?.name ?? ''"
+    :plan-owner="_specOwnerNames().join(', ')"
+    :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+    :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
     @close="contractsOpen = false"
+    @select-history="handleStrategyAgentHistoryPick"
+    @open-settings="() => {
+      // r41 v47 — ContractHub's header chip opens Settings so the planner can
+      // adjust the Contracts Mode 4-axis config.  SettingsPanel opens on its
+      // last-used section; the planner clicks Contracts Mode in the side nav.
+      // (A future enhancement could deep-link via a prop; not needed today.)
+      settingsOpen = true
+      contractsOpen = false
+    }"
   />
 
   <!-- Feature #197: Tool Info panel — right drawer, z-[490] -->
@@ -5539,13 +7182,18 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') specImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true; if (id === 'history') unifiedHistoryOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') specImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true; if (id === 'history') unifiedHistoryOpen = true; if (id === 'strategy-agent') strategyAgentOpen = true; if (id === 'incorruptible') incorruptibleOpen = true; if (id === 'incorruptible-sharpen') _launchIncorruptibleSharpeningOnCurrentPlan(); if (id === 'elon') elonOpen = true; if (id === 'elon-sharpen') _launchElonSharpeningOnCurrentPlan(); if (id === 'autoDbo') autoDboOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
   <MariaAgentBoard
     v-if="view === 'app' && mariaOpen"
+    :plan-name="specModel?.name ?? ''"
+    :plan-owner="_specOwnerNames().join(', ')"
+    :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+    :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
     @close="mariaOpen = false"
+    @select-history="handleStrategyAgentHistoryPick"
   />
 
   <!-- Maria Board Hub — members, activity log, settings (2026-05-30). z-[497]
@@ -5562,6 +7210,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     v-if="unifiedHistoryOpen"
     @close="unifiedHistoryOpen = false"
     @load-plan="(planId, versionId) => { unifiedHistoryOpen = false; specImporterOpen = true }"
+    @load-spec-version="onUnifiedHistoryLoadSpec"
     @restore-model="(modelId, versionId) => { unifiedHistoryOpen = false }"
     @load-contract="(contractId) => { unifiedHistoryOpen = false; contractsOpen = true }"
     @load-maria="(result) => { unifiedHistoryOpen = false; mariaOpen = true }"
@@ -5571,14 +7220,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <ModelLibraryPanel
     v-if="view === 'app' && modelLibraryOpen"
     @close="modelLibraryOpen = false"
-    @select-agent="(id) => { modelLibraryOpen = false; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') specImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true }"
+    @select-agent="(id) => { modelLibraryOpen = false; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') specImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true; if (id === 'incorruptible-model') _launchIncorruptibleOnActiveModel(); if (id === 'incorruptible-sharpen-model') _launchIncorruptibleSharpeningOnActiveModel(); if (id === 'elon-model') _launchElonOnActiveModel(); if (id === 'elon-sharpen-model') _launchElonSharpeningOnActiveModel() }"
   />
 
   <!-- Stakeholder Mapper agent panel — AI-drafted 10-attribute profiles. z-[600] -->
   <StakeholderMapperPanel
     v-if="view === 'app' && stakeholderMapperOpen"
+    :plan-name="specModel?.name ?? ''"
+    :plan-owner="_specOwnerNames().join(', ')"
+    :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+    :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
     @close="stakeholderMapperOpen = false"
     @open-agents="stakeholderMapperOpen = false; agentMenuOpen = true"
+    @select-history="handleStrategyAgentHistoryPick"
   />
 
   <!-- Evo Critiquer agent panel — Evo health check + value delivery review. z-[600] -->
@@ -5587,19 +7241,30 @@ function handleApertureLoadPlan(model: PlanModel): void {
     @close="evoCritiquerOpen = false"
     @open-agents="evoCritiquerOpen = false; agentMenuOpen = true"
     @open-history="evoCritiquerOpen = false; modelHistoryOpen = true"
+    @select-history="handleStrategyAgentHistoryPick"
   />
 
   <!-- Plan Importer agent panel — universal Planguage converter. z-[600] -->
   <SpecImporterPanel
     v-if="view === 'app' && specImporterOpen"
+    :plan-name="specModel?.name ?? ''"
+    :plan-owner="_specOwnerNames().join(', ')"
+    :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+    :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
     @close="specImporterOpen = false"
+    @select-history="handleStrategyAgentHistoryPick"
   />
 
   <!-- Decision Mapper agent panel — structured decision analysis. z-[600] -->
   <DecisionMapperPanel
     v-if="view === 'app' && decisionMapperOpen"
+    :plan-name="specModel?.name ?? ''"
+    :plan-owner="_specOwnerNames().join(', ')"
+    :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+    :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
     @close="decisionMapperOpen = false"
     @open-agents="decisionMapperOpen = false; agentMenuOpen = true"
+    @select-history="handleStrategyAgentHistoryPick"
   />
 
   <!-- MultiVision — VDT-grounded V/R balance slider panel (z-[600]) -->
@@ -5615,6 +7280,42 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :open="multiForksOpen"
     :evo-steps-delivered="confirmedSteps.length"
     @close="multiForksOpen = false"
+  />
+
+  <!-- Gilb Illustration Picker — TwinPod catalog of every Tom Gilb book figure (r93qqq, 2026-06-12).
+       Tom: "find and bring into sem the illustrations in my books, kai says I should just ask".
+       Reads /public/gilb-illustrations-index.json built by
+       0 - TOMS BOOKS/twinpod-illustrations/build-index.py.  Insertion → clipboard
+       (HTML+markdown w/ citation footer) → toast → user ⌘V into target field. -->
+  <GilbIllustrationPicker
+    :open="gilbIllustrationsOpen"
+    :initial-tab="gilbIllustrationsInitialTab"
+    :plan-id="specModel?.id ?? specModel?.name ?? 'no-plan'"
+    :owner-name="specModel?.owners?.[0]?.name ?? 'default-owner'"
+    @close="gilbIllustrationsOpen = false"
+    @insert="onGilbIllustrationInsert"
+    @illuminate-term="(p) => {
+      // r29 (Tom 2026-06-13: 'use them first to illuminate') — close the
+      // picker and fire the full SelectionDefiner Illuminate flow for the
+      // named term.  Tier 1 = local vault Glossary via /api/glossary
+      // (currently serving 663 entries from 10.Standard/2.Glossary/PlanguageGlossary/).
+      gilbIllustrationsOpen = false
+      defineTerm(p.term, currentSpec)
+    }"
+    @open-ontology="() => {
+      // r31 (Tom 2026-06-13: 'missing the ontology diagram') — open the
+      // 663-concept clickable Planguage Ontology tree (r23).  Picker closes
+      // first (handled by the picker emitting close alongside).
+      ontologyDiagramOpen = true
+    }"
+  />
+
+  <!-- 🌳 Planguage Ontology Diagram — 663 concepts in 106 categories, clickable
+       tree (r93qqq r23, Tom Gilb 2026-06-13: "the diagram with ontologies in
+       almost all glossary terms, the 700"). -->
+  <PlanguageOntologyDiagram
+    :open="ontologyDiagramOpen"
+    @close="ontologyDiagramOpen = false"
   />
 
   <!-- Feature #199: Priority Record panel — right drawer, z-[485] -->
@@ -5834,11 +7535,23 @@ function handleApertureLoadPlan(model: PlanModel): void {
        DNA strip open/closed so content never starts under either fixed header).
        When no plan: pt-8 static (stage bar is in-flow, not fixed). -->
   <div
-    class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-16 px-4 md:pr-40
-           overflow-x-clip"
-    :class="!(view === 'app' && specModel) ? 'pt-8' : ''"
+    class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-16 px-4 md:pr-40"
+    :class="!(view === 'app' && specModel)
+      ? 'pt-8 overflow-x-clip'
+      : ''"
     :style="contentTopPad !== undefined ? { paddingTop: contentTopPad + 'px' } : undefined"
   >
+    <!--
+      overflow-x-clip is applied ONLY when no plan is loaded (no specModel).
+      When no plan: the ValueCounter stage bar is in-flow (-ml-4 + wide calc width)
+      and extends beyond the padding box → clip prevents a horizontal scrollbar.
+      When plan IS loaded: the stage bar is position:fixed (top-0 left-0 right-0)
+      and does NOT overflow, so overflow-x-clip is not needed.
+      Without it, the overflow-x:clip → overflow-y:auto cascade (CSS spec §2.1)
+      does NOT apply when plan is loaded, so document vertical scroll works
+      correctly at Stage 10 and other long-content stages.
+      Tom 2026-06-07: "the main window does not scroll".
+    -->
 
     <!-- Loading state while session is being restored.
          SIGN_IN_DISABLED gate (2026-05-13): when sign-in is disabled, never
@@ -6342,7 +8055,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           >
             <span class="text-sm leading-none" aria-hidden="true">💡</span>
             <span class="hidden sm:inline">Illuminate</span>
-            <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌥I</kbd>
+            <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌘I</kbd>
           </button>
           <button
             type="button"
@@ -6458,13 +8171,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="h-9 px-2.5 rounded-lg bg-violet-100 text-violet-700 text-xs font-medium
                  hover:bg-violet-200 flex items-center gap-1
                  focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors duration-150 shrink-0"
-          aria-label="Illuminate a Planguage term (Opt+I)"
-          title="Illuminate any term — select text first, or click to type one  (⌥I)"
+          aria-label="Illuminate a Planguage term (Cmd+I or Opt+I)"
+          title="Illuminate any term — select text first, or click to type one  (⌘I or ⌥I)"
           @click="openDefineSearch()"
         >
           <span class="text-sm leading-none" aria-hidden="true">💡</span>
           <span class="hidden sm:inline">Illuminate</span>
-          <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌥I</kbd>
+          <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌘I</kbd>
         </button>
         <!-- Feature #77: Onboarding tour button in mock mode -->
         <button
@@ -6487,6 +8200,54 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
       <!-- Feature #15: Workflow progress indicator — replaced by PlanningStageBar (11-stage tile bar).
            ValueCounter kept as import for potential future use in compact contexts. -->
+
+      <!-- Strategy Mode persistent banner — Tom Gilb 2026-06-09:
+           "announce it clearly at each stage, close button to turn it off there!"
+           Visible at every planning stage while Strategy Mode is active.
+           Turn-off button lets user exit Strategy Mode without opening Settings. -->
+      <Transition
+        enter-active-class="transition-all duration-300 ease-out"
+        enter-from-class="opacity-0 -translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-200 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-2"
+      >
+        <div
+          v-if="isStrategyMode && !comparisonMode"
+          class="w-full flex items-center gap-3 px-5 py-2.5 bg-blue-700"
+          role="status"
+          aria-live="polite"
+          aria-label="Strategy Mode is active"
+        >
+          <!-- [→*] = Strategy / Solution keyed glyph (DD-011 / DD-015) -->
+          <span
+            class="font-mono font-bold text-blue-200 shrink-0 select-none"
+            style="font-size:13px;"
+            aria-hidden="true"
+          >[→*]</span>
+
+          <!-- Mode label -->
+          <span class="flex-1 flex items-baseline gap-2 flex-wrap min-w-0">
+            <span class="text-sm font-bold text-white leading-none">Planning is in Strategy Mode</span>
+            <span class="text-[11px] text-blue-200 leading-none whitespace-nowrap">
+              {{ strategyTermFor('Values') }} · {{ strategyTermFor('Solutions') }} · {{ strategyTermFor('Evo Steps') }}
+            </span>
+          </span>
+
+          <!-- Turn off button — inline, no Settings required -->
+          <button
+            type="button"
+            class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold
+                   bg-blue-900 hover:bg-blue-950 text-white border border-blue-500 transition-colors
+                   focus:outline-none focus:ring-2 focus:ring-white/50"
+            title="Turn off Strategy Mode — returns all labels to standard Planguage terminology (Value / Solution / Evo Step)"
+            @click="setStrategyMode(false)"
+          >
+            Turn off  ×
+          </button>
+        </div>
+      </Transition>
 
       <!-- Feature #17: Comparison Mode — replaces normal workflow when active -->
       <ComparisonMode
@@ -6511,23 +8272,26 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
         <!-- Normal form sub-stage -->
         <template v-else>
-          <!-- ── Front-page identity header ── -->
-          <div class="w-full max-w-2xl mx-auto px-4 mb-6 flex items-center gap-5">
-            <img
-              src="/icon-sem-app.svg"
-              alt="SEM App"
-              :title="`SEM App — Keeney three-level hierarchy (Value-Focused Thinking, 1992)\n\n▲ FUNDAMENTAL · amber\n  Objectives given from above — environment, parent org, regulations\n  We operate within these; cannot unilaterally redesign them\n\n● STRATEGIC · violet  ← this level (the hero row)\n  Our own plan — the Ends and Values we own and are accountable for\n\n▼ MEANS · emerald\n  What supports us from below — Functions and Solutions\n  These deliver our Strategic Ends upward to the stakeholder\n\n──────────────────────────────\nperson / §  =  Stakeholder (animate or inanimate)\n←O←         =  End: target that receives and delivers value\nO←          =  Means: source that fires value into the target`"
-              class="h-20 w-20 flex-shrink-0 rounded-2xl shadow-lg cursor-help"
-            />
-            <div>
-              <h1 class="text-3xl font-bold text-gray-900 tracking-tight leading-tight">SEM App</h1>
-              <p class="text-sm text-gray-500 mt-1">Stakes · Ends · Means → Planguage Specification</p>
+          <!-- ── Front-page identity header ──────────────────────────────────
+               r41 v42 (Tom Gilb 2026-06-16 verbatim: "I did never intend the
+               kaliadeobooks would be on normal pages, for now only when cmnd i")
+               — BookKaleidoscope removed from the welcome page.  It now lives
+               exclusively inside the ⌘I picker → 📚 Books tab (r41 v27) and is
+               reachable via the title-bar 📚 Books pin which routes to the
+               same surface.  Welcome page returns to a simple identity header
+               (Keeney 3-level icon + SEM App title) — no hero kaleidoscope. -->
+          <div class="w-full max-w-2xl mx-auto px-4 mb-6">
+            <div class="flex items-center gap-3">
               <img
-                src="/symbol-sem.svg"
-                alt="Stakeholder fires means at ends"
-                :title="`S · E · M\nStakeholder · Ends · Means\n\nThe stakeholder fires Means at Ends — value is then delivered to the one who needs it\n\nS  =  person (animate stakeholder)\n   or  §  (inanimate: law, data, standard, contract)\nE  =  ←O←  target — receives value from M, delivers it to S\nM  =  O←   source — fires value into the target\n\nTom Gilb, Competitive Engineering (2005)\nKeeney, Value-Focused Thinking (1992)`"
-                class="mt-2 h-8 opacity-60 cursor-help"
+                src="/icon-sem-app.svg"
+                alt="SEM App"
+                :title="`SEM App — Keeney three-level hierarchy (Value-Focused Thinking, 1992)\n\n▲ FUNDAMENTAL · amber\n  Objectives given from above — environment, parent org, regulations\n  We operate within these; cannot unilaterally redesign them\n\n● STRATEGIC · violet  ← this level (the hero row)\n  Our own plan — the Ends and Values we own and are accountable for\n\n▼ MEANS · emerald\n  What supports us from below — Functions and Solutions\n  These deliver our Strategic Ends upward to the stakeholder\n\n──────────────────────────────\nperson / §  =  Stakeholder (animate or inanimate)\n←O←         =  End: target that receives and delivers value\nO←          =  Means: source that fires value into the target`"
+                class="h-12 w-12 flex-shrink-0 rounded-xl shadow-sm cursor-help"
               />
+              <div>
+                <h1 class="text-2xl font-bold text-gray-900 tracking-tight leading-tight">SEM App</h1>
+                <p class="text-xs text-gray-500">Stakes · Ends · Means → Planguage Specification</p>
+              </div>
             </div>
           </div>
 
@@ -6556,6 +8320,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 @rewrite-entry-fix="onRewriteEntry"
                 @open-editor="({ tab, entryId }) => _openSpecEditor({ tab, entryId })"
                 @open-edit-info="editInfoOpen = true"
+                @reparse="handleReParse"
               />
             </div>
             <!-- AmuseMeButton now lives inside SpecOutput.vue (line 55) so it is not
@@ -6582,6 +8347,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <SharpenPanel
               v-if="!sdkLoading && !sharpeningDone"
               :spec="currentSpec"
+              :plan-name="specModel?.name"
+              :plan-version="specModel ? `v${specModel.version}` : undefined"
               @sharpened="onSpecSharpened"
               @done="sharpeningDone = true"
               @open-global-priority="globalPriorityOpen = true"
@@ -6600,7 +8367,86 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 </span>
               </div>
 
-              <!-- Explicit permission button — deliberate label, no abbreviations -->
+              <!-- Changes to Planguage Model — Tom 2026-06-09: "at the end of any and all
+                   sharpenings we need to be able to see that list of changes in detail to
+                   the Planguage model."  Renders all rounds' SharpenChangedEntry records
+                   inline so the list persists after "Sharp Enough" is clicked. -->
+              <div
+                v-if="sharpenRounds.length > 0"
+                class="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden"
+              >
+                <!-- Collapsible header -->
+                <button
+                  type="button"
+                  class="w-full flex items-center justify-between gap-2 px-3 py-2
+                         text-xs font-semibold text-amber-800
+                         hover:bg-amber-100 transition-colors"
+                  :aria-expanded="changesListOpen"
+                  :title="changesListOpen ? 'Collapse changes list' : 'Expand changes list'"
+                  @click="changesListOpen = !changesListOpen"
+                >
+                  <span>
+                    🔪 Changes to Planguage Model
+                    ({{ sharpenRounds.reduce((n, r) => n + r.changes.length, 0) }} entries
+                    across {{ sharpenRounds.length }} round{{ sharpenRounds.length !== 1 ? 's' : '' }})
+                  </span>
+                  <span class="text-amber-600">{{ changesListOpen ? '▲' : '▼' }}</span>
+                </button>
+
+                <div v-show="changesListOpen" class="divide-y divide-amber-100">
+                  <div
+                    v-for="(round, ri) in sharpenRounds"
+                    :key="ri"
+                  >
+                    <!-- Round header -->
+                    <div class="px-3 py-1 bg-amber-100/70 text-[10px] font-semibold text-amber-700 uppercase tracking-wide">
+                      Round {{ ri + 1 }} — {{ round.category }}
+                      · {{ round.changes.length }} change{{ round.changes.length !== 1 ? 's' : '' }}
+                    </div>
+                    <!-- Entry rows -->
+                    <div
+                      v-for="ch in round.changes"
+                      :key="ch.id"
+                      class="flex items-start gap-2 px-3 py-1.5 text-xs"
+                    >
+                      <!-- Type badge -->
+                      <span
+                        class="shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-bold leading-none mt-0.5"
+                        :class="{
+                          'bg-green-100 text-green-800': ch.entryType === 'F',
+                          'bg-violet-100 text-violet-800': ch.entryType === 'V',
+                          'bg-orange-100 text-orange-800': ch.entryType === 'S',
+                        }"
+                        :title="ch.entryType === 'F' ? 'Function' : ch.entryType === 'V' ? 'Value' : 'Solution'"
+                      >{{ ch.entryType === 'F' ? 'Function' : ch.entryType === 'V' ? 'Value' : 'Solution' }}</span>
+                      <!-- Entry ID + status + changed fields -->
+                      <div class="flex-1 min-w-0">
+                        <span class="font-semibold text-slate-800">{{ ch.id }}</span>
+                        <span
+                          class="ml-1.5 text-[10px] px-1 py-0.5 rounded"
+                          :class="ch.status === 'added' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'"
+                        >{{ ch.status }}</span>
+                        <div v-if="ch.changedFields.length" class="text-slate-500 mt-0.5">
+                          Changed: {{ ch.changedFields.join(' · ') }}
+                        </div>
+                        <!-- After values for key fields -->
+                        <div
+                          v-if="ch.after.description"
+                          class="text-slate-600 mt-0.5 italic line-clamp-2"
+                        >{{ ch.after.description }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Advance to Evo Steps — the natural destination after sharpening.
+                   Tom 2026-06-09: "if 'enough' we should be leaving that stage."
+                   Calls handleStageBarNav(6) → 'to-evo' → goToStage2() →
+                   stage.value = 2 (EvoPlanView). This cleanly leaves Stage 3
+                   (Sharpen) and lands in Stage 6 (Evo Steps) without the
+                   intermediate 'to-impact' trap that previously caused a confusing
+                   jump to the Evo Impact matrix. -->
               <button
                 type="button"
                 class="w-full flex items-center justify-between gap-3 min-h-[52px] rounded-xl
@@ -6609,12 +8455,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
                        hover:bg-indigo-700 active:bg-indigo-800
                        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
                        transition-colors"
-                aria-label="Done Sharpening the Plan — move on to Evo Value Delivery"
-                @click="goToPlanStage"
+                aria-label="Done Sharpening — Plan Evo Steps next"
+                @click="handleStageBarNav(6)"
               >
                 <span class="text-sm leading-snug text-left">
-                  Done Sharpening the Plan<br>
-                  <span class="text-indigo-200 font-normal text-xs">move on to Evo Value Delivery</span>
+                  Sharpening Complete — Plan Evo Steps<br>
+                  <span class="text-indigo-200 font-normal text-xs">Continue to Evo Steps planning</span>
                 </span>
                 <span class="text-lg shrink-0" aria-hidden="true">→</span>
               </button>
@@ -6653,6 +8499,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
               </button>
             </div>
 
+            <!-- Strategy Agent — Strategy Sharpening button (Tom 2026-06-09).
+                 Available in Sharpening stage regardless of Strategy Mode. -->
+            <div class="w-full max-w-xl mt-2">
+              <button
+                type="button"
+                class="w-full flex items-center justify-center gap-1.5 min-h-[36px] rounded-lg
+                       border border-orange-300 bg-orange-50 text-orange-700 text-sm font-medium
+                       hover:bg-orange-100 hover:border-orange-400
+                       focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors"
+                aria-label="Open Strategy Sharpening — 10-dimension strategy analysis"
+                title="Strategy Sharpening — 10 dimensions: Value Traceability, Impact Quantification, Constraint Compliance, Goal Coverage, Resource Feasibility, Solution Specificity, Redundancy Detection, Dependency Ordering, Past Sharpening Patterns, Strategy Completeness"
+                @click="strategyAgentOpen = true"
+              >
+                <span class="font-mono font-bold text-xs">[→*]</span>
+                Strategy Sharpening
+              </button>
+            </div>
+
             <!-- Secondary: discard current spec and start a new one -->
             <div class="w-full max-w-xl mt-3 text-center">
               <button
@@ -6668,6 +8532,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
           <!-- ── Entry mode: no spec yet — show the form ── -->
           <template v-else>
+            <!-- r41 v142 — pre-spec "NEW PLAN" actions band (Save Draft / Recent /
+                 Owner / Templates / Settings) REMOVED per Tom Gilb 2026-06-17
+                 verbatim "clean up the buttons below that are in the 3 bars".
+                 All 5 affordances are now provided by the v140 always-visible
+                 Level 1 · Process Tools (Settings · SOS) + Level 3 · Agents
+                 (Models = Templates) + IdentityStrip (Owner via PEOPLE pill).
+                 Save Draft / Recent merged into the Process Tools Actions menu.
+                 The pill was a v111 workaround for the (now removed) gated-Plan
+                 Crest; v140 + 141 + 142 makes it obsolete. -->
+
+
             <!-- Analysis mode toggle -->
             <div class="w-full max-w-2xl mx-auto px-4 mb-2 flex items-center gap-3">
               <span class="text-xs text-gray-400 font-medium shrink-0">Mode:</span>
@@ -6731,6 +8606,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 @rewrite-entry-fix="onRewriteEntry"
                 @open-editor="({ tab, entryId }) => _openSpecEditor({ tab, entryId })"
                 @open-edit-info="editInfoOpen = true"
+                @reparse="handleReParse"
               />
             </div>
 
@@ -6823,12 +8699,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
         <EvoPlanView
           :spec-block="currentSpec"
           :raw-input="originalInput"
+          :planning-stage="planningStage"
           @confirmed="onPlanConfirmed($event)"
           @sharpen-plan="handleSharpenPlan"
           @open-visualise="({ tab }) => { _vizInitialTab = tab; visualiseOpen = true }"
           @open-heatlane="heatLaneOpen = true"
           @open-evo-simulator="evoSimulatorOpen = true"
           @open-editor="({ tab }) => _openSpecEditor({ tab })"
+          @open-penta="pentaOpen = true"
+          @open-multi-vision="openMultiVision()"
+          @open-optima="optimaOpen = true"
+          @open-kiss="kissOpen = true"
+          @open-solution-sharpen="solutionSharpenOpen = true"
+          @open-multi-forks="openMultiForks()"
         />
       </template>
 
@@ -7169,7 +9052,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                            hover:border-violet-500 hover:bg-violet-50 hover:shadow-sm
                            focus:outline-none focus:ring-2 focus:ring-violet-400
                            transition-all duration-100"
-                    title="Open Resource Spec entries — view and sharpen all R. entries in the Spec"
+                    title="Open Resource Spec entries — view and sharpen all Resource entries in the Spec"
                     @click="resourcesSharpenOpen = true"
                   >Spec Resource Entries</button>
                   <button
@@ -7571,21 +9454,34 @@ function handleApertureLoadPlan(model: PlanModel): void {
           </div>
 
           <!-- Cost summary cards (derived from prior stages) -->
+          <!-- Show "—" when no Impact Estimation data has been captured yet, not "0"
+               which looks like a bug. capturedCalendar/CapitalCosts start as {} and
+               are only populated when the user commits data in Stage 3 (IET).       -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3">
               <div class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">Calendar Cost</div>
               <div class="text-2xl font-extrabold text-emerald-900 mt-1">
-                {{ Object.values(capturedCalendarCosts).reduce((s, v) => s + (v || 0), 0).toLocaleString() }}
-                <span class="text-xs font-normal text-emerald-700/80 ml-1">days</span>
+                <template v-if="Object.keys(capturedCalendarCosts).length > 0">
+                  {{ Object.values(capturedCalendarCosts).reduce((s, v) => s + (v || 0), 0).toLocaleString() }}
+                  <span class="text-xs font-normal text-emerald-700/80 ml-1">days</span>
+                </template>
+                <span v-else class="text-slate-400 font-normal text-base">— no data yet</span>
               </div>
-              <div class="text-[10px] text-emerald-700/70 mt-1 italic">from prior Impact Estimation stage</div>
+              <div class="text-[10px] text-emerald-700/70 mt-1 italic">
+                {{ Object.keys(capturedCalendarCosts).length > 0 ? 'from prior Impact Estimation stage' : 'complete Stage 3 · Impact Estimation to populate' }}
+              </div>
             </div>
             <div class="rounded-xl border-2 border-violet-200 bg-violet-50 p-3">
               <div class="text-[10px] uppercase font-bold text-violet-700 tracking-wider">Capital Cost</div>
               <div class="text-2xl font-extrabold text-violet-900 mt-1">
-                ${{ Object.values(capturedCapitalCosts).reduce((s, v) => s + (v || 0), 0).toLocaleString() }}
+                <template v-if="Object.keys(capturedCapitalCosts).length > 0">
+                  ${{ Object.values(capturedCapitalCosts).reduce((s, v) => s + (v || 0), 0).toLocaleString() }}
+                </template>
+                <span v-else class="text-slate-400 font-normal text-base">— no data yet</span>
               </div>
-              <div class="text-[10px] text-violet-700/70 mt-1 italic">from prior Impact Estimation stage</div>
+              <div class="text-[10px] text-violet-700/70 mt-1 italic">
+                {{ Object.keys(capturedCapitalCosts).length > 0 ? 'from prior Impact Estimation stage' : 'complete Stage 3 · Impact Estimation to populate' }}
+              </div>
             </div>
             <div class="rounded-xl border-2 border-blue-200 bg-blue-50 p-3">
               <div class="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Top Value / Resource ratios (efficiency)</div>
@@ -7594,7 +9490,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                   v-for="[k, v] in Object.entries(capturedVCRatios).sort((a, b) => b[1] - a[1]).slice(0, 4)"
                   :key="k"
                 ><b>{{ k }}</b>: {{ v.toFixed(2) }}</li>
-                <li v-if="Object.keys(capturedVCRatios).length === 0" class="italic opacity-70">No Value / Resource ratio data yet — complete Impact Estimation first.</li>
+                <li v-if="Object.keys(capturedVCRatios).length === 0" class="italic opacity-70">No data yet — complete Stage 3 · Impact Estimation first.</li>
               </ul>
             </div>
           </div>
@@ -7603,7 +9499,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <div class="rounded-xl border-2 border-teal-200 bg-teal-50/40 p-4">
             <div class="flex items-center justify-between mb-2">
               <div>
-                <h3 class="text-sm font-extrabold text-teal-900">R. entries in this Spec</h3>
+                <h3 class="text-sm font-extrabold text-teal-900">Resource entries in this Spec</h3>
                 <p class="text-[11px] text-teal-700/80">
                   Phase 1 schema live (r77) — entries persist in <code>SpecBlock.resources</code>.
                   Phase 2 (Claudian write-back from the Sharpening panel) is queued.
@@ -7618,12 +9514,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 class="text-[12px] text-slate-800 bg-white rounded px-3 py-1.5 border border-teal-100"
               >
                 <b class="text-teal-700">{{ r.id }}</b> — {{ r.description }}
-                <span v-if="r.goal" class="text-[11px] text-emerald-700 ml-2">Goal: {{ r.goal }}</span>
+                <span v-if="rBudget(r)" class="text-[11px] text-emerald-700 ml-2">{{ rBudgetLabel(r) }}: {{ rBudget(r) }}</span>
               </li>
             </ul>
             <div v-else class="text-[12px] text-teal-800/70 italic mt-2">
-              No R. entries yet.  Use the Sharpening panel above to walk through the 9 Gilb-cited dimensions
-              + 5 generative Advanced Tools; copy the prompt + spec to Claudian to draft R. entries grounded in CE, Cost Engineering, SEA, Optima.
+              No Resource entries yet.  Use the Sharpening panel above to walk through the 9 Gilb-cited dimensions
+              + 5 generative Advanced Tools; copy the prompt + spec to Claudian to draft Resource entries grounded in CE, Cost Engineering, SEA, Optima.
             </div>
           </div>
         </div>
@@ -7677,6 +9573,34 @@ function handleApertureLoadPlan(model: PlanModel): void {
             </button>
           </div>
         </div>
+      </template>
+
+      <!-- Stage 5 · Refine Solutions — dedicated view (Tom 2026-06-08 major redesign).
+           Routing: STAGE_ACTION_MAP[5] = 'to-impact' → goToImpactStage() sets stage=3.
+           This block takes precedence over the generic stage===3 block below, so the
+           new RefineSolutionsView renders when planningStage===5 (same pattern as
+           planningStage===10 for Resources). -->
+      <template v-else-if="planningStage === 5 && currentSpec">
+        <RefineSolutionsView
+          :spec="currentSpec"
+          :vc-ratios="capturedVCRatios"
+          :spec-model="specModel"
+          :confirmed-steps="confirmedSteps"
+          @open-visualise="visualiseOpen = true"
+          @open-multi-forks="multiForksOpen = true"
+          @open-penta="pentaOpen = true"
+          @open-value-flow="valueFlowOpen = true"
+          @open-kiss="kissOpen = true"
+          @open-optima="optimaOpen = true"
+          @open-resources-sharpen="resourcesSharpenOpen = true"
+          @open-solution-sharpen="solutionSharpenOpen = true"
+          @open-strategy-agent="strategyAgentOpen = true"
+          @open-editor="({ tab, entryId }) => _openSpecEditor({ tab, entryId })"
+          @open-priority-info="priorityInfoOpen = true"
+          @go-to-impacts="handleStageBarNav(7)"
+          @go-to-evo-plan="handleStageBarNav(6)"
+          @go-back="handleStageBarNav(4)"
+        />
       </template>
 
       <!-- Stage 3: Impact Estimation VDT — estimate value/solution impact to prioritise evo steps -->
@@ -8296,6 +10220,139 @@ function handleApertureLoadPlan(model: PlanModel): void {
            always visible in the sticky header). No 11-button row at the
            bottom — that would duplicate the stage bar and add clutter. -->
       <template v-else-if="stage === 5 && currentSpec">
+        <!-- ── Stage 11 Final-Pass cluster (r93qqq, Tom 2026-06-12) ──────
+             Tom verbatim: "stage 11, there is a new category of tools to add,
+             Visualize, Edit, and Recalculate Impacts, (MultiVision, Optima,
+             and the other ones made recently)".
+             Last chance for the planner to refine the plan before export.
+             Three sub-groups (Visualize / Edit / Recalculate Impacts), each
+             with the recently-shipped tools that do that activity.  All
+             changes round-trip into the live Spec; the PrioritisedPlanView
+             below re-renders on save. -->
+        <section class="w-full max-w-3xl mb-4 p-4 rounded-xl bg-gradient-to-br from-violet-50 via-amber-50 to-emerald-50 border-2 border-violet-200 shadow-sm">
+          <header class="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <h3 class="text-sm font-bold text-slate-800 leading-tight">
+              🔧 Final Pass — Visualize, Edit, &amp; Recalculate Impacts
+            </h3>
+            <span class="text-[10px] text-slate-500 italic">
+              All edits round-trip into the export below
+            </span>
+          </header>
+          <p class="text-xs text-slate-600 mb-3 leading-snug">
+            Reopen any tool to refine the plan one last time before exporting.  Changes are reflected automatically in the prioritised plan and every export format.
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+            <!-- VISUALIZE -->
+            <div class="bg-white rounded-lg p-2.5 border border-violet-200">
+              <div class="text-[10px] uppercase tracking-wide text-violet-700 font-bold mb-1.5 flex items-center gap-1">
+                <span>👁</span><span>Visualize</span>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="MultiVision — V/R balance slider sandbox.  Move Tolerable + Wish thumbs per Value; Goal emerges from OPTIMA balancing."
+                  @click="openMultiVision()"><span>⚡</span><span>MultiVision</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="MultiForks — system fork diagram.  Resources → System ← Values with status colour bands."
+                  @click="openMultiForks()"><MultiForksGlyph size="sm" class="shrink-0" /><span>MultiForks</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="Penta Model — SVERD pinwheel: Stakeholders → Values → Functions → Solutions → Resources with Cascade Ripple impact rings."
+                  @click="pentaOpen = true"><span>⭐</span><span>Penta Model</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="Diagrams &amp; Visuals — catalog of all diagram views available for this plan."
+                  @click="visualiseOpen = true"><span>🗺️</span><span>Diagrams &amp; Visuals</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="Swimlane / Value Stage Map — Functions / Values / Solutions across delivery stages."
+                  @click="heatLaneOpen = true"><span>🏊</span><span>Swimlane</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="Compare Spec Models — A/B side-by-side comparison of two saved models."
+                  @click="comparisonOpen = true"><span>📊</span><span>Compare Models</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="Present — full-screen spec presentation slides."
+                  @click="presentationOpen = true"><span>🖥️</span><span>Present</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="Evo Simulator — animated replay of the Evo Step sequence with impact accumulation."
+                  @click="evoSimulatorOpen = true"><span>▶</span><span>Evo Simulator</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition"
+                  title="Plan Story — narrative arc of the spec from Stakes → Export."
+                  @click="_togglePlanStory()"><span>📖</span><span>Plan Story</span></button>
+              </div>
+            </div>
+
+            <!-- EDIT -->
+            <div class="bg-white rounded-lg p-2.5 border border-amber-200">
+              <div class="text-[10px] uppercase tracking-wide text-amber-700 font-bold mb-1.5 flex items-center gap-1">
+                <span>✏️</span><span>Edit</span>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="Spec Editor — edit any Value / Function / Solution / Constraint / Resource entry directly."
+                  @click="_openSpecEditor()"><EditGlyph size="standard" class="shrink-0" /><span>Spec Editor</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="Sharpen Spec — AI refinement across 6 dimensions: constraints, scale, stakeholders, etc."
+                  @click="sharpenModalOpen = true"><span>🔪</span><span>Sharpen Spec</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="⌘I — Illumination · Information · Illustrations — Planguage Glossary + 4,363 illustrations.  ⌘V into any spec field."
+                  @click="openGilbIllustrations()"><span>💡</span><span>Insert Knowledge (⌘I)</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="Incorruptible — defect-fix Accept flow.  Every fix records an Undo entry."
+                  @click="incorruptibleOpen = true"><span>⚖️</span><span>Incorruptible</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="Decision Mapper — structured decision analysis with named alternatives + criteria."
+                  @click="decisionMapperOpen = true"><span>🗂️</span><span>Decision Mapper</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="Stakeholder Mapper — edit stakeholder roles, needs, influence."
+                  @click="stakeholderMapperOpen = true"><span>🧑‍🤝‍🧑</span><span>Stakeholder Mapper</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="Strategy Agent — propose strategic shifts to the plan based on context."
+                  @click="strategyAgentOpen = true"><span>♟️</span><span>Strategy Agent</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="Spec Targets — set explicit Tolerable / Goal / Wish targets across all Values."
+                  @click="specTargetsOpen = true"><span>🎯</span><span>Spec Targets</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition"
+                  title="Spec Owners — edit Owner / Planner / Scribe roles for the spec."
+                  @click="specPeopleTab = 'owners'; specOwnerPanelOpen = true"><span>🔑</span><span>Owners &amp; Roles</span></button>
+              </div>
+            </div>
+
+            <!-- RECALCULATE IMPACTS -->
+            <div class="bg-white rounded-lg p-2.5 border border-emerald-200">
+              <div class="text-[10px] uppercase tracking-wide text-emerald-700 font-bold mb-1.5 flex items-center gap-1">
+                <span>🔄</span><span>Recalculate Impacts</span>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="OPTIMA — Resource Optimization balancer.  Finds the Pareto-efficient trade-off across all Values within all Constraints."
+                  @click="optimaOpen = true"><span>⚖️</span><span>OPTIMA</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="Spec Health (PHI) — live Spec Health Index (-100..+100) with breakdown bars and history graph."
+                  @click="specHealthStatusOpen = true"><span>🩺</span><span>Spec Health (PHI)</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="Evo Health Tool (EHT) — short-term Evo Step health: defect detector + Cure proposals with risk ratings."
+                  @click="evoHealthOpen = true"><span>🩺</span><span>Evo Health (EHT)</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="Global Priority — recompute priority across all Wishes within all Constraints + remaining-resources."
+                  @click="globalPriorityOpen = true"><span>❯</span><span>Global Priority</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="Planguage Standards Auditor — cross-references spec against 10.Standard/Standard.Kai-Zen/ Templates + Rules.  Cites each violation."
+                  @click="standardsAuditorOpen = true"><span>📚</span><span>Standards Auditor</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="Planguage Analyzer (Unified) — Conjunction-of-Technologies: current plan + Gilb corpus + LLM + Internet, all in one analysis with source-layer badges."
+                  @click="planguageAnalyzerOpen = true"><span>🔬</span><span>Planguage Analyzer</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="Conflict Analysis — detect Value/Resource/Constraint conflicts in the spec."
+                  @click="conflictAnalysisOpen = true"><span>⚠️</span><span>Conflict Analysis</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="Internet Context Fetcher — pull current industry benchmarks + stakeholder context from the web to inform impact calculations."
+                  @click="internetContextOpen = true"><span>🌐</span><span>Internet Context</span></button>
+                <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition"
+                  title="Cascade Ripple — show downstream impacts of pending edits before they are applied."
+                  @click="pentaOpen = true"><span>💧</span><span>Cascade Ripple (in Penta)</span></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- ── TOP action bar — Copy + Email + Download + Save ──────────── -->
         <div class="w-full max-w-3xl mb-4 flex flex-wrap items-center gap-3">
           <button
@@ -8562,55 +10619,41 @@ function handleApertureLoadPlan(model: PlanModel): void {
         :class="['fixed z-[9999] flex flex-col items-end gap-2', specModel ? 'top-10 right-4' : 'top-4 right-4']"
       >
 
-      <!-- 🎤 Mic + 🔊 Speaker + ⚡ Actions + 🆘 SOS — control pins (no-plan state only).
-           When specModel exists these buttons live in the Plan Crest bar instead.
-           Tom 2026-05-13: "mic and speaker need to be on the surface at all times."
-           Tom 2026-05-26: control-pins rule — at TOP, never bottom-left or -right.
-           SOS added here 2026-05-29: after startFresh() specModel=null hides the
-           Plan Crest, removing the SOS button. Tom was stuck with no escape. SOS
-           must always be reachable regardless of plan state. -->
-      <div v-if="!specModel" class="flex items-center gap-2">
-        <!-- 🆘 SOS — always red, always present even with no plan loaded -->
-        <button
-          type="button"
-          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-extrabold transition-all
-                 bg-red-600/90 text-white hover:bg-red-500 ring-1 ring-red-400/60 hover:ring-red-300
-                 focus:outline-none focus:ring-2 focus:ring-red-300 shadow-md"
-          aria-label="SOS — open reset menu"
-          title="🆘 SOS — click to open reset options"
-          @click="freshStartOpen = true"
-        >🆘</button>
-        <DictateButton
-          :active="dictationActive"
-          :supported="dictationSupported"
-          @toggle="toggleDictation()"
+      <!-- ── PRE-SPEC pin cluster — r41 v114 (Tom Gilb 2026-06-17 verbatim
+           "no change at all, and did you bring the 4 pins at top (sos etc)
+           into this?").  v113 reorganized the POST-spec right-pin cluster
+           in the Plan Crest (line 6896-7110ish), but Tom was on the empty
+           entry form where `specModel === null` so the Plan Crest doesn't
+           render — meaning v113 was invisible.  v114 ports the SAME
+           two-group consistent-pattern design to the pre-spec cluster
+           HERE so the redesign actually shows.  Two groups, each h-10
+           uniform, glyph + text label.
+           GROUP B · CONTROLS: 🔍 Find · 💡 Illuminate · ⚙ Settings · 🆘 SOS
+              (no Undo / Redo pre-spec because there's no spec to undo)
+           GROUP D · TOOLS: 🎤 Mic · 🔊 Speaker · ⚡ Actions ⌘A
+              (Mic + Speaker stay here because they're accessibility-critical
+              per Tom 2026-05-13; they fold into Actions menu only via search) -->
+      <!-- r41 v141 — Level 1 · Process Tools (pre-spec variant: shows
+           Find · Search Term · Settings · SOS + Mic · Speaker · Actions).
+           No Undo/Redo (nothing to undo yet); Mic + Speaker accessibility-
+           critical per Tom 2026-05-13.  Wrapped in non-absolute container
+           since this version inherits parent positioning. -->
+      <div v-if="!specModel">
+        <ProcessToolsStrip
+          variant="pre-spec"
+          :dictation-active="dictationActive"
+          :dictation-supported="dictationSupported"
+          :speaking="speaking"
+          :speaker-supported="speakerSupported"
+          :menu-open="menuOpen"
+          @open-find="toggleMenu()"
+          @open-search-term="openGilbIllustrations()"
+          @open-settings="settingsOpen = true"
+          @open-sos="freshStartOpen = true"
+          @open-mic="toggleDictation()"
+          @open-read="speaking ? stopSpeaking() : handleSpeak(speakerText)"
+          @open-actions="toggleMenu"
         />
-        <SpeakerButton
-          :text="speakerText"
-          @speak="handleSpeak"
-        />
-        <button
-          type="button"
-          :aria-expanded="menuOpen"
-          aria-haspopup="true"
-          aria-label="Open Actions menu (⌘A)"
-          title="Actions menu — press ⌘A from anywhere"
-          :class="[
-            'flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-xl select-none',
-            'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-400 transition-all duration-200',
-            menuOpen
-              ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-300/60 scale-105'
-              : 'bg-gradient-to-br from-violet-500 to-indigo-500 text-white hover:from-violet-600 hover:to-indigo-600 hover:scale-105 shadow-violet-300/40'
-          ]"
-          @click="toggleMenu"
-        >
-          <span aria-hidden="true" class="text-lg leading-none transition-transform duration-200" :class="menuOpen ? 'rotate-90' : ''">⚡</span>
-          <span class="text-sm font-bold tracking-wide">Actions</span>
-          <kbd class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded
-                      bg-white/20 text-white/90 font-mono text-[10px] leading-none
-                      ring-1 ring-white/30">⌘A</kbd>
-          <span aria-hidden="true" class="text-xs opacity-70 transition-transform duration-200" :class="menuOpen ? 'rotate-180' : ''">▾</span>
-        </button>
       </div>
 
       <!-- Rename / Owner popover — opens below the control pins row -->
@@ -8710,14 +10753,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
             {{ exportBannerLabel }} is on your clipboard · Tom@Gilb.com · auto-dismisses in 25 s
           </p>
         </div>
-        <button
-          type="button"
-          class="shrink-0 text-white/70 hover:text-white text-2xl font-light leading-none
-                 focus:outline-none focus:ring-2 focus:ring-white/50 rounded px-1"
+        <!-- CloseDot rule — never ✕ on any dismiss/close affordance -->
+        <CloseDot
+          variant="on-dark"
+          size="md"
           aria-label="Dismiss email instruction"
-          title="Dismiss"
           @click="hideExportEmailBanner()"
-        >✕</button>
+        />
       </div>
     </Transition>
 
@@ -8871,8 +10913,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :captured-calendar-costs="capturedCalendarCosts"
       :captured-capital-costs="capturedCapitalCosts"
       :captured-v-c-ratios="capturedVCRatios"
+      :plan-name="specModel?.name ?? ''"
+      :plan-owner="_specOwnerNames().join(', ')"
+      :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+      :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
       @close="resourcesSharpenOpen = false"
       @apply-analysis="_onResourcesAnalysisApplied"
+      @select-history="handleStrategyAgentHistoryPick"
     />
 
     <!-- Stage 10 · OPTIMA Resource Optimization — VDT sliders + threshold visualization
@@ -8884,6 +10931,50 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :spec="currentSpec"
       :vc-ratios="capturedVCRatios"
       @close="optimaOpen = false"
+    />
+
+    <!-- Auto-DBO — Design By Objectives
+         Tom Gilb 2026-06-07: "I want to create a new tool, which is specialised
+         in Design, finding Solutions. The designs will not immediately be adopted
+         in the Master Planguage specs. They must be approved and saved."
+         Named after Lech Krzanik's Apple II Forth tool, circa 1978. -->
+    <AutoDboPanel
+      :open="view === 'app' && autoDboOpen"
+      :master-spec="currentSpec"
+      @close="autoDboOpen = false"
+      @approve-to-master="onAutoDboApproveToMaster"
+      @save-as-new-plan="onAutoDboSaveAsNewPlan"
+    />
+
+    <!-- Penta Model — Gilb-Shalloway 2022 SVERD (sword) sharpening framework + PentaOptima command engine.
+         5-sector: Stakeholders · Values · Efficiency · Resources · Design.
+         PentaOptima: Claude-Code-as-AI-Layer pattern — builds Claudian prompts, never calls API. -->
+    <PentaPanel
+      :open="view === 'app' && pentaOpen"
+      :spec="currentSpec ?? specModel?.spec ?? null"
+      :evo-steps="confirmedSteps"
+      :tasks-by-step="tasksByStep"
+      @close="pentaOpen = false"
+      @update-spec="onPentaUpdateSpec"
+      @open-value-aspects="onOpenValueAspects"
+    /><!-- r41 v39 — Tom Gilb 2026-06-15 "penta did not catch the planguage stuff"
+         — PentaPanel was receiving null when currentSpec was empty but specModel
+         had the real generated spec (MultiForks read from specModel directly via
+         useMultiVision composable, so it showed the rich UK Ship Contract data
+         while Penta showed nothing).  Falling back to specModel.spec keeps
+         Penta in sync with the actually-persisted spec. -->
+
+    <!-- r93qq — Value Aspects Articulation Tool (Tom Gilb 2026-06-11 22:45 CET) -->
+    <ValueAspectsPanel
+      v-if="valueAspectsOpen && valueAspectsTarget"
+      :parent-value-id="valueAspectsTarget.id"
+      :parent-value-name="valueAspectsTarget.label"
+      :parent-scale="String((valueAspectsTarget as { scale?: unknown }).scale ?? '')"
+      :parent-tolerable="String((valueAspectsTarget as { tolerable?: unknown }).tolerable ?? '')"
+      :parent-goal="String((valueAspectsTarget as { goal?: unknown }).goal ?? '')"
+      :parent-wish="String((valueAspectsTarget as { wish?: unknown }).wish ?? '')"
+      @close="valueAspectsOpen = false; valueAspectsTarget = null"
+      @apply-aspects="onApplyValueAspects"
     />
 
     <!-- Stage 10 · KISS — Keep Improvement Super Surprising
@@ -8913,11 +11004,16 @@ function handleApertureLoadPlan(model: PlanModel): void {
       v-if="sharpenModalOpen && currentSpec"
       :spec="currentSpec"
       :modal="true"
+      :plan-name="specModel?.name"
+      :plan-version="specModel ? `v${specModel.version}` : undefined"
+      :plan-owner="_specOwnerNames().join(', ')"
+      :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
       @sharpened="onSpecSharpened"
       @done="handleSharpenModalDone"
       @open-visualise="handleSharpenModalDone(); visualiseOpen = true"
       @open-global-priority="handleSharpenModalDone(); globalPriorityOpen = true"
       @open-priority-info="handleSharpenModalDone(); priorityInfoOpen = true"
+      @select-history="handleStrategyAgentHistoryPick"
     />
 
     <!-- Visualise diagram gallery modal -->
@@ -8989,6 +11085,117 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @tool-activated="onEvoToolActivated"
     />
 
+    <!-- Planguage Tools catalogue — Tom Gilb 2026-06-07: pre-Evo-Step-derivation
+         design and analysis tools (CE Design chapter). Peer of EvoToolsPanel. -->
+    <PlanguageToolsPanel
+      v-if="planguageToolsOpen"
+      @close="planguageToolsOpen = false"
+      @tool-activated="onPlanguageToolActivated"
+    />
+
+    <!-- Solution Sharpening Interview — Tom 2026-06-08 Stage 5 dedicated tool.
+         26 themes × 2 questions × 3 AI suggestions (52 Q, 156 suggestions).
+         Output: new S. entries, improved S. entries, new V. requirements.
+         Replaces the generic SharpenPanel in Stage 5 Refine Solutions.
+         Data: src/data/solutionSharpInterview.ts. -->
+    <SolutionSharpenPanel
+      v-if="solutionSharpenOpen && currentSpec"
+      :spec="currentSpec"
+      :plan-id="specModel?.name ?? 'default'"
+      @close="solutionSharpenOpen = false"
+      @sharpen-complete="solutionSharpenOpen = false"
+    />
+
+    <!-- Strategy Agent — Strategy Sharpening (Tom 2026-06-09)
+         10 dimensions: Value Traceability, Impact Quantification, Constraint Compliance,
+         Goal Coverage, Resource Feasibility, Solution Specificity, Redundancy Detection,
+         Dependency Ordering, Past Sharpening Patterns, Strategy Completeness.
+         Available from Solutions stage (planningStage 5) AND Sharpening stage (planningStage 3).
+         Works regardless of Strategy Mode (by design). -->
+    <StrategyAgentPanel
+      v-if="strategyAgentOpen"
+      :open="strategyAgentOpen"
+      :spec="currentSpec"
+      :sharpen-rounds="sharpenRounds"
+      :plan-name="specModel?.name ?? ''"
+      :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+      :plan-owner="_specOwnerNames().join(', ')"
+      :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
+      @close="strategyAgentOpen = false"
+      @apply-improvements="applyStrategyImprovements"
+      @select-history="handleStrategyAgentHistoryPick"
+    />
+
+    <!-- Incorruptible Agent — Eric Ries 2026 strategic-resilience check (Tom 2026-06-11 r93p).
+         Six categories: Quarterly Tyranny / Stakeholder Monoculture / Mission Drift /
+         Founder-Vision Erosion / Innovation-Budget Predation / Governance Hole.
+         Phase 1 = deterministic engine; Phase 2 will stamp Ries-book citations later. -->
+    <IncorruptiblePanel
+      v-if="incorruptibleOpen"
+      :spec="incorruptibleTargetSpec ?? currentSpec"
+      :plan-title="incorruptibleTargetTitle || specModel?.name || 'Untitled Plan'"
+      :is-model="incorruptibleIsModel"
+      :accepted-finding-ids="incorruptibleAcceptedIds"
+      :plan-owner="_specOwnerNames().join(', ')"
+      :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+      :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
+      @close="incorruptibleOpen = false; incorruptibleTargetSpec = null; incorruptibleTargetTitle = ''; incorruptibleIsModel = false; incorruptibleAcceptedIds = new Set(); _incorruptibleUndoSnapshots = new Map()"
+      @open-agents="incorruptibleOpen = false; incorruptibleTargetSpec = null; incorruptibleTargetTitle = ''; incorruptibleIsModel = false; incorruptibleAcceptedIds = new Set(); _incorruptibleUndoSnapshots = new Map(); agentMenuOpen = true"
+      @open-sharpening="incorruptibleOpen = false; incorruptibleSharpeningOpen = true"
+      @accept-fix="onIncorruptibleAcceptFix"
+      @undo-fix="onIncorruptibleUndoFix"
+      @select-history="handleStrategyAgentHistoryPick"
+    />
+
+    <!-- r93aa — Incorruptible Sharpening panel (Q&A flow).
+         Tom Gilb 2026-06-11: "Incorruptible Sharpening: is name of the tool within the agent
+         and available outside" — three access paths wired:
+         (a) Inside the Agent header (IncorruptiblePanel emits 'open-sharpening')
+         (b) Agents Menu standalone tile (select-agent 'incorruptible-sharpen')
+         (c) Model Library per-model action button (select-agent 'incorruptible-sharpen-model'). -->
+    <IncorruptibleSharpeningPanel
+      v-if="incorruptibleSharpeningOpen"
+      :spec="incorruptibleTargetSpec ?? currentSpec"
+      :plan-title="incorruptibleTargetTitle || specModel?.name || 'Untitled Plan'"
+      :is-model="incorruptibleIsModel"
+      @close="incorruptibleSharpeningOpen = false"
+      @synthesise-findings="onIncorruptibleSynthesiseFindings"
+    />
+
+    <!-- Elon Agent — Musk's Methods + Dove et al. Pace-of-Innovation paper.
+         Tom Gilb 2026-06-12: "OK Major new Agent: 'Elon': will be based on my Musks Methods
+         book... The pattern is Incorruptible (based on Ries). Just make it." 9 categories with
+         Pace-of-Innovation DOMINANT per Dove et al. Mirrors Incorruptible plumbing 1:1. -->
+    <ElonPanel
+      v-if="elonOpen"
+      :spec="elonTargetSpec ?? currentSpec"
+      :plan-title="elonTargetTitle || specModel?.name || 'Untitled Plan'"
+      :is-model="elonIsModel"
+      :accepted-finding-ids="elonAcceptedIds"
+      :plan-owner="_specOwnerNames().join(', ')"
+      :plan-version="specModel?.version ? `v${specModel.version}` : ''"
+      :generated-at="(currentSpec as { generatedAt?: string } | null)?.generatedAt ?? ''"
+      @close="elonOpen = false; elonTargetSpec = null; elonTargetTitle = ''; elonIsModel = false; elonAcceptedIds = new Set(); _elonUndoSnapshots = new Map()"
+      @open-agents="elonOpen = false; elonTargetSpec = null; elonTargetTitle = ''; elonIsModel = false; elonAcceptedIds = new Set(); _elonUndoSnapshots = new Map(); agentMenuOpen = true"
+      @open-sharpening="elonOpen = false; elonSharpeningOpen = true"
+      @accept-fix="onElonAcceptFix"
+      @undo-fix="onElonUndoFix"
+      @select-history="handleStrategyAgentHistoryPick"
+    />
+
+    <!-- Elon Sharpening panel (Q&A flow) — three access paths:
+         (a) Inside the Agent header (ElonPanel emits 'open-sharpening')
+         (b) Agents Menu standalone tile (select-agent 'elon-sharpen')
+         (c) Model Library per-model action button (select-agent 'elon-sharpen-model') -->
+    <ElonSharpeningPanel
+      v-if="elonSharpeningOpen"
+      :spec="elonTargetSpec ?? currentSpec"
+      :plan-title="elonTargetTitle || specModel?.name || 'Untitled Plan'"
+      :is-model="elonIsModel"
+      @close="elonSharpeningOpen = false"
+      @synthesise-findings="onElonSynthesiseFindings"
+    />
+
     <!-- Sharpen Next Step (Evo Sharp Interview) — Tom 2026-06-03 first detailed
          Evo Tool.  12-category structured interview (Tom's 8 + 4 PROPOSED) that
          crystallises the next Evo Step before commit.  Persists per (plan, step)
@@ -9034,9 +11241,153 @@ function handleApertureLoadPlan(model: PlanModel): void {
          v1: panel UI + persistence work.  Component consumption of individual
          settings ships incrementally — each setting gets the "live" badge when
          its consumer is wired.  Data: src/data/settings.ts. -->
+    <!-- r41 v112 — Pre-spec Stewards manager modal.  Lets the planner add
+         Owners / Planners / Scribes BEFORE the first generation.  The list
+         is persisted to localStorage + applied to the Plan Model at the
+         first successful translate() in doTranslate (see line ~4218).
+         Composes with: No-Silent-Removal SUPREME (the post-spec Plan Crest
+         Stewards chips are gated on specModel — this modal restores the
+         capability for the pre-spec phase), Universal Undo (additions go
+         through standard add/remove which compose with the Plan Crest's
+         existing undo wiring once the spec is generated), accessibility_tom.md
+         (high-contrast modal, large hit targets, plain English labels). -->
+    <Teleport v-if="preSpecStewardsOpen" to="body">
+      <div
+        class="fixed inset-0 z-[610] bg-black/40 flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Pre-spec Stewards manager"
+        @click.self="preSpecStewardsOpen = false"
+      >
+        <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl border-2 border-amber-300 overflow-hidden">
+          <!-- Header -->
+          <div class="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-amber-600 to-orange-500 text-white">
+            <span class="text-xl" aria-hidden="true">👥</span>
+            <div class="flex-1 min-w-0">
+              <h2 class="text-base font-extrabold leading-tight">Stewards · Pre-spec</h2>
+              <p class="text-[11px] text-amber-100 leading-tight">Add Owners, Planners, Scribes before generation. Persist across reload.</p>
+            </div>
+            <CloseDot variant="on-dark" size="lg" aria-label="Close Stewards manager" @click="preSpecStewardsOpen = false" />
+          </div>
+          <!-- Body -->
+          <ScrollContainer outer-class="max-h-[60vh]" inner-class="px-5 py-4 space-y-4">
+            <!-- Existing stewards list -->
+            <div v-if="preSpecStewards.length > 0" class="space-y-2">
+              <p class="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Current stewards ({{ preSpecStewards.length }})</p>
+              <div
+                v-for="(s, i) in preSpecStewards"
+                :key="i"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50"
+              >
+                <span
+                  class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
+                  :class="s.role === 'Owner' ? 'bg-amber-200 text-amber-900' : s.role === 'Planner' ? 'bg-yellow-200 text-yellow-900' : 'bg-slate-200 text-slate-800'"
+                  :title="s.role === 'Owner' ? '🔑 Owner — primary accountability' : s.role === 'Planner' ? '💡 Planner — authoring the spec' : '⌨️ Scribe — typing it into SEM'"
+                >
+                  <span aria-hidden="true">{{ s.role === 'Owner' ? '🔑' : s.role === 'Planner' ? '💡' : '⌨️' }}</span>
+                  <span>{{ s.role }}</span>
+                </span>
+                <span class="flex-1 text-sm font-medium text-slate-800 truncate">{{ s.name }}</span>
+                <button
+                  type="button"
+                  class="shrink-0 h-7 w-7 rounded-full text-amber-700 hover:bg-amber-200 transition-colors text-base"
+                  :aria-label="`Remove ${s.name} (${s.role})`"
+                  :title="`Remove ${s.name} (${s.role})`"
+                  @click="removePreSpecSteward(i)"
+                >×</button>
+              </div>
+            </div>
+            <p v-else class="text-sm text-slate-500 italic px-1">
+              No stewards added yet. Use the form below to add Owners, Planners, or Scribes.
+            </p>
+            <!-- Add form -->
+            <div class="space-y-2 pt-3 border-t border-amber-200">
+              <p class="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Add a steward</p>
+              <div class="flex flex-wrap gap-2 items-center">
+                <select
+                  v-model="preSpecStewardDraft.role"
+                  class="h-9 px-2 rounded-lg border border-amber-300 text-sm font-semibold text-amber-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  aria-label="Role"
+                >
+                  <option value="Owner">🔑 Owner</option>
+                  <option value="Planner">💡 Planner</option>
+                  <option value="Scribe">⌨️ Scribe</option>
+                </select>
+                <input
+                  v-model="preSpecStewardDraft.name"
+                  type="text"
+                  placeholder="Name (e.g. Tom Gilb)"
+                  class="flex-1 min-w-[200px] h-9 px-3 rounded-lg border border-amber-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  aria-label="Steward name"
+                  @keydown.enter="addPreSpecSteward"
+                />
+                <button
+                  type="button"
+                  class="h-9 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold transition-colors disabled:bg-amber-300 disabled:cursor-not-allowed"
+                  :disabled="!preSpecStewardDraft.name.trim()"
+                  title="Add this steward"
+                  @click="addPreSpecSteward"
+                >＋ Add</button>
+              </div>
+              <p class="text-[10px] text-slate-500 italic">
+                Roles: 🔑 Owner = primary accountability · 💡 Planner = authoring the spec · ⌨️ Scribe = typing it into SEM.
+                Multiple of each role allowed.
+              </p>
+            </div>
+            <!-- Explanation -->
+            <div class="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] text-indigo-900 leading-relaxed">
+              <p class="font-semibold">What happens to these stewards?</p>
+              <p class="mt-1">
+                They're saved in your browser. When you press <strong>Parse my input</strong> on the form,
+                the spec is generated AND every steward you added here is registered on the new Plan Model.
+                The Plan Crest's 🔑 / 💡 / ⌨️ chips will reflect them immediately.
+              </p>
+            </div>
+          </ScrollContainer>
+          <!-- Footer -->
+          <div class="flex items-center gap-2 px-5 py-3 border-t border-amber-200 bg-amber-50">
+            <span class="text-[11px] text-slate-500">{{ preSpecStewards.length }} {{ preSpecStewards.length === 1 ? 'steward' : 'stewards' }} pending</span>
+            <button
+              type="button"
+              class="ml-auto h-9 px-4 rounded-lg bg-white border border-amber-300 text-amber-700 text-sm font-bold hover:bg-amber-100 transition-colors"
+              title="Close Stewards manager — additions are saved automatically"
+              @click="preSpecStewardsOpen = false"
+            >Done</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <SettingsPanel
       v-if="settingsOpen"
       @close="settingsOpen = false"
+      @activate-contract-agent="() => {
+        // r41 v48 — Tom Gilb 2026-06-16 verbatim 'IN CONTRACT MODE, THE
+        // CONTRACT AGENT IS ACTIVATED'.  Close Settings, open ContractHub.
+        // The active 4-axis Contracts Mode config is read inside the parser
+        // automatically (no payload needed here).
+        settingsOpen = false
+        contractsOpen = true
+      }"
+    />
+
+    <!-- r41 v49 (Tom Gilb 2026-06-16) — Top-level Mode pin popover + governance dialog. -->
+    <ActiveModePopover
+      :open="activeModePopoverOpen"
+      @close="activeModePopoverOpen = false"
+      @open-settings="(sectionId) => {
+        activeModePopoverOpen = false
+        settingsOpen = true
+        // SettingsPanel opens on its last-used section; planner clicks the
+        // section in the side nav.  (Deep-link via prop is a future enhancement.)
+        void sectionId
+      }"
+      @request-switch="_onModeSwitchRequest"
+    />
+    <ModeSwitchGovernanceDialog
+      :open="modeSwitchGovOpen"
+      @cancel="_onModeSwitchCancel"
+      @resolve="_onModeSwitchResolve"
     />
 
     <!-- Evo Step 12: Stakeholder Conflict Detector — surfaces hidden stakeholder tensions -->
@@ -9052,7 +11403,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :spec="currentSpec"
       :stage="stage"
       @close="collaboratorOpen = false"
-      @apply-proposal="(updated) => { currentSpec = updated }"
+      @apply-proposal="(updated) => {
+        if (currentSpec) {
+          undoHistory.record({
+            label:    'Spec Collaborator Proposal Applied',
+            source:   'SpecCollaborator',
+            prevSpec: JSON.parse(JSON.stringify(currentSpec)),
+            nextSpec: JSON.parse(JSON.stringify(updated)),
+          });
+        }
+        currentSpec = updated;
+      }"
     />
 
     <!-- Bullock Audit Trail — triggered from "🗂️ Audit Trail" button when sharpeningDone -->
@@ -9084,6 +11445,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :has-current-plan="!!currentSpec"
       @imported="handlePlanImported"
       @imported-and-sharpen="handlePlanImportedAndSharpen"
+      @imported-with-meta="handlePlanImportedWithMeta"
+      @imported-and-sharpen-with-meta="handlePlanImportedAndSharpenWithMeta"
       @add-to="handlePlanAddTo"
       @load-model="handleGetAPlanLoadModel"
       @restore-version="handleGetAPlanRestoreVersion"
@@ -9110,9 +11473,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
       <div
         v-if="globalToast"
         :key="globalToast.id"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] rounded-full bg-slate-800 text-white text-sm font-medium px-5 py-3 shadow-2xl pointer-events-none select-none max-w-[90vw] text-center"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] rounded-full bg-slate-800 text-white text-sm font-medium px-5 py-3 shadow-2xl select-none max-w-[90vw] text-center flex items-center gap-3"
+        :class="globalToast.action ? 'pointer-events-auto' : 'pointer-events-none'"
         aria-live="polite"
-      >{{ globalToast.message }}</div>
+      >
+        <span>{{ globalToast.message }}</span>
+        <!-- r93x — Universal Undo P2: toast-level action button (typically [Undo]).
+             Clicking fires the handler AND dismisses the toast. Pill becomes
+             pointer-events-auto only when an action is present. -->
+        <button
+          v-if="globalToast.action"
+          type="button"
+          class="px-3 py-1 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 text-xs font-bold ring-1 ring-amber-700 transition-colors"
+          :title="`${globalToast.action.label} — undoes the action this toast is reporting`"
+          @click="(() => { const h = globalToast.action!.handler; dismissToast(); h() })()"
+        >{{ globalToast.action.label }}</button>
+      </div>
     </Transition>
 
   </div>
@@ -9148,12 +11524,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
   .plan-title-shimmer { animation: none; }
 }
 
-/* ── Crest Tip — CSS-only tooltip system for Plan Crest elements. ─────────────
+/* ── Crest Tip — CSS-only HoverHint system for Plan Crest elements. ─────────────
    P5 (2026-05-27): any element with data-crest-tip="..." shows a styled
-   tooltip below on hover/focus. No JS, no event handlers — pure CSS.
-   Usage: <span data-crest-tip="Tooltip text goes here">button label</span>
+   HoverHint below on hover/focus. No JS, no event handlers — pure CSS.
+   Usage: <span data-crest-tip="HoverHint text goes here">button label</span>
    Design: dark slate-800 panel, indigo border, downward from crest bar.
-   The Plan Crest sits at z-[300]; tooltip at z-[400] clears it.
+   The Plan Crest sits at z-[300]; HoverHint at z-[400] clears it.
    Arrow (::before) points up toward the triggering element. */
 [data-crest-tip] {
   position: relative;

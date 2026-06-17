@@ -108,6 +108,7 @@ function selectAgent(agent: AgentDef): void {
             <p class="text-[11px] text-white/60 leading-tight mt-0.5">Explicitly-called planning agents</p>
           </div>
           <CloseDot
+            size="lg"
             variant="on-dark"
             aria-label="Close Agent Menu"
             title="Close Agent Menu — return to the main planning workspace"

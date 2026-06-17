@@ -153,9 +153,9 @@ const ACCENT_RING: Record<string, string> = {
         v-for="pin in AGENT_PINS"
         :key="pin.event"
         type="button"
-        class="h-14 w-[72px] flex flex-col items-center justify-start gap-1 px-1 pt-1 pb-0.5 rounded-lg
-               bg-slate-900/40 hover:bg-slate-800/60 ring-1 ring-1
-               focus:outline-none focus:ring-2 transition-all overflow-hidden"
+        class="h-14 min-w-[72px] flex flex-col items-center justify-start gap-1 px-2 pt-1 pb-0.5 rounded-lg
+               bg-slate-900/40 hover:bg-slate-800/60 ring-1
+               focus:outline-none focus:ring-2 transition-all"
         :class="ACCENT_RING[pin.accent]"
         :aria-label="`Open ${pin.label} agent`"
         :title="pin.title"
