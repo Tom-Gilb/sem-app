@@ -158,6 +158,19 @@ const sourceLabel = (kind: string): string => {
     default:             return '❔ Undetermined'
   }
 }
+/** v525 — human-readable at-timestamp (Tom Gilb 2026-07-21: "no date time
+ *  stamp").  Renders "21 Jul, 20:27" style — short + timezone-local. */
+const sourceAtLabel = (at: string | null): string => {
+  if (!at) return ''
+  try {
+    const d = new Date(at)
+    const day = d.getDate()
+    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]
+    const hh  = String(d.getHours()).padStart(2, '0')
+    const mm  = String(d.getMinutes()).padStart(2, '0')
+    return `${day} ${mon}, ${hh}:${mm}`
+  } catch { return '' }
+}
 </script>
 
 <template>
@@ -275,7 +288,7 @@ const sourceLabel = (kind: string): string => {
           class="mt-1 text-[11px] leading-snug"
           :class="isDeadlineDetermined ? 'text-slate-800' : 'italic text-amber-800'"
         >{{ deadlineHumanReadable }}</div>
-        <div class="mt-1 text-[9px] uppercase tracking-wider text-slate-500">Source: {{ sourceLabel(state.sourceDeadline.kind) }}</div>
+        <div class="mt-1 text-[9px] uppercase tracking-wider text-slate-500">Source: {{ sourceLabel(state.sourceDeadline.kind) }}<span v-if="sourceAtLabel(state.sourceDeadline.at)" class="normal-case tracking-normal text-slate-400"> · {{ sourceAtLabel(state.sourceDeadline.at) }}</span></div>
       </div>
       <!-- Project Start Events -->
       <div
@@ -295,7 +308,7 @@ const sourceLabel = (kind: string): string => {
           class="mt-1 text-[11px] leading-snug"
           :class="isStartEventsDetermined ? 'text-slate-800' : 'italic text-amber-800'"
         >{{ startEventsSummary }}</div>
-        <div class="mt-1 text-[9px] uppercase tracking-wider text-slate-500">Source: {{ sourceLabel(state.sourceStartEvents.kind) }}</div>
+        <div class="mt-1 text-[9px] uppercase tracking-wider text-slate-500">Source: {{ sourceLabel(state.sourceStartEvents.kind) }}<span v-if="sourceAtLabel(state.sourceStartEvents.at)" class="normal-case tracking-normal text-slate-400"> · {{ sourceAtLabel(state.sourceStartEvents.at) }}</span></div>
       </div>
       <!-- Budget -->
       <div
@@ -315,7 +328,7 @@ const sourceLabel = (kind: string): string => {
           class="mt-1 text-[11px] leading-snug"
           :class="isBudgetDetermined ? 'text-slate-800' : 'italic text-amber-800'"
         >{{ budgetHumanReadable }}</div>
-        <div class="mt-1 text-[9px] uppercase tracking-wider text-slate-500">Source: {{ sourceLabel(state.sourceBudget.kind) }}</div>
+        <div class="mt-1 text-[9px] uppercase tracking-wider text-slate-500">Source: {{ sourceLabel(state.sourceBudget.kind) }}<span v-if="sourceAtLabel(state.sourceBudget.at)" class="normal-case tracking-normal text-slate-400"> · {{ sourceAtLabel(state.sourceBudget.at) }}</span></div>
       </div>
     </div>
   </div>
