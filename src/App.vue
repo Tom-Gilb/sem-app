@@ -92,6 +92,7 @@ import { loadPlan as _loadEvoPlan, clearLoadedPlan as _clearEvoPlan, resetPlanFo
 import { useReplay } from './composables/useReplay'
 import { useProjectDashboard } from './composables/useProjectDashboard'
 import { useSessionPersist } from './composables/useSessionPersist'
+import { useLastEffortMirror, mirrorAgeLabel } from './composables/useLastEffortMirror'
 import { useToast } from './composables/useToast'
 import { useStrategyMode } from './composables/useStrategyMode'
 import { useSettings } from './composables/useSettings'
@@ -6051,12 +6052,102 @@ function _scheduleSave(): void {
   if (!currentSpec.value) return  // nothing worth saving yet
   if (_saveTimer) clearTimeout(_saveTimer)
   _saveTimer = setTimeout(() => { _saveSession(_buildSessionSnapshot()) }, 500)
+  // v515 (2026-07-21) — Last-Effort Mirror: also schedule the IDB mirror flush
+  // (30 s debounced).  Belt-and-braces to useSessionPersist: mirror survives
+  // localStorage quota exhaustion because it lives in IDB (idbKv, Portfolio #1).
+  _lastEffortMirror.scheduleFlush()
 }
 
 function _saveNow(): void {
   if (!currentSpec.value) return
   if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null }
   _saveSession(_buildSessionSnapshot())
+  // v515 — flush the mirror immediately too (pagehide / visibilitychange /
+  // beforeunload paths all reach here).  Non-blocking; runs in background.
+  void _lastEffortMirror.flushNow()
+}
+
+// v515 (2026-07-21) — Last-Effort Mirror composable instance.
+// Snapshot builder shares the useSessionPersist shape + adds view/planningStage
+// explicitly (they were already there; kept for clarity).  IDB writes are async
+// and non-blocking; failure is silent-logged (no user-visible banner) because
+// the localStorage write via _saveSession above is the primary save path — the
+// mirror is the survivor when the primary fails.
+const _lastEffortMirror = useLastEffortMirror(() => ({
+  planName: specModel.value?.spec?.plan?.name ?? currentSpec.value?.plan?.name,
+  planningStage: planningStage.value,
+  stage: stage.value,
+  view: view.value,
+  currentSpec: currentSpec.value,
+  markdown: markdown.value,
+  originalInput: originalInput.value,
+  confirmedSteps: confirmedSteps.value,
+  evoPlanConfirmed: evoPlanConfirmed.value,
+  tasksByStep: tasksByStep.value,
+  capturedImpactMatrix: capturedImpactMatrix.value,
+  capturedVCRatios: capturedVCRatios.value,
+  capturedCalendarCosts: capturedCalendarCosts.value,
+  capturedCapitalCosts: capturedCapitalCosts.value,
+}))
+
+// v515 — mount-time restore-offer state.  On App.vue mount we check whether
+// the IDB mirror is strictly newer than the localStorage session (via savedAt
+// timestamps).  If yes, show a small non-blocking banner offering to restore
+// the mirror.  User picks Restore, Dismiss, or ignores it — either way the
+// choice is one click.  The banner does NOT auto-restore because silent
+// state-replacement would violate No-Silent-Data-Loss SUPREME in reverse.
+const mirrorRestoreOffered = ref(false)
+const mirrorRestoreAgeLabel = ref('')
+async function _checkMirrorAtMount(): Promise<void> {
+  try {
+    const sessionRaw = localStorage.getItem('sem-session-v2')
+    const sessionSavedAt = sessionRaw
+      ? (JSON.parse(sessionRaw) as { savedAt?: string }).savedAt ?? null
+      : null
+    const isNewer = await _lastEffortMirror.hasNewerMirror(sessionSavedAt)
+    if (isNewer) {
+      const m = await _lastEffortMirror.readMirror()
+      if (m) {
+        mirrorRestoreAgeLabel.value = mirrorAgeLabel(m.savedAt)
+        mirrorRestoreOffered.value = true
+      }
+    }
+  } catch (err) {
+    console.warn('[last-effort-mirror] mount check failed', err)
+  }
+}
+async function restoreFromMirror(): Promise<void> {
+  const m = await _lastEffortMirror.readMirror()
+  if (!m) { mirrorRestoreOffered.value = false; return }
+  try {
+    // Apply the mirror to current app state.  Field-by-field parity with
+    // useSessionPersist's restore path (App.vue _tryRestoreSession) so the app
+    // reaches an identical post-restore state regardless of which layer wins.
+    if (m.currentSpec)       currentSpec.value = m.currentSpec
+    if (m.markdown)          markdown.value = m.markdown
+    if (m.originalInput)     originalInput.value = m.originalInput
+    if (m.confirmedSteps)    confirmedSteps.value = m.confirmedSteps
+    if (typeof m.evoPlanConfirmed === 'boolean') evoPlanConfirmed.value = m.evoPlanConfirmed
+    if (m.tasksByStep)       tasksByStep.value = m.tasksByStep
+    if (m.capturedImpactMatrix)  capturedImpactMatrix.value = m.capturedImpactMatrix
+    if (m.capturedVCRatios)      capturedVCRatios.value = m.capturedVCRatios
+    if (m.capturedCalendarCosts) capturedCalendarCosts.value = m.capturedCalendarCosts
+    if (m.capturedCapitalCosts)  capturedCapitalCosts.value = m.capturedCapitalCosts
+    // Stage refs — restore both the 11-step planning stage AND the inner stage
+    if (typeof m.planningStage === 'number') planningStage.value = m.planningStage
+    if (typeof m.stage === 'number')         stage.value = m.stage
+    showToast(`✓ Restored last effort — ${mirrorRestoreAgeLabel.value}`, 4500)
+  } catch (err) {
+    console.warn('[last-effort-mirror] restore failed', err)
+    showToast('Restore from last-effort mirror failed — see console.', 5000)
+  } finally {
+    mirrorRestoreOffered.value = false
+  }
+}
+function dismissMirrorRestore(): void {
+  // Do NOT clear the mirror — the auto-save watcher will overwrite it on next
+  // state change anyway, and keeping it as a fallback until then is safer.
+  mirrorRestoreOffered.value = false
 }
 
 // Watch key state refs — deep on objects, shallow on primitives
@@ -8840,6 +8931,10 @@ onMounted(() => {
   document.addEventListener(GLYPH_PANEL_OPEN_EVENT, _onGlyphPanelOpen)
   document.addEventListener(GLYPH_PANEL_CLOSE_EVENT, _onGlyphPanelClose)
   document.addEventListener(GLYPH_PANEL_NAVIGATE_EVENT, _onGlyphPanelNavigate)
+  // v515 (2026-07-21) — Last-Effort Mirror mount check.  Non-blocking: if
+  // an IDB mirror exists that's newer than the localStorage session, the
+  // banner appears at the top of the app.  User clicks Restore or Dismiss.
+  void _checkMirrorAtMount()
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', _onGlobalKeydown)
@@ -9659,6 +9754,46 @@ function handleApertureLoadPlan(model: PlanModel): void {
 </script>
 
 <template>
+  <!-- v515 (2026-07-21) — Last-Effort Mirror restore banner.
+       Non-blocking; sits at the TOP of the app so it's the first thing the
+       user sees when returning to a session where the IDB mirror is newer
+       than the localStorage session (typically because the session blob was
+       lost to a quota-fail or a silent reset).  Two explicit actions —
+       Restore or Dismiss — nothing auto-fires (No-Silent-Data-Loss SUPREME
+       in both directions: never lose work, never silently replace work). -->
+  <div
+    v-if="mirrorRestoreOffered"
+    class="fixed top-0 inset-x-0 z-[9500] bg-amber-50 border-b-2 border-amber-500 shadow-sm"
+    role="status"
+    aria-live="polite"
+    data-test="last-effort-mirror-banner"
+  >
+    <div class="max-w-6xl mx-auto flex items-center gap-3 px-4 py-2.5 text-sm">
+      <span class="text-lg" aria-hidden="true">🔄</span>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-amber-900">
+          Restore last effort? (from {{ mirrorRestoreAgeLabel }})
+        </div>
+        <div class="text-xs text-amber-800/80 truncate">
+          The Last-Effort Mirror (IndexedDB) has a newer session snapshot than
+          the browser session. Restore keeps your work; Dismiss keeps the current view.
+        </div>
+      </div>
+      <button
+        type="button"
+        class="shrink-0 px-3 py-1.5 rounded-md bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+        title="Load the newer snapshot from the Last-Effort Mirror into this session"
+        @click="restoreFromMirror"
+      >Restore</button>
+      <button
+        type="button"
+        class="shrink-0 px-3 py-1.5 rounded-md bg-white text-amber-900 text-sm font-semibold border border-amber-300 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+        title="Keep the current view; mirror stays available until the next auto-save overwrites it"
+        @click="dismissMirrorRestore"
+      >Dismiss</button>
+    </div>
+  </div>
+
   <!-- Ultra Light Phase 3 — Aperture overlay + single Menu pin.
        Gated by ?aperture=1. When view === 'plan', the white aperture covers
        the underlying app entirely. 'start' / 'novice' / 'basic' / 'previous'
