@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 // UNIT_TYPE=Widget
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import PlanIdentityBand from './PlanIdentityBand.vue'  // r41 v96 (Tom Gilb 2026-06-16 "do that" — Phase 3 sweep)
 import ScrollContainer from './ScrollContainer.vue'
@@ -129,6 +129,66 @@ function toggleBudgetType(t: BudgetType): void {
     scopeFramework.value.budgetAmounts[t] = 0
   }
 }
+
+// v524 (2026-07-21) — Tom Gilb: *"they say source undetermined, but the source
+// was me here now"*.  After v523 fixed the cross-surface data flow, source
+// pills still showed "SOURCE: UNDETERMINED" even when Tom explicitly typed
+// values in this panel.  v-model on the primitive fields never touched the
+// `sourceDeadline` / `sourceStartEvents` / `sourceBudget` objects.  Fix: three
+// deep watchers that stamp the corresponding source as `'planner'` AFTER the
+// initial mount (so hydration from storage doesn't false-stamp).  Each watcher
+// tracks a shallow snapshot of the fields in its section — mutations by the
+// user (via v-model) trigger the watcher; the composable's own auto-load path
+// doesn't (because we gate on _initialLoadComplete).
+let _initialLoadComplete = false
+onMounted(() => {
+  // Push the flag flip to the next microtask so the first watcher-callback
+  // triggered by mount-time settled state doesn't false-stamp.
+  Promise.resolve().then(() => { _initialLoadComplete = true })
+})
+function _stampSource(section: 'deadline' | 'startEvents' | 'budget'): void {
+  if (!_initialLoadComplete) return
+  const now = new Date().toISOString()
+  const src = { kind: 'planner' as const, at: now, note: '' }
+  if (section === 'deadline')    scopeFramework.value.sourceDeadline = src
+  if (section === 'startEvents') scopeFramework.value.sourceStartEvents = src
+  if (section === 'budget')      scopeFramework.value.sourceBudget = src
+}
+// Deadline section
+watch(
+  () => [
+    scopeFramework.value.deadlineMode,
+    scopeFramework.value.deadlineDate,
+    scopeFramework.value.deadlineFromStartValue,
+    scopeFramework.value.deadlineFromStartUnit,
+  ],
+  () => _stampSource('deadline'),
+  { deep: false },
+)
+// Project-start events section
+watch(
+  () => [
+    scopeFramework.value.startPlanningStarted,
+    scopeFramework.value.startContractSigned,
+    scopeFramework.value.startBudgetApproved,
+    scopeFramework.value.startPlanApproved,
+    scopeFramework.value.startStaffReady,
+    scopeFramework.value.startFirstEvoStepsStarted,
+    scopeFramework.value.startCustomEventChecked,
+    scopeFramework.value.startCustomEventLabel,
+  ],
+  () => _stampSource('startEvents'),
+  { deep: false },
+)
+// Budget section
+watch(
+  () => [
+    scopeFramework.value.hasBudget,
+    JSON.stringify(scopeFramework.value.budgetAmounts),
+  ],
+  () => _stampSource('budget'),
+  { deep: false },
+)
 // Selection mode pills — same UX as EvoSharpInterview.
 const SELECTION_MODES: Array<{ id: SelectionMode; label: string; title: string }> = [
   { id: 'mixed',       label: 'Mixed',         title: 'Use your typed answer + any ticked suggestions (default)' },
