@@ -66,7 +66,7 @@ const {
 // Tab labels are deliberately short — at the panel's clamp(560,42vw,720) width,
 // five tabs at full labels ("Values · Costs · Constraints", "Replan after Evo")
 // overflowed the right edge, hiding "Review & Apply" and "Replan after Evo" on
-// many viewports. Each tab carries a full-text tooltip; the active tab also
+// many viewports. Each tab carries a full-text HoverHint; the active tab also
 // shows the long form in the body's layer-hint strip.
 const STAGES: Array<{ key: PriorityLayer | 'review' | 'replan'; label: string; longLabel: string; icon: string }> = [
   { key: 'stakeholders',             label: 'Stakeholders',         longLabel: LAYER_LABEL['stakeholders'],             icon: LAYER_ICON['stakeholders'] },
@@ -475,7 +475,7 @@ const diffCounts = computed(() => {
     <!-- ── Stage tabs ───────────────────────────────────────────────────────── -->
     <!-- overflow-x-auto is a hard fallback for any viewport where the 5 tabs
          still don't fit (smaller-than-720px). Each tab has its long label as a
-         tooltip — and the active tab's long label also shows in the hint
+         HoverHint — and the active tab's long label also shows in the hint
          strip just below. -->
     <div
       class="flex border-b border-slate-200 bg-slate-50 shrink-0 px-2 pt-2 gap-1 overflow-x-auto"

@@ -36,10 +36,19 @@ import {
   buildClaudianPrompt,
 } from '../data/standardsAudit'
 import type { SpecBlock } from '../types/spec'
+import { exportArtefact } from '../composables/useExportShared'
+import {
+  renderStandardsAuditorHtml,
+  renderStandardsAuditorPlain,
+} from '../composables/useStandardsAuditorExport'
 
 const props = defineProps<{
   spec: SpecBlock
   planId?: string
+  /** Optional plan name forwarded for the export header. */
+  planName?: string
+  /** Optional plan version label forwarded for the export header. */
+  planVersion?: string
 }>()
 
 defineEmits<{ close: [] }>()
@@ -137,6 +146,30 @@ const groupedFindings = computed<Record<string, StandardsFinding[]>>(() => {
   }
   return groups
 })
+
+// ── Export · Tom Gilb 2026-06-23 autonomous backlog batch ───────────────────
+// Export-Button-on-All-Windows SUPREME sweep target. Standards Auditor was on
+// the pending list; this handler closes that gap. Mailto-No-Self-To SUPREME
+// (Tom Gilb 2026-06-16 verbatim "EMAIL SHARPENING YOU PUT THE MAIN IN THE
+// TO SECTION, SILLY BOY"): Tom is the SENDER when he clicks Export — recipient
+// is empty so he chooses on the Mail.app side.
+async function exportStandardsAudit(): Promise<void> {
+  await exportArtefact({
+    htmlText: renderStandardsAuditorHtml({
+      planName: props.planName ?? 'Current Spec',
+      versionLabel: props.planVersion ?? '',
+      audit: auditSet.value,
+    }),
+    plainText: renderStandardsAuditorPlain({
+      planName: props.planName ?? 'Current Spec',
+      versionLabel: props.planVersion ?? '',
+      audit: auditSet.value,
+    }),
+    subject: `Standards Audit · ${props.planName ?? 'Current Spec'} · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'Standards Audit',
+    to: '',
+  })
+}
 </script>
 
 <template>
@@ -164,6 +197,19 @@ const groupedFindings = computed<Record<string, StandardsFinding[]>>(() => {
               </span>
             </p>
           </div>
+          <!-- ⬇ Export · Tom Gilb 2026-06-06 universal Export-on-all-windows rule.
+               Mailto-No-Self-To SUPREME — to:'' (Tom is the sender). -->
+          <button
+            type="button"
+            class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg
+                   bg-amber-400/30 hover:bg-amber-400/50 text-white text-xs font-semibold
+                   border border-amber-200/50 hover:border-amber-100 transition-colors"
+            title="⬇ Export Standards Audit — opens preview window with 100% of the findings (severity counts, standards consulted, per-finding cards with citation + suggested fix, Glossary footnote). Copies colourful HTML to clipboard. Opens Mail (To: empty — you choose recipient)."
+            aria-label="Export Standards Audit — preview window + clipboard + Mail"
+            @click="exportStandardsAudit"
+          >
+            ⬇ Export
+          </button>
           <CloseDot variant="on-dark" aria-label="Close Standards Auditor" @click="$emit('close')" />
         </header>
 

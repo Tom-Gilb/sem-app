@@ -145,12 +145,16 @@ function confirmRollback(): void {
     />
 
     <!-- Menu card — anchored top-right, drops DOWN from the 🆘 SOS button
-         in the Plan Crest bar (which is now in the Row 1 absolute-right
-         cluster). The crest bar is ~100px; we open at top-[110px] so the
-         card appears just below the bar with a small gap. -->
+         in the Plan Crest bar.  r93xxx (Tom Gilb 2026-06-13 "the dark bar is
+         still over the 4 choices"): the hardcoded `top-[110px]` was too high
+         after the Plan Crest grew with recent additions (TwinChip TT + Spec
+         Tag heroes etc.).  Switched to a generous `top-[260px]` so the menu
+         clears the Stage bar (148 px) + Plan Crest (~95-110 px live) + an
+         8 px breathing-room gap regardless of which row the crest renders.
+         The 4 options are now fully visible below the dark bar. -->
     <div
       v-if="open"
-      class="fixed right-4 top-[110px] z-[620] w-[20rem]
+      class="fixed right-4 top-[260px] z-[620] w-[20rem]
              rounded-2xl bg-white shadow-2xl ring-1 ring-black/10
              overflow-hidden"
       role="dialog"

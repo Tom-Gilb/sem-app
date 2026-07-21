@@ -14,9 +14,21 @@
  * Twin-portable: all types are plain data records.
  */
 
+// r41 v185 — Tom Gilb 2026-06-19 "thanks, now sem and leftovers" + "pls do
+// all requests".  The v176 Claudian-routed migration is REVERTED to match
+// the v184 reversal of Plan Importer.  Same reasoning: the round-trip
+// (prompt → paste into Claudian → paste reply → click Apply) is too much
+// friction.  Direct-Anthropic call restored.  The Claudian-routed helpers
+// (requestClaudianDraft / applyClaudianResult / loadDraftsFromDisk) stay
+// exported as opt-in alternatives.  Trade-off: yesterday's Google LLC
+// quota-exceeded error can return; accepted by Tom in exchange for
+// removing the round-trip.  Claude-Code-as-AI-Layer SUPREME rule is
+// therefore CARVED-OUT for both Plan Importer (v184) and Stakeholder
+// Mapper (v185) per Tom's explicit waiver.
 import Anthropic from '@anthropic-ai/sdk'
 import { ref } from 'vue'
 import { MODEL_ID } from '../config/llm'
+import { CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT } from '../config/planguagePrompt'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -45,7 +57,13 @@ export interface MappedStakeholder {
   type: StakeholderType
   description: string       // 1–2 sentence context
   attributes: Record<string, AttributeLevel>  // keyed by ATTRIBUTE_DEFS[i].id
-  draftStatus: 'idle' | 'drafting' | 'done' | 'error'
+  /** r41 v185 — restored to direct-Anthropic lifecycle.
+   *  `idle`               — never analyzed
+   *  `drafting`           — direct Anthropic API call in progress
+   *  `done`               — API returned a valid result and it was applied
+   *  `error`              — API call failed (quota / network / parse)
+   *  `awaiting-claudian`  — retained for opt-in Claudian-routed flow */
+  draftStatus: 'idle' | 'drafting' | 'awaiting-claudian' | 'done' | 'error'
   draftError?: string
   source: 'sample' | 'user'
   createdAt: number
@@ -293,49 +311,62 @@ function _save(): void {
 
 _load()
 
-// ── LLM client (same pattern as useSpecQualityCheck.ts) ───────────────────────
+// ── r41 v185 — Direct-Anthropic flow restored ────────────────────────────────
+// apiKey is optional in local mode — the ollamaAdapter ignores it entirely.
+const _client = new Anthropic({
+  apiKey:                  (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ?? 'local',
+  dangerouslyAllowBrowser: true,
+  timeout:                 120_000,
+})
 
-function _getClient(): Anthropic {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
-  return new Anthropic({ apiKey: apiKey ?? '', dangerouslyAllowBrowser: true, timeout: 120_000 })
-}
-
-// ── JSON extraction helper ────────────────────────────────────────────────────
-
+/** Robust extractor for both the direct API path and the paste-back path. */
 function _extractJson<T>(text: string): T {
   const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
-  try { return JSON.parse(stripped) as T } catch { /* */ }
-  try { return JSON.parse(text.trim()) as T } catch { /* */ }
+  try { return JSON.parse(stripped) as T } catch { /* fall through */ }
+  try { return JSON.parse(text.trim()) as T } catch { /* fall through */ }
   const objMatch = stripped.match(/\{[\s\S]*\}/)
-  if (objMatch) { try { return JSON.parse(objMatch[0]) as T } catch { /* */ } }
+  if (objMatch) { try { return JSON.parse(objMatch[0]) as T } catch { /* fall through */ } }
   throw new Error('Could not extract valid JSON from AI response')
 }
 
-// ── AI Draft function ─────────────────────────────────────────────────────────
-
-async function draftAttributes(stakeholderId: string, abortSignal?: AbortSignal): Promise<void> {
+export async function draftAttributes(stakeholderId: string, abortSignal?: AbortSignal): Promise<void> {
   const idx = stakeholders.value.findIndex(s => s.id === stakeholderId)
   if (idx === -1) return
 
-  // Mark as drafting
   stakeholders.value[idx] = {
     ...stakeholders.value[idx],
     draftStatus: 'drafting',
-    draftError: undefined,
+    draftError:  undefined,
   }
   _save()
 
   const sh = stakeholders.value[idx]
-
   const attrList = ATTRIBUTE_DEFS.map(a =>
     `  - ${a.id} (${a.name}): ${a.description} Scale 1=${a.levels[0].label} ... 5=${a.levels[4].label}`,
   ).join('\n')
 
-  const systemPrompt = `You are an expert stakeholder analyst trained in Tom Gilb's Planguage and Stakeholder Engineering. \
-For each attribute, provide a level (1-5), the matching level label, confidence, a REAL non-fabricated source URL, \
-a specific source fact, and a brief rationale. \
-If you do not know a specific URL, use a well-known authoritative source (Wikipedia, annual report, official government site, reputable news). \
-Do NOT invent URLs. Return ONLY valid JSON with no prose or markdown fences.`
+  // r41 v271 (Tom Gilb 2026-06-21 "sweep the rest"): canonical primer imported.
+  // The Stakeholder discipline + parameter-discipline rules now flow from the
+  // canonical primer; this prompt only adds the attribute-scoring-specific
+  // framing (10 attributes × {level 1-5, label, confidence, sourceUrl,
+  // sourceFact, aiRationale}) which is the caller-specific JSON shape.
+  const systemPrompt = `You are an expert stakeholder analyst trained in Tom Gilb's Planguage and Stakeholder Engineering.
+
+== STAKEHOLDER-ATTRIBUTE-SCORING INPUT FORMAT (input shape for this caller) ==
+You are given a Stakeholder + a list of 10 attribute scales (each 1-5). For
+EACH attribute, draft: level (1-5), matching level label, confidence, a REAL
+non-fabricated source URL, a specific source fact, and a brief rationale.
+If you do not know a specific URL, use a well-known authoritative source
+(Wikipedia, annual report, official government site, reputable news). Do
+NOT invent URLs.
+
+${CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT}
+
+== STAKEHOLDER-ATTRIBUTE-SCORING SPECIFIC NOTES ==
+• Stakeholder DEFINITION: ONE sentence ≤ 20 words (per canonical primer Stakeholder discipline above). NEVER a paragraph.
+• aiRationale per attribute: 1 short sentence ≤ 25 words — just the WHY of the level chosen. Save metric data for the dedicated parameter fields.
+• sourceFact: 1 short concrete fact backing the level. Not a narrative summary.
+• Return ONLY valid JSON with no prose or markdown fences.`
 
   const userPrompt = `Analyse this stakeholder and draft all 10 attribute levels:
 
@@ -362,15 +393,13 @@ Return JSON exactly in this shape:
 }`
 
   try {
-    const client = _getClient()
     const now = new Date().toISOString()
-
-    const response = await client.messages.create(
+    const response = await _client.messages.create(
       {
-        model: MODEL_ID,
+        model:      MODEL_ID,
         max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
+        system:     systemPrompt,
+        messages:   [{ role: 'user', content: userPrompt }],
       },
       { signal: abortSignal },
     )
@@ -381,11 +410,11 @@ Return JSON exactly in this shape:
       .join('')
 
     type AttrRaw = {
-      value: number
-      levelLabel: string
-      confidence: string
-      sourceUrl: string
-      sourceFact: string
+      value:       number
+      levelLabel:  string
+      confidence:  string
+      sourceUrl:   string
+      sourceFact:  string
       aiRationale: string
     }
     const parsed = _extractJson<{ attributes: Record<string, AttrRaw> }>(text)
@@ -430,6 +459,245 @@ Return JSON exactly in this shape:
   }
 }
 
+// ── Claudian-routed analysis flow (r41 v176) ──────────────────────────────────
+// Per the Claude-Code-as-AI-Layer SUPREME rule, the SEM App never calls an
+// external AI API at runtime.  Instead, Tom invokes Claudian (this Claude
+// Code session) and Claudian does the work:
+//
+//   1. Planner clicks "Request Claudian Analysis" on a stakeholder
+//   2. The composable marks the stakeholder `awaiting-claudian` AND copies
+//      a ready-to-paste prompt to the system clipboard
+//   3. Tom pastes the prompt into a Claudian chat (or runs Claudian against
+//      the sem-app repo)
+//   4. Claudian returns a Planguage-shaped result (the canonical structured-
+//      data form used everywhere in SEM, per the existing rule on the term)
+//   5. The planner pastes the result back via "Paste Claudian Result", OR
+//      Claudian writes it to `public/data/stakeholderDrafts.json` and the
+//      planner clicks "Refresh from disk"
+//   6. The composable parses + validates + applies the result; status → done
+//
+// No API key, no quota cliff, no browser-side network call to an AI provider.
+
+/** Where Claudian writes the batch-result file when running against the
+ *  sem-app repo.  Vite serves anything under `public/` at the root, so a
+ *  `fetch('/data/stakeholderDrafts.json')` in the browser reads what
+ *  Claudian wrote on disk. */
+const DRAFTS_FILE_URL = '/data/stakeholderDrafts.json'
+
+/** Robust Planguage-result extractor.  Accepts a raw paste that may include
+ *  markdown fences, surrounding prose, or just the bare result. */
+function _extractStructuredResult<T>(text: string): T {
+  const stripped = text.replace(/^```(?:json|pl|planguage)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  try { return JSON.parse(stripped) as T } catch { /* fall through */ }
+  try { return JSON.parse(text.trim()) as T } catch { /* fall through */ }
+  const objMatch = stripped.match(/\{[\s\S]*\}/)
+  if (objMatch) { try { return JSON.parse(objMatch[0]) as T } catch { /* fall through */ } }
+  throw new Error('Could not extract a valid Planguage result from the pasted text.')
+}
+
+/** Build the prompt Claudian needs to draft a stakeholder's 10 attributes.
+ *  Pure function — no side effects.  Returned string is paste-ready. */
+export function buildClaudianStakeholderPrompt(stakeholderId: string): string | null {
+  const sh = stakeholders.value.find(s => s.id === stakeholderId)
+  if (!sh) return null
+
+  const attrList = ATTRIBUTE_DEFS.map(a =>
+    `  - ${a.id} (${a.name}): ${a.description} Scale 1=${a.levels[0].label} ... 5=${a.levels[4].label}`,
+  ).join('\n')
+
+  return `You are an expert stakeholder analyst trained in Tom Gilb's Planguage and Stakeholder Engineering.  For the stakeholder below, draft all 10 attribute levels.  For each attribute provide: a level (1-5), the matching level label, a confidence rating, a REAL non-fabricated source URL, a specific source fact, and a brief rationale.
+
+If you do not know a specific URL, use a well-known authoritative source (Wikipedia, annual report, official government site, reputable news).  Do NOT invent URLs.
+
+Return ONLY a valid Planguage Representation (the canonical structured-data form used in SEM App), with no surrounding prose and no markdown fences.
+
+━━ TOM GILB SUPREME RULE 2026-06-16 — STAKEHOLDER PARAMETER DISCIPLINE ━━
+Tom Gilb 2026-06-16 verbatim: "Planguage specification is NOT about writing a story. It is about specifying entities with a series of short parameter descriptions.  Learn from the standards and my books.  Do not fall back on massive paragraphs."
+
+• Stakeholder DEFINITION: ONE sentence ≤ 20 words.  Identifies + DISTINGUISHES this stakeholder from any other similar one.  NEVER a paragraph.  NEVER includes metrics, business case, rationale, or scale.
+• aiRationale per attribute: 1 short sentence ≤ 25 words.  Just the WHY of the level chosen.  Save metric data for the dedicated parameter fields.
+• sourceFact: 1 short concrete fact backing the level.  Not a narrative summary.
+
+Reference: Tom Gilb · Competitive Engineering · Stakeholder Engineering · 10.Standard/Standard.Kai-Zen/Template_Write_Stakeholder.md
+━━ END SUPREME RULE ━━
+
+STAKEHOLDER:
+  Stakeholder ID: ${sh.id}
+  Name: ${sh.name}
+  Role: ${sh.role}
+  Type: ${sh.type}
+  Description: ${sh.description}
+
+ATTRIBUTES TO SCORE:
+${attrList}
+
+Return exactly this Planguage Representation shape:
+{
+  "stakeholderId": "${sh.id}",
+  "attributes": {
+    "<attrId>": {
+      "value": <1-5>,
+      "levelLabel": "<label from scale>",
+      "confidence": "<high|medium|low>",
+      "sourceUrl": "<real URL>",
+      "sourceFact": "<specific fact backing the level>",
+      "aiRationale": "<1-2 sentence explanation>"
+    }
+  }
+}
+
+When you have many stakeholders to draft in one pass, write the combined result to:
+  sem-app/public/data/stakeholderDrafts.json
+in the shape:
+{
+  "generatedAt": "<ISO timestamp>",
+  "results": [ { "stakeholderId": "...", "attributes": { ... } }, ... ]
+}
+The planner will click "Refresh from disk" in the panel to pull it in.`
+}
+
+/** Mark a stakeholder as awaiting Claudian, build the prompt, and copy it
+ *  to the system clipboard.  Returns the prompt text so the caller can
+ *  also display it (e.g. in a textarea for manual copy when clipboard
+ *  permission is denied). */
+export async function requestClaudianDraft(stakeholderId: string): Promise<string | null> {
+  const idx = stakeholders.value.findIndex(s => s.id === stakeholderId)
+  if (idx === -1) return null
+
+  const prompt = buildClaudianStakeholderPrompt(stakeholderId)
+  if (!prompt) return null
+
+  stakeholders.value[idx] = {
+    ...stakeholders.value[idx],
+    draftStatus: 'awaiting-claudian',
+    draftError:  undefined,
+  }
+  _save()
+
+  // Best-effort clipboard copy.  If the browser denies (no user gesture or
+  // permission), the panel's textarea is the fallback so the planner can
+  // copy manually.
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(prompt)
+    }
+  } catch {
+    // intentional swallow — fallback is the panel textarea
+  }
+
+  return prompt
+}
+
+/** Apply a Planguage result that Claudian produced.  Accepts the raw paste;
+ *  extracts the structured result; validates against the attribute schema;
+ *  writes to the matching stakeholder.  Throws on parse failure so the
+ *  caller can show a friendly error. */
+export function applyClaudianResult(stakeholderId: string, pastedText: string): void {
+  type AttrRaw = {
+    value:       number
+    levelLabel:  string
+    confidence:  string
+    sourceUrl:   string
+    sourceFact:  string
+    aiRationale: string
+  }
+  type ResultShape = {
+    stakeholderId?: string
+    attributes:     Record<string, AttrRaw>
+  }
+
+  const parsed = _extractStructuredResult<ResultShape>(pastedText)
+  if (!parsed || typeof parsed !== 'object' || !parsed.attributes) {
+    throw new Error('Pasted result is missing the "attributes" section.')
+  }
+
+  const now = new Date().toISOString()
+  const updatedAttributes: Record<string, AttributeLevel> = {}
+  for (const def of ATTRIBUTE_DEFS) {
+    const raw = parsed.attributes[def.id]
+    if (!raw) continue
+    updatedAttributes[def.id] = {
+      value:       Math.min(5, Math.max(1, Math.round(Number(raw.value) || 3))),
+      levelLabel:  raw.levelLabel ?? def.levels[2].label,
+      confidence:  (['high', 'medium', 'low'].includes(raw.confidence) ? raw.confidence : 'medium') as 'high' | 'medium' | 'low',
+      sourceUrl:   raw.sourceUrl ?? '',
+      sourceFact:  raw.sourceFact ?? '',
+      aiRationale: raw.aiRationale ?? '',
+      lastUpdated: now,
+    }
+  }
+
+  if (Object.keys(updatedAttributes).length === 0) {
+    throw new Error('Pasted result did not contain any of the 10 expected attributes.')
+  }
+
+  const idx = stakeholders.value.findIndex(s => s.id === stakeholderId)
+  if (idx === -1) {
+    throw new Error(`Stakeholder ${stakeholderId} no longer exists in the panel.`)
+  }
+  stakeholders.value[idx] = {
+    ...stakeholders.value[idx],
+    attributes:   updatedAttributes,
+    draftStatus:  'done',
+    draftError:   undefined,
+    lastAnalyzed: now,
+  }
+  _save()
+}
+
+/** Fetch the batch-result file Claudian writes at
+ *  `public/data/stakeholderDrafts.json`.  If present, apply every result to
+ *  its matching stakeholder.  Returns the number of stakeholders updated.
+ *  Returns 0 (and a friendly reason) if the file is missing or empty. */
+export async function loadDraftsFromDisk(): Promise<{ updated: number; reason?: string }> {
+  let res: Response
+  try {
+    res = await fetch(DRAFTS_FILE_URL, { cache: 'no-store' })
+  } catch (err) {
+    return { updated: 0, reason: `Could not fetch the drafts file (${err instanceof Error ? err.message : 'network error'}).` }
+  }
+  if (!res.ok) {
+    return { updated: 0, reason: `No drafts file yet — Claudian has not written one.  Ask Claudian to draft a batch and write to public/data/stakeholderDrafts.json.` }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { updated: 0, reason: 'The drafts file exists but is not valid Planguage Representation.' }
+  }
+
+  type BatchShape = {
+    generatedAt?: string
+    results: Array<{
+      stakeholderId: string
+      attributes:    Record<string, {
+        value:       number
+        levelLabel:  string
+        confidence:  string
+        sourceUrl:   string
+        sourceFact:  string
+        aiRationale: string
+      }>
+    }>
+  }
+  const batch = body as BatchShape
+  if (!batch.results || !Array.isArray(batch.results)) {
+    return { updated: 0, reason: 'The drafts file is missing the "results" list.' }
+  }
+
+  let updated = 0
+  for (const entry of batch.results) {
+    try {
+      applyClaudianResult(entry.stakeholderId, JSON.stringify(entry))
+      updated += 1
+    } catch {
+      // skip — entry is for a stakeholder no longer in the panel, or malformed
+    }
+  }
+  return { updated }
+}
+
 // ── Mutation functions ────────────────────────────────────────────────────────
 
 function addStakeholder(
@@ -451,7 +719,8 @@ function addStakeholder(
   }
   stakeholders.value = [sh, ...stakeholders.value]
   _save()
-  // Auto-fire AI draft
+  // r41 v185 — auto-fire restored.  New stakeholders kick off a direct
+  // Anthropic draft immediately.
   void draftAttributes(sh.id)
   return sh
 }
@@ -467,7 +736,8 @@ function updateStakeholder(id: string, patch: Partial<MappedStakeholder>): void 
   if (idx === -1) return
   stakeholders.value[idx] = { ...stakeholders.value[idx], ...patch }
   _save()
-  // Re-draft if name/role/type/description changed
+  // r41 v185 — auto-redraft restored: name/role/type/description edits fire
+  // a fresh direct Anthropic draft.
   if (patch.name !== undefined || patch.role !== undefined || patch.type !== undefined || patch.description !== undefined) {
     void draftAttributes(id)
   }
@@ -487,6 +757,12 @@ export function useStakeholderMapper() {
     removeStakeholder,
     updateStakeholder,
     selectStakeholder,
+    // r41 v185 — direct-Anthropic flow restored.  draftAttributes is the
+    // default; Claudian-routed helpers remain opt-in.
     draftAttributes,
+    requestClaudianDraft,
+    applyClaudianResult,
+    loadDraftsFromDisk,
+    buildClaudianStakeholderPrompt,
   }
 }

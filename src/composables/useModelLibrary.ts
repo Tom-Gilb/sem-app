@@ -25,6 +25,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ref, computed } from 'vue'
 import { MODEL_ID } from '../config/llm'
+// v479 (2026-07-20) — Portfolio Pattern #1 (IDB dual-write): imported KV
+// helpers so a large `userText` (e.g. Tom's CE-book paste) survives even
+// when localStorage is at quota.  Same shape as useGuidelineLibrary +
+// useContractStore.  See TWIN-PORTABILITY-PORTFOLIO.md Pattern #1.
+import { idbGet, idbSet, idbSupported } from '../lib/idbKv'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -681,8 +686,68 @@ function _loadEntries(): void {
   }
 }
 
+// v479 (2026-07-20) — DUAL-WRITE (Portfolio Pattern #1, same shape as
+// useGuidelineLibrary._saveLibrary / useContractStore._saveAll).
+// IDB is the durable store (~50% of disk quota — many hundreds of MB).
+// localStorage stays as the sync-bootstrap so first paint is instant.
+// If localStorage throws QuotaExceededError (Tom 2026-07-20 CE-book
+// paste hit this: "COULD NOTSAVE MODELTHE QUOTA HAS BEEN EXCEEDED"),
+// IDB still succeeds silently → the entry is durable → the panel flow
+// proceeds → no user-visible failure.  On next tab open the post-
+// bootstrap IDB check restores any entries missing from localStorage.
+async function _saveEntriesToIdb(entries: ModelLibraryEntry[]): Promise<void> {
+  if (!idbSupported()) return
+  try {
+    // v487 (2026-07-20) — Tom "my ce model does not seem to stick around.
+    // I have to keep on reading the ce book in".  ROOT CAUSE: passing Vue's
+    // reactive Proxy directly to IDB triggered `DataCloneError: Failed to
+    // execute 'put' on 'IDBObjectStore': [object Array] could not be cloned`
+    // EVERY save since v479.  IDB has NEVER contained any user models —
+    // localStorage has been the ONLY durable store all along.  When Tom's
+    // large CE-book paste hit localStorage quota, the save silently failed
+    // → next reload = model gone.  Fix: JSON round-trip strips the Proxy
+    // wrapper so structured-clone succeeds.  Verified with headless probe:
+    // pre-fix logs `DataCloneError` on every save; post-fix logs nothing.
+    const plain = JSON.parse(JSON.stringify(entries)) as ModelLibraryEntry[]
+    await idbSet(STORAGE_KEY, plain)
+  } catch (err) {
+    // IDB write failed — this is now rare; localStorage is still tried below.
+    console.error('[useModelLibrary] IDB save failed (localStorage still tried):', err)
+  }
+}
+
 function _saveEntries(): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(_userEntries.value))
+  // Fire-and-forget IDB (durable, ~500 MB).
+  void _saveEntriesToIdb(_userEntries.value)
+  // Sync localStorage (fast bootstrap on next load).  If quota fails, the
+  // IDB write above still gives durability — do NOT re-throw.  submitBringIn
+  // then completes normally and the planner sees the ✓ success toast.
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(_userEntries.value))
+  } catch (err) {
+    const name = (err as Error)?.name ?? '(unknown)'
+    console.warn(
+      `[useModelLibrary] localStorage save FAILED (${name}). IDB dual-write is the durable path — no data loss.  Entries: ${_userEntries.value.length}.`,
+      err,
+    )
+  }
+}
+
+// v479 — post-bootstrap IDB rehydrate.  If a prior session wrote entries
+// to IDB but the localStorage bootstrap missed them (e.g. because the
+// localStorage write threw QuotaExceededError), pull them from IDB and
+// merge — IDB wins whenever it has more entries.  Fire-and-forget on
+// module init; the panel re-renders reactively when the ref updates.
+async function _hydrateFromIdb(): Promise<void> {
+  if (!idbSupported()) return
+  try {
+    const idbData = await idbGet<ModelLibraryEntry[]>(STORAGE_KEY)
+    if (Array.isArray(idbData) && idbData.length > _userEntries.value.length) {
+      _userEntries.value = idbData
+    }
+  } catch (err) {
+    console.warn('[useModelLibrary] IDB hydrate failed (localStorage bootstrap still in effect):', err)
+  }
 }
 
 function _loadCategories(): void {
@@ -714,6 +779,11 @@ function _saveCategories(): void {
 
 _loadEntries()
 _loadCategories()
+// v479 — post-bootstrap IDB rehydrate (Portfolio Pattern #1).  Recovers
+// entries that landed in IDB but not localStorage after a quota-exceeded
+// event.  Fire-and-forget: the sync bootstrap above already gave us the
+// last-known-good render; this only adds any IDB-only entries.
+void _hydrateFromIdb()
 
 // ── LLM client (same pattern as useEvoCritiquer) ──────────────────────────────
 
@@ -906,6 +976,21 @@ export function useModelLibrary() {
     entry.analysisError  = undefined
     _saveEntries()
 
+    // v481 (2026-07-20) — Tom hit "Claude Code adapter error 500: Prompt is
+    // too long" pasting the CE-book blurb.  Local Claude CLI + subprocess
+    // arg limits impose a much smaller effective prompt ceiling than the
+    // model's 200k-token context.  Cap the userText at MAX_USERTEXT_CHARS
+    // (~40k chars ≈ ~10k tokens — well within every model + every subprocess
+    // arg buffer).  Prepend a visible "TRUNCATED" note so the AI knows the
+    // input is a slice AND Tom sees it in the description.
+    const MAX_USERTEXT_CHARS = 40000
+    const rawText = entry.userText
+    const wasTruncated = rawText.length > MAX_USERTEXT_CHARS
+    const userTextForAI = wasTruncated
+      ? rawText.slice(0, MAX_USERTEXT_CHARS)
+        + `\n\n[TRUNCATED — original text was ${rawText.length.toLocaleString()} characters; only the first ${MAX_USERTEXT_CHARS.toLocaleString()} were analysed to fit AI prompt limits.  Split long documents into multiple models for full coverage.]`
+      : rawText
+
     const systemPrompt =
       'You are a Planguage expert. Convert the input text into structured Planguage ' +
       'F./V./C./R./S. entries. ' +
@@ -933,7 +1018,7 @@ export function useModelLibrary() {
           model:      MODEL_ID,
           max_tokens: 4096,
           system:     systemPrompt,
-          messages:   [{ role: 'user', content: entry.userText }],
+          messages:   [{ role: 'user', content: userTextForAI }],
         },
         { signal },
       )

@@ -17,7 +17,7 @@ function makePerfectSpec(): SpecBlock {
         type: 'Function',
         level: 'Product',
         description: 'The system calculates invoice totals automatically on submission.',
-        successCriteria: 'All invoices calculated correctly within 2 seconds in 100% of cases.',
+        presenceTest: 'All invoices calculated correctly within 2 seconds in 100% of cases.',
         functionOfValue: 'V.Accuracy',
       },
     ],
@@ -121,20 +121,20 @@ describe('useSpecAccessibility', () => {
     expect(longDesc[0].message).toContain('201')
   })
 
-  it('detects missing successCriteria (WARNING)', () => {
+  it('detects missing presenceTest (WARNING)', () => {
     const spec = makePerfectSpec()
-    spec.functions[0].successCriteria = ''
+    spec.functions[0].presenceTest = ''
     const issues = checkSpec(spec)
-    const missing = issues.filter(i => i.severity === 'warning' && i.message === 'Function is missing success criteria')
+    const missing = issues.filter(i => i.severity === 'warning' && i.message === 'Function is missing presence test')
     expect(missing.length).toBeGreaterThan(0)
     expect(missing[0].entryId).toBe('F.TestFunc')
   })
 
-  it('detects successCriteria shorter than 10 chars (WARNING)', () => {
+  it('detects presenceTest shorter than 10 chars (WARNING)', () => {
     const spec = makePerfectSpec()
-    spec.functions[0].successCriteria = 'Pass'
+    spec.functions[0].presenceTest = 'Pass'
     const issues = checkSpec(spec)
-    const missing = issues.filter(i => i.severity === 'warning' && i.message === 'Function is missing success criteria')
+    const missing = issues.filter(i => i.severity === 'warning' && i.message === 'Function is missing presence test')
     expect(missing.length).toBeGreaterThan(0)
   })
 
@@ -149,7 +149,7 @@ describe('useSpecAccessibility', () => {
 
   it('suggestion text is populated for all severities', () => {
     const spec = makePerfectSpec()
-    spec.functions[0].successCriteria = ''
+    spec.functions[0].presenceTest = ''
     spec.values[0].goal = 'good'
     spec.values[0].scale = '% ok'
     const issues = checkSpec(spec)

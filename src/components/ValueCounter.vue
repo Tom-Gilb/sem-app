@@ -5,9 +5,12 @@
   r08 2026-05-28: Horizontal scroll fix — native overflow-x-auto replaces ScrollContainer
                   (ScrollContainer only does vertical); scroll-to-active on stage change.
   r09 2026-05-28: Double-click stage tiles → StageInfoPanel (rich history/Planguage/examples).
-                  250 ms timer separates single-click (drama popup) from double-click (info).
+                  250 ms timer separates single-click (navigate) from double-click (info).
   r10 2026-05-28: Stage tile single-click → drama popup (stage-colored panel, neon glyph, CTA).
                   Arrow/tile hover tooltips now say 'click for INFO' / 'dbl-click for INFO'.
+  r11 2026-06-07: Single-click → navigate directly (Tom: "clicking the stager pin should bring
+                  me to any stage"). Drama popup removed from single-click path. Double-click
+                  retains StageInfoPanel. 250 ms timer preserved to distinguish the two.
                   ⚡ emoji on amber button darkened via filter brightness(0.1).
 
   11 stages (left to right), each a 120px tall dark pill with:
@@ -253,20 +256,18 @@ let _clickTimer: ReturnType<typeof setTimeout> | null = null
 
 function handlePillClick(stage: number): void {
   if (_clickTimer) {
-    // Second click within 250 ms → double-click → open full info panel
+    // Second click within 250 ms → double-click → open full StageInfoPanel
     clearTimeout(_clickTimer)
     _clickTimer = null
-    closeDramaPopover()
     openStageInfoIdx.value = stage
   } else {
-    // First click — wait to see if a second arrives
+    // First click — if no second click arrives within 250 ms, navigate to that stage.
+    // Tom 2026-06-07: "clicking the stager pin should bring me to any stage."
+    // Single-click = navigate directly. Double-click = full StageInfoPanel.
+    // Drama popover removed from single-click path — navigation IS the feedback.
     _clickTimer = setTimeout(() => {
       _clickTimer = null
-      // Single-click: open drama popover on the tile (not navigate directly)
-      const idx = STAGES.findIndex(s => s.stage === stage)
-      const pill = pillRefs.value[idx]
-      popoverAnchorRect.value = pill ? pill.getBoundingClientRect() : null
-      activePopoverStage.value = stage
+      navigateToStage(stage)
     }, 250)
   }
 }
@@ -482,18 +483,19 @@ onUnmounted(() => {
       <template v-for="(step, idx) in STAGES" :key="step.stage">
 
         <!-- ── Stage pill ───────────────────────────────────────────── -->
-        <!-- Single-click → drama popover (overview + CTA); Double-click → StageInfoPanel full INFO.
+        <!-- Single-click → navigate to this stage. Double-click → StageInfoPanel full INFO.
              250 ms timer in handlePillClick() separates the two actions. -->
         <button
           :ref="(el) => { if (el) pillRefs[idx] = el as HTMLButtonElement }"
           type="button"
-          class="relative flex flex-col items-center justify-center gap-1.5 flex-1 min-w-[76px] focus:outline-none
+          class="relative flex flex-col items-center justify-center gap-1.5 flex-1 min-w-[128px] focus:outline-none
                  focus-visible:ring-2 focus-visible:ring-white/60 rounded-2xl
                  transition-all duration-300 hover:scale-105 active:scale-95"
+          :data-v411-tile-min-w="'128'"
           :style="{ ...pillStyle(step.stage), height: '120px', borderRadius: '16px' }"
-          :aria-label="`Stage ${step.stage}: ${step.label} — click for overview · double-click for detailed stage info`"
+          :aria-label="`Stage ${step.stage}: ${step.label} — click to navigate here · double-click for detailed stage info`"
           :aria-current="step.stage === currentStage ? 'step' : undefined"
-          :title="`${step.title} · single-click for overview · DOUBLE-CLICK for detailed stage info`"
+          :title="`${step.title} · click to go to Stage ${step.stage} · DOUBLE-CLICK for detailed stage info`"
           @click="handlePillClick(step.stage)"
         >
           <!-- Stage Halo — bright white glowing ring, breathing 2s.
@@ -553,8 +555,16 @@ onUnmounted(() => {
                 :style="glowStyle(step.stage)"
                 aria-hidden="true"
               >
-                <!-- no-detail-click: tile button owns dblclick (StageInfoPanel via timer). -->
-                <PlTypeIcon :pl-type="step.plType" size="xl" :no-detail-click="true" />
+                <!-- no-detail-click: tile button owns dblclick (StageInfoPanel via timer).
+                     r41 v380 (Tom Gilb 2026-06-25 "constraint hover is still there") —
+                     pass per-stage canonical title so PlTypeIcon's inner HoverHint
+                     matches the stage's purpose; without this the inner span falls
+                     back to CANONICAL_LABELS[plType] (e.g. constraint = "Constraint —
+                     hard boundary that must not be violated…") which leaks through
+                     when the cursor lands on the icon span instead of the surrounding
+                     button area.  Trace-Before-Patch SUPREME: third stage-bar
+                     rendering site missed in v379 sweep. -->
+                <PlTypeIcon :pl-type="step.plType" size="xl" :no-detail-click="true" :title="step.title" />
               </div>
             </div>
           </div>
@@ -583,7 +593,7 @@ onUnmounted(() => {
                  group"
           :style="arrowButtonStyle(idx)"
           :aria-label="`${step.label} to ${STAGES[idx + 1].label} transition — click or double-click for INFO`"
-          :title="`Stage ${step.stage}→${step.stage + 1}: ${step.label} → ${STAGES[idx + 1].label} · click for INFO · double-click for INFO (history · Planguage · fun fact)`"
+          :title="`Stage ${step.stage}→${step.stage + 1}: ${step.label} → ${STAGES[idx + 1].label} · click for INFO · double-click for INFO (lineage · Planguage · fun fact)`"
           @click="openArrow(idx)"
         >
           <!-- White shaft + white concave swept-back arrowhead on gradient bg.
@@ -725,6 +735,7 @@ onUnmounted(() => {
             <PlTypeIcon
               :pl-type="activePopoverData?.plType ?? 'function'"
               size="2xl"
+              :title="activePopoverData?.title"
             />
           </div>
           <!-- Stage description text from STAGES[].title -->

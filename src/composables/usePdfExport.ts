@@ -67,7 +67,7 @@ export function usePdfExport() {
     addDivider()
 
     // ── Functions ─────────────────────────────────────────────────────────
-    addText('F.  Functions', margin, 14, [30, 80, 160], true)
+    addText('Functions', margin, 14, [30, 80, 160], true)
     addSpacing(3)
 
     for (const f of spec.functions) {
@@ -84,7 +84,7 @@ export function usePdfExport() {
     addDivider()
 
     // ── Values ────────────────────────────────────────────────────────────
-    addText('V.  Values', margin, 14, [30, 130, 80], true)
+    addText('Values', margin, 14, [30, 130, 80], true)
     addSpacing(3)
 
     for (const v of spec.values) {
@@ -101,7 +101,7 @@ export function usePdfExport() {
     addDivider()
 
     // ── Solutions ─────────────────────────────────────────────────────────
-    addText('S.  Solutions', margin, 14, [100, 50, 160], true)
+    addText('Solutions', margin, 14, [100, 50, 160], true)
     addSpacing(3)
 
     for (const s of spec.solutions) {

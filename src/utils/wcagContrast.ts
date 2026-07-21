@@ -9,7 +9,7 @@
 //   - Large text (≥ 18pt / ≥ 14pt bold):  minimum contrast ratio 3.0 : 1 (WCAG AA large)
 //   - UI components / graphical objects:   minimum contrast ratio 3.0 : 1 (WCAG AA UI)
 //
-// Recognition trigger: any new button, label, chip, badge, tooltip, or pin sub-option
+// Recognition trigger: any new button, label, chip, badge, HoverHint, or pin sub-option
 // text colour MUST pass contrastRatio(bg, text) >= 4.5 for normal text sizes.
 // Add a row to the BUTTON_COMBOS table in wcagContrast.audit.test.ts for every new
 // colour combination introduced — the test is the automated gate.

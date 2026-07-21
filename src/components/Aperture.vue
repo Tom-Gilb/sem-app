@@ -175,6 +175,7 @@ onUnmounted(() => {
             here because this is a raw <textarea> sizing itself, not a
             layout scroll region.
           -->
+          <!-- audit-ignore: scroll — raw <textarea> manages its own scroll; ScrollContainer fade-pill is not meaningful here -->
           <textarea
             ref="ta"
             v-model="text"

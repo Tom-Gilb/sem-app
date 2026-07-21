@@ -25,7 +25,7 @@ export interface PlanningStageDef {
   label: string
   /** Planguage type glyph rendered in the stage pill + Back/Next pins. */
   plType: PlGlyphType
-  /** Full hover-tooltip description explaining what this stage is for. */
+  /** Full HoverHint description explaining what this stage is for. */
   title: string
 }
 
@@ -34,7 +34,7 @@ export const PLANNING_STAGES: PlanningStageDef[] = [
   { stage: 2,  label: 'Solutions',  plType: 'solution',    title: 'Stage 2 · Solutions — How we will deliver value. Define candidate designs, strategies, and means that address stakeholder needs. Solutions are evaluated against Values and Constraints.' },
   { stage: 3,  label: 'Sharpen',    plType: 'function',    title: 'Stage 3 · Sharpen — What the system does. Clarify functions — binary capabilities that are either present or absent. Sharpen each to a precise presence test with no thresholds inside.' },
   { stage: 4,  label: 'Impacts',    plType: 'value',       title: 'Stage 4 · Impacts — How well we must perform. Define and quantify values with Scale, Meter, Tolerable, and Goal levels. Each value drives prioritisation by Value divided by Cost.' },
-  { stage: 5,  label: 'Refine',     plType: 'constraint',  title: 'Stage 5 · Refine — Hard boundaries that must not be violated. Constraints are binary requirements: regulatory, budget, resource, or logical limits. Solutions must respect every constraint.' },
+  { stage: 5,  label: 'Refine Attributes', plType: 'constraint', title: 'Stage 5 · Refine Attributes — Re-design (change · delete · add) across four attribute lenses: reduce Resources, gain more Value at the same cost, reduce Risks, relax Constraints + Qualifiers. Exits with a Planner-approved Solution Set. Tom Gilb 2026-06-25.' },
   { stage: 6,  label: 'Evo Steps',  plType: 'evo-step',    title: 'Stage 6 · Evo Steps — Incremental delivery cycles. Each Evo Step delivers measurable stakeholder value. Steps within a stage are sequentially independent — VDT picks freely.' },
   { stage: 7,  label: 'Evo Impact', plType: 'value',       title: 'Stage 7 · Evo Impact — Measure the impact of each Evo Step against Values. Which steps deliver the highest Value divided by Cost? This is the Planguage VDT prioritisation engine.' },
   { stage: 8,  label: 'Tasks',      plType: 'task',        title: 'Stage 8 · Tasks — Concrete work items for each Evo Step. Tasks are the engineering activities that implement solutions and produce deliverable results for stakeholders.' },

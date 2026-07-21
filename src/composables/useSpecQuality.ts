@@ -35,15 +35,21 @@ export function useSpecQuality() {
         if (v.goal)                         { vRaw += 4; goalMissing = false }
         if (v.tolerable)                    { vRaw += 4; tolerableMissing = false }
         if (v.status)                       { vRaw += 3; statusMissing = false }
-        if (v.description.length > 20)      { vRaw += 1; descMissing = false }
+        // r41 v278 — defensive guard: stored Value entries from earlier schemas
+        // may have undefined description. Trace-Before-Patch SUPREME sweep applied
+        // to F. and S. on lines 67 + 92.
+        if ((v.description ?? '').length > 20) { vRaw += 1; descMissing = false }
       }
 
-      if (scaleMissing)     issues.push('All V. entries are missing a Scale')
-      if (meterMissing)     issues.push('All V. entries are missing a Meter')
-      if (goalMissing)      issues.push('All V. entries are missing a Goal')
-      if (tolerableMissing) issues.push('All V. entries are missing a Tolerable')
-      if (statusMissing)    issues.push('All V. entries are missing a Status')
-      if (descMissing)      issues.push('All V. entries are missing a meaningful description')
+      // r41 v100 (Tom Gilb 2026-06-16) — Spell-out-Type-Names SUPREME applies
+      // to every user-visible string.  Full word "Value" replaces the V.
+      // abbreviation in PHI issue messages.
+      if (scaleMissing)     issues.push('All Value entries are missing a Scale')
+      if (meterMissing)     issues.push('All Value entries are missing a Meter')
+      if (goalMissing)      issues.push('All Value entries are missing a Goal')
+      if (tolerableMissing) issues.push('All Value entries are missing a Tolerable')
+      if (statusMissing)    issues.push('All Value entries are missing a Status')
+      if (descMissing)      issues.push('All Value entries are missing a meaningful description')
     }
 
     const vScore = vMax > 0 ? (vRaw / vMax) * 50 : 0
@@ -61,14 +67,14 @@ export function useSpecQuality() {
       let fFovMissing = true
 
       for (const f of spec.functions) {
-        if (f.description.length > 20)       { fRaw += 5; fDescMissing = false }
+        if ((f.description ?? '').length > 20) { fRaw += 5; fDescMissing = false }
         if ((f.presenceTest || f.successCriteria || '').length > 10) { fRaw += 5; fCriteriaMissing = false }
         if (f.functionOfValue)               { fRaw += 2; fFovMissing = false }
       }
 
-      if (fDescMissing)     issues.push('All F. entries are missing a meaningful description')
-      if (fCriteriaMissing) issues.push('All F. entries are missing Success Criteria')
-      if (fFovMissing)      issues.push('All F. entries are missing a Function of Value link')
+      if (fDescMissing)     issues.push('All Function entries are missing a meaningful description')
+      if (fCriteriaMissing) issues.push('All Function entries are missing Success Criteria')
+      if (fFovMissing)      issues.push('All Function entries are missing a Function of Value link')
     }
 
     const fScore = fMax > 0 ? (fRaw / fMax) * 25 : 0
@@ -86,14 +92,14 @@ export function useSpecQuality() {
       let sFuncMissing = true
 
       for (const s of spec.solutions) {
-        if (s.description.length > 20) { sRaw += 6; sDescMissing = false }
+        if ((s.description ?? '').length > 20) { sRaw += 6; sDescMissing = false }
         if (s.impact)                  { sRaw += 4; sImpactMissing = false }
         if (s.function)                { sRaw += 2; sFuncMissing = false }
       }
 
-      if (sDescMissing)  issues.push('All S. entries are missing a meaningful description')
-      if (sImpactMissing) issues.push('All S. entries are missing an Impact')
-      if (sFuncMissing)  issues.push('All S. entries are missing a Function link')
+      if (sDescMissing)  issues.push('All Solution entries are missing a meaningful description')
+      if (sImpactMissing) issues.push('All Solution entries are missing an Impact')
+      if (sFuncMissing)  issues.push('All Solution entries are missing a Function link')
     }
 
     const sScore = sMax > 0 ? (sRaw / sMax) * 25 : 0

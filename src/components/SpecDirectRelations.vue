@@ -60,8 +60,14 @@ const emit = defineEmits<{
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function parseFnIds(text: string | null | undefined): string[] {
-  return [...new Set((text ?? '').split(/[,;]+/).map(s => s.trim()).filter(Boolean))]
+function parseFnIds(text: string | null | undefined | unknown): string[] {
+  // r41 v230 — tolerate non-string shapes from historical stored specs
+  // (some VEntries have valueOfFunction as array; some SEntries have
+  // function as array).  Coerce defensively so the renderer never crashes.
+  const safe = typeof text === 'string'
+    ? text
+    : Array.isArray(text) ? text.join(',') : ''
+  return [...new Set(safe.split(/[,;]+/).map(s => s.trim()).filter(Boolean))]
 }
 function trunc(s: string | null | undefined, n: number): string {
   if (!s) return ''
@@ -779,6 +785,7 @@ watch(expanded, () => { setTimeout(() => nextTick(recalcArrows), 300) })
 
         <!-- Canvas — scrollable; minimap is a separate shrink-0 footer BELOW this
              div so it is always visible regardless of canvas scroll depth. -->
+        <!-- audit-ignore: scroll — overflow-auto (bidirectional) is required here; the canvas can be wider than the panel so horizontal scroll is needed in addition to vertical; ScrollContainer only wraps overflow-y and would suppress the horizontal scroll path -->
         <div class="flex-1 min-h-0 overflow-auto p-6">
           <div
             ref="canvasEl"

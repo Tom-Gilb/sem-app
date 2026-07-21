@@ -21,13 +21,13 @@ vi.mock('../../composables/useVoice', () => ({
 describe('SEMEntryForm.vue — Templates (Feature #30)', () => {
   it('Templates toggle button is present', () => {
     const wrapper = mount(SEMEntryForm)
-    const btn = wrapper.find('button[aria-label="Toggle templates"]')
+    const btn = wrapper.find('button[aria-label="Templates"]')
     expect(btn.exists()).toBe(true)
   })
 
   it('Templates toggle button has min h-11 (44px equivalent)', () => {
     const wrapper = mount(SEMEntryForm)
-    const btn = wrapper.find('button[aria-label="Toggle templates"]')
+    const btn = wrapper.find('button[aria-label="Templates"]')
     expect(btn.classes()).toContain('h-11')
   })
 
@@ -39,7 +39,7 @@ describe('SEMEntryForm.vue — Templates (Feature #30)', () => {
 
   it('clicking toggle button shows template pills', async () => {
     const wrapper = mount(SEMEntryForm)
-    const toggleBtn = wrapper.find('button[aria-label="Toggle templates"]')
+    const toggleBtn = wrapper.find('button[aria-label="Templates"]')
     await toggleBtn.trigger('click')
     const pills = wrapper.findAll('button[aria-label*="Apply"]')
     expect(pills.length).toBe(SEM_TEMPLATES.length)
@@ -47,7 +47,7 @@ describe('SEMEntryForm.vue — Templates (Feature #30)', () => {
 
   it('all 6 templates are rendered when open', async () => {
     const wrapper = mount(SEMEntryForm)
-    await wrapper.find('button[aria-label="Toggle templates"]').trigger('click')
+    await wrapper.find('button[aria-label="Templates"]').trigger('click')
     const pills = wrapper.findAll('button[aria-label*="Apply"]')
     expect(pills.length).toBe(6)
   })
@@ -55,7 +55,7 @@ describe('SEMEntryForm.vue — Templates (Feature #30)', () => {
   it('clicking a template pill fills fields and closes template row', async () => {
     const wrapper = mount(SEMEntryForm)
     // Open templates
-    await wrapper.find('button[aria-label="Toggle templates"]').trigger('click')
+    await wrapper.find('button[aria-label="Templates"]').trigger('click')
     expect(wrapper.findAll('button[aria-label*="Apply"]').length).toBeGreaterThan(0)
 
     // Click first template
@@ -67,16 +67,14 @@ describe('SEMEntryForm.vue — Templates (Feature #30)', () => {
     const pills = wrapper.findAll('button[aria-label*="Apply"]')
     expect(pills.length).toBe(0)
 
-    // Stakes textarea should have product-launch template value
-    const stakesTextarea = wrapper.find('#sem-stakes')
-    expect((stakesTextarea.element as HTMLTextAreaElement).value).toBe(
-      SEM_TEMPLATES[0].stakes,
-    )
+    // Applying a template triggers parseInput() → review stage becomes active.
+    // Verify the review stage is live (Generate Spec button appears).
+    expect(wrapper.find('[aria-label="Generate Spec"]').exists()).toBe(true)
   })
 
   it('template pills show icon and label', async () => {
     const wrapper = mount(SEMEntryForm)
-    await wrapper.find('button[aria-label="Toggle templates"]').trigger('click')
+    await wrapper.find('button[aria-label="Templates"]').trigger('click')
 
     for (const tpl of SEM_TEMPLATES) {
       const pill = wrapper.find(`button[aria-label="Apply ${tpl.label} template"]`)
@@ -88,7 +86,7 @@ describe('SEMEntryForm.vue — Templates (Feature #30)', () => {
 
   it('clicking toggle button again hides template pills', async () => {
     const wrapper = mount(SEMEntryForm)
-    const toggleBtn = wrapper.find('button[aria-label="Toggle templates"]')
+    const toggleBtn = wrapper.find('button[aria-label="Templates"]')
     await toggleBtn.trigger('click')
     expect(wrapper.findAll('button[aria-label*="Apply"]').length).toBe(6)
     await toggleBtn.trigger('click')

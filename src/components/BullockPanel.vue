@@ -12,7 +12,7 @@
        close   — user dismissed the panel -->
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import ScrollContainer from './ScrollContainer.vue'
 import PlTypeBadge from './icons/PlTypeBadge.vue'
 import CloseDot from './CloseDot.vue'
@@ -29,6 +29,16 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ close: [] }>()
+
+// r41 v284 (Tom Gilb 2026-06-22 "audit trail all went fuzzy no escape BUG stage 2")
+// — Bullock Audit Trail panel had backdrop click + CloseDot but NO Escape key
+// handler, so a user with focus inside the panel couldn't dismiss with Esc.
+// Composes with CloseDot SUPREME (Esc + click-outside + CloseDot ALL required).
+function _onEscapeKey(e: KeyboardEvent): void {
+  if (e.key === 'Escape') emit('close')
+}
+onMounted(()    => { window.addEventListener('keydown', _onEscapeKey) })
+onUnmounted(()  => { window.removeEventListener('keydown', _onEscapeKey) })
 
 // ── Baseline selection ────────────────────────────────────────────────────────
 // Default: the oldest non-Sharpened version (i.e. the clean generation baseline).
@@ -270,7 +280,7 @@ function truncate(text: string, len = 80): string {
         >
           <div>
             <p class="text-3xl mb-3" aria-hidden="true">📭</p>
-            <p class="text-sm font-medium text-slate-600">No version history yet</p>
+            <p class="text-sm font-medium text-slate-600">No past versions yet</p>
             <p class="text-xs text-slate-400 mt-1">Generate a spec first — Bullock needs a baseline to compare against.</p>
           </div>
         </div>

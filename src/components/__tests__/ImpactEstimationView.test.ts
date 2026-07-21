@@ -112,7 +112,7 @@ describe('ImpactEstimationView.vue', () => {
       const wrapper = mount(ImpactEstimationView, {
         props: { values: [], solutions: [], resourceClaims: {} },
       })
-      expect(wrapper.text()).toContain('Add V. and S. entries')
+      expect(wrapper.text()).toContain('Add Value Specs and Solution Specs')
     })
   })
 

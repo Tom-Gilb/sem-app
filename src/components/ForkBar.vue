@@ -5,7 +5,7 @@
      wiring lands in Evo Step 2+.
 
      Evo Step 5 (2026-05-17): rich hover tooltips + ▾ menu chevron.
-     Custom tooltip panel replaces the browser-native `title` attribute.
+     Custom HoverHint panel replaces the browser-native `title` attribute.
      hasMenu forks show a ▾ chevron; clicking them emits `fork` as usual,
      and SEMEntryForm opens the inline action menu below the bar.
 
@@ -26,9 +26,9 @@ import { useUltraLight, type ForkId, type ForkSpec } from '../composables/useUlt
 const props = defineProps<{
   /**
    * The ForkId whose inline action menu is currently open in the parent.
-   * When set, the hover tooltip for that fork is suppressed so the rendered
+   * When set, the hover HoverHint for that fork is suppressed so the rendered
    * menu (a sibling element, below ForkBar in the DOM) is not visually
-   * covered by the tooltip (z-[340] would sit on top of the menu's auto
+   * covered by the HoverHint (z-[340] would sit on top of the menu's auto
    * z-index). Pass `null` or omit when no menu is open.
    */
   activeMenuForkId?: ForkId | null
@@ -63,7 +63,7 @@ function toneClass(spec: ForkSpec): string {
 </script>
 
 <template>
-  <!-- Outer container is `relative` so the tooltip panel anchors to it. -->
+  <!-- Outer container is `relative` so the HoverHint panel anchors to it. -->
   <div class="relative">
     <div
       role="toolbar"
@@ -102,12 +102,12 @@ function toneClass(spec: ForkSpec): string {
       </button>
     </div>
 
-    <!-- Custom hover tooltip — anchors to the bottom-left of the ForkBar.
+    <!-- Custom hover HoverHint — anchors to the bottom-left of the ForkBar.
          Width is capped at 20rem so it stays comfortably on screen.
          pointer-events-none so it never intercepts hover leaving the pill.
          SUPPRESSED when this fork's inline action menu is open (activeMenuForkId):
-         the menu sibling sits at z-auto while the tooltip is z-[340], so the
-         tooltip would visually cover the menu, hiding its options from the user
+         the menu sibling sits at z-auto while the HoverHint is z-[340], so the
+         HoverHint would visually cover the menu, hiding its options from the user
          even though clicks would pass through (pointer-events-none). -->
     <div
       v-if="hoveredSpec && hoveredSpec.id !== props.activeMenuForkId"
@@ -117,7 +117,7 @@ function toneClass(spec: ForkSpec): string {
              pointer-events-none select-none overflow-hidden"
       :id="`fork-tooltip-${hoveredSpec.id}`"
     >
-      <!-- Tooltip header -->
+      <!-- HoverHint header -->
       <div class="flex items-center gap-2 px-3.5 pt-2.5 pb-1.5 border-b border-white/10">
         <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400">
           {{ hoveredSpec.label }}
@@ -135,7 +135,7 @@ function toneClass(spec: ForkSpec): string {
           direct action
         </span>
       </div>
-      <!-- Tooltip body -->
+      <!-- HoverHint body -->
       <p class="px-3.5 py-2.5 text-[12px] leading-relaxed text-slate-200">
         {{ hoveredSpec.tooltip }}
       </p>

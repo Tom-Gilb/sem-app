@@ -14,6 +14,7 @@
 import { ref, readonly } from 'vue'
 import type { SpecBlock } from '../types/spec'
 import type { FEntry, VEntry, SEntry } from '../types/spec'
+import { stampEntry } from '../utils/sourceStamp'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -266,18 +267,31 @@ export function useSpecCollaborator() {
     }
 
     if (proposal.type === 'add') {
+      // r41 v220 (2026-06-20 producer-stamp sweep) — Spec Collaborator AI
+      // proposals are stamped before being applied to the spec, so the
+      // Source chip shows where the entry came from.  Composes with
+      // Conjunction-of-Technologies SUPREME.
+      // r41 v415 (Source Attribution SUPREME sweep) — Class B (AI proposal
+      // accepted into the spec).  The proposal description IS the trigger.
+      const collabStamp = {
+        generator:   'Spec Collaborator (AI)',
+        sourceType:  'ai' as const,
+        tool:        'Collaborator Proposal',
+        stage:       'model-collaborator',
+        triggerText: (proposal.description ?? '').slice(0, 80),
+      }
       if (proposal.entry === 'F') {
-        const entry: FEntry = {
+        const entry: FEntry = stampEntry({
           id:              proposal.id,
           type:            'Function',
           level:           parsed['level'] ?? 'Product',
           description:     parsed['description'] ?? proposal.content,
           presenceTest: parsed['presencetest'] ?? parsed['successcriteria'] ?? '',
           functionOfValue: parsed['functionofvalue'] ?? '',
-        }
+        }, collabStamp)
         copy.functions.push(entry)
       } else if (proposal.entry === 'V') {
-        const entry: VEntry = {
+        const entry: VEntry = stampEntry({
           id:              proposal.id,
           type:            'Value',
           level:           parsed['level'] ?? 'Product',
@@ -288,17 +302,17 @@ export function useSpecCollaborator() {
           tolerable:       parsed['tolerable'] ?? '',
           goal:            parsed['goal'] ?? '',
           valueOfFunction: parsed['valueoffunction'] ?? '',
-        }
+        }, collabStamp)
         copy.values.push(entry)
       } else if (proposal.entry === 'S') {
-        const entry: SEntry = {
+        const entry: SEntry = stampEntry({
           id:          proposal.id,
           type:        'Solution',
           level:       parsed['level'] ?? 'Product',
           description: parsed['description'] ?? proposal.content,
           impact:      parsed['impact'] ?? '',
           function:    parsed['function'] ?? '',
-        }
+        }, collabStamp)
         copy.solutions.push(entry)
       }
     } else if (proposal.type === 'modify') {

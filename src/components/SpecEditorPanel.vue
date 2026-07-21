@@ -7,9 +7,27 @@
 -->
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+// r41 v239 (Tom Gilb 2026-06-21 verbatim "please drop those V1 V2 tags forever").
+// Planguage Mnemonic ID Standard SUPREME — render mnemonic tag derived from
+// description when stored id is a banned V1/V2/F1/S1/C1 sequential form.
+import { mnemonicLabel } from '../composables/usePenta'
 import ScrollContainer from './ScrollContainer.vue'
+import SpecActionFooter from './SpecActionFooter.vue'
 import CloseDot from './CloseDot.vue'
 import ConceptHint from './ConceptHint.vue'
+// r41 v298 (Tom Gilb 2026-06-23 verbatim "stages row and others not present, and
+// no clarity in what to do and how to progress").  Mount the universal stage
+// strip + agents strip + Stage 2 sub-step strip INSIDE the editor chrome so the
+// planner never loses orientation when the editor occludes the canvas behind it.
+// Composes with: Stages-are-Cyclic SUPREME (every stage reachable from every
+// surface), No-Silent-Removal-of-Permanent-Surfaces SUPREME (strips were missing,
+// now restored), MOVE Principle SUPREME (orientation visible at-a-glance), DD-009
+// Zero-Training UI, No-Silent-Data-Loss SUPREME (auto-save before close-and-navigate).
+import PlanningStageBar from './PlanningStageBar.vue'
+import AgentsStrip from './AgentsStrip.vue'
+import Stage2SubStepStrip from './Stage2SubStepStrip.vue'
+import type { Stage2SubStepKey } from '../data/stage2SubSteps'
+import type { AgentRegistryId } from '../composables/useAgentRegistry'
 // DD-001 (2026-05-13) — Save glyph replaces 💾 floppy disc.
 import SaveGlyph from './icons/SaveGlyph.vue'
 // DD-011 (2026-06-02) — Planguage Spec Field Icons replace generic emoji on field labels.
@@ -31,6 +49,7 @@ import { CONCEPT_HINTS } from '../data/conceptHints'
 import { useEvoPlan } from '../composables/useEvoPlan'
 import { useDraftValueSpec, type DraftResult } from '../composables/useDraftValueSpec'
 import { isValueIncomplete, missingFieldsLabel } from '../utils/specHelpers'
+import { useSpecLock } from '../composables/useSpecLock'
 
 // ── Edit Depth icon + short-label lookup ──────────────────────────────────────
 // Supplementary metadata for the rich depth-picker dropdown.
@@ -88,6 +107,15 @@ const props = defineProps<{
    * full-screen panel — this prop + nav strip replaces it inside the editor).
    */
   planningStage?: number
+  /** r41 v298 — live spec-presence map for AgentsStrip gating.  Same shape as
+   *  the canvas mount in App.vue.  Defaults safely if not provided. */
+  specPresence?: Partial<Record<string, boolean>>
+  /** r41 v298 — current Stage 2 sub-step (only used when planningStage === 2). */
+  stage2SubStep?: Stage2SubStepKey
+  /** r41 v298 — list of completed Stage 2 sub-steps for the sub-step strip. */
+  stage2DoneSteps?: Stage2SubStepKey[]
+  /** r41 v298 — has-plan flag for PlanningStageBar tile gating. */
+  hasPlan?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -108,6 +136,12 @@ const emit = defineEmits<{
    */
   'back-to-value-flow': []
   /**
+   * r41 v240 (Tom Gilb 2026-06-21 verbatim "no export") — Export pin in the toolbar.
+   * App.vue passes the working SpecBlock through useColorfulSpecHtml + opens Mail per
+   * Auto-Open Email SUPREME + Export-button-on-all-windows SUPREME.
+   */
+  'export-spec': [SpecBlock]
+  /**
    * User clicked "◈ Flow" on a specific entry, or "🌊 All" on a tab.
    * App.vue closes the editor, highlights the entry (if entryId set) and opens
    * VisualisePanelModal on the Value Flow tab.
@@ -126,28 +160,49 @@ const emit = defineEmits<{
    * stage bar outside the editor stays in sync.
    */
   'navigate-stage': [n: number]
+  /**
+   * r41 v298 (Tom Gilb 2026-06-23) — User clicked an agent pin INSIDE the
+   * editor's embedded AgentsStrip.  App.vue closes the editor (auto-saving
+   * first via Universal Undo + No-Silent-Data-Loss) and opens the named
+   * agent panel.  agentId matches AgentRegistryId so App.vue routes through
+   * the existing open-* handlers.
+   */
+  'open-agent': [agentId: AgentRegistryId]
+  /**
+   * r41 v298 — User clicked a Stage 2 sub-step pill inside the editor.
+   * App.vue invokes onStage2SubStepGo(target).  Stage 2 strip is shown only
+   * when planningStage === 2.
+   */
+  'go-stage2-substep': [target: Stage2SubStepKey]
+  /**
+   * r41 v298 — User clicked "Continue to Stage 3" inside the Stage 2 strip.
+   * App.vue invokes onStage2ContinueToStage3().
+   */
+  'continue-stage2': []
 }>()
 
 // ── Stage navigation data (mirrors ValueCounter STAGES labels) ────────────────
-// Defined here so the nav strip in the editor template is self-contained and
-// does not require importing ValueCounter internals.
-const EDITOR_STAGE_NAMES: Record<number, string> = {
-  1:  'Stakes',
-  2:  'Values',
-  3:  'Solutions',
-  4:  'Sharpen',
-  5:  'Impacts',
-  6:  'Evo Steps',
-  7:  'Evo Impact',
-  8:  'Tasks',
-  9:  'Study-Act',
-  10: 'Plan',
-  11: 'Export',
-}
+// r41 v349 (Tom Gilb 2026-06-25 *"retrograd unasked for change of stages.
+// Please revert to what we had, what esle have you screwed up that that fine?"*):
+// EDITOR_STAGE_NAMES was a hand-maintained duplicate of canonical
+// `PLANNING_STAGES` labels.  It had drifted FIVE stages off (2='Values' vs
+// canonical 'Solutions', 3='Solutions' vs 'Sharpen', 4='Sharpen' vs 'Impacts',
+// 5='Impacts' vs 'Refine', 10='Plan' vs 'Resources') — a classic Parallel-
+// Implementation Drift (Trace-Before-Patch SUPREME).  Now imports the
+// canonical labels so any future rename in planningStages.ts propagates here
+// automatically and this file can never drift again.
+import { PLANNING_STAGES as _CANONICAL_STAGES } from '../data/planningStages'
+const EDITOR_STAGE_NAMES: Record<number, string> = Object.fromEntries(
+  _CANONICAL_STAGES.map(s => [s.stage, s.label])
+)
 
 const currentStageName = computed(() =>
   props.planningStage ? (EDITOR_STAGE_NAMES[props.planningStage] ?? `Stage ${props.planningStage}`) : null
 )
+
+// r41 v298 (Tom Gilb 2026-06-23 "no clarity in what to do and how to progress").
+// guidanceText computed lives below — it depends on `activeTab` which is
+// declared later in <script setup>.  Composes with Stage-Has-A-Purpose SUPREME.
 
 // ── Composables ───────────────────────────────────────────────────────────────
 
@@ -186,6 +241,11 @@ const {
 
 const { currentModel: _planModel } = useSpecModel()
 
+// ── Standard Done-Changing Close Process (DD-standard-close-2026-06-09) ─────
+const { isLocked, lock, unlock } = useSpecLock()
+/** Timestamp set each time a draft save or master commit completes. */
+const _lastSaved = ref<Date | null>(null)
+
 // ── Evo Plan — needed for the live mini-thumbnail in the back-to-diagram strip ──
 const { plan: _evoPlan } = useEvoPlan()
 const _miniEvoSteps = computed(() => _evoPlan.value?.steps ?? [])
@@ -208,7 +268,8 @@ const othersText = ref('')
 // ── Initialise ────────────────────────────────────────────────────────────────
 
 openEditor(props.spec, {
-  level:      props.initialLevel      ?? 1,
+  // r41 v281 (Tom Gilb 2026-06-22 "a moment ago we had great detailed solutions and now we are back to the bad stuff") — default Edit Depth bumped 1 → 3 so all 26 canonical parameters are immediately editable. Levels 1+2 remain as opt-in NARROWING modes for description-only / metrics-only edits.
+  level:      props.initialLevel      ?? 3,
   mode:       props.initialMode       ?? 'draft',
   targetId:   props.initialTargetId   ?? '',
   targetName: props.initialTargetName ?? '',
@@ -228,6 +289,80 @@ const tabCounts = computed(() => ({
   constraints: (workingSpec.value?.constraints ?? []).length,
   versions:    editVersions.value.length,
 }))
+
+// r41 v298 — guidance-bar computed (declared here so activeTab is in scope).
+// Returns the dynamic sentence shown at the bottom of the embedded chrome.
+// Composes with Stage-Has-A-Purpose SUPREME.
+const guidanceText = computed<string>(() => {
+  const stage = props.planningStage ?? 1
+  const tab   = activeTab.value
+  // Stage 2 — Solutions is the primary lens
+  if (stage === 2) {
+    if (tab === 'solutions')   return 'Editing Solutions for Stage 2. Generate or refine Solutions that move the Value Targets within Resources and Constraints. Use Save Edit Version to commit, then continue to Stage 3 Sharpen.'
+    if (tab === 'values')      return 'Editing Values for Stage 2. Each Value needs Scale, Meter, Tolerable, Goal and Qualifiers. Avoid the Infinity Trap — bound every level with when, where, who.'
+    if (tab === 'functions')   return 'Editing Functions for Stage 2. Functions are BINARY (present or absent). Put quality thresholds on linked Values, not Functions.'
+    if (tab === 'constraints') return 'Editing Constraints for Stage 2. Constraints are HARD rules (binary pass or fail). The qualifier — under what conditions — is critical.'
+    if (tab === 'versions')    return 'Edit Versions for Stage 2. Each saved version is a snapshot; restore one to roll back to it via Universal Undo.'
+  }
+  // Other stages — generic guidance
+  const stageName = EDITOR_STAGE_NAMES[stage] ?? `Stage ${stage}`
+  if (tab === 'versions') return `Edit Versions list for ${stageName}. Saved versions roll back via Universal Undo.`
+  const typed: Record<string, string> = {
+    functions:   `Editing Functions in ${stageName}. Functions are BINARY (present or absent).`,
+    values:      `Editing Values in ${stageName}. Each Value needs Scale, Meter, Tolerable, Goal and Qualifiers.`,
+    solutions:   `Editing Solutions in ${stageName}. Each Solution has a Description, Derived From, Main Impacts and Risks.`,
+    constraints: `Editing Constraints in ${stageName}. Constraints are HARD rules; qualifiers bound their scope.`,
+  }
+  return typed[tab] ?? `Editing the spec at ${stageName}.`
+})
+
+// r41 v298 — spec-presence default (so AgentsStrip can grey-out unmet prerequisites
+// even if App.vue does not pass an explicit presencePresence prop).
+const computedSpecPresence = computed(() => {
+  if (props.specPresence) return props.specPresence
+  const w = workingSpec.value
+  return {
+    spec:         !!w,
+    stakeholders: (w?.stakeholders?.length ?? 0) > 0,
+    values:       (w?.values?.length ?? 0) > 0,
+    functions:    (w?.functions?.length ?? 0) > 0,
+    solutions:    (w?.solutions?.length ?? 0) > 0,
+    resources:    (w?.resources?.length ?? 0) > 0,
+  } as Partial<Record<string, boolean>>
+})
+
+// r41 v298 — handlers for the embedded chrome.  Per No-Silent-Data-Loss SUPREME,
+// auto-save via handleSaveDraft (draft mode) or commit-master (master mode) before
+// the editor unmounts.  Then emit the navigation event.  App.vue closes the editor
+// via its standard close handler when it transitions stages / opens an agent panel.
+function autoSaveBeforeNavigate(): void {
+  try {
+    if (editMode.value === 'master' && hasChanges.value) {
+      // Master mode — commit silently; App.vue's commit-master handler closes editor.
+      const spec = getSpecForMaster()
+      if (spec) emit('commit-master', spec)
+    } else if (editMode.value === 'draft' && hasChanges.value) {
+      // Draft mode — persist the Edit Version so unsaved typing is not lost.
+      saveEditVersion()
+    }
+  } catch { /* never block navigation */ }
+}
+function onEmbeddedStageNav(n: number): void {
+  autoSaveBeforeNavigate()
+  emit('navigate-stage', n)
+}
+function onEmbeddedAgentOpen(agentId: AgentRegistryId): void {
+  autoSaveBeforeNavigate()
+  emit('open-agent', agentId)
+}
+function onEmbeddedStage2Go(target: Stage2SubStepKey): void {
+  autoSaveBeforeNavigate()
+  emit('go-stage2-substep', target)
+}
+function onEmbeddedStage2Continue(): void {
+  autoSaveBeforeNavigate()
+  emit('continue-stage2')
+}
 
 // ── Expanded cards ────────────────────────────────────────────────────────────
 
@@ -278,6 +413,26 @@ function doneEntry(id: string): void {
 
 function isExpanded(id: string): boolean {
   return expandedId.value === id
+}
+
+// r41 v239 (Tom Gilb 2026-06-21 — Planguage Mnemonic ID Standard SUPREME).
+// Helper for the entry-row tag — drops banned V1/V2/F1/S1/C1 sequential IDs in
+// favour of the first significant phrase of the description (e.g. "Portfolio
+// Net Worth" instead of "V1"). When the stored id is already a real mnemonic
+// (e.g. "Onboarding Speed"), it passes through unchanged.
+function entryTag(entry: { id: string; description?: string }): string {
+  return mnemonicLabel(entry.id, entry.description ?? '')
+}
+
+// Strip the leading "Mnemonic: " or "Mnemonic — " prefix from the description
+// when it duplicates the derived tag (otherwise the row reads
+// "Portfolio Net Worth | Portfolio Net Worth: Total market value …").
+function entryBody(entry: { id: string; description?: string }): string {
+  const desc = entry.description ?? ''
+  const tag = entryTag(entry)
+  const m = desc.match(/^([^:—\n]+)([:—])\s*(.*)$/)
+  if (m && m[1].trim().toLowerCase() === tag.trim().toLowerCase()) return m[3]
+  return desc
 }
 
 /** Add a blank entry to the active tab, then auto-expand and scroll to it. */
@@ -345,6 +500,7 @@ function handleSaveDraft(): void {
   }
   incrementManualEditCount()  // Planner Consequences tracking — human directly edited the spec
   savedFlash.value = true
+  _lastSaved.value = new Date()   // Done-Changing: record snapshot time for SpecActionFooter badge
   clearTimeout(_flashTimer)
   _flashTimer = window.setTimeout(() => { savedFlash.value = false }, 2500)
 }
@@ -353,6 +509,7 @@ function handleCommitMaster(): void {
   const spec = getSpecForMaster()
   if (!spec) return
   emit('commit-master', spec)
+  _lastSaved.value = new Date()   // Done-Changing: record commit time for SpecActionFooter badge
   emit('close')
 }
 
@@ -515,8 +672,31 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
       aria-modal="true"
       aria-label="Spec Editor"
     >
-      <!-- ── Header ────────────────────────────────────────────────────────── -->
-      <div class="shrink-0 flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-indigo-800 to-violet-700 border-b border-indigo-900/60 z-50 relative">
+      <!-- ── Header ──────────────────────────────────────────────────────────
+           r41 v240 (Tom Gilb 2026-06-21 verbatim "there is a close word bottom, but
+           not a close button (UPPER RIGHT) and there is no ← Go Back; and no export").
+           Three SUPREME-rule fixes in one toolbar:
+             • flex-wrap gap-y-2 ensures CloseDot at the end never gets clipped on narrow
+               windows — previously the toolbar overflowed off the right edge so CloseDot
+               sat invisible past the window margin (CloseDot SUPREME violation in practice).
+             • Explicit "← Back to Plan" affordance added LEFT of the Spec Editor label —
+               DD-014 Top-and-Bottom Navigation Mirror SUPREME + Tom's verbatim "Go Back".
+             • Export pin added in the toolbar's right-cluster — Export-button-on-all-windows
+               SUPREME (rule_export_button_on_all_windows.md). -->
+      <div class="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3 bg-gradient-to-r from-indigo-800 to-violet-700 border-b border-indigo-900/60 z-50 relative">
+        <!-- ← Back to Plan — Tom 2026-06-21 "no ← Go Back".  Closes editor; semantically
+             identical to CloseDot but framed as navigation so users with a back-arrow mental
+             model find it instantly. -->
+        <button
+          type="button"
+          class="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold transition-colors focus:outline-none shrink-0"
+          title="← Back to the Plan view (closes the Spec Editor; unsaved Edit Version changes auto-save first)"
+          aria-label="Back to Plan view"
+          @click="handleClose"
+        >
+          <span aria-hidden="true" class="text-sm">←</span>
+          <span>Back to Plan</span>
+        </button>
         <!-- Title -->
         <span class="text-sm font-bold text-white tracking-wide shrink-0 flex items-center gap-1.5">
           <EditGlyph size="compact" class="h-3.5 w-auto shrink-0" aria-hidden="true" /> Spec Editor
@@ -531,28 +711,56 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
           >?</button>
         </span>
 
-        <!-- Mode toggle -->
-        <div class="flex items-center gap-1 rounded-lg bg-black/20 p-0.5 shrink-0">
-          <button
-            type="button"
-            class="h-7 px-2.5 rounded-md text-[11px] font-semibold transition-all"
-            :class="editMode === 'draft'
-              ? 'bg-white text-indigo-800 shadow-sm'
-              : 'text-white/60 hover:text-white'"
-            @click="setEditMode('draft')"
-          >📄 Edit Version</button>
-          <button
-            type="button"
-            class="h-7 px-2.5 rounded-md text-[11px] font-semibold transition-all"
-            :class="editMode === 'master'
-              ? 'bg-rose-500 text-white shadow-sm'
-              : 'text-white/60 hover:text-white'"
-            @click="setEditMode('master')"
-          >📝 Master Plan</button>
+        <!-- Mode toggle — r41 v240 (Tom Gilb 2026-06-21 verbatim "Edit Version did not work,
+             and Name Edit Version did not work"). The buttons WERE wired correctly; clicking
+             the ACTIVE-mode button is a no-op by design (you're already in that mode). The
+             complaint is that the labels read as ACTIONS ("create a new Edit Version"), not
+             as MODE INDICATORS. Added explicit HoverHints that name them as mode toggles +
+             "MODE:" label prefix above the pair so the semantics are unambiguous at a glance
+             per DD-009 Zero-Training UI. -->
+        <div class="flex flex-col items-stretch shrink-0">
+          <span class="text-[8px] font-semibold uppercase tracking-widest text-white/40 px-1 mb-0.5" aria-hidden="true">Mode</span>
+          <div
+            class="flex items-center gap-1 rounded-lg bg-black/20 p-0.5"
+            role="radiogroup"
+            aria-label="Editing mode"
+          >
+            <button
+              type="button"
+              role="radio"
+              :aria-checked="editMode === 'draft'"
+              :title="editMode === 'draft' ? 'CURRENTLY in Edit Version mode — changes save to a DRAFT (not Master Plan). Already active; click Master Plan to switch.' : 'Switch to Edit Version mode — changes save to a draft, leaving the Master Plan untouched.'"
+              class="h-7 px-2.5 rounded-md text-[11px] font-semibold transition-all"
+              :class="editMode === 'draft'
+                ? 'bg-white text-indigo-800 shadow-sm'
+                : 'text-white/60 hover:text-white'"
+              @click="setEditMode('draft')"
+            >📄 Edit Version</button>
+            <button
+              type="button"
+              role="radio"
+              :aria-checked="editMode === 'master'"
+              :title="editMode === 'master' ? 'CURRENTLY editing Master Plan — changes commit directly. Already active; click Edit Version to switch to draft mode.' : 'Switch to Master Plan mode — changes commit directly to the canonical Master Plan.'"
+              class="h-7 px-2.5 rounded-md text-[11px] font-semibold transition-all"
+              :class="editMode === 'master'
+                ? 'bg-rose-500 text-white shadow-sm'
+                : 'text-white/60 hover:text-white'"
+              @click="setEditMode('master')"
+            >📝 Master Plan</button>
+          </div>
         </div>
 
-        <!-- Mode badge (mobile-visible status) -->
-        <span :class="['hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0', modeBadge]">
+        <!-- Mode badge (mobile-visible status) — r41 v238 (Tom Gilb 2026-06-21):
+             Tom kept clicking the "DRAFT MODE" pill expecting it to do something. It's a
+             status indicator, not a button. Adding role+title+aria-label so screen-reader
+             + HoverHint identify it as a status indicator and not an affordance, plus
+             cursor-default styling so the pointer doesn't change to a pointer-finger. -->
+        <span
+          role="status"
+          :title="(editMode === 'master' ? 'Currently EDITING MASTER (changes commit directly to the Master Plan). Status only — click the Master Plan / Edit Version buttons on the left to switch.' : 'Currently in DRAFT MODE (changes save to an Edit Version, not the Master Plan). Status only — click the Master Plan / Edit Version buttons on the left to switch.')"
+          :aria-label="(editMode === 'master' ? 'Status: Editing Master' : 'Status: Draft Mode')"
+          :class="['hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 cursor-default select-none', modeBadge]"
+        >
           {{ modeIcon }} {{ editMode === 'master' ? 'EDITING MASTER' : 'DRAFT MODE' }}
         </span>
 
@@ -677,15 +885,26 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
           </div>
         </div>
 
-        <!-- Edit version name (draft mode) -->
-        <input
+        <!-- Edit version name (draft mode) — r41 v238 (Tom Gilb 2026-06-21):
+             Previously the input visually looked like the toolbar's "Edit Version" mode-toggle
+             button and Tom kept clicking it expecting an action; it just focuses. Adding
+             explicit "Name:" label, pencil glyph, and italic placeholder so it reads as a
+             text field at a glance per DD-009 Zero-Training UI. -->
+        <label
           v-if="editMode === 'draft'"
-          :value="editName"
-          type="text"
-          class="hidden md:block h-8 w-36 bg-white/10 border border-white/20 rounded-lg px-3 text-xs text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/40 shrink-0"
-          placeholder="Version name…"
-          @input="setEditName(($event.target as HTMLInputElement).value)"
-        />
+          class="hidden md:flex items-center gap-1.5 h-8 px-2 bg-white/5 border border-dashed border-white/30 rounded-lg shrink-0"
+          :title="'Type a name for this Edit Version (e.g. \'For Auditors v2\'). This is a TEXT FIELD, not a button.'"
+        >
+          <span aria-hidden="true" class="text-[11px] text-white/60">✎</span>
+          <span class="text-[9px] uppercase tracking-wider text-white/50 font-semibold">Name:</span>
+          <input
+            :value="editName"
+            type="text"
+            class="w-24 bg-transparent text-xs text-white placeholder-white/40 italic focus:outline-none"
+            placeholder="type name…"
+            @input="setEditName(($event.target as HTMLInputElement).value)"
+          />
+        </label>
 
         <!-- ⚖️ Global Priority — Tom 2026-05-13: needs to be a button here.
              Sits left of the Save button so the eye reads: identity / level /
@@ -709,6 +928,23 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
              Tom 2026-05-27: "All control pins are at top lines, never floating bottom left or right."
              Prominent commit button (2nd button) with larger size and bright color. -->
         <div class="flex items-center gap-1.5 shrink-0 border-l border-white/20 pl-3">
+          <!-- Export — Tom Gilb 2026-06-21 verbatim "no export".  Per
+               Export-button-on-all-windows SUPREME rule (rule_export_button_on_all_windows.md):
+               every substantial SEM App window MUST expose an Export pin.  Emits 'export-spec'
+               with the current workingSpec; App.vue handles the colourful HTML export
+               (useColorfulSpecHtml with full Tier-1/2/3 Solution rendering banked v236,
+               including the canonical Planguage definition footer) + auto-opens Mail per the
+               Auto-Open Email SUPREME rule. -->
+          <button
+            type="button"
+            class="shrink-0 flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold transition-colors focus:outline-none"
+            title="Export the current spec — colourful HTML to clipboard + opens Mail. Per Export-on-all-windows SUPREME rule."
+            aria-label="Export current spec as colourful HTML"
+            @click="workingSpec && emit('export-spec', workingSpec)"
+          >
+            <span aria-hidden="true">📤</span>
+            <span>Export</span>
+          </button>
           <!-- Revert Last Round — undo recent edits (shows when changes exist) -->
           <button
             v-if="hasChanges && editMode === 'master'"
@@ -759,6 +995,69 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
             @click="handleClose"
           />
         </div>
+      </div>
+
+      <!-- ── r41 v298 (Tom Gilb 2026-06-23 verbatim "stages row and others not
+           present, and no clarity in what to do and how to progress") ───────
+           Embedded universal chrome — three strips + guidance bar — restored
+           INSIDE the editor so the planner never loses orientation when the
+           full-screen editor occludes the canvas behind it.
+
+           Layered top-down:
+             1. PlanningStageBar (11 tiles) — every stage reachable from this surface.
+             2. AgentsStrip — all agents one click away (auto-saves first).
+             3. Stage2SubStepStrip — only when planningStage === 2.
+             4. Guidance bar — one sentence naming the current purpose + next move.
+
+           Composes with: Stages-are-Cyclic SUPREME, No-Silent-Removal SUPREME,
+           MOVE Principle SUPREME, DD-009 Zero-Training UI, No-Silent-Data-Loss
+           SUPREME (auto-save before close-and-navigate), Twin portability.
+           The strips themselves carry their own internal styling (dark theme);
+           they sit cleanly above the existing thin Back/Stage/Next breadcrumb. -->
+      <PlanningStageBar
+        v-if="props.planningStage != null"
+        :current-stage="props.planningStage ?? 1"
+        :has-spec="!!workingSpec"
+        :has-plan="!!props.hasPlan"
+        @navigate="onEmbeddedStageNav"
+      />
+      <AgentsStrip
+        :has-spec="!!workingSpec"
+        :spec-presence="computedSpecPresence as Record<string, boolean>"
+        @open-maria="onEmbeddedAgentOpen('maria')"
+        @open-contracts="onEmbeddedAgentOpen('contracts')"
+        @open-models="onEmbeddedAgentOpen('models')"
+        @open-stakeholder-mapper="onEmbeddedAgentOpen('stakeholder-mapper')"
+        @open-evo-critiquer="onEmbeddedAgentOpen('evo-step-critique')"
+        @open-spec-importer="onEmbeddedAgentOpen('plan-importer')"
+        @open-decisions="onEmbeddedAgentOpen('decisions')"
+        @open-strategy="onEmbeddedAgentOpen('strategy-agent')"
+        @open-incorruptible="onEmbeddedAgentOpen('incorruptible')"
+        @open-incorruptible-sharpen="onEmbeddedAgentOpen('incorruptible-sharpen')"
+        @open-elon="onEmbeddedAgentOpen('elon')"
+        @open-elon-sharpen="onEmbeddedAgentOpen('elon-sharpen')"
+        @open-munger="onEmbeddedAgentOpen('munger')"
+        @open-munger-sharpen="onEmbeddedAgentOpen('munger-sharpen')"
+        @open-heilmeier="onEmbeddedAgentOpen('heilmeier')"
+        @open-auto-dbo="onEmbeddedAgentOpen('autoDbo')"
+        @open-mode-picker="onEmbeddedAgentOpen"
+      />
+      <Stage2SubStepStrip
+        v-if="props.planningStage === 2"
+        :current="props.stage2SubStep"
+        :done="props.stage2DoneSteps"
+        @go="onEmbeddedStage2Go"
+        @continue="onEmbeddedStage2Continue"
+      />
+      <!-- Guidance bar — Stage-Has-A-Purpose SUPREME + Zero-Training UI -->
+      <div
+        v-if="props.planningStage != null"
+        class="shrink-0 flex items-start gap-2 px-4 py-2 bg-slate-900/55 border-b border-white/10 text-[12px] leading-snug text-amber-100/90"
+        role="note"
+        aria-label="What this surface is for"
+      >
+        <span class="shrink-0 mt-0.5 text-amber-300/80" aria-hidden="true">▸</span>
+        <span>{{ guidanceText }}</span>
       </div>
 
       <!-- ── Stage navigation strip ─────────────────────────────────────────
@@ -912,6 +1211,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
       <!-- ── Safety Net Banner — uncommitted changes warning ───────────────────── -->
       <!-- Shows when there are changes, with edit count on right and safety message.
            Close button (✕) dismisses the banner. Amber styling indicates caution. -->
+      <!-- audit-ignore: scroll — max-h-0/max-h-16 are CSS animation keyframe classes on <Transition>, not a scroll region; the element has overflow-hidden so no scroll surface exists -->
       <Transition
         enter-active-class="transition-all duration-200 ease-out"
         enter-from-class="max-h-0 opacity-0"
@@ -1046,19 +1346,21 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                 type="button"
                 class="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-green-50 transition-colors"
                 @click="toggleExpand(entry.id)"
+                :title="isExpanded(entry.id) ? (isChanged(entry.id) ? 'Collapse this row — your edits stay (use ↩ Revert below to discard)' : 'Collapse this row — nothing to save or discard') : 'Expand to edit this entry'"
               >
                 <!-- Type glyph badge (Tom 2026-05-17: "more colorful glyphs we planned") -->
                 <span class="shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded leading-none"
                       style="background:#f0fdf4; color:#16a34a">→O→</span>
-                <span class="text-[11px] font-mono font-semibold shrink-0" style="color:#16a34a">{{ entry.id }}</span>
+                <!-- r41 v239 (Tom 2026-06-21 "drop V1 V2 tags forever") — mnemonic tag from description -->
+                <span class="text-sm font-bold underline underline-offset-4 decoration-2 shrink-0" style="color:#16a34a">{{ entryTag(entry) }}:</span>
                 <!-- Tom 2026-05-15: show old→new diff in collapsed EDITED state -->
                 <template v-if="isChanged(entry.id) && !isExpanded(entry.id)">
                   <div class="flex-1 min-w-0 space-y-0.5">
                     <p class="text-[10px] text-amber-500 line-through truncate leading-tight opacity-80">{{ originalDesc(entry.id) }}</p>
-                    <p class="text-sm text-gray-900 font-medium truncate leading-tight">{{ entry.description }}</p>
+                    <p class="text-sm text-gray-900 font-medium truncate leading-tight">{{ entryBody(entry) }}</p>
                   </div>
                 </template>
-                <span v-else class="flex-1 text-sm text-gray-700 truncate">{{ entry.description }}</span>
+                <span v-else class="flex-1 text-sm text-gray-700 truncate">{{ entryBody(entry) }}</span>
                 <!-- Changed badge -->
                 <span
                   v-if="isChanged(entry.id) || keptFlash.has(entry.id)"
@@ -1071,7 +1373,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                   :class="isExpanded(entry.id) ? 'bg-indigo-100 text-indigo-700' : ''"
                   :style="!isExpanded(entry.id) ? 'background:#f0fdf4; color:#16a34a' : ''"
                   aria-hidden="true"
-                ><span v-if="!isExpanded(entry.id)" class="font-mono font-bold text-[10px]">→O→</span>{{ isExpanded(entry.id) ? '− Close' : 'Edit' }}</span>
+                ><span v-if="!isExpanded(entry.id)" class="font-mono font-bold text-[10px]">→O→</span>{{ isExpanded(entry.id) ? '▾ Collapse' : '▸ Click to Edit' }}</span>
               </button>
 
               <!-- Edit form (expanded) -->
@@ -1144,12 +1446,14 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                       type="button"
                       class="h-7 px-3 rounded-lg text-[10px] font-medium bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
                       @click="revertEntry(entry.id)"
+                      title="Discard your edits to this entry — restores the original description"
                     >↩ Revert</button>
                     <button
                       type="button"
                       class="h-7 px-4 rounded-lg text-[10px] font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                       @click="doneEntry(entry.id)"
-                    >{{ isChanged(entry.id) ? '✓ Keep Change' : 'Done' }}</button>
+                      :title="isChanged(entry.id) ? 'Keep your edits and collapse this row (Undo restores at any time)' : 'Collapse this row — no edits made'"
+                    >{{ isChanged(entry.id) ? '✓ Keep Change' : '▾ Collapse' }}</button>
                   </div>
                 </div>
               </div>
@@ -1196,18 +1500,20 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                 type="button"
                 class="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-violet-50 transition-colors"
                 @click="toggleExpand(entry.id)"
+                :title="isExpanded(entry.id) ? (isChanged(entry.id) ? 'Collapse this row — your edits stay (use ↩ Revert below to discard)' : 'Collapse this row — nothing to save or discard') : 'Expand to edit this entry'"
               >
                 <span class="shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded leading-none"
                       style="background:#f5f3ff; color:#7c3aed">0▸✳</span>
-                <span class="text-[11px] font-mono font-semibold shrink-0" style="color:#7c3aed">{{ entry.id }}</span>
+                <!-- r41 v239 (Tom 2026-06-21 "drop V1 V2 tags forever") — mnemonic tag from description -->
+                <span class="text-sm font-bold underline underline-offset-4 decoration-2 shrink-0" style="color:#7c3aed">{{ entryTag(entry) }}:</span>
                 <!-- Tom 2026-05-15: show old→new diff in collapsed EDITED state -->
                 <template v-if="isChanged(entry.id) && !isExpanded(entry.id)">
                   <div class="flex-1 min-w-0 space-y-0.5">
                     <p class="text-[10px] text-amber-500 line-through truncate leading-tight opacity-80">{{ originalDesc(entry.id) }}</p>
-                    <p class="text-sm text-gray-900 font-medium truncate leading-tight">{{ entry.description }}</p>
+                    <p class="text-sm text-gray-900 font-medium truncate leading-tight">{{ entryBody(entry) }}</p>
                   </div>
                 </template>
-                <span v-else class="flex-1 text-sm text-gray-700 truncate">{{ entry.description }}</span>
+                <span v-else class="flex-1 text-sm text-gray-700 truncate">{{ entryBody(entry) }}</span>
                 <span
                   v-if="isChanged(entry.id) || keptFlash.has(entry.id)"
                   class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold transition-colors"
@@ -1220,7 +1526,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                   :class="isExpanded(entry.id) ? 'bg-indigo-100 text-indigo-700' : ''"
                   :style="!isExpanded(entry.id) ? 'background:#f5f3ff; color:#7c3aed' : ''"
                   aria-hidden="true"
-                ><span v-if="!isExpanded(entry.id)" class="font-mono font-bold text-[10px]">0▸✳</span>{{ isExpanded(entry.id) ? '− Close' : 'Edit' }}</span>
+                ><span v-if="!isExpanded(entry.id)" class="font-mono font-bold text-[10px]">0▸✳</span>{{ isExpanded(entry.id) ? '▾ Collapse' : '▸ Click to Edit' }}</span>
               </button>
 
               <!-- Edit form -->
@@ -1320,6 +1626,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                   </button>
 
                   <!-- Inline suggest panel — shows after draft completes -->
+                  <!-- audit-ignore: scroll — max-h-0/max-h-96 are CSS animation keyframe classes on <Transition>, not a scroll region -->
                   <Transition
                     enter-active-class="transition-all duration-200"
                     enter-from-class="max-h-0 opacity-0"
@@ -1378,12 +1685,14 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                       type="button"
                       class="h-7 px-3 rounded-lg text-[10px] font-medium bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
                       @click="revertEntry(entry.id)"
+                      title="Discard your edits to this entry — restores the original description"
                     >↩ Revert</button>
                     <button
                       type="button"
                       class="h-7 px-4 rounded-lg text-[10px] font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                       @click="doneEntry(entry.id)"
-                    >{{ isChanged(entry.id) ? '✓ Keep Change' : 'Done' }}</button>
+                      :title="isChanged(entry.id) ? 'Keep your edits and collapse this row (Undo restores at any time)' : 'Collapse this row — no edits made'"
+                    >{{ isChanged(entry.id) ? '✓ Keep Change' : '▾ Collapse' }}</button>
                   </div>
                 </div>
               </div>
@@ -1415,18 +1724,20 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                 type="button"
                 class="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-orange-50 transition-colors"
                 @click="toggleExpand(entry.id)"
+                :title="isExpanded(entry.id) ? (isChanged(entry.id) ? 'Collapse this row — your edits stay (use ↩ Revert below to discard)' : 'Collapse this row — nothing to save or discard') : 'Expand to edit this entry'"
               >
                 <span class="shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded leading-none"
                       style="background:#fff7ed; color:#ea580c">[✳]→</span>
-                <span class="text-[11px] font-mono font-semibold shrink-0" style="color:#ea580c">{{ entry.id }}</span>
+                <!-- r41 v239 (Tom 2026-06-21 "drop V1 V2 tags forever") — mnemonic tag from description -->
+                <span class="text-sm font-bold underline underline-offset-4 decoration-2 shrink-0" style="color:#ea580c">{{ entryTag(entry) }}:</span>
                 <!-- Tom 2026-05-15: show old→new diff in collapsed EDITED state -->
                 <template v-if="isChanged(entry.id) && !isExpanded(entry.id)">
                   <div class="flex-1 min-w-0 space-y-0.5">
                     <p class="text-[10px] text-amber-500 line-through truncate leading-tight opacity-80">{{ originalDesc(entry.id) }}</p>
-                    <p class="text-sm text-gray-900 font-medium truncate leading-tight">{{ entry.description }}</p>
+                    <p class="text-sm text-gray-900 font-medium truncate leading-tight">{{ entryBody(entry) }}</p>
                   </div>
                 </template>
-                <span v-else class="flex-1 text-sm text-gray-700 truncate">{{ entry.description }}</span>
+                <span v-else class="flex-1 text-sm text-gray-700 truncate">{{ entryBody(entry) }}</span>
                 <span
                   v-if="isChanged(entry.id) || keptFlash.has(entry.id)"
                   class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold transition-colors"
@@ -1438,7 +1749,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                   :class="isExpanded(entry.id) ? 'bg-indigo-100 text-indigo-700' : ''"
                   :style="!isExpanded(entry.id) ? 'background:#fff7ed; color:#ea580c' : ''"
                   aria-hidden="true"
-                ><span v-if="!isExpanded(entry.id)" class="font-mono font-bold text-[10px]">[✳]→</span>{{ isExpanded(entry.id) ? '− Close' : 'Edit' }}</span>
+                ><span v-if="!isExpanded(entry.id)" class="font-mono font-bold text-[10px]">[✳]→</span>{{ isExpanded(entry.id) ? '▾ Collapse' : '▸ Click to Edit' }}</span>
               </button>
 
               <!-- Edit form -->
@@ -1501,12 +1812,14 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                       type="button"
                       class="h-7 px-3 rounded-lg text-[10px] font-medium bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
                       @click="revertEntry(entry.id)"
+                      title="Discard your edits to this entry — restores the original description"
                     >↩ Revert</button>
                     <button
                       type="button"
                       class="h-7 px-4 rounded-lg text-[10px] font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                       @click="doneEntry(entry.id)"
-                    >{{ isChanged(entry.id) ? '✓ Keep Change' : 'Done' }}</button>
+                      :title="isChanged(entry.id) ? 'Keep your edits and collapse this row (Undo restores at any time)' : 'Collapse this row — no edits made'"
+                    >{{ isChanged(entry.id) ? '✓ Keep Change' : '▾ Collapse' }}</button>
                   </div>
                 </div>
               </div>
@@ -1538,18 +1851,20 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                 type="button"
                 class="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-50 transition-colors"
                 @click="toggleExpand(entry.id)"
+                :title="isExpanded(entry.id) ? (isChanged(entry.id) ? 'Collapse this row — your edits stay (use ↩ Revert below to discard)' : 'Collapse this row — nothing to save or discard') : 'Expand to edit this entry'"
               >
                 <span class="shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded leading-none"
                       style="background:#fef2f2; color:#dc2626">[→O→]</span>
-                <span class="text-[11px] font-mono font-semibold shrink-0" style="color:#dc2626">{{ entry.id }}</span>
+                <!-- r41 v239 (Tom 2026-06-21 "drop V1 V2 tags forever") — mnemonic tag from description -->
+                <span class="text-sm font-bold underline underline-offset-4 decoration-2 shrink-0" style="color:#dc2626">{{ entryTag(entry) }}:</span>
                 <!-- Tom 2026-05-15: show old→new diff in collapsed EDITED state -->
                 <template v-if="isChanged(entry.id) && !isExpanded(entry.id)">
                   <div class="flex-1 min-w-0 space-y-0.5">
                     <p class="text-[10px] text-amber-500 line-through truncate leading-tight opacity-80">{{ originalDesc(entry.id) }}</p>
-                    <p class="text-sm text-gray-900 font-medium truncate leading-tight">{{ entry.description }}</p>
+                    <p class="text-sm text-gray-900 font-medium truncate leading-tight">{{ entryBody(entry) }}</p>
                   </div>
                 </template>
-                <span v-else class="flex-1 text-sm text-gray-700 truncate">{{ entry.description }}</span>
+                <span v-else class="flex-1 text-sm text-gray-700 truncate">{{ entryBody(entry) }}</span>
                 <span
                   v-if="isChanged(entry.id) || keptFlash.has(entry.id)"
                   class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold transition-colors"
@@ -1561,7 +1876,7 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                   :class="isExpanded(entry.id) ? 'bg-red-100 text-red-700' : ''"
                   :style="!isExpanded(entry.id) ? 'background:#fef2f2; color:#dc2626' : ''"
                   aria-hidden="true"
-                ><span v-if="!isExpanded(entry.id)" class="font-mono font-bold text-[10px]">[→O→]</span>{{ isExpanded(entry.id) ? '− Close' : 'Edit' }}</span>
+                ><span v-if="!isExpanded(entry.id)" class="font-mono font-bold text-[10px]">[→O→]</span>{{ isExpanded(entry.id) ? '▾ Collapse' : '▸ Click to Edit' }}</span>
               </button>
 
               <!-- Edit form (expanded) -->
@@ -1640,12 +1955,14 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
                     type="button"
                     class="h-7 px-3 rounded-lg text-[10px] font-medium bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
                     @click="revertEntry(entry.id)"
+                    title="Discard your edits to this entry — restores the original description"
                   >↩ Revert</button>
                   <button
                     type="button"
                     class="h-7 px-4 rounded-lg text-[10px] font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
                     @click="doneEntry(entry.id)"
-                  >{{ isChanged(entry.id) ? '✓ Keep Change' : 'Done' }}</button>
+                    :title="isChanged(entry.id) ? 'Keep your edits and collapse this row (Undo restores at any time)' : 'Collapse this row — no edits made'"
+                  >{{ isChanged(entry.id) ? '✓ Keep Change' : '▾ Collapse' }}</button>
                 </div>
               </div>
             </div>
@@ -1758,16 +2075,36 @@ const saveLabelState = computed<{ kind: 'master-commit' | 'master-empty' | 'draf
       </div>
 
       <!-- ── Footer ─────────────────────────────────────────────────────────── -->
-      <div class="shrink-0 flex items-center gap-4 px-5 py-2.5 bg-gray-900 border-t border-gray-800 text-[10px] text-gray-500">
-        <span>Click any entry to expand and edit</span>
-        <span class="text-gray-700">·</span>
+      <!-- r41 v281 (Tom Gilb 2026-06-22 "dark text unreadable") — was
+           text-gray-500 (#6b7280) on bg-gray-900 (#111827) = contrast ratio
+           ~4.0:1, fails WCAG AA for body text.  Bumped to text-slate-200
+           (#e2e8f0) for ~14:1 contrast — clearly readable.  Dot separators
+           bumped too. Composes with DD-017 SUPREME + universal accessibility
+           (high contrast wins over fashionable subtlety for every reader). -->
+      <div class="shrink-0 flex items-center gap-4 px-5 py-2.5 bg-gray-900 border-t border-gray-800 text-[10px] text-slate-200">
+        <!-- r41 v239 (Tom Gilb 2026-06-21 verbatim "click any entry to edit … is not true … there should be a clearer click point").
+             Made affordance explicit: each row now ends in a "▸ Click to Edit" pill, and clicking
+             anywhere on the row toggles the editor. Bottom legend updated to point at the pill. -->
+        <span>Click the <span class="font-semibold text-emerald-300">▸ Click to Edit</span> pill on any row (or anywhere on the row) to expand</span>
+        <span class="text-slate-500">·</span>
         <span>Amber border = edited</span>
-        <span class="text-gray-700">·</span>
+        <span class="text-slate-500">·</span>
         <span>↩ Revert restores the original</span>
         <div class="flex-1" />
-        <span v-if="editMode === 'master'" class="text-rose-400 font-semibold">⚠ MASTER MODE — changes overwrite the live plan</span>
-        <span v-else class="text-emerald-400">DRAFT — master plan is safe until you commit</span>
+        <span v-if="isLocked" class="text-indigo-200 font-semibold">🔒 Spec locked — unlock below to edit</span>
+        <span v-else-if="editMode === 'master'" class="text-rose-300 font-semibold">⚠ MASTER MODE — changes overwrite the live plan</span>
+        <span v-else class="text-emerald-300">DRAFT — master plan is safe until you commit</span>
       </div>
+
+      <!-- Standard Done-Changing Close Footer (DD-standard-close-2026-06-09) -->
+      <SpecActionFooter
+        :change-count="changedCount"
+        :last-saved="_lastSaved"
+        :is-locked="isLocked"
+        @close="handleClose"
+        @save-version="editMode === 'master' ? handleCommitMaster() : handleSaveDraft()"
+        @toggle-lock="isLocked ? unlock() : lock()"
+      />
 
       <!-- ── Bulk draft review modal ─────────────────────────────────────────── -->
       <Transition

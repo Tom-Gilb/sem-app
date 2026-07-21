@@ -36,7 +36,7 @@ export function useFeatureSuggestions(
       results.push({
         label: 'Goal Ladder',
         buttonKey: '104',
-        reason: 'V. entries have numeric goals — visualise the progression',
+        reason: 'Value entries have numeric goals — visualise the progression',
         emoji: '🪜',
       })
     }

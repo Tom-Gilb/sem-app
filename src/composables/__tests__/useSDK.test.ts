@@ -29,7 +29,7 @@ const VALID_SPEC_JSON = JSON.stringify({
       type: 'Function',
       level: 'Product',
       description: 'Guide new users',
-      successCriteria: '>=80%',
+      presenceTest: '>=80%',
       functionOfValue: 'V.OnboardingSpeed',
     },
   ],
@@ -140,10 +140,12 @@ describe('useSDK', () => {
     expect(error.value).toMatch(/not valid JSON/)
   })
 
-  it('sets error and returns null when V entry is missing measurement fields', async () => {
-    // Spec: V.EvoStep2.TranslationExitGate — V entries must have scale/meter/status/tolerable/goal
+  it('returns spec with empty strings when V entry has missing measurement fields (lenient coercion)', async () => {
+    // parseSpecBlock intentionally coerces missing/empty V measurement fields to ''
+    // rather than rejecting (see useSDK.ts: "Coerce missing V measurement fields to ''
+    // rather than rejecting the whole response. The user can fill gaps via Sharpen.")
     const incompleteSpec = JSON.stringify({
-      functions: [{ id: 'F.X', type: 'Function', level: 'Product', description: 'd', successCriteria: 'c', functionOfValue: 'V.X' }],
+      functions: [{ id: 'F.X', type: 'Function', level: 'Product', description: 'd', presenceTest: 'c', functionOfValue: 'V.X' }],
       values: [{ id: 'V.X', type: 'Value', level: 'Product', description: 'd', scale: '', meter: '', status: '', tolerable: '', goal: '', valueOfFunction: 'F.X' }],
       solutions: [{ id: 'S.X', type: 'Solution', level: 'Product', description: 'd', impact: 'V.X ~50%', function: 'F.X' }],
     })
@@ -152,19 +154,24 @@ describe('useSDK', () => {
 
     const result = await translate('S', 'E', 'M')
 
-    expect(result).toBeNull()
-    expect(error.value).toMatch(/missing required measurement fields/)
+    expect(result).not.toBeNull()
+    expect(result!.values[0].scale).toBe('')
+    expect(error.value).toBe('')
   })
 
-  it('sets error and returns null when spec has no F entries', async () => {
+  it('returns spec when functions array is empty (lenient validation)', async () => {
+    // parseSpecBlock intentionally accepts empty F/V/S arrays to support
+    // constraint-only or partial inputs (see useSDK.ts: "F, V, and S may all be
+    // empty for constraint-only or value-only inputs — do not reject.")
     const noF = JSON.stringify({ functions: [], values: [{ id: 'V.X', type: 'Value', level: 'Product', description: 'd', scale: 's', meter: 'm', status: 'pre', tolerable: '60%', goal: '80%', valueOfFunction: 'F.X' }], solutions: [{ id: 'S.X', type: 'Solution', level: 'Product', description: 'd', impact: 'x', function: 'F.X' }] })
     mockCreate.mockResolvedValueOnce(makeSuccessResponse(noF))
     const { translate, error } = useSDK()
 
     const result = await translate('S', 'E', 'M')
 
-    expect(result).toBeNull()
-    expect(error.value).toMatch(/no F/)
+    expect(result).not.toBeNull()
+    expect(result!.functions).toHaveLength(0)
+    expect(error.value).toBe('')
   })
 
   it('clears error on a subsequent successful call', async () => {
@@ -227,11 +234,11 @@ describe('useSDK', () => {
     expect(error.value).toMatch(/missing required arrays/)
   })
 
-  it('sets error and returns null when spec has no V entries', async () => {
-    // Spec: V.EvoStep2.TranslationExitGate — spec must have ≥1 V entry
-    // Coverage: line 61 — empty values array
+  it('returns spec when values array is empty (lenient validation)', async () => {
+    // parseSpecBlock intentionally accepts empty arrays — empty values supports
+    // constraint-only or function-only partial inputs (intentional lenient coercion)
     const noV = JSON.stringify({
-      functions: [{ id: 'F.X', type: 'Function', level: 'Product', description: 'd', successCriteria: 'c', functionOfValue: 'V.X' }],
+      functions: [{ id: 'F.X', type: 'Function', level: 'Product', description: 'd', presenceTest: 'c', functionOfValue: 'V.X' }],
       values: [],
       solutions: [{ id: 'S.X', type: 'Solution', level: 'Product', description: 'd', impact: 'x', function: 'F.X' }],
     })
@@ -240,15 +247,16 @@ describe('useSDK', () => {
 
     const result = await translate('S', 'E', 'M')
 
-    expect(result).toBeNull()
-    expect(error.value).toMatch(/no V/)
+    expect(result).not.toBeNull()
+    expect(result!.values).toHaveLength(0)
+    expect(error.value).toBe('')
   })
 
-  it('sets error and returns null when spec has no S entries', async () => {
-    // Spec: V.EvoStep2.TranslationExitGate — spec must have ≥1 S entry
-    // Coverage: line 64 — empty solutions array
+  it('returns spec when solutions array is empty (lenient validation)', async () => {
+    // parseSpecBlock intentionally accepts empty arrays — empty solutions supports
+    // partial inputs where the user has not yet specified means (intentional lenient coercion)
     const noS = JSON.stringify({
-      functions: [{ id: 'F.X', type: 'Function', level: 'Product', description: 'd', successCriteria: 'c', functionOfValue: 'V.X' }],
+      functions: [{ id: 'F.X', type: 'Function', level: 'Product', description: 'd', presenceTest: 'c', functionOfValue: 'V.X' }],
       values: [{ id: 'V.X', type: 'Value', level: 'Product', description: 'd', scale: 's', meter: 'm', status: 'pre', tolerable: '60%', goal: '80%', valueOfFunction: 'F.X' }],
       solutions: [],
     })
@@ -257,8 +265,9 @@ describe('useSDK', () => {
 
     const result = await translate('S', 'E', 'M')
 
-    expect(result).toBeNull()
-    expect(error.value).toMatch(/no S/)
+    expect(result).not.toBeNull()
+    expect(result!.solutions).toHaveLength(0)
+    expect(error.value).toBe('')
   })
 
   it('sets error and returns null when LLM response contains no text block', async () => {
@@ -271,5 +280,140 @@ describe('useSDK', () => {
 
     expect(result).toBeNull()
     expect(error.value).toMatch(/no text block/)
+  })
+})
+
+// ── r41 v369 — translateStream coverage ─────────────────────────────────────
+// Tom Gilb 2026-06-25 post-demo "id like to get the r time incr count during
+// generating done".  The v355 in-PWA diagnostic confirmed the production
+// stream was producing zero text in Tom's Safari PWA.  These tests mock the
+// SDK's `beta.messages.stream()` to assert that onChunk fires for every
+// text_delta event AND that the fullText accumulator builds up correctly.
+
+const mockStream = vi.fn()
+
+vi.mock('@anthropic-ai/sdk', () => {
+  function MockAnthropic() {
+    return {
+      messages: { create: mockCreate, stream: mockStream },
+      beta:     { messages: { create: mockCreate, stream: mockStream } },
+    }
+  }
+  return { default: MockAnthropic }
+})
+
+/** Build a mock stream (async-iterable) that yields text_delta events.
+ *  v370: returns a plain async-iterable matching `messages.create({stream:true})`
+ *  output shape — no `finalMessage()` method needed (stop_reason comes via
+ *  `message_delta` events). */
+function makeMockStream(chunks: string[], stopReason: string = 'end_turn') {
+  const events: Array<{ type: string; delta?: { type: string; text?: string; stop_reason?: string } }> = []
+  for (const c of chunks) {
+    events.push({ type: 'content_block_delta', delta: { type: 'text_delta', text: c } })
+  }
+  events.push({ type: 'message_delta', delta: { stop_reason: stopReason } as { stop_reason: string } })
+  events.push({ type: 'message_stop' })
+
+  return {
+    [Symbol.asyncIterator]() {
+      let i = 0
+      return {
+        next: async () => {
+          if (i >= events.length) return { value: undefined, done: true }
+          return { value: events[i++], done: false }
+        },
+      } as AsyncIterator<unknown>
+    },
+  }
+}
+
+describe('useSDK.translateStream', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_ANTHROPIC_API_KEY', 'sk-ant-test')
+    vi.stubEnv('VITE_MOCK_MODE', '')
+    mockCreate.mockReset()
+    mockStream.mockReset()
+    _resetClientForTest()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    _resetClientForTest()
+  })
+
+  it('fires onChunk for every text_delta event', async () => {
+    const chunks = ['{"functions":[', '{"id":"F.A","type":"Function"', '}]}']
+    mockCreate.mockResolvedValueOnce(makeMockStream([...chunks, JSON.stringify({ values: [], solutions: [] }).slice(1)]))
+
+    const { translateStream } = useSDK()
+    const received: string[] = []
+    await translateStream('S', 'E', 'M', (delta) => { received.push(delta) })
+
+    expect(received.length).toBeGreaterThan(0)
+    expect(received.join('').length).toBeGreaterThan(0)
+  })
+
+  it('accumulates fullText and parses the final spec', async () => {
+    const validJson = '{"functions":[{"id":"F.Speed","type":"Function","level":"Product","description":"go fast"}],"values":[],"solutions":[]}'
+    // Split JSON into 4 chunks
+    const mid1 = Math.floor(validJson.length / 4)
+    const mid2 = Math.floor(validJson.length / 2)
+    const mid3 = Math.floor(validJson.length * 3 / 4)
+    const chunks = [
+      validJson.slice(0, mid1),
+      validJson.slice(mid1, mid2),
+      validJson.slice(mid2, mid3),
+      validJson.slice(mid3),
+    ]
+    mockCreate.mockResolvedValueOnce(makeMockStream(chunks))
+
+    const { translateStream } = useSDK()
+    const received: string[] = []
+    const result = await translateStream('S', 'E', 'M', (delta) => { received.push(delta) })
+
+    expect(result).not.toBeNull()
+    expect(result!.functions).toHaveLength(1)
+    expect(received.join('')).toBe(validJson)
+  })
+
+  it('throws on max_tokens stop reason', async () => {
+    const incompleteJson = '{"functions":[{"id":"F.A"'  // mid-entry cutoff
+    mockCreate.mockResolvedValueOnce(makeMockStream([incompleteJson], 'max_tokens'))
+
+    const { translateStream, error } = useSDK()
+    const result = await translateStream('S', 'E', 'M', () => { /* noop */ })
+
+    expect(result).toBeNull()
+    expect(error.value).toMatch(/cut off|max_tokens/i)
+  })
+
+  it('ignores non-text-delta events (e.g. message_start, content_block_start)', async () => {
+    const events = [
+      { type: 'message_start' },
+      { type: 'content_block_start' },
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: '{"functions":[' } },
+      { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: 'should-be-ignored' } },
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: '],"values":[],"solutions":[]}' } },
+      { type: 'message_stop' },
+    ]
+    const stream = {
+      [Symbol.asyncIterator]() {
+        let i = 0
+        return {
+          next: async () => {
+            if (i >= events.length) return { value: undefined, done: true }
+            return { value: events[i++], done: false }
+          },
+        } as AsyncIterator<unknown>
+      },
+    }
+    mockCreate.mockResolvedValueOnce(stream)
+
+    const { translateStream } = useSDK()
+    const received: string[] = []
+    await translateStream('S', 'E', 'M', (delta) => { received.push(delta) })
+
+    expect(received).toEqual(['{"functions":[', '],"values":[],"solutions":[]}'])
+    expect(received.join('')).not.toContain('should-be-ignored')
   })
 })

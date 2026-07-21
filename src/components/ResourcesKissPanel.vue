@@ -22,6 +22,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import PlanguageTerm from './PlanguageTerm.vue'
 import type { SpecBlock, REntry } from '../types/spec'
 import { useToast } from '../composables/useToast'
 import {
@@ -47,15 +48,28 @@ const { showToast } = useToast()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const focusedResourceIds = ref<string[]>([])
-const newResourceInput   = ref('')
-const customResources    = ref<string[]>([])
-const kissReady          = ref(false)
-const improvements       = ref<KissImprovement[]>([])
-const expandedAltId      = ref<string | null>(null)
-const setupCollapsed     = ref(false)
+const focusedResourceIds  = ref<string[]>([])
+const newResourceInput    = ref('')
+const customResources     = ref<string[]>([])
+const kissReady           = ref(false)
+const improvements        = ref<KissImprovement[]>([])
+const expandedAltId       = ref<string | null>(null)
+const setupCollapsed      = ref(false)
+
+// Change-type filter (Tom 2026-06-07: "4 tool pins are dead" — the 4 category
+// cards in the pre-compute teaser were static divs with no click handlers.
+// Now they are interactive toggle buttons: click to include/exclude that change
+// type from the results.  Empty = all types shown (default).
+const focusedChangeTypes  = ref<KissChangeType[]>([])
 
 const specResources = computed<REntry[]>(() => props.spec?.resources ?? [])
+
+// Improvements filtered by selected change types (or all if none selected)
+const filteredImprovements = computed<KissImprovement[]>(() =>
+  focusedChangeTypes.value.length === 0
+    ? improvements.value
+    : improvements.value.filter(imp => focusedChangeTypes.value.includes(imp.changeType))
+)
 
 // ─── Resource focus toggle ────────────────────────────────────────────────────
 
@@ -64,6 +78,16 @@ function toggleFocusResource(id: string): void {
     focusedResourceIds.value = focusedResourceIds.value.filter(r => r !== id)
   } else {
     focusedResourceIds.value = [...focusedResourceIds.value, id]
+  }
+}
+
+// ─── Change-type filter toggle ────────────────────────────────────────────────
+
+function toggleChangeType(t: KissChangeType): void {
+  if (focusedChangeTypes.value.includes(t)) {
+    focusedChangeTypes.value = focusedChangeTypes.value.filter(x => x !== t)
+  } else {
+    focusedChangeTypes.value = [...focusedChangeTypes.value, t]
   }
 }
 
@@ -264,7 +288,7 @@ function resourceDeltaSign(pct: number): string {
 <template>
   <Teleport to="body">
     <Transition name="kiss-fade">
-      <div v-if="open" class="fixed inset-0 z-[700] flex items-center justify-center" aria-modal="true" role="dialog" aria-label="KISS Analysis Panel">
+      <div v-if="open" class="fixed inset-0 z-[700]" aria-modal="true" role="dialog" aria-label="KISS Analysis Panel">
 
         <!-- Backdrop -->
         <div
@@ -273,9 +297,14 @@ function resourceDeltaSign(pct: number): string {
           aria-hidden="true"
         />
 
-        <!-- Panel -->
-        <div class="relative z-10 flex flex-col w-full max-w-4xl mx-4 rounded-2xl overflow-hidden shadow-2xl shadow-violet-950/50 border border-violet-800/30"
-             style="max-height: 92vh;">
+        <!-- Panel — absolute inset-y gives a DEFINITE height so that
+             the flex-1 min-h-0 ScrollContainer child resolves h-full correctly
+             in Safari (max-height-only panels don't give a definite percentage
+             height to flex children — Tom 2026-06-07 "this does not scroll").
+             inset-y-[4vh] → height = 92vh; left-4 right-4 + max-w-4xl mx-auto
+             centres horizontally with the same visual footprint as before. -->
+        <div class="absolute inset-y-[4vh] left-4 right-4 max-w-4xl mx-auto
+                    flex flex-col rounded-2xl overflow-hidden shadow-2xl shadow-violet-950/50 border border-violet-800/30">
 
           <!-- ─── Header ─────────────────────────────────────────────────── -->
           <header class="bg-gradient-to-r from-violet-950 via-indigo-900 to-slate-950 px-6 py-4 flex items-start justify-between gap-4 shrink-0 border-b border-violet-800/30">
@@ -316,14 +345,16 @@ function resourceDeltaSign(pct: number): string {
           <div class="bg-slate-900/80 border-b border-slate-700/50 shrink-0">
 
             <!-- Collapsed summary row -->
-            <div v-if="setupCollapsed" class="px-6 py-2 flex items-center gap-3">
-              <span class="text-slate-400 text-xs">Focus:</span>
+            <div v-if="setupCollapsed" class="px-6 py-2 flex items-center gap-3 flex-wrap">
+              <span class="text-slate-400 text-xs">Resources:</span>
               <span class="text-slate-300 text-xs">
-                {{ focusedResourceIds.length === 0 ? 'All resources' : focusedResourceIds.join(', ') }}
-                <template v-if="customResources.length > 0">
-                  + {{ customResources.length }} custom
-                </template>
+                {{ focusedResourceIds.length === 0 ? 'All' : focusedResourceIds.join(', ') }}
+                <template v-if="customResources.length > 0">+ {{ customResources.length }} custom</template>
               </span>
+              <template v-if="focusedChangeTypes.length > 0">
+                <span class="text-slate-400 text-xs ml-2">Types:</span>
+                <span class="text-violet-300 text-xs">{{ focusedChangeTypes.join(', ') }}</span>
+              </template>
               <button
                 class="ml-auto text-violet-400 text-xs hover:text-violet-300 underline underline-offset-2"
                 title="Adjust focus settings and recompute"
@@ -358,7 +389,7 @@ function resourceDeltaSign(pct: number): string {
                       @change="toggleFocusResource(r.id)"
                     />
                     <span class="text-amber-300 font-mono font-semibold">R.</span>
-                    {{ r.description.length > 35 ? r.description.slice(0, 34) + '…' : r.description }}
+                    {{ (r.description ?? '').length > 35 ? (r.description ?? '').slice(0, 34) + '…' : (r.description ?? '') }}
                   </label>
                 </div>
                 <p v-else class="text-slate-500 text-xs italic">
@@ -441,43 +472,110 @@ function resourceDeltaSign(pct: number): string {
                 <span class="text-violet-300 font-semibold">▶ Compute 5 KISS Improvements</span>
                 to reveal the 5 most cost-effective spec improvements for dramatic Resource gains.
               </p>
-              <div class="grid grid-cols-2 gap-3 mt-2 max-w-lg text-xs">
-                <div class="bg-red-900/30 border border-red-800/50 rounded-lg p-3 text-left">
-                  <div class="text-red-300 font-semibold mb-1">◈ Constraint Relax</div>
+              <!-- Change-type filter pins — Tom 2026-06-07: "4 tool pins are dead".
+                   Each card is a toggle button: click to include / exclude that type
+                   from the KISS results.  Empty selection = show all types. -->
+              <p class="text-slate-500 text-[11px]">Click a type to filter results after compute:</p>
+              <div class="grid grid-cols-2 gap-3 mt-1 max-w-lg text-xs">
+                <button
+                  type="button"
+                  class="rounded-lg p-3 text-left transition-all duration-100 focus:outline-none focus-visible:ring-2"
+                  :class="focusedChangeTypes.includes('constraint-relax')
+                    ? 'bg-red-700/60 border-2 border-red-400 ring-1 ring-red-400/40 focus-visible:ring-red-300'
+                    : 'bg-red-900/30 border border-red-800/50 hover:border-red-600 hover:bg-red-800/40 focus-visible:ring-red-300'"
+                  title="Toggle: include Constraint Relaxation improvements in KISS results"
+                  @click="toggleChangeType('constraint-relax')"
+                >
+                  <div class="text-red-300 font-semibold mb-1 flex items-center gap-1.5">
+                    <span>◈ Constraint Relax</span>
+                    <span v-if="focusedChangeTypes.includes('constraint-relax')" class="text-[9px] bg-red-500/40 text-red-200 px-1.5 py-0.5 rounded-full">ON</span>
+                  </div>
                   <div class="text-slate-400">Phase regulatory constraints to release immediate resource overhead</div>
-                </div>
-                <div class="bg-emerald-900/30 border border-emerald-800/50 rounded-lg p-3 text-left">
-                  <div class="text-emerald-300 font-semibold mb-1">✦ Solution Add</div>
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg p-3 text-left transition-all duration-100 focus:outline-none focus-visible:ring-2"
+                  :class="focusedChangeTypes.includes('solution-add')
+                    ? 'bg-emerald-700/60 border-2 border-emerald-400 ring-1 ring-emerald-400/40 focus-visible:ring-emerald-300'
+                    : 'bg-emerald-900/30 border border-emerald-800/50 hover:border-emerald-600 hover:bg-emerald-800/40 focus-visible:ring-emerald-300'"
+                  title="Toggle: include Solution Add improvements in KISS results"
+                  @click="toggleChangeType('solution-add')"
+                >
+                  <div class="text-emerald-300 font-semibold mb-1 flex items-center gap-1.5">
+                    <span>✦ Solution Add</span>
+                    <span v-if="focusedChangeTypes.includes('solution-add')" class="text-[9px] bg-emerald-500/40 text-emerald-200 px-1.5 py-0.5 rounded-full">ON</span>
+                  </div>
                   <div class="text-slate-400">Targeted high-ROI solution that maximises value per resource unit</div>
-                </div>
-                <div class="bg-violet-900/30 border border-violet-800/50 rounded-lg p-3 text-left">
-                  <div class="text-violet-300 font-semibold mb-1">↓ Goal Relax</div>
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg p-3 text-left transition-all duration-100 focus:outline-none focus-visible:ring-2"
+                  :class="focusedChangeTypes.includes('value-goal-relax')
+                    ? 'bg-violet-700/60 border-2 border-violet-400 ring-1 ring-violet-400/40 focus-visible:ring-violet-300'
+                    : 'bg-violet-900/30 border border-violet-800/50 hover:border-violet-600 hover:bg-violet-800/40 focus-visible:ring-violet-300'"
+                  title="Toggle: include Goal Relaxation improvements in KISS results"
+                  @click="toggleChangeType('value-goal-relax')"
+                >
+                  <div class="text-violet-300 font-semibold mb-1 flex items-center gap-1.5">
+                    <span>↓ Goal Relax</span>
+                    <span v-if="focusedChangeTypes.includes('value-goal-relax')" class="text-[9px] bg-violet-500/40 text-violet-200 px-1.5 py-0.5 rounded-full">ON</span>
+                  </div>
                   <div class="text-slate-400">OPTIMA renegotiation — system already meets relaxed target</div>
-                </div>
-                <div class="bg-amber-900/30 border border-amber-800/50 rounded-lg p-3 text-left">
-                  <div class="text-amber-300 font-semibold mb-1">⇄ Reallocation</div>
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg p-3 text-left transition-all duration-100 focus:outline-none focus-visible:ring-2"
+                  :class="focusedChangeTypes.includes('resource-realloc')
+                    ? 'bg-amber-700/60 border-2 border-amber-400 ring-1 ring-amber-400/40 focus-visible:ring-amber-300'
+                    : 'bg-amber-900/30 border border-amber-800/50 hover:border-amber-600 hover:bg-amber-800/40 focus-visible:ring-amber-300'"
+                  title="Toggle: include Resource Reallocation improvements in KISS results"
+                  @click="toggleChangeType('resource-realloc')"
+                >
+                  <div class="text-amber-300 font-semibold mb-1 flex items-center gap-1.5">
+                    <span>⇄ Reallocation</span>
+                    <span v-if="focusedChangeTypes.includes('resource-realloc')" class="text-[9px] bg-amber-500/40 text-amber-200 px-1.5 py-0.5 rounded-full">ON</span>
+                  </div>
                   <div class="text-slate-400">Zero net budget change, better ROI distribution across resources</div>
-                </div>
+                </button>
               </div>
+              <p v-if="focusedChangeTypes.length > 0" class="text-violet-300 text-[11px] italic">
+                {{ focusedChangeTypes.length }} type{{ focusedChangeTypes.length > 1 ? 's' : '' }} selected — results filtered after compute
+              </p>
+              <p v-else class="text-slate-600 text-[11px] italic">All types shown (none selected)</p>
             </div>
 
-            <!-- Improvement cards -->
+            <!-- Improvement cards — filteredImprovements respects focusedChangeTypes -->
             <template v-else>
+              <p v-if="focusedChangeTypes.length > 0 && filteredImprovements.length === 0"
+                 class="text-slate-400 text-sm text-center py-8 italic">
+                No improvements match the selected type filters. Deselect all to show all 5.
+              </p>
+              <!-- Filter-active caption — tells the user how many are shown vs total
+                   (Tom 2026-06-07: "why are the kiss suggestions numbered 1 2 4 5 not 3?")
+                   Badge now shows filtered position (1,2,3…) not original ROI rank. -->
+              <p v-if="focusedChangeTypes.length > 0 && filteredImprovements.length > 0"
+                 class="text-violet-400 text-[11px] italic -mb-2">
+                Showing {{ filteredImprovements.length }} of {{ improvements.length }}
+                improvement{{ improvements.length !== 1 ? 's' : '' }}
+                ({{ improvements.length - filteredImprovements.length }} hidden by type filter
+                · deselect all to show all)
+              </p>
               <div
-                v-for="imp in improvements"
+                v-for="(imp, impIdx) in filteredImprovements"
                 :key="imp.id"
                 class="rounded-xl bg-slate-900 border-2 overflow-hidden"
                 :class="RANK_BORDER_COLORS[imp.rank]"
               >
                 <!-- Card header -->
                 <div class="px-4 pt-4 pb-3 flex items-start gap-3">
-                  <!-- Rank badge -->
+                  <!-- Rank badge — shows filtered position (1,2,3…), not original ROI rank.
+                       HoverHint reveals original rank for transparency. -->
                   <div
                     class="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shadow-md"
                     :class="RANK_BADGE_COLORS[imp.rank]"
-                    :title="`KISS Improvement #${imp.rank} — ranked by ROI`"
+                    :title="`KISS result ${impIdx + 1} of ${filteredImprovements.length} shown · original ROI rank #${imp.rank}`"
                   >
-                    {{ imp.rank }}
+                    {{ impIdx + 1 }}
                   </div>
                   <!-- Title block -->
                   <div class="flex-1 min-w-0">
@@ -513,11 +611,15 @@ function resourceDeltaSign(pct: number): string {
 
                   <!-- Diff rows -->
                   <div class="px-3 py-2 space-y-2">
+                    <!-- Each diff row: entry type · label · before column · arrow · after column · delta
+                         Bars are rectangular (rounded-md) not pill-shaped, so text isn't clipped by
+                         border-radius. Labels shown BELOW the bar, not inside it with mix-blend-screen,
+                         for full legibility. Tom 2026-06-07: "illegible text". -->
                     <div
                       v-for="diff in imp.diffs"
                       :key="diff.entryId"
                       class="flex items-center gap-2"
-                      :class="diff.isPrimary ? 'opacity-100' : 'opacity-70'"
+                      :class="diff.isPrimary ? 'opacity-100' : 'opacity-60'"
                     >
                       <!-- Entry type badge -->
                       <span
@@ -528,84 +630,87 @@ function resourceDeltaSign(pct: number): string {
 
                       <!-- Entry label -->
                       <span
-                        class="shrink-0 text-[11px] text-slate-300 min-w-0 truncate"
-                        style="width: 120px;"
+                        class="shrink-0 text-[11px] text-slate-300 truncate"
+                        style="width: 110px;"
                         :title="diff.entryLabel"
                         :class="diff.isPrimary ? '' : 'text-slate-500 italic'"
                       >{{ diff.entryLabel }}</span>
 
-                      <!-- Before bar -->
-                      <div class="relative rounded-full overflow-hidden bg-slate-800 shrink-0"
-                           style="width: 130px; height: 22px;"
-                           :title="`Before: ${diff.before.label}`">
-                        <!-- Progress fill -->
-                        <div
-                          v-if="diff.before.zone !== 'na'"
-                          class="absolute inset-y-0 left-0 rounded-full"
-                          :style="{
-                            width: barWidth(diff.before.barPct),
-                            background: zoneColor(diff.before.zone),
-                            opacity: '0.8',
-                          }"
-                        />
-                        <!-- Tolerable tick -->
-                        <div
-                          v-if="diff.before.tolerablePct > 0"
-                          class="absolute inset-y-0 w-px bg-amber-300/70"
-                          :style="{ left: tickLeft(diff.before.tolerablePct) }"
-                        />
-                        <!-- Goal tick -->
-                        <div
-                          v-if="diff.before.goalPct > 0"
-                          class="absolute inset-y-0 w-0.5 bg-emerald-400/90"
-                          :style="{ left: tickLeft(diff.before.goalPct) }"
-                        />
-                        <!-- Zone label -->
-                        <span class="absolute inset-0 flex items-center justify-center text-[9px] font-semibold text-white/70 mix-blend-screen px-1 truncate">
+                      <!-- Before column: bar + label below -->
+                      <div class="shrink-0" style="width: 128px;">
+                        <!-- Progress bar (rectangular, no text inside) -->
+                        <div class="relative rounded-md overflow-hidden bg-slate-800"
+                             style="height: 14px;"
+                             :title="`Before: ${diff.before.label}`">
+                          <div
+                            v-if="diff.before.zone !== 'na'"
+                            class="absolute inset-y-0 left-0"
+                            :style="{
+                              width: barWidth(diff.before.barPct),
+                              background: zoneColor(diff.before.zone),
+                              opacity: '0.85',
+                            }"
+                          />
+                          <div
+                            v-if="diff.before.tolerablePct > 0"
+                            class="absolute inset-y-0 w-px bg-amber-300/80"
+                            :style="{ left: tickLeft(diff.before.tolerablePct) }"
+                          />
+                          <div
+                            v-if="diff.before.goalPct > 0"
+                            class="absolute inset-y-0 w-0.5 bg-emerald-400"
+                            :style="{ left: tickLeft(diff.before.goalPct) }"
+                          />
+                        </div>
+                        <!-- Label below bar — no clipping, full legibility -->
+                        <div class="text-[9px] text-slate-300 mt-0.5 truncate" :title="diff.before.label">
                           {{ diff.before.label }}
-                        </span>
+                        </div>
                       </div>
 
                       <!-- Delta arrow -->
                       <span
-                        class="shrink-0 text-base font-bold w-5 text-center"
+                        class="shrink-0 text-base font-bold w-5 text-center leading-none"
                         :class="deltaArrowColor(diff.direction, diff.resourceDeltaPct, diff.entryType)"
                         :title="`Change direction: ${diff.direction}`"
                       >{{ deltaArrow(diff.direction, diff.resourceDeltaPct) }}</span>
 
-                      <!-- After bar -->
-                      <div class="relative rounded-full overflow-hidden bg-slate-800 shrink-0"
-                           style="width: 130px; height: 22px;"
-                           :title="`After: ${diff.after.label}`">
-                        <div
-                          v-if="diff.after.zone !== 'na'"
-                          class="absolute inset-y-0 left-0 rounded-full"
-                          :style="{
-                            width: barWidth(diff.after.barPct),
-                            background: zoneColor(diff.after.zone),
-                            opacity: diff.after.zone === 'new' ? '0.9' : '0.8',
-                          }"
-                        />
-                        <!-- Tolerable tick -->
-                        <div
-                          v-if="diff.after.tolerablePct > 0"
-                          class="absolute inset-y-0 w-px bg-amber-300/70"
-                          :style="{ left: tickLeft(diff.after.tolerablePct) }"
-                        />
-                        <!-- Goal tick -->
-                        <div
-                          v-if="diff.after.goalPct > 0"
-                          class="absolute inset-y-0 w-0.5 bg-emerald-400/90"
-                          :style="{ left: tickLeft(diff.after.goalPct) }"
-                        />
-                        <span class="absolute inset-0 flex items-center justify-center text-[9px] font-semibold text-white/70 mix-blend-screen px-1 truncate">
+                      <!-- After column: bar + label below -->
+                      <div class="shrink-0" style="width: 128px;">
+                        <div class="relative rounded-md overflow-hidden bg-slate-800"
+                             style="height: 14px;"
+                             :title="`After: ${diff.after.label}`">
+                          <div
+                            v-if="diff.after.zone !== 'na'"
+                            class="absolute inset-y-0 left-0"
+                            :style="{
+                              width: barWidth(diff.after.barPct),
+                              background: zoneColor(diff.after.zone),
+                              opacity: diff.after.zone === 'new' ? '0.95' : '0.85',
+                            }"
+                          />
+                          <div
+                            v-if="diff.after.tolerablePct > 0"
+                            class="absolute inset-y-0 w-px bg-amber-300/80"
+                            :style="{ left: tickLeft(diff.after.tolerablePct) }"
+                          />
+                          <div
+                            v-if="diff.after.goalPct > 0"
+                            class="absolute inset-y-0 w-0.5 bg-emerald-400"
+                            :style="{ left: tickLeft(diff.after.goalPct) }"
+                          />
+                        </div>
+                        <!-- After label -->
+                        <div class="text-[9px] mt-0.5 font-medium truncate"
+                             :class="diff.after.zone === 'new' ? 'text-cyan-300' : diff.after.zone === 'goal' ? 'text-emerald-400' : 'text-slate-300'"
+                             :title="diff.after.label">
                           {{ diff.after.label }}
-                        </span>
+                        </div>
                       </div>
 
                       <!-- Delta label -->
                       <span
-                        class="shrink-0 text-[11px] w-20 text-right"
+                        class="shrink-0 text-[11px] font-semibold w-16 text-right"
                         :class="deltaLabelColor(diff.direction, diff.resourceDeltaPct, diff.entryType)"
                         :title="`Delta: ${diff.deltaLabel}`"
                       >{{ diff.deltaLabel }}</span>
@@ -619,11 +724,11 @@ function resourceDeltaSign(pct: number): string {
                       </div>
                       <div class="flex items-center gap-1">
                         <div class="w-3 h-2 rounded-sm" style="background:#f59e0b;opacity:0.8"></div>
-                        <span class="text-[9px] text-slate-500">Tolerable</span>
+                        <PlanguageTerm term="Tolerable" class="text-[9px] text-slate-500" :show-icon="false" />
                       </div>
                       <div class="flex items-center gap-1">
                         <div class="w-3 h-2 rounded-sm" style="background:#34d399;opacity:0.8"></div>
-                        <span class="text-[9px] text-slate-500">Goal</span>
+                        <PlanguageTerm term="Goal" class="text-[9px] text-slate-500" :show-icon="false" />
                       </div>
                       <div class="flex items-center gap-1">
                         <div class="w-3 h-2 rounded-sm" style="background:#22d3ee;opacity:0.9"></div>

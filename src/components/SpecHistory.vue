@@ -78,6 +78,10 @@ const emit = defineEmits<{
     plan: EvoStepPlan | null,
     planName: string,
     planOwners: string[],
+    /** v514 — Resources envelope from the restored version.  Parent hydrates
+     *  useResourcesEnvelope so estimation series + IET snapshots + Plan
+     *  Scope Framework + ResourcesAgent settings match the restored spec. */
+    resourcesEnvelope?: unknown,
   ]
   /**
    * User clicked the glyph half of any Restore split-button.
@@ -217,7 +221,30 @@ let _exportFlashTimer: ReturnType<typeof setTimeout> | null = null
 function handleExportMarkdown(id: string): void {
   const result = restoreVersion(id)
   if (!result) return
-  const md = serialise(result.spec)
+  // v514 — envelope round-trip: when the SpecVersion carries a Resources
+  // envelope, append the base64-encoded HTML-comment appendix so a subsequent
+  // paste-back through parseMarkdownSpec + hydrateEnvelope restores every
+  // estimation event + IET snapshot + PSF field + ResourcesAgent setting.
+  // Tom Gilb 2026-07-21 "can you promise me that all running estimation data
+  // is saved and restored with any version of the spec?" — YES from v514.
+  let envelopeAppendix = ''
+  const env = result.resourcesEnvelope
+  if (env && typeof env === 'object') {
+    try {
+      // Inline the envelope-serialiser without importing useResourcesEnvelope
+      // to avoid coupling SpecHistory to the resource composables (Vue file
+      // stays lean).  Format mirrors useResourcesEnvelope.serialiseEnvelopeToMarkdown.
+      const json = JSON.stringify(env)
+      const utf8Bytes = new TextEncoder().encode(json)
+      let binary = ''
+      for (const b of utf8Bytes) binary += String.fromCharCode(b)
+      const b64 = btoa(binary)
+      envelopeAppendix = `\n\n<!-- SEM-RESOURCES-ENVELOPE v1 BEGIN\n${b64}\nSEM-RESOURCES-ENVELOPE v1 END -->\n`
+    } catch (err) {
+      console.warn('[SpecHistory.handleExportMarkdown] envelope appendix build failed — spec exported without resources', err)
+    }
+  }
+  const md = serialise(result.spec, envelopeAppendix)
 
   // Sync path — hidden textarea + execCommand('copy'). Works in Safari PWA,
   // regular Safari, Chrome, Firefox, Edge; stays inside the user-gesture
@@ -492,6 +519,9 @@ function handleRestore(id: string): void {
     result.plan,
     ver?.specName ?? ver?.planName ?? '',
     ver?.specOwners ?? ver?.planOwners ?? [],
+    // v514 — Resources envelope from the stored SpecVersion (null when the
+    // version was saved before v514 or with no envelope).
+    result.resourcesEnvelope,
   )
 }
 </script>
@@ -501,7 +531,7 @@ function handleRestore(id: string): void {
     <!-- ── Sticky search header ──────────────────────────────────────────── -->
     <div class="shrink-0 px-3 py-2.5 border-b border-gray-100 bg-white">
       <label class="relative block">
-        <span class="sr-only">Search history by title, owner, label, topic or date</span>
+        <span class="sr-only">Search past versions by title, owner, label, topic or date</span>
         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none" aria-hidden="true">🔍</span>
         <input
           v-model="searchQuery"
@@ -510,7 +540,7 @@ function handleRestore(id: string): void {
           class="w-full rounded-lg border border-gray-200 bg-gray-50 pl-8 pr-7 py-1.5 text-[12px] text-gray-700
                  placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white
                  transition-all"
-          aria-label="Search version history"
+          aria-label="Search Past Versions"
         />
         <button
           v-if="searchQuery"
@@ -554,7 +584,7 @@ function handleRestore(id: string): void {
               'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 ring-1 ring-emerald-200': p.role === 'planner',
               'bg-amber-100 text-amber-700 hover:bg-amber-200 ring-1 ring-amber-200': p.role === 'scribe',
             }"
-            :title="`${p.role === 'owner' ? '🔑 Owner' : p.role === 'planner' ? '🧑 Planner' : '📝 Scribe'}: ${p.name} — click to search history for this person`"
+            :title="`${p.role === 'owner' ? '🔑 Owner' : p.role === 'planner' ? '🧑 Planner' : '📝 Scribe'}: ${p.name} — click to search Past Versions for this person`"
             @click="searchQuery = p.name"
           >{{ p.name }}</button>
         </div>

@@ -765,7 +765,7 @@
                 <!-- Feature #72 — RICE button -->
                 <button
                   type="button"
-                  title="Reach × Impact × Confidence ÷ Effort score"
+                  title="Reach × Impact × Confidence / Effort score"
                   aria-label="Prioritise spec values with RICE scoring"
                   class="h-11 px-3 text-sm rounded bg-orange-100 hover:bg-orange-200 transition-colors
                          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
@@ -6962,7 +6962,7 @@
                 :aria-label="`Function: ${f.id}`"
               >
                 <div class="flex items-center gap-2 bg-blue-50 px-4 py-2.5 border-b border-blue-100">
-                  <!-- Feature #11: PlanguageTerm tooltip for section header -->
+                  <!-- Feature #11: PlanguageTerm HoverHint for section header -->
                   <PlanguageTerm term="Function" class="text-xs font-bold tracking-wide text-blue-600 uppercase" />
                   <span class="text-xs text-blue-400">·</span>
                   <span class="text-xs font-mono text-blue-700">{{ f.id }}</span>
@@ -7002,7 +7002,7 @@
               >
                 <!-- Card header — Feature #84: pin button + relevance badge -->
                 <div class="flex items-center gap-2 bg-emerald-50 px-4 py-2.5 border-b border-emerald-100">
-                  <!-- Feature #11: PlanguageTerm tooltip for section header -->
+                  <!-- Feature #11: PlanguageTerm HoverHint for section header -->
                   <PlanguageTerm term="Value" class="text-xs font-bold tracking-wide text-emerald-600 uppercase" />
                   <span class="text-xs text-emerald-400">·</span>
                   <span class="text-xs font-mono text-emerald-700">{{ v.id }}</span>
@@ -7092,7 +7092,7 @@
                   >
                     <div class="flex items-center gap-1.5 mb-1">
                       <span aria-hidden="true" class="text-sm">📐</span>
-                      <!-- Feature #11: tooltip on Scale label -->
+                      <!-- Feature #11: HoverHint on Scale label -->
                       <PlanguageTerm term="Scale" class="text-xs font-semibold text-slate-600" />
                     </div>
                     <p class="text-sm text-slate-700">{{ v.scale }}</p>
@@ -7106,7 +7106,7 @@
                   >
                     <div class="flex items-center gap-1.5 mb-1">
                       <span aria-hidden="true" class="text-sm">🔬</span>
-                      <!-- Feature #11: tooltip on Meter label -->
+                      <!-- Feature #11: HoverHint on Meter label -->
                       <PlanguageTerm term="Meter" class="text-xs font-semibold text-slate-600" />
                     </div>
                     <p class="text-sm text-slate-700">{{ v.meter }}</p>
@@ -7199,7 +7199,7 @@
                 :aria-label="`Solution: ${s.id}`"
               >
                 <div class="flex items-center gap-2 bg-violet-50 px-4 py-2.5 border-b border-violet-100">
-                  <!-- Feature #11: PlanguageTerm tooltip for section header -->
+                  <!-- Feature #11: PlanguageTerm HoverHint for section header -->
                   <PlanguageTerm term="Solution" class="text-xs font-bold tracking-wide text-violet-600 uppercase" />
                   <span class="text-xs text-violet-400">·</span>
                   <span class="text-xs font-mono text-violet-700">{{ s.id }}</span>
@@ -7234,7 +7234,7 @@
               class="flex items-center gap-4 py-2 px-3 bg-gray-50 border-t border-gray-100 rounded-b-xl text-xs text-gray-500"
               aria-label="Spec readability and complexity stats"
             >
-              <!-- Readability grade with tooltip showing 3 lowest-scoring entries -->
+              <!-- Readability grade with HoverHint showing 3 lowest-scoring entries -->
               <span
                 v-if="readabilityResult"
                 class="relative group cursor-default select-none"
@@ -7249,7 +7249,7 @@
                   class="font-medium"
                   :title="readabilityLowestTooltip"
                 >{{ readabilityResult.grade }} ({{ readabilityResult.score }})</span>
-                <!-- Tooltip (hover) listing 3 lowest-scoring entries -->
+                <!-- HoverHint (hover) listing 3 lowest-scoring entries -->
                 <span
                   class="pointer-events-none absolute left-0 bottom-full mb-1 z-10 hidden group-hover:flex
                          flex-col gap-0.5 min-w-[200px] rounded-lg border border-gray-200 bg-white shadow-md px-3 py-2"
@@ -9186,7 +9186,7 @@ const readabilityResult = computed(() => {
   return scoreReadability(props.spec)
 })
 
-/** Feature #41 — 3 lowest-scoring entries for the tooltip */
+/** Feature #41 — 3 lowest-scoring entries for the HoverHint */
 const readabilityLowest3 = computed(() => {
   if (!readabilityResult.value) return []
   return [...readabilityResult.value.perEntryScores]
@@ -9194,7 +9194,7 @@ const readabilityLowest3 = computed(() => {
     .slice(0, 3)
 })
 
-/** Tooltip text fallback for title attribute (accessibility) */
+/** HoverHint text fallback for title attribute (accessibility) */
 const readabilityLowestTooltip = computed(() => {
   if (readabilityLowest3.value.length === 0) return ''
   return 'Lowest readability:\n' + readabilityLowest3.value

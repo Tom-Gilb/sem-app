@@ -58,8 +58,13 @@ export function useProjectDashboard() {
     return Math.min(100, Math.round(score / Math.max(total, 1)))
   }
 
-  /** Add a brand-new entry. Returns the new entry's id. */
+  /** Add a brand-new entry. Returns the new entry's id (or existing id if duplicate). */
   function addEntry(spec: SpecBlock): string {
+    // Deduplication: if an entry with identical spec content already exists, return its id.
+    const fingerprint = JSON.stringify(spec)
+    const existing = entries.value.find(e => JSON.stringify(e.spec) === fingerprint)
+    if (existing) return existing.id
+
     const id = crypto.randomUUID()
     entries.value.unshift({
       id,

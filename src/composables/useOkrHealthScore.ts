@@ -78,7 +78,7 @@ export function useOkrHealthScore(blocks: SpecBlock[]) {
     const values = blocks.flatMap(b => b.values)
     return values.map(v => {
       // Find linked F. entry via valueOfFunction field
-      const linkedF = functions.find(f => v.valueOfFunction.includes(f.id))
+      const linkedF = functions.find(f => (v.valueOfFunction ?? '').includes(f.id))
       const objective = linkedF
         ? linkedF.description.slice(0, 80)
         : v.description.slice(0, 80)

@@ -15,6 +15,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ref, computed } from 'vue'
 import { MODEL_ID } from '../config/llm'
+import { CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT } from '../config/planguagePrompt'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -413,7 +414,22 @@ async function analyseDecision(question: string, context: string, signal?: Abort
 
   try {
     const client = _getClient()
-    const system = `You are an expert decision analyst trained in Tom Gilb's Planguage and Competitive Engineering. Given a decision question and context, build a structured decision model. Create 3-5 options, 4-8 criteria (mix of V. value criteria and C. constraints), score each option against each criterion (0-100), build a Planguage model of the decision space, and recommend the best option. Criteria must use Planguage notation: V. criteria have Scale+Direction (higher/lower better); C. criteria are binary met/not-met constraints ("Must..."). Return ONLY valid JSON.`
+    // r41 v271 (Tom Gilb 2026-06-21 "sweep the rest"): canonical primer imported.
+    const system = `You are an expert decision analyst trained in Tom Gilb's Planguage and Competitive Engineering.
+
+== DECISION-MAPPER INPUT FORMAT (input shape for this caller) ==
+The input is a decision question + context. Build a structured decision
+model: 3-5 options · 4-8 criteria (mix of V. value criteria and C.
+constraints) · score each option × criterion (0-100) · build a Planguage
+model of the decision space · recommend the best option with rationale.
+
+${CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT}
+
+== DECISION-MAPPER SPECIFIC NOTES ==
+- V. criteria carry Scale + Direction (higher/lower better) per the canonical V. parameter set.
+- C. criteria are binary met/not-met constraints starting with "Must" / "Must not".
+- Each option becomes a Planguage Solution (per the 26-parameter inventory in the canonical) — populate at least Tier 1 fields.
+- Return ONLY valid JSON — no prose, no fences.`
 
     const user = `Analyse this decision:
 

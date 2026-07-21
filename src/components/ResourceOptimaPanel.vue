@@ -40,6 +40,14 @@ import {
   htmlDocumentShell,
   sectionHeaderHtml,
 } from '../composables/useExportShared'
+// r41 v301 (Tom Gilb 2026-06-23 verbatim "gmorgen. Please continue w backlog.")
+// Embedded universal chrome — mirrors SpecEditorPanel v298 / PentaPanel v301 / MultiVision v301.
+// Composes with Stages-are-Cyclic SUPREME, No-Silent-Removal SUPREME, MOVE Principle, Twin portability.
+import PlanningStageBar from './PlanningStageBar.vue'
+import AgentsStrip from './AgentsStrip.vue'
+import Stage2SubStepStrip from './Stage2SubStepStrip.vue'
+import type { Stage2SubStepKey } from '../data/stage2SubSteps'
+import type { AgentRegistryId } from '../composables/useAgentRegistry'
 
 // UNIT_TYPE=Panel
 
@@ -47,11 +55,57 @@ const props = defineProps<{
   spec: SpecBlock | null
   /** V×R impact ratios from Stage 7. Key: `${valueId}__${resourceId}` */
   vcRatios?: Record<string, number>
+  /** r41 v301 — current planning stage (1–11) so the embedded PlanningStageBar can highlight. */
+  planningStage?: number
+  /** r41 v301 — spec-presence map for AgentsStrip gating. */
+  specPresence?: Partial<Record<string, boolean>>
+  /** r41 v301 — current Stage 2 sub-step. */
+  stage2SubStep?: Stage2SubStepKey
+  /** r41 v301 — completed Stage 2 sub-steps. */
+  stage2DoneSteps?: Stage2SubStepKey[]
+  /** r41 v301 — has-plan flag for PlanningStageBar tile gating. */
+  hasPlan?: boolean
 }>()
 
 const emit = defineEmits<{
   close: []
+  /** r41 v301 — embedded chrome navigation events. */
+  'navigate-stage': [n: number]
+  'open-agent': [agentId: AgentRegistryId]
+  'go-stage2-substep': [target: Stage2SubStepKey]
+  'continue-stage2': []
 }>()
+
+// r41 v301 — Stage names for breadcrumb.
+// r41 v349 (Tom 2026-06-25 stage-label revert sweep): import canonical (was a 5-stage-drift duplicate).
+import { PLANNING_STAGES as _CANONICAL_STAGES } from '../data/planningStages'
+const OPTIMA_STAGE_NAMES: Record<number, string> = Object.fromEntries(
+  _CANONICAL_STAGES.map(s => [s.stage, s.label])
+)
+const optimaCurrentStageName = computed(() =>
+  props.planningStage ? (OPTIMA_STAGE_NAMES[props.planningStage] ?? `Stage ${props.planningStage}`) : null
+)
+
+// r41 v301 — spec-presence default.
+const optimaComputedSpecPresence = computed(() => {
+  if (props.specPresence) return props.specPresence
+  const s = props.spec
+  return {
+    spec:         !!s,
+    stakeholders: (s?.stakeholders?.length ?? 0) > 0,
+    values:       (s?.values?.length ?? 0) > 0,
+    functions:    (s?.functions?.length ?? 0) > 0,
+    solutions:    (s?.solutions?.length ?? 0) > 0,
+    resources:    (s?.resources?.length ?? 0) > 0,
+  } as Partial<Record<string, boolean>>
+})
+
+// r41 v301 — embedded-chrome handlers (OPTIMA slider state is intermediate / not yet
+// committed — drag-and-release; no save required before navigate).
+function onOptimaEmbeddedStageNav(n: number): void  { emit('navigate-stage', n) }
+function onOptimaEmbeddedAgentOpen(agentId: AgentRegistryId): void { emit('open-agent', agentId) }
+function onOptimaEmbeddedStage2Go(target: Stage2SubStepKey): void  { emit('go-stage2-substep', target) }
+function onOptimaEmbeddedStage2Continue(): void { emit('continue-stage2') }
 
 // ── Keyboard close ──────────────────────────────────────────────────────────
 function onKey(e: KeyboardEvent) { if (e.key === 'Escape') emit('close') }
@@ -293,6 +347,18 @@ const resourceEntries = computed(() => entries.value.filter(e => e.type === 'res
 const hasViolations   = computed(() => violating.value.size > 0)
 const violationCount  = computed(() => violating.value.size)
 
+// r41 v301 — guidance-bar dynamic sentence.  Stage-Has-A-Purpose SUPREME.
+const optimaGuidanceText = computed<string>(() => {
+  if (valueEntries.value.length === 0 || resourceEntries.value.length === 0)
+    return 'OPTIMA needs at least one Value and one Resource. Add them in Stage 1/2 before running optimization.'
+  const measurableValues = (props.spec?.values ?? []).filter(v => (v.goal ?? '').toString().trim() !== '').length
+  if (measurableValues < 2)
+    return 'OPTIMA needs at least 2 Values with quantified Goals to run real optimization — without measurable Targets it is qualitative guesswork.'
+  if (hasViolations.value)
+    return `OPTIMA shows ${violationCount.value} threshold violation(s). Drag Resource sliders ↕ to free budget; red dots indicate Tolerable breaches.`
+  return 'OPTIMA explores Resource trade-offs across multiple objectives. Drag Resource sliders ↕ to see how Value attainment shifts — pick the combination that matches your risk tolerance.'
+})
+
 // ── Export ───────────────────────────────────────────────────────────────────
 // Tom Gilb 2026-06-06: Export button on every substantial window. OPTIMA's
 // state at export = current slider positions, status colour bands, violation
@@ -381,6 +447,11 @@ async function exportOptima(): Promise<void> {
     plainText:    _renderOptimaPlainText(),
     subject:      `OPTIMA · ${new Date().toLocaleDateString('en-AU')}`,
     artefactName: 'OPTIMA',
+    // Mailto-No-Self-To SUPREME (Tom Gilb 2026-06-16 verbatim "EMAIL SHARPENING
+    // YOU PUT THE MAIN IN THE TO SECTION, SILLY BOY"): Tom is the SENDER on a
+    // SEM-App-initiated export; recipient must be empty.  Without this explicit
+    // '', useExportShared.ts defaults to Tom@Gilb.com and Tom would email himself.
+    to: '',
   })
 }
 </script>
@@ -418,6 +489,54 @@ async function exportOptima(): Promise<void> {
       </div>
       <CloseDot size="lg" @click="emit('close')" variant="on-dark"
         title="Close OPTIMA · Escape key also closes" />
+    </div>
+
+    <!-- ── r41 v301 (Tom Gilb 2026-06-23) — Embedded universal chrome.
+         PlanningStageBar + AgentsStrip + Stage2SubStepStrip (when stage===2)
+         + guidance bar.  Mirrors SpecEditorPanel v298 / PentaPanel v301. -->
+    <PlanningStageBar
+      v-if="props.planningStage != null"
+      :current-stage="props.planningStage ?? 1"
+      :has-spec="!!props.spec"
+      :has-plan="!!props.hasPlan"
+      @navigate="onOptimaEmbeddedStageNav"
+    />
+    <AgentsStrip
+      :has-spec="!!props.spec"
+      :spec-presence="optimaComputedSpecPresence as Record<string, boolean>"
+      @open-maria="onOptimaEmbeddedAgentOpen('maria')"
+      @open-contracts="onOptimaEmbeddedAgentOpen('contracts')"
+      @open-models="onOptimaEmbeddedAgentOpen('models')"
+      @open-stakeholder-mapper="onOptimaEmbeddedAgentOpen('stakeholder-mapper')"
+      @open-evo-critiquer="onOptimaEmbeddedAgentOpen('evo-step-critique')"
+      @open-spec-importer="onOptimaEmbeddedAgentOpen('plan-importer')"
+      @open-decisions="onOptimaEmbeddedAgentOpen('decisions')"
+      @open-strategy="onOptimaEmbeddedAgentOpen('strategy-agent')"
+      @open-incorruptible="onOptimaEmbeddedAgentOpen('incorruptible')"
+      @open-incorruptible-sharpen="onOptimaEmbeddedAgentOpen('incorruptible-sharpen')"
+      @open-elon="onOptimaEmbeddedAgentOpen('elon')"
+      @open-elon-sharpen="onOptimaEmbeddedAgentOpen('elon-sharpen')"
+      @open-munger="onOptimaEmbeddedAgentOpen('munger')"
+      @open-munger-sharpen="onOptimaEmbeddedAgentOpen('munger-sharpen')"
+      @open-heilmeier="onOptimaEmbeddedAgentOpen('heilmeier')"
+      @open-auto-dbo="onOptimaEmbeddedAgentOpen('autoDbo')"
+      @open-mode-picker="onOptimaEmbeddedAgentOpen"
+    />
+    <Stage2SubStepStrip
+      v-if="props.planningStage === 2"
+      :current="props.stage2SubStep"
+      :done="props.stage2DoneSteps"
+      @go="onOptimaEmbeddedStage2Go"
+      @continue="onOptimaEmbeddedStage2Continue"
+    />
+    <div
+      v-if="props.planningStage != null"
+      class="shrink-0 flex items-start gap-2 px-6 py-2 bg-slate-900/85 border-b border-amber-500/30 text-[12px] leading-snug text-amber-100/90"
+      role="note"
+      aria-label="What this surface is for"
+    >
+      <span class="shrink-0 mt-0.5 text-amber-300/80" aria-hidden="true">▸</span>
+      <span>{{ optimaGuidanceText }}<span v-if="optimaCurrentStageName" class="ml-1 opacity-70">· Stage {{ props.planningStage }}: {{ optimaCurrentStageName }}</span></span>
     </div>
 
     <!-- ── Instructions strip — dark, punchy ────────────────────────────── -->

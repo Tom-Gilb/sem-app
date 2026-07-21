@@ -127,7 +127,7 @@ describe('SpecOutput Feature #20 — Domain Badge', () => {
   })
 })
 
-describe('SpecOutput Feature #11 — Tooltip aria wiring', () => {
+describe('SpecOutput Feature #11 — HoverHint aria wiring', () => {
   it('PlanguageTerm label has aria-describedby attribute', () => {
     const wrapper = mount(SpecOutput, {
       props: {
@@ -142,61 +142,52 @@ describe('SpecOutput Feature #11 — Tooltip aria wiring', () => {
     expect(termLabels.length).toBeGreaterThan(0)
   })
 
-  it('tooltip is shown when a PlanguageTerm is hovered (mouseenter)', async () => {
+  // PlanguageTerm tooltips are <Teleport to="body"> — wrapper.find() cannot see
+  // them. Tests use attachTo: document.body + document.body.querySelector.
+
+  it('HoverHint is shown when a PlanguageTerm is hovered (mouseenter)', async () => {
     const wrapper = mount(SpecOutput, {
-      props: {
-        loading: false,
-        error: '',
-        spec: engineeringSpec,
-        markdown: '',
-      },
+      props: { loading: false, error: '', spec: engineeringSpec, markdown: '' },
+      attachTo: document.body,
     })
-    // Find first label with aria-describedby (a PlanguageTerm span)
     const termLabel = wrapper.find('[aria-describedby]')
     expect(termLabel.exists()).toBe(true)
 
     await termLabel.trigger('mouseenter')
     await nextTick()
 
-    // Tooltip should now be visible with role="tooltip"
-    const tooltip = wrapper.find('[role="tooltip"]')
-    expect(tooltip.exists()).toBe(true)
+    // HoverHint is teleported to body — query document directly
+    expect(document.body.querySelector('[role="tooltip"]')).toBeTruthy()
+    wrapper.unmount()
   })
 
-  it('tooltip disappears after mouseleave', async () => {
+  it('HoverHint disappears after mouseleave', async () => {
     const wrapper = mount(SpecOutput, {
-      props: {
-        loading: false,
-        error: '',
-        spec: engineeringSpec,
-        markdown: '',
-      },
+      props: { loading: false, error: '', spec: engineeringSpec, markdown: '' },
+      attachTo: document.body,
     })
     const termLabel = wrapper.find('[aria-describedby]')
     await termLabel.trigger('mouseenter')
     await nextTick()
-    expect(wrapper.find('[role="tooltip"]').exists()).toBe(true)
+    expect(document.body.querySelector('[role="tooltip"]')).toBeTruthy()
 
     await termLabel.trigger('mouseleave')
     await nextTick()
-    expect(wrapper.find('[role="tooltip"]').exists()).toBe(false)
+    expect(document.body.querySelector('[role="tooltip"]')).toBeFalsy()
+    wrapper.unmount()
   })
 
-  it('tooltip appears on focus for keyboard accessibility', async () => {
+  it('HoverHint appears on focus for keyboard accessibility', async () => {
     const wrapper = mount(SpecOutput, {
-      props: {
-        loading: false,
-        error: '',
-        spec: engineeringSpec,
-        markdown: '',
-      },
+      props: { loading: false, error: '', spec: engineeringSpec, markdown: '' },
+      attachTo: document.body,
     })
     const termLabel = wrapper.find('[aria-describedby]')
     await termLabel.trigger('focus')
     await nextTick()
 
-    const tooltip = wrapper.find('[role="tooltip"]')
-    expect(tooltip.exists()).toBe(true)
+    expect(document.body.querySelector('[role="tooltip"]')).toBeTruthy()
+    wrapper.unmount()
   })
 })
 

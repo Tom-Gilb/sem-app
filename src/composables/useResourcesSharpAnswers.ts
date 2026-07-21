@@ -42,6 +42,14 @@ export interface QuestionAnswer {
   ticked: number[]
   /** Selection mode — drives effective-answer combination. */
   mode: SelectionMode
+  /** Planguage Parameter "Justification" — planner's [!] Because: why they wrote this answer. */
+  because?: string
+  /** Planguage Parameter "Justification" — planner's ["] Sources: what they referenced. */
+  sources?: string
+  /** Per-suggestion planner justification (sparse, keyed by suggestion index). Because. */
+  suggBecause?: Record<number, string>
+  /** Per-suggestion planner justification (sparse, keyed by suggestion index). Sources. */
+  suggSources?: Record<number, string>
 }
 
 /** A storage value can be either a v1 plain string (legacy) or v2 QuestionAnswer. */
@@ -72,6 +80,10 @@ function normaliseStored(v: StoredQuestionValue | undefined): QuestionAnswer {
     mode: ['mixed', 'all', 'typed-only', 'ticked-only'].includes(v.mode as string)
       ? (v.mode as SelectionMode)
       : DEFAULT_SELECTION_MODE,
+    because: typeof v.because === 'string' ? v.because : undefined,
+    sources: typeof v.sources === 'string' ? v.sources : undefined,
+    suggBecause: (typeof v.suggBecause === 'object' && v.suggBecause !== null) ? v.suggBecause as Record<number, string> : undefined,
+    suggSources: (typeof v.suggSources === 'object' && v.suggSources !== null) ? v.suggSources as Record<number, string> : undefined,
   }
 }
 
@@ -201,6 +213,19 @@ export function useResourcesSharpAnswers(planId: Ref<string>) {
     _mutate(categoryId, questionId, a => { a.mode = mode })
   }
 
+  function setPlannerBecause(categoryId: string, questionId: string, val: string): void {
+    _mutate(categoryId, questionId, a => { a.because = val })
+  }
+  function setPlannerSources(categoryId: string, questionId: string, val: string): void {
+    _mutate(categoryId, questionId, a => { a.sources = val })
+  }
+  function setSuggBecause(categoryId: string, questionId: string, idx: number, val: string): void {
+    _mutate(categoryId, questionId, a => { if (!a.suggBecause) a.suggBecause = {}; a.suggBecause[idx] = val })
+  }
+  function setSuggSources(categoryId: string, questionId: string, idx: number, val: string): void {
+    _mutate(categoryId, questionId, a => { if (!a.suggSources) a.suggSources = {}; a.suggSources[idx] = val })
+  }
+
   /** Returns whether a suggestion is ticked. */
   function isTicked(categoryId: string, questionId: string, idx: number): boolean {
     return getAnswer(categoryId, questionId).ticked.includes(idx)
@@ -251,6 +276,10 @@ export function useResourcesSharpAnswers(planId: Ref<string>) {
     toggleTicked,
     setTicked,
     setMode,
+    setPlannerBecause,
+    setPlannerSources,
+    setSuggBecause,
+    setSuggSources,
     isTicked,
     getEffectiveAnswer,
     clear,

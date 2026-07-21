@@ -6,7 +6,14 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { BetaTextBlockParam } from '@anthropic-ai/sdk'
 import { ref } from 'vue'
 import { MODEL_ID, SYSTEM_PROMPT, SYSTEM_PROMPT_CACHE_CONTROL } from '../config/llm'
+// r41 v48 — Tom Gilb 2026-06-16 Model Mode 4-axis config injected into every
+// spec/model generation call.  buildModelModeContext returns a structured
+// prompt prefix describing Domain · Presentation · Standards · Purpose.
+// r41 v51 — gated to activeMode === 'model' so Plan Mode keeps a clean prompt.
+import { buildModelModeContext } from './useModelModeContext'
+import { useActiveMode } from './useActiveMode'
 import type { SpecBlock } from '../types/spec'
+import { stampEntry } from '../utils/sourceStamp'
 import { useLoadingState } from './useLoadingState'
 import { logLlmCall } from './useAnalyticsEvents'
 import { parseApiError } from '../utils/parseApiError'
@@ -38,10 +45,30 @@ export function cancelCurrentTranslate(): void {
  * Returns the singleton Anthropic client, initialised lazily from the
  * VITE_ANTHROPIC_API_KEY environment variable.
  *
- * Timeout is 60 s — comfortably shorter than the 100-second watchdog so the
- * SDK's own abort fires first, the catch block clears loading, and the watchdog
- * never fires in normal operation. (Previous 90 s was too close to the watchdog
- * and Safari's stalled-TCP behaviour caused the watchdog to fire first.)
+ * 2026-06-26 S3 stability sweep + S3-revised (v384) — Tom: "do stability
+ * first" then "be conservative and get it right long term".  Audit
+ * revealed the prior config was STRUCTURALLY broken:
+ *   (a) timeout was 60_000 with comment "fires well before the 100 s
+ *       watchdog" — but watchdog is 300_000 (r41 sometime), so the
+ *       comment was stale by a factor of 3.
+ *   (b) maxRetries was implicit (Anthropic SDK default is 2) — so a
+ *       hanging call retried twice silently, stretching total wall time
+ *       to 60 × 3 = 180 s+ before the catch block ever ran.  That IS
+ *       the "endless feel" Tom hit: not one stuck call, but three.
+ *
+ * v383 first shipped `timeout: 240_000` — but that ABORTS legitimate
+ * 4-5 min generations BEFORE the honest loading-hint copy
+ * (`rule_loading_hint_honest_copy.md`) promised the user it could take
+ * "up to 3-5 minutes".  Structurally a silent broken promise.
+ *
+ * v384 — Option C: `timeout: 320_000` (320 s = 5:20).  Comfortably
+ * over the honest "3-5 minute" upper band so a real 5-min Sonnet
+ * generation completes successfully.  Watchdog raised to 350_000 in
+ * parallel (App.vue:_HANG_WATCHDOG_MS) so the SDK abort fires first
+ * with 30 s headroom for the catch+finally chain before the watchdog
+ * is involved.  `maxRetries: 0` STAYS — no silent retry-stretching;
+ * one call, one wait, deterministic abort at 320 s if Anthropic
+ * itself hangs.
  *
  * @throws {Error} if the API key environment variable is not set
  */
@@ -55,7 +82,8 @@ function getClient(): Anthropic {
     _client = new Anthropic({
       apiKey: apiKey ?? 'local',   // adapter ignores this in local mode
       dangerouslyAllowBrowser: true,
-      timeout: 60_000,             // 60 s — fires well before the 100 s watchdog
+      timeout: 320_000,            // 320 s — comfortably over honest 3-5 min copy upper bound; watchdog at 350 s is the safety net 30 s later (v384 Option C 2026-06-26)
+      maxRetries: 0,               // no silent retries — one call, one wait, deterministic abort (S3 fix 2026-06-26)
     })
   }
   return _client
@@ -147,19 +175,31 @@ export function buildMockSpec(stakes: string, ends: string, means: string): impo
   // Communication: Logical Language Logistics for Clear Replies and Phrases*
   // (June 2024 — researchgate.net publication 393165120).
   const capability = metric.replace(/\s+(rate|time|score|count|ratio|level|index|speed)$/i, '').trim() || metric
+  // r41 v220 (2026-06-20 producer-stamp sweep) — mock spec entries carry
+  // the 'system' provenance ("Mock Spec Builder · <Date>") so the demo
+  // flow shows the Source chip lit up rather than empty.  Tom's "demo
+  // never dies" rule + producer-stamp rule compose: demo data MUST
+  // include provenance to honour the No-Silent-Data-Loss SUPREME rule.
+  // r41 v415 (Source Attribution SUPREME sweep) — Class B (deterministic mock).
+  const mockStamp = {
+    generator:  'Mock Spec Builder (No API Key Demo)',
+    sourceType: 'system' as const,
+    tool:       'buildMockSpec',
+    stage:      'seed-sample-plan',
+  }
   return {
     functions: [
-      {
+      stampEntry({
         id:              fId,
         type:            'Function',
         level:           'Product',
         description:     `The system provides ${capability}`,
         presenceTest:    `${capability} capability is present in the deployed system (YES / NO)`,
         functionOfValue: vId,
-      },
+      }, mockStamp),
     ],
     values: [
-      {
+      stampEntry({
         id:              vId,
         type:            'Value',
         level:           'Product',
@@ -171,17 +211,17 @@ export function buildMockSpec(stakes: string, ends: string, means: string): impo
         goal,
         valueOfFunction: fId,
         wishStakeholder: stakeholderShort,
-      },
+      }, mockStamp),
     ],
     solutions: [
-      {
+      stampEntry({
         id:          sId,
         type:        'Solution',
         level:       'Product',
         description: means,
         impact:      `${vId} ~${goal}`,
         function:    fId,
-      },
+      }, mockStamp),
     ],
   }
 }
@@ -199,17 +239,56 @@ export function _resetClientForTest(): void {
  * Parses the raw JSON string returned by the LLM into a validated SpecBlock.
  * Throws a descriptive error if the structure does not match the contract.
  */
-function parseSpecBlock(raw: string): SpecBlock {
+function parseSpecBlock(raw: string, stampCtx?: { generator?: string; planName?: string; stage?: string }): SpecBlock {
   let parsed: unknown
-  // Strip markdown code fences if the model wrapped the output
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+  // r41 v40 — Tom Gilb 2026-06-15 "failed to parse" — more aggressive
+  // extraction layers before giving up.  LLM responses sometimes have:
+  //   - leading prose ("Here's the spec:\n\n{...}")
+  //   - markdown code fences with language tag variations (```json, ```JSON, ```)
+  //   - trailing commentary after the JSON
+  //   - inline single-line JSON object embedded mid-paragraph
+  //   - multiple {...} blocks (legacy reasoning + final answer)
+  // Each fallback layer below tries harder.
+  const stripFences = (s: string): string => s
+    .replace(/^```(?:json|JSON|jsonc)?\s*/i, '')
+    .replace(/\s*```\s*$/, '')
+    .replace(/```(?:json|JSON|jsonc)?\s*([\s\S]*?)\s*```/i, '$1')
+    .trim()
+  const cleaned = stripFences(raw)
   try {
     parsed = JSON.parse(cleaned)
   } catch {
-    // Local models sometimes prepend prose — try to extract the first {...} block
-    const match = cleaned.match(/\{[\s\S]*\}/)
-    if (match) {
-      try { parsed = JSON.parse(match[0]) } catch { /* fall through */ }
+    // Layer 2: greedy {…} extraction — last balanced object wins (LLMs often
+    // emit "reasoning {...}" then "final {...}" — use the LAST one).
+    const matches = cleaned.match(/\{[\s\S]*\}/g)
+    if (matches && matches.length > 0) {
+      // Try last block first, then earlier ones, until one parses successfully.
+      for (let i = matches.length - 1; i >= 0; i--) {
+        try { parsed = JSON.parse(matches[i]); break } catch { /* try next */ }
+      }
+    }
+    // Layer 3: balanced-brace scan from first { to its matching } (handles
+    // JSON with embedded prose before/after that breaks the greedy regex).
+    if (!parsed) {
+      const firstBrace = cleaned.indexOf('{')
+      if (firstBrace >= 0) {
+        let depth = 0
+        let endIdx = -1
+        let inString = false
+        let escapeNext = false
+        for (let i = firstBrace; i < cleaned.length; i++) {
+          const c = cleaned[i]
+          if (escapeNext) { escapeNext = false; continue }
+          if (c === '\\') { escapeNext = true; continue }
+          if (c === '"') { inString = !inString; continue }
+          if (inString) continue
+          if (c === '{') depth++
+          else if (c === '}') { depth--; if (depth === 0) { endIdx = i; break } }
+        }
+        if (endIdx > firstBrace) {
+          try { parsed = JSON.parse(cleaned.slice(firstBrace, endIdx + 1)) } catch { /* fall through */ }
+        }
+      }
     }
     if (!parsed) {
       throw new Error(`LLM response is not valid JSON:\n${raw.slice(0, 300)}`)
@@ -287,9 +366,59 @@ function parseSpecBlock(raw: string): SpecBlock {
     if (typeof entry.level !== 'string' || !VALID_LEVELS.has(entry.level)) {
       entry.level = 'Product'
     }
+    // r07-followup (Tom Gilb 2026-06-16 screenshot "after generation … this blank"):
+    // The Parameter Discipline SUPREME rule (r03) told the LLM that V. description
+    // is RARE — most Values should omit it.  Many existing consumers across the
+    // codebase (useSpecModel `_modelNameFromSpec`, gamification, complexity,
+    // SWOT, strategy-sharpen, task-suggestions, etc.) read `entry.description`
+    // directly with `.trim()` / `.split()` — they crash on undefined.  The
+    // cascading crash unmounted the post-generation render and produced the
+    // blank screen.  Surgical fix at the sanitiser: any missing or non-string
+    // `description` becomes `''` here so every downstream consumer sees a
+    // string.  Composes with No-Silent-Data-Loss (data is never dropped — '' is
+    // an explicit absence) and the Parameter Discipline rule (Values can still
+    // legitimately have empty description; the runtime no longer cares).
+    if (typeof entry.description !== 'string') {
+      entry.description = ''
+    }
+  }
+  // Same backfill on C. (constraints) and R. (resources) if present.
+  if (Array.isArray(obj.constraints)) {
+    for (const c of obj.constraints as Array<Record<string, unknown>>) {
+      if (typeof c.description !== 'string') c.description = ''
+    }
+  }
+  if (Array.isArray(obj.resources)) {
+    for (const r of obj.resources as Array<Record<string, unknown>>) {
+      if (typeof r.description !== 'string') r.description = ''
+    }
   }
 
-  return obj as unknown as SpecBlock
+  // r41 v220 (Tom Gilb 2026-06-20 producer-stamp sweep) — every entry the
+  // SEM Stage 1 SDK pipeline returns is stamped with provenance so the
+  // renderer's Source chips light up in BOTH the in-app card AND the
+  // colorful HTML export.  Composes with Conjunction-of-Technologies
+  // SUPREME (source-layer badges per finding) + No-Silent-Data-Loss SUPREME.
+  const block = obj as unknown as SpecBlock
+  // r41 v415 (Source Attribution SUPREME sweep) — Class A (raw-text sourced
+  // from the LLM's input stakes text).  Callers can override `stage` via
+  // stampCtx; default to Stage 1 which is the primary Stage-1 SDK consumer.
+  const stampOpts = {
+    generator:  stampCtx?.generator ?? 'SEM Stage 1 SDK',
+    planName:   stampCtx?.planName,
+    sourceType: 'ai' as const,
+    tool:       'translate (Sonnet 4.5)',
+    stage:      stampCtx?.stage ?? 'plan-stage-1-input',
+  }
+  block.functions   = block.functions.map(e => stampEntry(e, stampOpts))
+  block.values      = block.values.map(e => stampEntry(e, stampOpts))
+  block.solutions   = block.solutions.map(e => stampEntry(e, stampOpts))
+  if (block.constraints) block.constraints = block.constraints.map(e => stampEntry(e, stampOpts))
+  if (block.resources)   block.resources   = block.resources.map(e => stampEntry(e, stampOpts))
+  if (block.stakeholderEntries) {
+    block.stakeholderEntries = block.stakeholderEntries.map(e => stampEntry(e, stampOpts))
+  }
+  return block
 }
 
 /**
@@ -362,8 +491,20 @@ export function useSDK() {
         : `Stakes: ${safeStakes}\nEnds: ${safeEnds}\nMeans: ${safeMeans}`
       // Reinforce the output schema — local models attend to user-message
       // reminders more reliably than a distant system prompt instruction.
+      // r41 v51 (Tom Gilb 2026-06-16 "crap result of generating specs, very
+      // corrupted, it was great") — only inject Model Mode context when the
+      // user is ACTUALLY IN Model Mode.  r41 v48 was injecting it on every
+      // translate() call, which polluted Plan Mode generation with 10 lines
+      // of Domain/Presentation/Standards/Purpose framing that confused the
+      // LLM into either timing out (→ buildMockSpec fallback with "HttpsWww"
+      // CamelCase garbage) or producing off-shape output.  Plan Mode now
+      // gets the original clean prompt; Model Mode keeps the rich context.
+      let isModelMode = false
+      try { isModelMode = useActiveMode().activeMode.value === 'model' } catch { /* ignore */ }
+      const modelModePrefix = isModelMode ? buildModelModeContext() : ''
       const userContent =
         `Return ONLY a JSON object matching exactly: {"functions":[...],"values":[...],"solutions":[...],"constraints":[...]}\n\n` +
+        (modelModePrefix ? modelModePrefix + '\n\n' : '') +
         semTriple
 
       const systemBlock: BetaTextBlockParam = {
@@ -406,7 +547,7 @@ export function useSDK() {
         throw new Error('LLM response contained no text block')
       }
 
-      const spec = parseSpecBlock(textBlock.text.trim())
+      const spec = parseSpecBlock(textBlock.text.trim(), { generator: 'SEM Stage 1 SDK (translate)', planName: stakes.trim().split(/[,;]/)[0]?.trim() || undefined })
       // Persist the original stakes string so downstream views (SDR, etc.) can
       // show stakeholders even when the LLM omits the wishStakeholder field on
       // individual V. entries. Optional field — safe to ignore on old specs.
@@ -463,7 +604,7 @@ export function useSDK() {
           onChunk(chunk)
           await new Promise((r) => setTimeout(r, 30))
         }
-        const parsedMock = parseSpecBlock(fullText.trim())
+        const parsedMock = parseSpecBlock(fullText.trim(), { generator: 'SEM Stage 1 SDK (mock stream)', planName: stakes.trim().split(/[,;]/)[0]?.trim() || undefined })
         if (stakes.trim()) parsedMock.stakes = stakes.trim()
         return parsedMock
       }
@@ -476,8 +617,20 @@ export function useSDK() {
       const semTripleStream = clarifications
         ? `Stakes: ${safeStakesS}\nEnds: ${safeEndsS}\nMeans: ${safeMeansS}\n\nAdditional context (user clarifications):\n${clarifications.slice(0, 400)}`
         : `Stakes: ${safeStakesS}\nEnds: ${safeEndsS}\nMeans: ${safeMeansS}`
+      // r41 v51 (Tom Gilb 2026-06-16 "crap result of generating specs, very
+      // corrupted, it was great") — only inject Model Mode context when the
+      // user is ACTUALLY IN Model Mode.  r41 v48 was injecting it on every
+      // translate() call, which polluted Plan Mode generation with 10 lines
+      // of Domain/Presentation/Standards/Purpose framing that confused the
+      // LLM into either timing out (→ buildMockSpec fallback with "HttpsWww"
+      // CamelCase garbage) or producing off-shape output.  Plan Mode now
+      // gets the original clean prompt; Model Mode keeps the rich context.
+      let isModelMode = false
+      try { isModelMode = useActiveMode().activeMode.value === 'model' } catch { /* ignore */ }
+      const modelModePrefix = isModelMode ? buildModelModeContext() : ''
       const userContent =
         `Return ONLY a JSON object matching exactly: {"functions":[...],"values":[...],"solutions":[...],"constraints":[...]}\n\n` +
+        (modelModePrefix ? modelModePrefix + '\n\n' : '') +
         semTripleStream
 
       const systemBlock: BetaTextBlockParam = {
@@ -486,26 +639,106 @@ export function useSDK() {
         cache_control: SYSTEM_PROMPT_CACHE_CONTROL,
       }
 
+      // r41 v370 (Tom Gilb 2026-06-25 "nope, all zero" after v369 for-await
+      // rewrite still produced zero text): SWITCHED to `messages.create({...
+      // stream: true})` which returns a `Stream<RawMessageStreamEvent>` async
+      // iterable directly — DIFFERENT code path from `messages.stream(...)`.
+      // The latter returns a `MessageStream` wrapper that internally creates
+      // the stream lazily on first emitter listener; in some environments
+      // (notably Safari Add-to-Dock standalone PWA per hypothesis #2) the
+      // wrapper layer can mask SSE chunks.  `messages.create({stream:true})`
+      // is the simpler, more direct entry point.
+      //
+      // Heavy per-stage diagnostic logging via console.error so the in-PWA
+      // Diagnostics Panel captures EXACTLY where the pipeline stops:
+      //   [translateStream] STAGE: pre-create
+      //   [translateStream] STAGE: post-create (object received)
+      //   [translateStream] STAGE: for-await entered
+      //   [translateStream] STAGE: event yielded — type=...
+      //   [translateStream] STAGE: for-await exited — Nth events
+      //   [translateStream] STAGE: complete — textLen=N
+      // Any missing stage names the failure surface.
       let fullText = ''
-      const stream = client.beta.messages.stream({
+      let textDeltaCount = 0
+      let allEventCount = 0
+      const eventTypeCounts: Record<string, number> = {}
+      const streamStart = Date.now()
+
+      console.error('[translateStream] STAGE: pre-create', { userContentLen: userContent.length, systemLen: SYSTEM_PROMPT.length })
+
+      const stream = await client.beta.messages.create({
         model: MODEL_ID,
-        max_tokens: 16384,  // raised from 8192 — 2026-06-05, matches translate() ceiling
+        max_tokens: 16384,
         system: [systemBlock],
         messages: [{ role: 'user', content: userContent }],
-        betas: ['prompt-caching-2024-07-31'],
+        stream: true,  // streaming mode — returns Stream<RawMessageStreamEvent>
       })
 
-      stream.on('text', (delta: string) => {
-        fullText += delta
-        onChunk(delta)
+      console.error('[translateStream] STAGE: post-create', { hasStream: !!stream, type: typeof stream, hasAsyncIterator: !!(stream as { [Symbol.asyncIterator]?: () => unknown })[Symbol.asyncIterator] })
+
+      console.error('[translateStream] STAGE: for-await about to enter', { elapsedMs: Date.now() - streamStart })
+
+      let stopReason: string | null = null
+      try {
+        for await (const event of stream as AsyncIterable<{ type: string; delta?: { type: string; text?: string }; message?: { stop_reason?: string } }>) {
+          allEventCount++
+          eventTypeCounts[event.type] = (eventTypeCounts[event.type] || 0) + 1
+
+          // Log first 3 events of any type so we see the shape Safari yields
+          if (allEventCount <= 3) {
+            console.error(`[translateStream] STAGE: event #${allEventCount}`, { type: event.type, hasDelta: !!event.delta, deltaType: event.delta?.type, deltaTextLen: event.delta?.text?.length ?? 0 })
+          }
+
+          if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta' && typeof event.delta.text === 'string') {
+            const delta = event.delta.text
+            fullText += delta
+            textDeltaCount++
+            onChunk(delta)
+          }
+          if (event.type === 'message_delta' && event.delta && 'stop_reason' in event.delta) {
+            stopReason = (event.delta as { stop_reason?: string }).stop_reason ?? null
+          }
+        }
+      } catch (iterErr) {
+        console.error('[translateStream] STAGE: for-await THREW', iterErr)
+        throw iterErr
+      }
+
+      console.error('[translateStream] STAGE: for-await exited', {
+        allEventCount,
+        textDeltaCount,
+        eventTypeCounts,
+        textLen: fullText.length,
+        elapsedMs: Date.now() - streamStart,
+        stopReason,
       })
 
-      await stream.finalMessage()
+      // r41 v353 (Tom Gilb 2026-06-25): max_tokens truncation check.
+      if (stopReason === 'max_tokens') {
+        throw new Error(
+          'LLM stream was cut off (max_tokens limit reached). ' +
+          'The spec was too large — try splitting your Means into fewer approaches.',
+        )
+      }
 
-      const streamedSpec = parseSpecBlock(fullText.trim())
+      console.error('[translateStream] STAGE: complete', {
+        textLen:       fullText.length,
+        textDeltaCount,
+        durationMs:    Date.now() - streamStart,
+        stopReason,
+        firstChars:    fullText.slice(0, 100),
+        lastChars:     fullText.slice(-100),
+      })
+
+      const streamedSpec = parseSpecBlock(fullText.trim(), { generator: 'SEM Stage 1 SDK (stream)', planName: stakes.trim().split(/[,;]/)[0]?.trim() || undefined })
       if (stakes.trim()) streamedSpec.stakes = stakes.trim()
       return streamedSpec
     } catch (err) {
+      // r41 v353 — surface the actual error to the Diagnostics Panel via
+      // console.error so the planner can see WHY streaming failed, not just
+      // "it failed."  parseApiError translates SDK-shape errors to friendly
+      // copy; the raw err object goes to console for stack-trace fidelity.
+      console.error('[translateStream] FAILED — falling back through doTranslate to one-shot translate()', err)
       const parsed = parseApiError(err)
       error.value = `${parsed.title}: ${parsed.detail}${parsed.actionUrl ? ` ${parsed.actionUrl}` : ''}`
       return null

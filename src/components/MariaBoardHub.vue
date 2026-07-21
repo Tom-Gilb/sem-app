@@ -28,7 +28,7 @@ import { resolveIcon } from '../composables/iconRegistry'
 import { useBoardMembers }      from '../composables/useBoardMembers'
 import { useBoardActivityLog }  from '../composables/useBoardActivityLog'
 import { lastMariaResult, mariaPendingDocument } from '../lib/maria/mariaResultStore'
-import { openEml }              from '../composables/useEmlExport'
+import { exportEmail }          from '../composables/useExportShared'
 import type { ActivityStatus, ActivityType } from '../types/board'
 
 const emit = defineEmits<{
@@ -295,11 +295,10 @@ ${openItems.length === 0
 }
 
 /**
- * r17 (2026-06-02): Replaced broken Vite-plugin + clipboard+mailto fallback
- * with openEml() — synchronous, no server dependency, works in all environments.
- * Same pattern as ContractHub (proven reliable). No user-gesture context loss.
+ * r18 (2026-06-07): Switched from openEml() to exportEmail() — mailto: + clipboard.
+ * .eml download silently fails in Tom's browser config (Auto-Open Email Rule, CLAUDE.md).
  */
-function sendBoardReport(): void {
+async function sendBoardReport(): Promise<void> {
   const html    = buildReportHtml()
   const subject = '🏛 Maria — Board Support Report'
 
@@ -308,14 +307,10 @@ function sendBoardReport(): void {
   const chair = members.value.find(
     (m) => m.role.toLowerCase().includes('chair') && m.email,
   )
-  const toAddr = typedAddr || chair?.email || ''
+  const toAddr = typedAddr || chair?.email || 'Tom@Gilb.com'
   if (!typedAddr && toAddr) emailTo.value = toAddr  // show auto-detected value
 
-  // Download .eml → macOS auto-opens in Mail.app with full HTML body pre-filled
-  openEml(html, subject, {
-    to:   toAddr ? [toAddr] : [],
-    from: FROM_ADDR,
-  })
+  await exportEmail(html, subject, 'Board Report', toAddr)
 }
 
 function copyBoardReport(): void {

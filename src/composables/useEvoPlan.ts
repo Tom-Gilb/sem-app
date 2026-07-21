@@ -8,7 +8,7 @@ import { useWorkspace } from './useWorkspace'
 import { useSpecHistory } from './useSpecHistory'
 import { useSpecModel } from './useSpecModel'
 import { getSupabaseClient } from '../config/supabase'
-import type { SpecBlock } from '../types/spec'
+import type { SpecBlock, SEntry } from '../types/spec'
 import type { EvoStepPlan } from '../types/evo-plan'
 
 /**
@@ -46,6 +46,37 @@ import type { EvoStepPlan } from '../types/evo-plan'
 const plan        = ref<EvoStepPlan | null>(null)
 const isConfirmed = ref(false)
 const _planError  = ref('')
+
+/**
+ * Deterministic fingerprint of the S. entries that were active when the most
+ * recent successful Evo Step generation completed.
+ *
+ * Tom Gilb 2026-06-08: "Evo steps are a function of the set of actual and
+ * detailed solutions. The moment any solution changes, the evo steps need
+ * regeneration."
+ *
+ * Set after every successful fetchPlan().  Null means "no generation in this
+ * session, or plan was loaded from history" — no staleness warning shown.
+ * Cleared on clearLoadedPlan() and resetPlanForLoad().
+ */
+const _generatedSolutionsKey = ref<string | null>(null)
+
+/**
+ * Build a deterministic string fingerprint from a solutions array.
+ * Any change to id, label, or description of ANY S. entry will produce a
+ * different key — correctly signalling that the Evo Steps need regeneration.
+ * Sorted so reorder-only changes are ignored (step order doesn't affect which
+ * solutions the steps implement).
+ *
+ * Exported so EvoPlanView can compute the CURRENT fingerprint and compare.
+ */
+export function solutionsFingerprint(solutions: SEntry[]): string {
+  if (!solutions || solutions.length === 0) return '__empty__'
+  return solutions
+    .map(s => `${s.id ?? ''}|${s.label ?? ''}|${s.description ?? ''}`)
+    .sort()
+    .join('§')
+}
 
 /**
  * Shared loading indicator — module-level singleton so that ALL callers
@@ -114,10 +145,11 @@ let _userCancelled = false
 let _lastFetchedSpec: SpecBlock | null = null
 
 export function loadPlan(stored: EvoStepPlan): void {
-  plan.value        = { ...stored }
-  isConfirmed.value = false
-  _planError.value  = ''
-  _skipNextFetch    = true
+  plan.value                   = { ...stored }
+  isConfirmed.value            = false
+  _planError.value             = ''
+  _skipNextFetch               = true
+  _generatedSolutionsKey.value = null  // no staleness warning for history-restored plans
 }
 
 /**
@@ -126,11 +158,12 @@ export function loadPlan(stored: EvoStepPlan): void {
  * so stale state from a previous loadPlan() call is not carried forward.
  */
 export function clearLoadedPlan(): void {
-  plan.value        = null
-  isConfirmed.value = false
-  _planError.value  = ''
-  _skipNextFetch    = false
-  _lastFetchedSpec  = null   // allow a fresh fetch for the next spec
+  plan.value                   = null
+  isConfirmed.value            = false
+  _planError.value             = ''
+  _skipNextFetch               = false
+  _lastFetchedSpec             = null   // allow a fresh fetch for the next spec
+  _generatedSolutionsKey.value = null
 }
 
 /**
@@ -140,11 +173,12 @@ export function clearLoadedPlan(): void {
  * The user can trigger generation manually when ready.
  */
 export function resetPlanForLoad(): void {
-  plan.value        = null
-  isConfirmed.value = false
-  _planError.value  = ''
-  _skipNextFetch    = true
-  _lastFetchedSpec  = null   // forget identity so the next real fetch is allowed
+  plan.value                   = null
+  isConfirmed.value            = false
+  _planError.value             = ''
+  _skipNextFetch               = true
+  _lastFetchedSpec             = null   // forget identity so the next real fetch is allowed
+  _generatedSolutionsKey.value = null
 }
 
 /**
@@ -347,6 +381,10 @@ export function useEvoPlan() {
 
       plan.value = result
       _lastFetchedSpec = specBlock
+      // Capture the solutions fingerprint at generation time.
+      // Any subsequent S. entry change will produce a different key → staleness
+      // warning shown in EvoPlanView (Tom 2026-06-08 principle).
+      _generatedSolutionsKey.value = solutionsFingerprint(specBlock.solutions ?? [])
       // Retroactively update the most recent history entry with the generated plan.
       // addVersion() is always called before fetchPlan() completes (timing gap),
       // so the entry's plan field starts as null — this fills it in correctly.
@@ -508,6 +546,10 @@ export function useEvoPlan() {
     // caller (App.vue vs EvoPlanView) triggered the fetch (useEvoPlan r06).
     loading: readonly(_loading),
     error: readonly(error),
+    /** Fingerprint of S. entries at last generation time. Null = no generation
+     *  in this session. Compare against solutionsFingerprint(specBlock.solutions)
+     *  to detect staleness (Tom 2026-06-08 principle). */
+    generatedSolutionsKey: readonly(_generatedSolutionsKey),
     fetchPlan,
     cancelFetch,
     reorderSteps,

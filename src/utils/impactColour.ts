@@ -36,7 +36,7 @@ export function getImpactColour(pct: number): string {
  *   0.8 to < 1.5   → amber  #f59e0b — moderate efficiency
  *   < 0.8          → red    #ef4444 — low efficiency
  *
- * @param vc - V/C ratio value (value impact sum ÷ resource claim).
+ * @param vc - V/C ratio value (value impact sum / resource claim).
  * @returns Hex colour string.
  */
 export function getVCColour(vc: number): string {

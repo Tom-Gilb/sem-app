@@ -74,14 +74,24 @@ export function useValueAddRatio(blocks: SpecBlock[]) {
     const allSolutions = blocks.flatMap(b => b.solutions)
 
     return blocks.flatMap(b => b.values).map(v => {
-      // Find S. entries whose .function links include any F. that this V. measures (via valueOfFunction)
-      const linkedFIds = v.valueOfFunction
+      // Find S. entries whose .function links include any F. that this V. measures (via valueOfFunction).
+      // r41 v41 — `?? ''` defensives.  AI-generated specs often omit these
+      // cross-link fields entirely, which previously crashed the render with
+      // `undefined is not an object (evaluating ...split)`.
+      // r41 v230 — tolerate non-string shapes from historical stored specs.
+      const _vof = typeof v.valueOfFunction === 'string'
+        ? v.valueOfFunction
+        : Array.isArray(v.valueOfFunction) ? v.valueOfFunction.join(',') : ''
+      const linkedFIds = _vof
         .split(/[\s,]+/)
         .map(s => s.replace(/^\[\[|\]\]$/g, '').trim())
         .filter(Boolean)
 
       const linkedSolutions = allSolutions.filter(s => {
-        const sFIds = s.function
+        const _sfn = typeof s.function === 'string'
+          ? s.function
+          : Array.isArray(s.function) ? (s.function as string[]).join(',') : ''
+        const sFIds = _sfn
           .split(/[\s,]+/)
           .map(x => x.replace(/^\[\[|\]\]$/g, '').trim())
           .filter(Boolean)

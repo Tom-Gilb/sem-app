@@ -24,6 +24,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ref } from 'vue'
 import { MODEL_ID } from '../config/llm'
+import { CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT } from '../config/planguagePrompt'
 import type { ImpliedEntry, SugGroup } from '../utils/impliedHierarchies'
 
 const TIMEOUT_MS = 12_000
@@ -79,30 +80,40 @@ export function useImpliedEntriesAI() {
       // ── Live LLM call ──────────────────────────────────────────────────────
       const client = _getClient()
 
+      // r41 v271 (Tom Gilb 2026-06-21 SUPREME — "sweep the rest"): refactored
+      // to import canonical Planguage primer per Canonical Planguage Extractor
+      // SUPREME rule.  This is Tier 2 implied-entries discovery: surfaces
+      // additional Stakeholders/Values/Means beyond what the Tier 1 rule-based
+      // parser found.  Suggestion-only mode (returns text+why, not full entries)
+      // so the JSON shape is lighter than full extraction.  Canonical primer
+      // ensures the Stakeholder discipline + Value-rich rules + ID-mnemonic
+      // discipline all flow into suggestions automatically.
       const prompt = `You are a Competitive Engineering (CE) consultant trained in Tom Gilb's Planguage / SEM methodology.
 
-The user typed this raw planning text:
+== IMPLIED-ENTRIES TIER 2 INPUT FORMAT (input shape for this caller) ==
+The user typed raw planning text. A Tier 1 rule-based parser has ALREADY
+identified some entries. Your job is to suggest ADDITIONAL entries strongly
+implied by the text that the rules missed — domain-specific context, rare
+vocabularies, non-English phrases, compound goals.
+
+${CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT}
+
+== TIER 2 SPECIFIC CONSTRAINTS ==
+Raw text:
 "${trimmed}"
 
-A rule-based parser has already identified these entries:
-  Stakeholders (Who):              ${existingStakeholders.length ? existingStakeholders.join(', ') : '(none)'}
-  Values (How Well / measurable):  ${existingValues.length       ? existingValues.join(', ')       : '(none)'}
-  Means (How / approaches):        ${existingMeans.length        ? existingMeans.join(', ')        : '(none)'}
+Already-identified by Tier 1 (do NOT re-suggest):
+  Stakeholders:  ${existingStakeholders.length ? existingStakeholders.join(', ') : '(none)'}
+  Values:        ${existingValues.length       ? existingValues.join(', ')       : '(none)'}
+  Means:         ${existingMeans.length        ? existingMeans.join(', ')        : '(none)'}
 
-Suggest ADDITIONAL entries strongly implied by the raw text that are NOT already listed above.
+Suggestion-only mode: return text+why pairs per group (NOT full Planguage
+entries). Each suggestion's text follows the mnemonic-ID discipline from the
+canonical primer above. Each "why" must reference the specific word or
+phrase in the input that implies the entry. Maximum 3 suggestions per group.
+If nothing is genuinely implied for a group, return an empty array.
 
-Apply these Planguage rules strictly:
-- Stakeholders include inanimate entities (data, laws, regulations, systems) with a concern.
-  If the text involves regulation/compliance, "data" and "regulator" are stakeholders.
-- Values are MEASURABLE outcomes — scalar quantities with a unit/scale.
-  Do NOT suggest activities, actions, or qualitative aspirations.
-- Means are proposed solutions or approaches — the "how".
-- Only suggest entries genuinely implied by THIS specific text and domain.
-  Do NOT pad with generic additions unrelated to the input.
-- Do NOT re-suggest any already-identified entry above.
-- Maximum 3 suggestions per group. If nothing is genuinely implied, return an empty array.
-- Each "why" must reference the specific word or phrase in the input that implies the entry.
-
+== OUTPUT JSON SHAPE (caller-specific) ==
 Output ONLY valid JSON — no prose, no markdown fences:
 {
   "stakeholders": [{"text": "...", "why": "..."}],

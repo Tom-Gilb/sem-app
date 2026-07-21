@@ -139,6 +139,28 @@ export interface SpecModel {
   /** Number of sharpening rounds applied so far */
   sharpenRounds: number
   /**
+   * r41 v408 (Tom Gilb 2026-06-28 verbatim "I would like the per agent
+   * breakdown.  And in all cases I want consolation that the exact source
+   * of the change is attached to the spec"): per-agent contribution counter.
+   * Keys: 'munger' | 'heilmeier' | 'feynman' | 'elon' | 'incorruptible' |
+   * 'role' | 'sharpen-panel' (the canonical SharpenPanel modal) + any
+   * future agent.  Value is the COUNT OF CONFIRM-AND-VIEW CLICKS that
+   * landed accepted fixes — NOT the count of individual accepted fixes
+   * (that lives in `agentFixCounts` below).  Composes with Spec Sources
+   * design + Conjunction-of-Technologies SUPREME source-layer audit trail.
+   * Optional for backward compat with pre-v408 stored models — readers
+   * default to empty record when absent.
+   */
+  agentRoundCounts?: Record<string, number>
+  /**
+   * r41 v408 — per-agent cumulative ACCEPTED-FIX count.  E.g. if the planner
+   * accepted 11 fixes in one Munger session and clicked confirm-and-view
+   * once, `agentFixCounts.munger = 11` and `agentRoundCounts.munger = 1`.
+   * Stage 3 banner renders this as *"11 Munger fixes · 2 Heilmeier fixes
+   * · 1 Feynman fix · plan version 0.5"*.  Optional for backward compat.
+   */
+  agentFixCounts?: Record<string, number>
+  /**
    * How this plan's spec was first produced.
    * 'ai-generated' — came from the AI generation pipeline (the normal path).
    * 'imported'      — loaded from a .json file export.
@@ -169,6 +191,18 @@ export interface SpecModel {
    * date range so you know who was in the chair at any point.
    */
   scribes: SpecPerson[]
+  /**
+   * Architects: technical design owners (system architecture, integration patterns).
+   * Often consulted on Solutions and Constraints — accountable for architectural
+   * decision records and cross-component integration design.
+   */
+  architects: SpecPerson[]
+  /**
+   * CTOs: technology executives accountable for strategic direction.
+   * Cover technology bets, vendor selection, and cross-cutting tech decisions
+   * across the whole spec.
+   */
+  ctos: SpecPerson[]
   /**
    * Spec Governance — "Spec Itself" as Stakeholder, including Wish/Goal levels
    * and the list of Spec Owners (area-specific accountability assignments).
@@ -216,6 +250,18 @@ export interface SpecModel {
    * Default '?' means "not yet articulated".
    */
   deadline?: string
+  /**
+   * Genesis input — the raw Stakes / Ends / Means text the planner typed
+   * before the first AI parse. Stored so Stage 1 always shows the original
+   * input regardless of how the plan was loaded. Tom Gilb 2026-06-09:
+   * "initial input specs she got parsed were gone — go back to the genesis."
+   */
+  genesis?: {
+    stakes: string
+    ends: string
+    means: string
+    generatedAt: string
+  } | null
 }
 
 /** @deprecated Use SpecModel instead */
@@ -392,6 +438,24 @@ function _migrate(raw: any): SpecModel {
     )
   }
 
+  // architects: new field (Tom Gilb 2026-06-19) — default to empty
+  if (!Array.isArray(raw.architects)) {
+    raw.architects = []
+  } else {
+    raw.architects = (raw.architects as SpecPerson[]).map((a) =>
+      ({ ..._emptyPerson(), ...a, id: a.id ?? crypto.randomUUID() }),
+    )
+  }
+
+  // ctos: new field (Tom Gilb 2026-06-19) — default to empty
+  if (!Array.isArray(raw.ctos)) {
+    raw.ctos = []
+  } else {
+    raw.ctos = (raw.ctos as SpecPerson[]).map((c) =>
+      ({ ..._emptyPerson(), ...c, id: c.id ?? crypto.randomUUID() }),
+    )
+  }
+
   // Add governance if missing
   if (!raw.governance || typeof raw.governance !== 'object') {
     raw.governance = { ...DEFAULT_GOVERNANCE, specOwners: [] }
@@ -409,6 +473,8 @@ function _migrate(raw: any): SpecModel {
   // evoCycleLength: new field — default 'week' (the standard Evo sprint cadence)
   if (!raw.evoCycleLength) raw.evoCycleLength = 'week'
   if (raw.deadline == null) raw.deadline = '?'   // r98 — backfill scalar Deadline default
+  // genesis: new field — default null for old records (no original input available)
+  if (raw.genesis === undefined) raw.genesis = null
 
   // CEntry schema migration (2026-05-15): limit → description + scope + rationale + source?
   // Old format: { description (gist), limit (binary rule) }
@@ -525,8 +591,9 @@ function _nameFromSpec(spec: SpecBlock): string {
     }
   }
 
-  // Fallback: first function description (first 5 words)
-  const desc = spec.functions[0]?.description ?? ''
+  // Fallback: first function description (first 5 words) — guarded for non-string per r07-followup
+  const raw = spec.functions[0]?.description
+  const desc = typeof raw === 'string' ? raw : ''
   const words = desc.trim().split(/\s+/).slice(0, 5).join(' ')
   return words || 'Plan Model'
 }
@@ -624,9 +691,11 @@ export function initSpecModel(spec: SpecBlock, name?: string): SpecModel {
     updatedAt: now,
     spec,
     sharpenRounds: 0,
-    owners:   [],
-    planners: [],
-    scribes:  [_defaultScribe()],
+    owners:     [],
+    planners:   [],
+    scribes:    [_defaultScribe()],
+    architects: [],
+    ctos:       [],
     specSource: 'ai-generated',
     manualEditCount: 0,
     governance: { ...DEFAULT_GOVERNANCE, specOwners: [] },
@@ -644,8 +713,14 @@ export function initSpecModel(spec: SpecBlock, name?: string): SpecModel {
 /** Derive a model name from the spec — uses "Model: X" prefix. */
 function _modelNameFromSpec(spec: SpecBlock): string {
   const STOP = new Set(['of','the','a','an','for','in','on','at','to','by','with','and','or','its','their','our','is','are','be'])
-  function headline(desc: string, n: number): string {
-    return desc.trim().split(/\s+/)
+  // r07-followup (Tom Gilb 2026-06-16 "after generation … this blank") —
+  // The Parameter Discipline rule lets the LLM legitimately omit description
+  // on V. entries.  Defensive guard so an undefined / non-string description
+  // here cannot crash the model-init path and unmount the post-generation render.
+  function headline(desc: string | undefined | null, n: number): string {
+    const safe = (typeof desc === 'string' ? desc : '').trim()
+    if (!safe) return ''
+    return safe.split(/\s+/)
       .filter(w => w.length > 1 && !STOP.has(w.toLowerCase()) && /[a-zA-Z]/.test(w))
       .slice(0, n)
       .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
@@ -730,6 +805,62 @@ export function setDeadline(deadline: string): void {
 }
 
 /**
+ * Annotate a Value or Resource entry benchmark level with a [When] Scale Parameter.
+ * Tom Gilb, 2026-06-06: "Benchmarks cannot hang in unknown past — every
+ * Status/Tolerable/Goal/Wish needs a date or event annotation."
+ * SEA book, Scale Parameters chapter: [When] = time dimension qualifier.
+ *
+ * @param entryId   — the V. or R. entry id (e.g. "V.UserSatisfaction")
+ * @param entryType — 'value' | 'resource'
+ * @param level     — which benchmark level to annotate
+ * @param when      — free text: "2027-Q1", "before EU AI Act enforcement", "after MVP launch"
+ */
+export function setEntryWhen(
+  entryId: string,
+  entryType: 'value' | 'resource',
+  level: 'status' | 'tolerable' | 'goal' | 'wish' | 'stretch' | 'past',
+  when: string,
+): void {
+  if (!_current.value?.spec) return
+  const fieldMap: Record<typeof level, 'statusWhen' | 'tolerableWhen' | 'goalWhen' | 'wishWhen' | 'stretchWhen' | 'pastWhen'> = {
+    status:    'statusWhen',
+    tolerable: 'tolerableWhen',
+    goal:      'goalWhen',
+    wish:      'wishWhen',
+    stretch:   'stretchWhen',
+    past:      'pastWhen',
+  }
+  const field = fieldMap[level]
+  const whenVal = when.trim() || '?'
+
+  let newSpec: typeof _current.value.spec
+  if (entryType === 'value') {
+    newSpec = {
+      ..._current.value.spec,
+      values: _current.value.spec.values.map((v) =>
+        v.id === entryId ? { ...v, [field]: whenVal } : v,
+      ),
+    }
+  } else {
+    newSpec = {
+      ..._current.value.spec,
+      resources: (_current.value.spec.resources ?? []).map((r) =>
+        r.id === entryId ? { ...r, [field]: whenVal } : r,
+      ),
+    }
+  }
+
+  const updated: SpecModel = {
+    ..._current.value,
+    spec:      newSpec,
+    updatedAt: new Date().toISOString(),
+  }
+  _current.value = updated
+  _persistCurrent()
+  _upsertHistory(updated)
+}
+
+/**
  * Switch the working mode of the current model.
  * Safe to call at any time — the spec data is preserved unchanged.
  */
@@ -748,13 +879,47 @@ export function setWorkingMode(mode: 'plan' | 'model'): void {
 /**
  * Bump the version by 0.1. Call this after each successful sharpening round.
  * Also increments sharpenRounds and updates the spec snapshot.
- */
-export function bumpSpecVersion(updatedSpec?: SpecBlock): void {
+ *
+ * r41 v174 — Tom Gilb 2026-06-18 verbatim "I am worried that the whole save
+ * restore versions is not quite right, NOt sure, a lot of version 0.1 and
+ * copies but much fewer v0.2 and on".
+ *
+ * Root cause: previously the bumped version kept the SAME `id` so
+ * `_upsertHistory` found the existing row (by id) and OVERWROTE it.
+ * Result: v0.1 → v0.2 erased v0.1 from storage; the Planning Models panel
+ * only ever showed the CURRENT version per tag, never the history.  Plans
+ * Tom never sharpened stayed at v0.1 (many); plans Tom sharpened once
+ * showed v0.2 with v0.1 invisibly destroyed (few).
+ *
+ * Fix: the bumped version gets a FRESH `crypto.randomUUID()` so it inserts
+ * as a NEW history row.  The previous version's row is kept intact —
+ * archived, browsable, restorable.  `_current.value` points to the latest;
+ * `_loadAll()` returns every version.  Composes with No-Silent-Data-Loss
+ * SUPREME + Universal Undo SUPREME (the old version is no longer silently
+ * lost). */
+export function bumpSpecVersion(updatedSpec?: SpecBlock, opts?: { agentKey?: string; acceptedFixCount?: number }): void {
   if (!_current.value) return
+  // r41 v408 (Tom Gilb 2026-06-28 "I would like the per agent breakdown"):
+  // optional opts.agentKey + opts.acceptedFixCount lets the caller record
+  // which agent contributed this bump and how many fixes landed.  Stored on
+  // the model as agentRoundCounts + agentFixCounts so Stage 3 banner can
+  // render the per-agent breakdown.  Backward-compatible: callers that
+  // don't pass opts still bump `sharpenRounds` exactly as before.
+  const prevRoundCounts = _current.value.agentRoundCounts ?? {}
+  const prevFixCounts   = _current.value.agentFixCounts ?? {}
+  const nextRoundCounts = opts?.agentKey
+    ? { ...prevRoundCounts, [opts.agentKey]: (prevRoundCounts[opts.agentKey] ?? 0) + 1 }
+    : prevRoundCounts
+  const nextFixCounts = (opts?.agentKey && opts.acceptedFixCount && opts.acceptedFixCount > 0)
+    ? { ...prevFixCounts, [opts.agentKey]: (prevFixCounts[opts.agentKey] ?? 0) + opts.acceptedFixCount }
+    : prevFixCounts
   const updated: SpecModel = {
     ..._current.value,
+    id: crypto.randomUUID(),
     version: _bumpVersion(_current.value.version),
     sharpenRounds: _current.value.sharpenRounds + 1,
+    agentRoundCounts: nextRoundCounts,
+    agentFixCounts:   nextFixCounts,
     updatedAt: new Date().toISOString(),
     ...(updatedSpec ? { spec: updatedSpec } : {}),
   }
@@ -930,6 +1095,90 @@ export function removeScribe(id: string): void {
   const updated: SpecModel = {
     ..._current.value,
     scribes: (_current.value.scribes ?? []).filter((s) => s.id !== id),
+    manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
+    updatedAt: new Date().toISOString(),
+  }
+  _current.value = updated; _persistCurrent(); _upsertHistory(updated)
+}
+
+// ── Architects CRUD ──────────────────────────────────────────────────────────
+// Tom Gilb 2026-06-19: Architect role added as 4th Stewards-Menu tab — technical
+// design owner accountable for system architecture, integration patterns, ADRs.
+
+/** Add a new architect. Returns the new record (with generated id). */
+export function addArchitect(data: Omit<SpecPerson, 'id'>): SpecPerson {
+  if (!_current.value) throw new Error('No active spec model')
+  const person: SpecPerson = { id: crypto.randomUUID(), ..._emptyPerson(), ...data }
+  const updated: SpecModel = {
+    ..._current.value,
+    architects: [...(_current.value.architects ?? []), person],
+    manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
+    updatedAt: new Date().toISOString(),
+  }
+  _current.value = updated; _persistCurrent(); _upsertHistory(updated)
+  return person
+}
+
+/** Update an architect's fields by id. */
+export function updateArchitect(id: string, data: Partial<Omit<SpecPerson, 'id'>>): void {
+  if (!_current.value) return
+  const updated: SpecModel = {
+    ..._current.value,
+    architects: (_current.value.architects ?? []).map((a) => a.id === id ? { ...a, ...data } : a),
+    manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
+    updatedAt: new Date().toISOString(),
+  }
+  _current.value = updated; _persistCurrent(); _upsertHistory(updated)
+}
+
+/** Remove an architect by id. */
+export function removeArchitect(id: string): void {
+  if (!_current.value) return
+  const updated: SpecModel = {
+    ..._current.value,
+    architects: (_current.value.architects ?? []).filter((a) => a.id !== id),
+    manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
+    updatedAt: new Date().toISOString(),
+  }
+  _current.value = updated; _persistCurrent(); _upsertHistory(updated)
+}
+
+// ── CTOs CRUD ────────────────────────────────────────────────────────────────
+// Tom Gilb 2026-06-19: CTO role added as 5th Stewards-Menu tab — technology
+// executive accountable for strategic direction, technology bets, vendor choice.
+
+/** Add a new CTO. Returns the new record (with generated id). */
+export function addCTO(data: Omit<SpecPerson, 'id'>): SpecPerson {
+  if (!_current.value) throw new Error('No active spec model')
+  const person: SpecPerson = { id: crypto.randomUUID(), ..._emptyPerson(), ...data }
+  const updated: SpecModel = {
+    ..._current.value,
+    ctos: [...(_current.value.ctos ?? []), person],
+    manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
+    updatedAt: new Date().toISOString(),
+  }
+  _current.value = updated; _persistCurrent(); _upsertHistory(updated)
+  return person
+}
+
+/** Update a CTO's fields by id. */
+export function updateCTO(id: string, data: Partial<Omit<SpecPerson, 'id'>>): void {
+  if (!_current.value) return
+  const updated: SpecModel = {
+    ..._current.value,
+    ctos: (_current.value.ctos ?? []).map((c) => c.id === id ? { ...c, ...data } : c),
+    manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
+    updatedAt: new Date().toISOString(),
+  }
+  _current.value = updated; _persistCurrent(); _upsertHistory(updated)
+}
+
+/** Remove a CTO by id. */
+export function removeCTO(id: string): void {
+  if (!_current.value) return
+  const updated: SpecModel = {
+    ..._current.value,
+    ctos: (_current.value.ctos ?? []).filter((c) => c.id !== id),
     manualEditCount: (_current.value.manualEditCount ?? 0) + 1,
     updatedAt: new Date().toISOString(),
   }
@@ -1420,6 +1669,16 @@ export function activatePlanModel(model: SpecModel): void {
   _persistCurrent()
 }
 
+/** Record the original genesis input (stakes/ends/means) on the current model. */
+export function updateSpecModelGenesis(
+  genesis: { stakes: string; ends: string; means: string; generatedAt: string }
+): void {
+  if (!_current.value) return
+  _current.value = { ..._current.value, genesis, updatedAt: new Date().toISOString() }
+  _persistCurrent()
+  _upsertHistory(_current.value)
+}
+
 // ── Composable export ─────────────────────────────────────────────────────────
 
 // ── Backward-compat top-level exports ────────────────────────────────────────
@@ -1459,6 +1718,12 @@ export function useSpecModel() {
     addPlanner,
     updatePlanner,
     removePlanner,
+    addArchitect,
+    updateArchitect,
+    removeArchitect,
+    addCTO,
+    updateCTO,
+    removeCTO,
     updatePlanOwner,
     updateGovernance,
     addSpecOwner,
@@ -1483,6 +1748,7 @@ export function useSpecModel() {
     setWorkingMode,
     setEvoCycleLength,
     setDeadline,    // r98 — scalar Deadline editor
+    setEntryWhen,   // r99 — [When] Scale Parameter annotation on benchmark levels
     // Backward-compat aliases (deprecated — use new names above)
     initPlanModel: initSpecModel,
     bumpPlanVersion: bumpSpecVersion,

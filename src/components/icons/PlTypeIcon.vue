@@ -14,10 +14,10 @@
   Architecture note: this component is intentionally passive by default — it renders
   but does not interact. Set `interactive` to enable click → glyph-click emit for
   panels (ArrowInfoPanel, GlyphDataPanel, etc.) that need selection behaviour.
-  Hover tooltip is always present (canonical label or caller-supplied override).
+  Hover HoverHint is always present (canonical label or caller-supplied override).
   This separation makes the icons reusable in any context without coupling.
 
-  P3 (2026-05-27): Added hover tooltip (canonical auto-label + `title` override) and
+  P3 (2026-05-27): Added hover HoverHint (canonical auto-label + `title` override) and
   optional `interactive` prop that emits `glyph-click` — satisfies "All-Glyphs-Have-Hover"
   rule from SEMappHandbook p.25. Wrapper span carries title; inner dispatch is unchanged.
 
@@ -59,7 +59,7 @@ export type PlGlyphType =
   | 'resource'
 
 // ── Canonical hover labels (SEMappHandbook p.25 — "All-Glyphs-Have-Hover") ───
-// Concise enough for a tooltip, precise enough to teach Planguage.
+// Concise enough for a HoverHint, precise enough to teach Planguage.
 // Aligned with Tom Gilb Competitive Engineering (2005) and 10.Standard/ definitions.
 const CANONICAL_LABELS: Record<PlGlyphType, string> = {
   'value':       'Value — quantified goal or quality level. Defined by Scale · Meter · Tolerable · Goal. The primary driver of Planguage prioritisation.',
@@ -78,7 +78,7 @@ const props = withDefaults(defineProps<{
   /** Glyph size passed to every child icon component. sm=20px for inline badges. */
   size?: 'sm' | 'md' | 'lg' | 'xl'
   /**
-   * Hover tooltip text. Defaults to the canonical label for this type.
+   * Hover HoverHint text. Defaults to the canonical label for this type.
    * Pass a custom string to override (e.g. a project-specific definition).
    */
   title?: string
@@ -110,7 +110,7 @@ const emit = defineEmits<{
 const { openGlyphPanel } = useGlyphPanel()
 
 /**
- * Resolved tooltip.
+ * Resolved HoverHint.
  * DD-013: always appends "· Double-click for detailed icon info" unless
  * noDetailClick suppresses it (parent owns dblclick for its own purpose).
  */
@@ -132,7 +132,7 @@ function handleDblClick(): void {
 <template>
   <!--
     Wrapper span:
-    - Always carries the hover title (passive tooltip — no JS, zero overhead).
+    - Always carries the hover title (passive HoverHint — no JS, zero overhead).
     - In interactive mode: role=button, tabindex=0, cursor-pointer, keyboard-enter/space.
     - In passive mode (default): purely structural, no interaction surface.
     Never add interactive to a PlTypeIcon that is already inside a <button> element.

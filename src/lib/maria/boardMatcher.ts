@@ -26,7 +26,7 @@ export interface MemberMatch {
   /** Net relevance score. Higher = better match. Always > 0 in returned results. */
   score: number
   /**
-   * Human-readable reasons for the match. Shown as a tooltip on suggestion chips.
+   * Human-readable reasons for the match. Shown as a HoverHint on suggestion chips.
    * Format: 'ability: financial analysis', 'interest: governance', etc.
    */
   reasons: string[]

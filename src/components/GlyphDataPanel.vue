@@ -130,9 +130,9 @@ const GLYPH_DATA: Record<PlGlyphType, GlyphEntry> = {
     fullName:     'Value Requirement',
     abbrev:       'V.',
     notation:     'O--*-->',
-    notationHint: 'circle (scale) → asterisk (goal) → arrow (improvement direction)',
+    notationHint: 'circle (source Function) · dash-dash (scale axis) · asterisk (goal data point) · arrow (improvement direction)',
     keyedParts: [
-      { chars: 'O',   meaning: 'Circle — the measurable Scale: a real-world property that can be quantified (Response Time, Satisfaction, Error Rate)' },
+      { chars: 'O',   meaning: 'Circle — the source Function from which this Value requirement originates and to which it is attached. In Planguage the Value notation begins with the Function being measured, shown as a circle (per CE book, Glossary: Function).' },
       { chars: '--',  meaning: 'Continuous range — Values live on a scalar continuum, not a binary yes/no. There is always a spectrum between Tolerable and Goal' },
       { chars: '*',   meaning: 'Asterisk — the Planguage wildcard for the current or target value. Here: the Goal (and Tolerable) data point on the Scale' },
       { chars: '-->',  meaning: 'Directional arrow — the direction of improvement. Values are always directional: less latency, more satisfaction, fewer errors' },
@@ -428,7 +428,7 @@ Stakeholder: GDPR Regulation (inanimate)
       { term: 'Work item',            abbrev: 'WI.',  definition: 'The atomic schedulable unit: one clear activity, one named owner, one time estimate, one deliverable. If it requires two sentences to describe, decompose it.' },
       { term: 'Leaf node',            abbrev: 'Lf.',  definition: 'In the planning hierarchy (Stakeholders → Values → Solutions → Evo Steps → Tasks), Tasks are the terminal entries. They have no sub-tasks. If decomposition is needed, they are Evo Steps.' },
       { term: 'Decomposition',        abbrev: 'Dec.', definition: 'Breaking a complex Evo Step into atomic Tasks. Correct decomposition: each Task is independently completable, independently testable, independently assignable. Over-decomposition creates overhead.' },
-      { term: 'Resource consumption', abbrev: 'RC.',  definition: 'Every Task consumes at least one Resource (typically person-hours). The Resource cost of a Task is input to the VDT calculation: Value delivered by the parent Solution ÷ total Task Resource costs.' },
+      { term: 'Resource consumption', abbrev: 'RC.',  definition: 'Every Task consumes at least one Resource (typically person-hours). The Resource cost of a Task is input to the VDT calculation: Value delivered by the parent Solution / total Task Resource costs.' },
     ],
     history: {
       year:    '1910',
@@ -1026,6 +1026,7 @@ onUnmounted(() => {
     />
 
     <!-- Panel -->
+    <!-- audit-ignore: scroll — fixed inset-0 dialog backdrop; overflow-y-auto here is the native browser scroll for long dialog content, ScrollContainer fade-pill would not render correctly on a position:fixed full-viewport element -->
     <div
       class="fixed inset-0 z-[651] flex items-start justify-center overflow-y-auto py-10 px-4"
       role="dialog"

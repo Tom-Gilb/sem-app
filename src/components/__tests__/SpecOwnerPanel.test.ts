@@ -89,13 +89,15 @@ describe('SpecOwnerPanel.vue — auto-save tab-switch bug fix (2026-05-12)', () 
     expect(wrapper.text()).not.toContain('Plan People')
   })
 
-  it('shows the tab-named primary save button ("Add Planner")', async () => {
+  it('shows the tab-named save button ("Save Planner") when add form is open', async () => {
+    // Save button always shows "Save <Tab>" (not "Add <Tab>") per current component design
     const { wrapper } = mountWithFreshModel('planners')
     const addBtn = wrapper.findAll('button').find((b) => b.text().startsWith('+ Add'))
     expect(addBtn, 'Add button not found').toBeTruthy()
     await addBtn!.trigger('click')
     await nextTick()
-    expect(wrapper.text()).toMatch(/Add Planner/)
+    // Save button uses data-testid="footer-save" and shows "Save Planner"
+    expect(wrapper.text()).toMatch(/Save Planner/)
   })
 
   it('routes in-progress Planner data into planners[] when the user switches to Owners mid-edit', async () => {
@@ -167,10 +169,10 @@ describe('SpecOwnerPanel.vue — auto-save tab-switch bug fix (2026-05-12)', () 
     nameInput!.dispatchEvent(new Event('input'))
     await nextTick()
 
-    // Click the prominent Save button (text = "Add Owner" since we're adding)
-    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Add Owner') && !b.text().startsWith('+'))
-    expect(saveBtn, 'Save button not found').toBeTruthy()
-    await saveBtn!.trigger('click')
+    // Click the prominent Save button (text = "Save Owner", data-testid="footer-save")
+    const saveBtn = wrapper.find('[data-testid="footer-save"]')
+    expect(saveBtn.exists(), 'Save button not found').toBeTruthy()
+    await saveBtn.trigger('click')
     await nextTick()
 
     const { currentModel } = useSpecModel()

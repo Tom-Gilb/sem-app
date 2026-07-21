@@ -99,9 +99,9 @@
 
     <!-- Legend chips -->
     <div class="flex flex-wrap gap-3 mt-3">
-      <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-blue-500 text-white">F. Function</span>
-      <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-emerald-600 text-white">V. Value</span>
-      <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-purple-500 text-white">S. Solution</span>
+      <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-blue-500 text-white">Function</span>
+      <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-emerald-600 text-white">Value</span>
+      <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-purple-500 text-white">Solution</span>
       <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-amber-400 text-white">Highlighted</span>
     </div>
   </div>

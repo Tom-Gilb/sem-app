@@ -24,10 +24,11 @@
        open-heatlane  — kept for backward-compat; Swimlane is now an inline tab  -->
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import type { SpecBlock } from '../types/spec'
+import { rBudget } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import type { TaskSuggestion } from '../types/task'
 import type { ImpactMatrix } from '../types/impact'
@@ -86,15 +87,37 @@ type Tab = 'flow' | 'efficiency' | 'radar' | 'arch' | 'deps' | 'risk' | 'finance
 // tool's real time current display for current plan."
 const activeTab = ref<Tab | null>(props.initialTab ?? null)
 
+// v498 (2026-07-21) — Tom "when I go here I want the value flow opened
+// immediately full screen, not an empty screen".  The 'flow' tab was
+// showing an interstitial ("Value Flow — Full Screen" + a button to open
+// the full-screen panel).  Root cause: the comment in the template already
+// stated the DESIRED behaviour (*"clicking the Value Flow tab immediately
+// opens the full-screen panel"*) but the implementation stayed on the
+// interstitial-with-button pattern from an earlier iteration.  Fix: watch
+// activeTab; when it becomes 'flow', emit open-value-flow on the next
+// tick.  The interstitial stays as a fallback (Tom returns from the full-
+// screen panel, sees the interstitial + the same button to re-open).
+watch(activeTab, (tab, prev) => {
+  if (tab === 'flow' && prev !== 'flow') {
+    void nextTick().then(() => { emit('open-value-flow') })
+  }
+})
+// Also fire on mount if the panel opens directly to the 'flow' tab via initialTab.
+onMounted(() => {
+  if (activeTab.value === 'flow') {
+    void nextTick().then(() => { emit('open-value-flow') })
+  }
+})
+
 const tabs: { key: Tab; label: string; emoji: string; description: string; accent: string }[] = [
   { key: 'flow',       label: 'Value Flow',   emoji: '⟶',  description: 'Tasks → Solutions → Values → Stakeholders causal chain',       accent: '#6366f1' },
   { key: 'efficiency', label: 'Efficiency',   emoji: '⚡', description: 'V/C ratios: solutions ranked by value delivered per cost unit', accent: '#10b981' },
-  { key: 'radar',      label: 'Tech Radar',   emoji: '🎯', description: 'Solutions classified Adopt / Trial / Assess / Hold',            accent: '#4f46e5' },
+  { key: 'radar',      label: 'Value Radar',  emoji: '🎯', description: 'Value achievement spider chart — Status vs Tolerable / Goal / Wish on every axis', accent: '#7c3aed' },
   { key: 'arch',       label: 'Architecture', emoji: '🏛️', description: 'Spec entries mapped across Business / App / Data / Technology', accent: '#f59e0b' },
   { key: 'deps',       label: 'Dependencies', emoji: '🕸️', description: 'Values ↔ Functions ↔ Solutions with cross-reference links',     accent: '#475569' },
-  { key: 'risk',       label: 'Risk Matrix',  emoji: '⚠️', description: 'Functions classified by probability × impact heuristic',        accent: '#ef4444' },
-  { key: 'finance',    label: 'Finance',      emoji: '💰', description: 'Value targets: tolerable (faded) vs goal (solid) progress bars', accent: '#8b5cf6' },
-  { key: 'swimlane',   label: 'Swimlane',     emoji: '🏊', description: 'Evo steps × spec entries heat-map stage map',                   accent: '#0ea5e9' },
+  { key: 'risk',       label: 'Risk Monitor', emoji: '⚠️', description: 'Values ranked by gap from Tolerable — unmitigated breaches flagged',  accent: '#ef4444' },
+  { key: 'finance',    label: 'Resources',    emoji: '💰', description: 'Resource budgets vs consumption + Value achievement progress',     accent: '#16a34a' },
+  { key: 'swimlane',   label: 'Stakeholders', emoji: '§',  description: 'Stakeholder × Evo Step delivery map — who gets what, and when',   accent: '#2563eb' },
   { key: 'simulator',  label: 'Simulator',    emoji: '▶',  description: 'Animated delivery timeline with cumulative value chart',         accent: '#7c3aed' },
 ]
 
@@ -343,6 +366,140 @@ const LEVEL_COLOUR: Record<string, string> = {
   Evo:         '#06b6d4',
   'To-Do':     '#94a3b8',
 }
+
+// ── Shared numeric parse (used by redesigned tabs) ─────────────────────────
+function parseNum(s: string | undefined): number {
+  if (!s) return 0
+  const m = s.match(/(\d+(?:\.\d+)?)/)
+  return m ? parseFloat(m[1]) : 0
+}
+
+// ── Value Achievement Radar data ───────────────────────────────────────────
+const radarSpokes = computed(() => {
+  if (!props.spec) return []
+  return props.spec.values.slice(0, 10).map(v => {
+    const sN = parseNum(v.status)
+    const gN = parseNum(v.goal)
+    const tN = parseNum(v.tolerable)
+    const wN = v.wish ? parseNum(v.wish) : 0
+    const base = gN || 100
+    const sFrac = Math.min(1.35, base ? sN / base : 0)
+    const tFrac = base ? Math.min(1, tN / base) : 0
+    const wFrac = wN && base ? Math.min(1.5, wN / base) : 0
+    const inBreach = tN > 0 && sN < tN
+    const atGoal   = base > 0 && sN >= base
+    return { id: v.id, label: v.id.slice(0, 22), scale: v.scale || '',
+             status: v.status, tolerable: v.tolerable, goal: v.goal, wish: v.wish,
+             sFrac, tFrac, wFrac, inBreach, atGoal }
+  })
+})
+
+// ── Value Risk Monitor data ─────────────────────────────────────────────────
+const riskMonitorData = computed(() => {
+  if (!props.spec) return []
+  return props.spec.values.map(v => {
+    const sN = parseNum(v.status)
+    const gN = parseNum(v.goal)
+    const tN = parseNum(v.tolerable)
+    const base = gN || 100
+    const sFrac = base ? Math.min(1, sN / base) : 0
+    const tFrac = base ? Math.min(1, tN / base) : 0
+    const gap   = tFrac - sFrac  // positive = in breach
+    // Count confirmed steps whose linked solutions reference this value
+    const targetingCount = props.confirmedSteps.filter(step =>
+      (step.linkedSolutions ?? []).some(solId => {
+        const sol = props.spec!.solutions.find(s => s.id === solId || s.id === solId)
+        return sol?.impact?.toLowerCase().includes(v.id.toLowerCase())
+      })
+    ).length
+    return { id: v.id, label: v.id, scale: v.scale || '',
+             status: v.status, tolerable: v.tolerable, goal: v.goal,
+             sFrac, tFrac, gap, inBreach: tN > 0 && sN < tN,
+             belowGoal: base > 0 && sN < base,
+             targetingCount,
+             unmitigated: tN > 0 && sN < tN && targetingCount === 0 }
+  }).sort((a, b) => b.gap - a.gap)
+})
+
+// ── Resource-Value Return data ─────────────────────────────────────────────
+const resourceReturnData = computed(() => {
+  const resources = (props.spec?.resources ?? []).map(r => {
+    const budgetStr = rBudget(r)
+    const bN = parseNum(budgetStr)
+    const sN = parseNum(r.status)
+    const frac = bN > 0 ? Math.min(1.1, sN / bN) : 0
+    return { id: r.id, label: r.id, scale: r.scale || '',
+             status: r.status, budget: budgetStr,
+             kind: r.resourceKind ?? 'budget', frac,
+             over: bN > 0 && sN > bN }
+  })
+  const values = props.spec?.values.slice(0, 12).map(v => {
+    const sN = parseNum(v.status)
+    const gN = parseNum(v.goal)
+    const tN = parseNum(v.tolerable)
+    const base = gN || 100
+    const sFrac = base ? Math.min(1, sN / base) : 0
+    const tFrac = base ? Math.min(1, tN / base) : 0
+    return { id: v.id, label: v.id, scale: v.scale || '',
+             status: v.status, tolerable: v.tolerable, goal: v.goal,
+             sFrac, tFrac, inBreach: tN > 0 && sN < tN }
+  }) ?? []
+  return { resources, values }
+})
+
+// ── Stakeholder Delivery Map data ──────────────────────────────────────────
+const stakeholderNames = computed(() => {
+  if (!props.spec?.stakes) return []
+  return props.spec.stakes.split(',').map(s => s.trim()).filter(Boolean)
+})
+
+const stakeholderDeliveryGrid = computed(() => {
+  if (!props.spec || !props.confirmedSteps.length || !stakeholderNames.value.length) return []
+  const spec = props.spec
+  const steps = props.confirmedSteps
+
+  // For each step: which Value IDs does it impact?
+  const stepValueSets = steps.map(step => {
+    const ids = new Set<string>()
+    for (const solId of (step.linkedSolutions ?? [])) {
+      const sol = spec.solutions.find(s => s.id === solId)
+      if (sol?.impact) {
+        // Match "V.Xxx" patterns
+        for (const m of sol.impact.matchAll(/V\.(\w+)/g)) ids.add(m[1])
+        // Also match any value ID appearing literally in the impact string
+        for (const v of spec.values) {
+          if (sol.impact.toLowerCase().includes(v.id.toLowerCase())) ids.add(v.id)
+        }
+      }
+    }
+    return ids
+  })
+
+  // Stakeholder affinity: does this stakeholder care about this value?
+  function affinity(name: string, v: typeof spec.values[0]): boolean {
+    const text = `${v.id} ${v.description ?? ''}`.toLowerCase()
+    const n = name.toLowerCase()
+    if (text.includes(n)) return true
+    const firstWord = n.split(' ')[0]
+    return firstWord.length > 3 && text.includes(firstWord)
+  }
+
+  return stakeholderNames.value.map(name => ({
+    name,
+    cells: steps.map((step, si) => {
+      const impacted = [...stepValueSets[si]]
+        .map(vid => spec.values.find(v => v.id === vid))
+        .filter((v): v is typeof spec.values[0] => !!v && affinity(name, v))
+      return { stepName: step.name, values: impacted, count: impacted.length }
+    }),
+    hasAny: stepValueSets.some((ids, si) =>
+      [...ids].some(vid => {
+        const v = spec.values.find(x => x.id === vid)
+        return v && affinity(name, v)
+      })
+    ),
+  }))
+})
 
 // ── Live tile thumbnails (Thumbnail Reality Rule) ─────────────────────────
 // Each thumbnail is a computed SVG derived from REAL plan data — entry counts,
@@ -1310,14 +1467,98 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
             <p v-else class="text-sm text-gray-400 py-12 text-center">No spec loaded.</p>
           </div>
 
-          <!-- 🎯 Tech Radar -->
-          <div v-else-if="activeTab === 'radar'" ref="radarRef">
-            <p class="text-xs text-gray-500 px-6 pt-5 pb-2">Solution entries classified Adopt / Trial / Assess / Hold</p>
-            <div class="flex items-center justify-center px-4 pb-6 [&_svg]:w-full [&_svg]:h-auto">
-              <div class="w-full max-w-3xl">
-                <SpecTechRadar :blocks="specArr" />
+          <!-- 🎯 Value Achievement Radar — each spoke = one Value, rings = Tolerable/Goal/Wish -->
+          <div v-else-if="activeTab === 'radar'" class="p-6">
+            <p class="text-xs text-slate-500 mb-4">Each spoke is one Value entry. Filled area = current Status. Amber ring = Tolerable (minimum non-failure). Dashed ring = Goal (committed). Dotted = Wish.</p>
+            <div v-if="radarSpokes.length === 0" class="text-slate-400 text-sm italic">No Value entries found — add Values to your spec to see the radar.</div>
+            <template v-else>
+              <!-- SVG Radar -->
+              <div class="flex justify-center mb-6">
+                <svg :viewBox="`0 0 560 ${Math.max(320, radarSpokes.length > 6 ? 420 : 360)}`"
+                     class="w-full max-w-2xl" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <radialGradient id="radarStatusGrad" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%"   stop-color="#7c3aed" stop-opacity="0.55"/>
+                      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.18"/>
+                    </radialGradient>
+                  </defs>
+                  <!-- ── Grid circles at 25/50/75/100% ── -->
+                  <template v-for="frac in [0.25, 0.5, 0.75, 1.0]" :key="frac">
+                    <circle cx="280" cy="200" :r="frac * 140"
+                            fill="none" stroke="#e2e8f0" stroke-width="1"
+                            :stroke-dasharray="frac === 1.0 ? 'none' : '4 3'"/>
+                    <text v-if="radarSpokes.length > 0"
+                          x="282" :y="200 - frac * 140 - 3"
+                          font-family="system-ui,sans-serif" font-size="8" fill="#94a3b8">
+                      {{ Math.round(frac * 100) }}%
+                    </text>
+                  </template>
+                  <!-- ── Wish ring (faint dotted) — only if any spoke has wish ── -->
+                  <circle v-if="radarSpokes.some(s => s.wFrac > 1)"
+                          cx="280" cy="200" r="175"
+                          fill="none" stroke="#c4b5fd" stroke-width="1" stroke-dasharray="2 5" opacity="0.5"/>
+                  <!-- ── Tolerable ring (amber dashed) ── -->
+                  <circle cx="280" cy="200" :r="(radarSpokes.reduce((a,s)=>a+s.tFrac,0)/Math.max(1,radarSpokes.length)) * 140"
+                          fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.7"/>
+                  <!-- ── Spoke lines ── -->
+                  <template v-for="(spoke, i) in radarSpokes" :key="'line-'+i">
+                    <line
+                      cx="280" cy="200"
+                      :x1="280" :y1="200"
+                      :x2="280 + 155 * Math.cos(-Math.PI/2 + (2*Math.PI*i/radarSpokes.length))"
+                      :y2="200 + 155 * Math.sin(-Math.PI/2 + (2*Math.PI*i/radarSpokes.length))"
+                      stroke="#e2e8f0" stroke-width="1"/>
+                  </template>
+                  <!-- ── Status polygon (filled) ── -->
+                  <polygon
+                    :points="radarSpokes.map((s,i) => {
+                      const angle = -Math.PI/2 + (2*Math.PI*i/radarSpokes.length)
+                      const r = s.sFrac * 140
+                      return `${280 + r*Math.cos(angle)},${200 + r*Math.sin(angle)}`
+                    }).join(' ')"
+                    fill="url(#radarStatusGrad)"
+                    stroke="#7c3aed" stroke-width="2" stroke-linejoin="round"/>
+                  <!-- ── Spoke tip dots ── -->
+                  <template v-for="(spoke, i) in radarSpokes" :key="'dot-'+i">
+                    <circle
+                      :cx="280 + spoke.sFrac * 140 * Math.cos(-Math.PI/2 + (2*Math.PI*i/radarSpokes.length))"
+                      :cy="200 + spoke.sFrac * 140 * Math.sin(-Math.PI/2 + (2*Math.PI*i/radarSpokes.length))"
+                      r="5"
+                      :fill="spoke.inBreach ? '#ef4444' : spoke.atGoal ? '#16a34a' : '#7c3aed'"
+                      stroke="white" stroke-width="1.5"/>
+                  </template>
+                  <!-- ── Spoke labels ── -->
+                  <template v-for="(spoke, i) in radarSpokes" :key="'label-'+i">
+                    <text
+                      :x="280 + 162 * Math.cos(-Math.PI/2 + (2*Math.PI*i/radarSpokes.length))"
+                      :y="200 + 162 * Math.sin(-Math.PI/2 + (2*Math.PI*i/radarSpokes.length)) + 4"
+                      text-anchor="middle"
+                      font-family="system-ui,sans-serif" font-size="9" font-weight="600"
+                      :fill="spoke.inBreach ? '#ef4444' : '#334155'">
+                      {{ spoke.label }}
+                    </text>
+                  </template>
+                </svg>
               </div>
-            </div>
+              <!-- Detail rows below the radar -->
+              <div class="max-w-2xl mx-auto space-y-2">
+                <div v-for="spoke in radarSpokes" :key="spoke.id"
+                     class="flex items-center gap-3 rounded-lg px-3 py-2 border"
+                     :class="spoke.inBreach ? 'border-red-200 bg-red-50' : spoke.atGoal ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-white'">
+                  <span class="text-base shrink-0" :class="spoke.inBreach ? 'text-red-500' : spoke.atGoal ? 'text-emerald-600' : 'text-violet-600'">
+                    {{ spoke.inBreach ? '⚠' : spoke.atGoal ? '✓' : '◎' }}
+                  </span>
+                  <span class="text-xs font-bold text-slate-700 w-32 shrink-0 truncate" :title="spoke.id">{{ spoke.label }}</span>
+                  <div class="flex-1 flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
+                    <span>Status <strong class="text-slate-800">{{ spoke.status || '—' }}</strong></span>
+                    <span>/ Tolerable <strong :class="spoke.inBreach?'text-red-600':'text-amber-600'">{{ spoke.tolerable || '—' }}</strong></span>
+                    <span>/ Goal <strong class="text-violet-700">{{ spoke.goal || '—' }}</strong></span>
+                    <span v-if="spoke.wish">/ Wish <strong class="text-slate-400">{{ spoke.wish }}</strong></span>
+                    <span v-if="spoke.scale" class="text-slate-400 italic">{{ spoke.scale }}</span>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
 
           <!-- 🏛️ Architecture (TOGAF) -->
@@ -1382,94 +1623,228 @@ onUnmounted(() => document.removeEventListener('keydown', _onKey, { capture: tru
             </div>
           </div>
 
-          <!-- ⚠️ Risk Matrix -->
+          <!-- ⚠️ Value Risk Monitor — Values ranked by gap from Tolerable -->
           <div v-else-if="activeTab === 'risk'" class="p-6">
-            <p class="text-xs text-gray-500 mb-3">Functions classified by estimated probability × impact — based on level and keyword heuristics</p>
-            <div class="w-full space-y-1.5">
-              <!-- Column header row -->
-              <div class="grid grid-cols-[96px_1fr_1fr_1fr] gap-2 items-center mb-2">
-                <span></span>
-                <span class="text-xs text-center font-bold text-gray-500 uppercase tracking-wide">Low Impact</span>
-                <span class="text-xs text-center font-bold text-gray-500 uppercase tracking-wide">Med Impact</span>
-                <span class="text-xs text-center font-bold text-gray-500 uppercase tracking-wide">High Impact</span>
+            <p class="text-xs text-slate-500 mb-1">In Planguage, risk IS the gap between current Status and Tolerable — not probability guessing. Values ranked by breach severity. Red = currently failing. ⚠ unmitigated = no Evo Steps targeting this Value.</p>
+            <div v-if="riskMonitorData.length === 0" class="text-slate-400 text-sm italic mt-4">No Value entries found — add Values with Tolerable and Status fields to see the risk monitor.</div>
+            <div v-else class="space-y-3 mt-4">
+              <!-- Summary pills -->
+              <div class="flex gap-3 flex-wrap mb-4">
+                <span class="text-[11px] px-2.5 py-1 rounded-full font-semibold bg-red-100 text-red-700">
+                  {{ riskMonitorData.filter(r => r.inBreach).length }} in breach
+                </span>
+                <span class="text-[11px] px-2.5 py-1 rounded-full font-semibold bg-amber-100 text-amber-700">
+                  {{ riskMonitorData.filter(r => !r.inBreach && r.belowGoal).length }} below Goal
+                </span>
+                <span class="text-[11px] px-2.5 py-1 rounded-full font-semibold bg-emerald-100 text-emerald-700">
+                  {{ riskMonitorData.filter(r => !r.belowGoal).length }} at Goal
+                </span>
+                <span v-if="riskMonitorData.some(r => r.unmitigated)"
+                      class="text-[11px] px-2.5 py-1 rounded-full font-semibold bg-red-600 text-white">
+                  ⚠ {{ riskMonitorData.filter(r => r.unmitigated).length }} unmitigated breach
+                </span>
               </div>
-              <!-- Data rows -->
-              <div
-                v-for="(probLabel, pi) in ['Low Prob', 'Med Prob', 'High Prob']"
-                :key="pi"
-                class="grid grid-cols-[96px_1fr_1fr_1fr] gap-2 items-stretch"
-              >
-                <span
-                  class="text-xs font-bold uppercase text-right pt-3 pr-2"
-                  :class="pi === 2 ? 'text-red-500' : pi === 1 ? 'text-amber-500' : 'text-emerald-600'"
-                >{{ probLabel }}</span>
-                <div
-                  v-for="ii in [0, 1, 2]"
-                  :key="ii"
-                  class="min-h-[96px] rounded-xl p-3 text-[11px] leading-snug"
-                  :style="{ backgroundColor: RISK_CELL_COLOUR[pi][ii] }"
-                >
-                  <div v-if="riskGrid[pi][ii].length === 0" class="text-gray-400 italic">—</div>
-                  <div
-                    v-for="item in riskGrid[pi][ii]"
-                    :key="item.label"
-                    class="mb-1 font-semibold text-gray-700"
-                    :title="item.label"
-                  >{{ item.label }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 💰 Finance — Value targets as progress bars (tolerable faded / goal solid).
-               Moved back into the chain (was standalone v-if to work around a Safari last-branch
-               bug).  The :key on the wrapper div now remounts the entire block on every tab
-               switch, so the last-branch bug cannot occur regardless of chain position. -->
-          <div v-else-if="activeTab === 'finance'" class="p-6">
-            <p class="text-xs text-gray-500 mb-4">Value entries — tolerable (lighter) vs goal (solid) targets extracted from scale/meter definitions. Colour = level.</p>
-            <div v-if="financeItems.length === 0" class="text-gray-400 text-sm">No Value Specs with numeric goals found.</div>
-            <div class="space-y-3 w-full max-w-2xl">
-              <div v-for="item in financeItems" :key="item.label" class="space-y-0.5">
-                <div class="flex items-center justify-between text-[10px] text-gray-600">
-                  <span class="font-medium truncate max-w-[260px]" :title="item.label">{{ item.label }}</span>
-                  <span class="flex items-center gap-1 flex-shrink-0 ml-2">
-                    <span class="w-2 h-2 rounded-sm opacity-40" :style="{ backgroundColor: LEVEL_COLOUR[item.level] ?? '#94a3b8' }"></span>
-                    <span class="text-gray-400">{{ item.level }}</span>
-                  </span>
-                </div>
-                <!-- Tolerable bar (faded) -->
-                <div class="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    class="h-full rounded-full opacity-40 transition-[width] duration-700"
-                    :style="{ width: item.tolerable + '%', backgroundColor: LEVEL_COLOUR[item.level] ?? '#94a3b8' }"
-                  />
-                </div>
-                <!-- Goal bar (solid) -->
-                <div class="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    class="h-full rounded-full transition-[width] duration-700 flex items-center pl-2"
-                    :style="{ width: Math.max(item.goal, 4) + '%', backgroundColor: LEVEL_COLOUR[item.level] ?? '#94a3b8' }"
-                  >
-                    <span v-if="item.goal > 12" class="text-white text-[9px] font-bold">{{ item.goal }}%</span>
+              <!-- Value rows -->
+              <div v-for="item in riskMonitorData" :key="item.id"
+                   class="rounded-xl border p-3"
+                   :class="item.unmitigated ? 'border-red-400 bg-red-50' : item.inBreach ? 'border-red-200 bg-red-50/60' : item.belowGoal ? 'border-amber-200 bg-amber-50/40' : 'border-emerald-200 bg-emerald-50/40'">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold shrink-0"
+                          :class="item.inBreach ? 'text-red-600' : item.belowGoal ? 'text-amber-600' : 'text-emerald-700'">
+                      {{ item.inBreach ? '⚠' : item.belowGoal ? '◎' : '✓' }}
+                    </span>
+                    <span class="text-xs font-bold text-slate-800">{{ item.label }}</span>
+                    <span v-if="item.scale" class="text-[10px] text-slate-400 italic">{{ item.scale }}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <span v-if="item.unmitigated"
+                          class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-600 text-white">
+                      ⚠ No steps targeting this Value
+                    </span>
+                    <span v-else-if="item.targetingCount > 0"
+                          class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      {{ item.targetingCount }} step{{ item.targetingCount > 1 ? 's' : '' }} addressing this
+                    </span>
                   </div>
                 </div>
-                <div class="text-[9px] text-gray-400">
-                  Tolerable {{ item.tolerable }}% → Goal {{ item.goal }}%
+                <!-- Triple bar: Status → Tolerable → Goal -->
+                <div class="relative h-5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <!-- Status bar -->
+                  <div class="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700 flex items-center"
+                       :style="{ width: Math.max(2, item.sFrac * 100) + '%' }"
+                       :class="item.inBreach ? 'bg-red-400' : item.belowGoal ? 'bg-amber-400' : 'bg-emerald-500'">
+                  </div>
+                  <!-- Tolerable marker line -->
+                  <div v-if="item.tFrac > 0"
+                       class="absolute inset-y-0 w-0.5 bg-amber-500 opacity-80"
+                       :style="{ left: item.tFrac * 100 + '%' }"/>
+                </div>
+                <div class="flex gap-3 mt-1 text-[9px] text-slate-500 flex-wrap">
+                  <span>Status <strong class="text-slate-700">{{ item.status || '—' }}</strong></span>
+                  <span>Tolerable <strong :class="item.inBreach ? 'text-red-600' : 'text-amber-600'">{{ item.tolerable || '—' }}</strong></span>
+                  <span>Goal <strong class="text-violet-700">{{ item.goal || '—' }}</strong></span>
+                </div>
+              </div>
+              <!-- Constraint section -->
+              <div v-if="(spec?.constraints ?? []).length > 0" class="mt-6">
+                <p class="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">Constraints (binary — must be fully respected)</p>
+                <div class="space-y-1.5">
+                  <div v-for="c in (spec?.constraints ?? [])" :key="c.id"
+                       class="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2">
+                    <span class="text-red-500 text-xs font-bold shrink-0">C.</span>
+                    <span class="text-xs font-semibold text-slate-700">{{ c.id }}</span>
+                    <span v-if="c.description" class="text-[10px] text-slate-500 truncate">{{ c.description }}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 🏊 Swimlane / Value Stage Map — last in chain; :key on wrapper makes this safe.
-               Embedded mode: no fixed positioning so the pill strip stays visible at all times. -->
-          <div v-else-if="activeTab === 'swimlane'" class="flex flex-col h-full">
-            <SpecHeatLane
-              :spec="spec"
-              :confirmed-steps="confirmedSteps"
-              :tasks-by-step="tasksByStep ?? {}"
-              :embedded="true"
-              :on-close="() => { activeTab = null }"
-            />
+          <!-- 💰 Resource-Value Return — Resource budgets + Value achievement progress -->
+          <div v-else-if="activeTab === 'finance'" class="p-6 space-y-8">
+            <!-- Resources section -->
+            <div>
+              <p class="text-xs font-bold text-slate-600 uppercase tracking-wide mb-3">Resources — Budget vs Consumed</p>
+              <div v-if="resourceReturnData.resources.length === 0"
+                   class="text-slate-400 text-sm italic">No Resource entries in this spec — add R. entries with Budget and Status to track spend.</div>
+              <div v-else class="space-y-3 max-w-2xl">
+                <div v-for="r in resourceReturnData.resources" :key="r.id"
+                     class="rounded-xl border p-3"
+                     :class="r.over ? 'border-red-200 bg-red-50' : r.frac > 0.8 ? 'border-amber-200 bg-amber-50/50' : 'border-emerald-200 bg-white'">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-2">
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase">
+                        {{ r.kind }}
+                      </span>
+                      <span class="text-xs font-semibold text-slate-800">{{ r.label }}</span>
+                      <span v-if="r.scale" class="text-[10px] text-slate-400 italic">{{ r.scale }}</span>
+                    </div>
+                    <span class="text-[10px] shrink-0"
+                          :class="r.over ? 'text-red-600 font-bold' : r.frac > 0.8 ? 'text-amber-600' : 'text-emerald-700'">
+                      {{ r.over ? '⚠ Over budget' : Math.round(r.frac * 100) + '% consumed' }}
+                    </span>
+                  </div>
+                  <div class="relative h-4 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div class="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700"
+                         :style="{ width: Math.min(100, r.frac * 100) + '%' }"
+                         :class="r.over ? 'bg-red-400' : r.frac > 0.8 ? 'bg-amber-400' : 'bg-emerald-500'"/>
+                  </div>
+                  <div class="flex gap-3 mt-1 text-[9px] text-slate-500">
+                    <span>Consumed <strong class="text-slate-700">{{ r.status || '—' }}</strong></span>
+                    <span>Budget <strong class="text-emerald-700">{{ r.budget || '—' }}</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Values achievement section -->
+            <div>
+              <p class="text-xs font-bold text-slate-600 uppercase tracking-wide mb-3">Values — Achievement Progress</p>
+              <div v-if="resourceReturnData.values.length === 0"
+                   class="text-slate-400 text-sm italic">No Value entries found.</div>
+              <div v-else class="space-y-2.5 max-w-2xl">
+                <div v-for="v in resourceReturnData.values" :key="v.id">
+                  <div class="flex items-center justify-between text-[10px] mb-0.5">
+                    <span class="font-semibold text-slate-700 truncate max-w-[280px]" :title="v.id">{{ v.label }}</span>
+                    <span class="shrink-0 ml-2 text-slate-400 italic">{{ v.scale }}</span>
+                  </div>
+                  <!-- Combined bar: tolerable marker + status fill -->
+                  <div class="relative h-5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div class="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700"
+                         :style="{ width: Math.max(2, v.sFrac * 100) + '%' }"
+                         :class="v.inBreach ? 'bg-red-400' : v.sFrac >= 1 ? 'bg-emerald-500' : 'bg-violet-400'"/>
+                    <div v-if="v.tFrac > 0"
+                         class="absolute inset-y-0 w-0.5 bg-amber-500"
+                         :style="{ left: v.tFrac * 100 + '%' }"/>
+                  </div>
+                  <div class="flex gap-2 mt-0.5 text-[9px] text-slate-400">
+                    <span>Status <strong :class="v.inBreach?'text-red-600':'text-slate-600'">{{ v.status||'—' }}</strong></span>
+                    <span>Tolerable <strong class="text-amber-600">{{ v.tolerable||'—' }}</strong></span>
+                    <span>Goal <strong class="text-violet-700">{{ v.goal||'—' }}</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- § Stakeholder Delivery Map — who gets what, and when? -->
+          <div v-else-if="activeTab === 'swimlane'" class="p-6">
+            <p class="text-xs text-slate-500 mb-4">Rows = stakeholders. Columns = Evo Steps. Each cell shows Values this step delivers that this stakeholder cares about. Empty cells = stakeholder gets nothing from this step.</p>
+
+            <!-- Fallback: no steps or no stakeholders — show classic SpecHeatLane -->
+            <div v-if="!confirmedSteps.length || !stakeholderNames.length">
+              <p class="text-xs text-amber-600 mb-3 italic">
+                {{ !confirmedSteps.length ? 'No confirmed Evo Steps yet — generate and confirm a plan to see the stakeholder map.' : 'No stakeholders defined in this spec — add a Stakes field to see the map.' }}
+              </p>
+              <SpecHeatLane
+                :spec="spec"
+                :confirmed-steps="confirmedSteps"
+                :tasks-by-step="tasksByStep ?? {}"
+                :embedded="true"
+                :on-close="() => { activeTab = null }"
+              />
+            </div>
+
+            <!-- Full stakeholder grid -->
+            <div v-else>
+              <!-- Scrollable grid container -->
+              <div class="overflow-x-auto">
+                <table class="w-full border-collapse text-[11px]">
+                  <thead>
+                    <tr>
+                      <th class="text-left p-2 bg-slate-50 border border-slate-200 font-bold text-slate-600 min-w-[120px] sticky left-0 z-10">
+                        Stakeholder §
+                      </th>
+                      <th v-for="step in confirmedSteps" :key="step.name"
+                          class="p-2 bg-slate-50 border border-slate-200 font-semibold text-slate-600 min-w-[100px] max-w-[140px] text-center">
+                        <span class="block truncate" :title="step.name">{{ step.name.length > 16 ? step.name.slice(0,16)+'…' : step.name }}</span>
+                      </th>
+                      <th class="p-2 bg-slate-100 border border-slate-200 font-bold text-slate-600 text-center min-w-[60px]">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in stakeholderDeliveryGrid" :key="row.name"
+                        :class="row.hasAny ? '' : 'opacity-50'">
+                      <td class="p-2 border border-slate-200 font-semibold text-slate-800 bg-white sticky left-0 z-10">
+                        <div class="flex items-center gap-1.5">
+                          <span class="text-blue-600 font-bold">§</span>
+                          {{ row.name }}
+                        </div>
+                        <div v-if="!row.hasAny" class="text-[9px] text-amber-600 mt-0.5">⚠ no delivery mapped</div>
+                      </td>
+                      <td v-for="cell in row.cells" :key="cell.stepName"
+                          class="p-1.5 border border-slate-200 align-top"
+                          :class="cell.count === 0 ? 'bg-slate-50' : cell.count >= 3 ? 'bg-blue-100' : 'bg-blue-50'">
+                        <div v-if="cell.count === 0" class="text-slate-300 text-center text-[10px]">—</div>
+                        <div v-else class="space-y-0.5">
+                          <div v-for="v in cell.values" :key="v.id"
+                               class="text-[9px] font-medium text-blue-800 leading-tight truncate"
+                               :title="v.id">
+                            {{ v.id.slice(0, 18) }}
+                          </div>
+                        </div>
+                      </td>
+                      <td class="p-2 border border-slate-200 text-center bg-white">
+                        <span class="text-xs font-bold"
+                              :class="row.cells.reduce((s,c)=>s+c.count,0) > 0 ? 'text-blue-700' : 'text-slate-300'">
+                          {{ row.cells.reduce((s,c) => s+c.count, 0) }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- Legend -->
+              <div class="flex gap-4 mt-4 text-[10px] text-slate-500 flex-wrap">
+                <div class="flex items-center gap-1.5"><div class="w-4 h-3 rounded bg-slate-50 border border-slate-200"></div> No delivery</div>
+                <div class="flex items-center gap-1.5"><div class="w-4 h-3 rounded bg-blue-50 border border-blue-200"></div> 1–2 Values</div>
+                <div class="flex items-center gap-1.5"><div class="w-4 h-3 rounded bg-blue-100 border border-blue-300"></div> 3+ Values</div>
+                <div class="flex items-center gap-1.5"><span class="text-amber-600">⚠</span> No mapped delivery across any step</div>
+              </div>
+            </div>
           </div>
 
           <!-- ▶ Simulator — animated delivery timeline with cumulative value chart.

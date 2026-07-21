@@ -27,6 +27,9 @@ import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import EditGlyph from './icons/EditGlyph.vue'
 import PlTypeBadge from './icons/PlTypeBadge.vue'
+import PlanguageDiagram from './PlanguageDiagram.vue'  // v485 — shared viz engine
+import { renderLayoutToSvgString } from '../composables/useValueFlowLayout'
+import type { VizMode } from '../composables/useValueFlowLayout'
 import {
   useModelLibrary,
   formatModelAsPlanguage,
@@ -41,7 +44,8 @@ import type {
   BoundaryType,
 } from '../composables/useModelLibrary'
 import { useDocumentImport } from '../composables/useDocumentImport'
-import { openEml } from '../composables/useEmlExport'
+import { exportEmail } from '../composables/useExportShared'
+import { useToast } from '../composables/useToast'
 
 const emit = defineEmits<{
   close: []
@@ -54,12 +58,13 @@ const emit = defineEmits<{
 
 const library = useModelLibrary()
 const { importFromFile, importLoading: fileExtracting } = useDocumentImport()
+const { showToast } = useToast()
 
 // ── Type declarations ─────────────────────────────────────────────────────────
 
 type EntryType = 'F' | 'V' | 'C' | 'R' | 'S'
 type PanelMode = 'grid' | 'bring-in' | 'detail'
-type ToolMode = 'none' | 'edit-batch' | 'edit-replace' | 'edit-manual' | 'viz-flow' | 'viz-related' | 'viz-3d' | 'sharpen' | 'defect-analysis' | 'improve-attributes'
+type ToolMode = 'none' | 'edit-batch' | 'edit-replace' | 'edit-manual' | 'viz-flow' | 'viz-related' | 'viz-3d' | 'viz-city' | 'viz-sun' | 'viz-star' | 'viz-focus' | 'viz-accordion' | 'viz-ring' | 'viz-ribbon' | 'sharpen' | 'defect-analysis' | 'improve-attributes'
 
 // ── Panel mode ────────────────────────────────────────────────────────────────
 
@@ -100,6 +105,75 @@ const sharpenError           = ref<string | null>(null)
 const specificToolsOpen      = ref(false)
 
 const toolMode = ref<ToolMode>('none')
+
+// v485 (2026-07-20) — Tom "extract".  The Value Flow + Strongly Related
+// visualisations moved to <PlanguageDiagram> (composables/useValueFlowLayout).
+// This panel keeps ONLY the scroll wrappers + scroll-% pills; the diagram +
+// drill-down + prefix-strip + click-highlight all live in the shared component.
+// See TWIN-PORTABILITY-PORTFOLIO.md Pattern #18 (proposed).
+const vizFlowScrollEl     = ref<HTMLDivElement | null>(null)
+const vizRelatedScrollEl  = ref<HTMLDivElement | null>(null)
+const viz3dScrollEl       = ref<HTMLDivElement | null>(null)
+const vizCityScrollEl     = ref<HTMLDivElement | null>(null)  // v486
+const vizSunScrollEl      = ref<HTMLDivElement | null>(null)  // v489
+const vizStarScrollEl     = ref<HTMLDivElement | null>(null)  // v489
+const vizFocusScrollEl    = ref<HTMLDivElement | null>(null)  // v490
+const vizAccordionScrollEl= ref<HTMLDivElement | null>(null)  // v490
+const vizRingScrollEl     = ref<HTMLDivElement | null>(null)  // v490
+const vizRibbonScrollEl   = ref<HTMLDivElement | null>(null)  // v490
+const vizFlowScrollPct    = ref(100)
+const vizRelatedScrollPct = ref(100)
+const viz3dScrollPct      = ref(100)
+const vizCityScrollPct    = ref(100)  // v486
+const vizSunScrollPct     = ref(100)  // v489
+const vizStarScrollPct    = ref(100)  // v489
+const vizFocusScrollPct   = ref(100)  // v490
+const vizAccordionScrollPct = ref(100)// v490
+const vizRingScrollPct    = ref(100)  // v490
+const vizRibbonScrollPct  = ref(100)  // v490
+type VizKind = 'flow' | 'related' | '3d' | 'city' | 'sun' | 'star' | 'focus' | 'accordion' | 'ring' | 'ribbon'
+function updateVizScrollPct(kind: VizKind): void {
+  const el = ({
+    flow:      vizFlowScrollEl,
+    related:   vizRelatedScrollEl,
+    '3d':      viz3dScrollEl,
+    city:      vizCityScrollEl,
+    sun:       vizSunScrollEl,
+    star:      vizStarScrollEl,
+    focus:     vizFocusScrollEl,
+    accordion: vizAccordionScrollEl,
+    ring:      vizRingScrollEl,
+    ribbon:    vizRibbonScrollEl,
+  }[kind] as { value: HTMLDivElement | null }).value
+  if (!el) return
+  const { scrollHeight, clientHeight } = el
+  const pctShown = scrollHeight > 0 ? Math.min(100, Math.round((clientHeight / scrollHeight) * 100)) : 100
+  const target = ({
+    flow:      vizFlowScrollPct,
+    related:   vizRelatedScrollPct,
+    '3d':      viz3dScrollPct,
+    city:      vizCityScrollPct,
+    sun:       vizSunScrollPct,
+    star:      vizStarScrollPct,
+    focus:     vizFocusScrollPct,
+    accordion: vizAccordionScrollPct,
+    ring:      vizRingScrollPct,
+    ribbon:    vizRibbonScrollPct,
+  }[kind] as { value: number })
+  target.value = pctShown
+}
+watch(toolMode, async (m) => {
+  const map: Partial<Record<ToolMode, VizKind>> = {
+    'viz-flow': 'flow', 'viz-related': 'related', 'viz-3d': '3d',
+    'viz-city': 'city', 'viz-sun': 'sun', 'viz-star': 'star',
+    'viz-focus': 'focus', 'viz-accordion': 'accordion', 'viz-ring': 'ring', 'viz-ribbon': 'ribbon',
+  }
+  const kind = map[m]
+  if (kind) {
+    await nextTick(); await nextTick()
+    updateVizScrollPct(kind)
+  }
+})
 
 // Defect analysis tool state
 const defectBoundaryType  = ref<BoundaryType>('our-org')
@@ -325,15 +399,33 @@ async function handleFileUpload(e: Event): Promise<void> {
 }
 
 async function submitBringIn(): Promise<void> {
+  // v475 (2026-07-20) — Tom "nothing happens" report.  Headless probe proved
+  // the flow works in a clean session but Tom's live browser showed no
+  // response.  Root-fix pattern: (a) SURFACE the success so the click is
+  // never silently "nothing" (MOVE + No-Silent-Data-Loss); (b) TRAP the
+  // synchronous path in try/catch so a `library.addUserEntry` throw (e.g.
+  // localStorage full, malformed prior entry) surfaces a red notification
+  // instead of dying under water.
   if (!bringInText.value.trim()) return
-  const entry = library.addUserEntry(
-    bringInTitle.value,
-    bringInCatId.value,
-    bringInText.value,
-  )
+  let entry: ModelLibraryEntry
+  try {
+    entry = library.addUserEntry(
+      bringInTitle.value,
+      bringInCatId.value,
+      bringInText.value,
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    showToast(`❌ Could not save model — ${msg}`, 6000)
+    return
+  }
   // Switch to the category that was selected
   selectedCategoryId.value = bringInCatId.value
   mode.value = 'grid'
+  // v475 — plain-English confirmation.  "Analyzing" is American English per
+  // the American English Standard (existing British "Analysing" strings in
+  // this file are pre-existing debt not swept in this ship).
+  showToast('✓ Model saved. Analyzing text into Planguage in the background…', 4000)
   // Kick off analysis in background
   _abortController = new AbortController()
   await library.analyseModelText(entry.id, _abortController.signal)
@@ -387,6 +479,13 @@ const TOOL_MODE_LABELS: Record<ToolMode, string> = {
   'viz-flow':          '📊 Value Flow',
   'viz-related':       '🔗 Strongly Related',
   'viz-3d':            '🧊 Model Visualizer (3D · 2D)',
+  'viz-city':          '🏙 Isometric City (pseudo-3D · rotatable)',
+  'viz-sun':           '☀ Radial Sunburst (concentric rings)',
+  'viz-star':          '✨ Constellation Map (star clusters)',
+  'viz-focus':         '🎯 Focus + Context (fade unrelated)',
+  'viz-accordion':     '📚 Layered Accordion (5 stripes)',
+  'viz-ring':          '💫 Focus Ring (concentric neighbours)',
+  'viz-ribbon':        '📅 Time Ribbon (horizontal lanes)',
   'sharpen':           '✂️ Sharpen Model',
   'defect-analysis':   '🔬 Model Defect Analysis',
   'improve-attributes': '✨ Improve Model Attributes',
@@ -476,13 +575,32 @@ const copiedToolExport = ref(false)
  * @param model     The active ModelLibraryEntry.
  * @param toolLabel Human-readable label from TOOL_MODE_LABELS (or 'Model Detail').
  */
-function buildModelExportHtml(model: ModelLibraryEntry, toolLabel: string): string {
+/**
+ * v488 (2026-07-20) — Map a viz toolMode to the shared engine's VizMode.
+ * Returns null for non-viz modes (email export falls back to entry table only).
+ */
+function _toolModeToVizMode(m: ToolMode): VizMode | null {
+  switch (m) {
+    case 'viz-flow':    return 'sankey-focus'
+    case 'viz-related': return 'strongly-related'
+    case 'viz-city':    return 'isometric-city'
+    case 'viz-sun':     return 'sunburst'          // v489
+    case 'viz-star':    return 'constellation'     // v489
+    case 'viz-focus':    return 'focus-context'     // v490
+    case 'viz-accordion':return 'layered-accordion' // v490
+    case 'viz-ring':     return 'focus-ring'        // v490
+    case 'viz-ribbon':   return 'time-ribbon'       // v490
+    default:            return null   // viz-3d + non-viz modes: no shared-engine SVG
+  }
+}
+
+function buildModelExportHtml(model: ModelLibraryEntry, toolLabel: string, vizMode: VizMode | null = null): string {
   const TYPE_STYLE: Record<string, { bg: string; border: string; badge: string; label: string }> = {
-    F: { bg: '#fff7ed', border: '#f97316', badge: 'background:#f97316;color:#fff', label: 'F. Function' },
-    V: { bg: '#eff6ff', border: '#3b82f6', badge: 'background:#3b82f6;color:#fff', label: 'V. Value' },
-    C: { bg: '#fdf4ff', border: '#c026d3', badge: 'background:#c026d3;color:#fff', label: 'C. Constraint' },
-    R: { bg: '#f0f9ff', border: '#0284c7', badge: 'background:#0284c7;color:#fff', label: 'R. Resource' },
-    S: { bg: '#f5f3ff', border: '#7c3aed', badge: 'background:#7c3aed;color:#fff', label: 'S. Stakeholder' },
+    F: { bg: '#fff7ed', border: '#f97316', badge: 'background:#f97316;color:#fff', label: 'Function' },
+    V: { bg: '#eff6ff', border: '#3b82f6', badge: 'background:#3b82f6;color:#fff', label: 'Value' },
+    C: { bg: '#fdf4ff', border: '#c026d3', badge: 'background:#c026d3;color:#fff', label: 'Constraint' },
+    R: { bg: '#f0f9ff', border: '#0284c7', badge: 'background:#0284c7;color:#fff', label: 'Resource' },
+    S: { bg: '#f5f3ff', border: '#7c3aed', badge: 'background:#7c3aed;color:#fff', label: 'Stakeholder' },
   }
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const today = new Date().toISOString().slice(0, 10)
@@ -516,6 +634,30 @@ function buildModelExportHtml(model: ModelLibraryEntry, toolLabel: string): stri
     return header + entryRows
   }).join('')
 
+  // v488 — for viz modes, render the actual diagram SVG.  Email clients
+  // (Mail.app, Gmail, Outlook 2018+) all render inline SVG.  CSS 3D
+  // transforms are stripped — isometric-city recipients see the flat
+  // 2D layout, which is honest (rotation only exists in the live app).
+  const vizSvg = vizMode
+    ? [
+        `<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:16px;">`,
+        `<p style="margin:0 0 8px 0;color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${esc(toolLabel)} — diagram</p>`,
+        renderLayoutToSvgString(
+          { title: model.title, stakeholders: model.stakeholders, entries: model.entries },
+          vizMode,
+        ),
+        // v493 — per-mode explanatory note carried into the email so recipients
+        // see the SAME contextual guidance as in-app users.  Currently: iso-city
+        // + time-ribbon; extend as new modes ship contextual notes.
+        vizMode === 'isometric-city'
+          ? `<p style="margin:8px 0 0 0;color:#94a3b8;font-size:10px;font-style:italic;">Isometric City rotation is an interactive feature of the SEM App; the embedded diagram above is the flat 2D layout.  Open the model in SEM App to explore in pseudo-3D.</p>`
+          : vizMode === 'time-ribbon'
+          ? `<p style="margin:8px 0 0 0;color:#94a3b8;font-size:10px;font-style:italic;">Time Ribbon: entries plotted left-to-right per lane.  MVP uses entry index order.  When r93jjj Qualifiers Phase 2 populates temporal Qualifiers per entry, this diagram automatically shows real time positions.</p>`
+          : '',
+        `</div>`,
+      ].join('')
+    : ''
+
   return [
     '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:820px;padding:16px;color:#0f172a;">',
     // Title block
@@ -524,6 +666,8 @@ function buildModelExportHtml(model: ModelLibraryEntry, toolLabel: string): stri
     `<p style="margin:0;color:#94a3b8;font-size:12px;font-weight:600;">${esc(model.title)}</p>`,
     `<p style="margin:4px 0 0 0;color:#64748b;font-size:11px;">Category: ${esc(model.exampleSubCategory ?? model.categoryId ?? '')} · ${model.entries.length} entries · SEM App · ${today}</p>`,
     `</div>`,
+    // v488 — diagram SVG for viz modes (above the entry table)
+    vizSvg,
     // Entry table
     `<table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);">`,
     `<thead><tr style="background:#1e293b;"><th style="padding:8px 10px;text-align:left;color:#e2e8f0;font-size:11px;font-weight:700;">Type</th>`,
@@ -540,7 +684,8 @@ async function copyToolExport(): Promise<void> {
   const model = selectedModel.value
   if (!model) return
   const label = toolMode.value !== 'none' ? TOOL_MODE_LABELS[toolMode.value] : 'Model Detail'
-  const html = buildModelExportHtml(model, label)
+  const vizMode = _toolModeToVizMode(toolMode.value)  // v488
+  const html = buildModelExportHtml(model, label, vizMode)
   try {
     await navigator.clipboard.write([
       new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) }),
@@ -554,13 +699,20 @@ async function copyToolExport(): Promise<void> {
   setTimeout(() => { copiedToolExport.value = false }, 2000)
 }
 
-function emailToolExport(): void {
+async function emailToolExport(): Promise<void> {
   const model = selectedModel.value
   if (!model) return
   const label = toolMode.value !== 'none' ? TOOL_MODE_LABELS[toolMode.value] : 'Model Detail'
-  const html = buildModelExportHtml(model, label)
+  const vizMode = _toolModeToVizMode(toolMode.value)  // v488
+  const html  = buildModelExportHtml(model, label, vizMode)
   const plain = model.entries.map(e => `${e.type}. ${e.description}${e.details ? ' — ' + e.details : ''}`).join('\n')
-  openEml(html, `${label} — ${model.title}`, { plainBody: plain })
+  // v491 (2026-07-21) — Tom "constellations, email, 1. did not put in
+  // tom@gilb.com".  Tom's workflow here IS to self-email visualizations for
+  // review + archival; Model Library exports pre-populate To: Tom@Gilb.com
+  // as a convenience.  This is an intentional exception to Mailto-No-Self-To
+  // SUPREME (which binds SharpenExport + other flows where Tom sends
+  // externally); Tom explicitly asked for the pre-fill here on 2026-07-21.
+  await exportEmail(html, `${label} — ${model.title}`, label, 'Tom@Gilb.com', plain)
 }
 
 // ── Computed results for new analysis tools ───────────────────────────────
@@ -738,118 +890,12 @@ function applyManualEdits(): void {
   setTimeout(() => { editApplied.value = false }, 3000)
 }
 
-// ── Visualization helpers ──────────────────────────────────────────────────────
-
-interface VizNode { id: string; label: string; type: EntryType | 'stakeholder'; x: number; y: number; w: number; h: number }
-interface VizArrow { fromId: string; toId: string; color: string; strokeWidth: number; dashed: boolean; bidir: boolean }
-
-function computeValueFlowLayout(model: ModelLibraryEntry): { nodes: VizNode[]; arrows: VizArrow[] } {
-  const nodes: VizNode[] = []
-  const arrows: VizArrow[] = []
-  const PX = { stakeholderX: 20, fnX: 230, valX: 510, constX: 230 }
-  const NODE_W = 160; const NODE_H = 36; const GAP = 12
-
-  // Stakeholders — left column
-  const stks = model.stakeholders.slice(0, 6)
-  stks.forEach((s, i) => {
-    nodes.push({ id: `stk-${i}`, label: s, type: 'stakeholder', x: PX.stakeholderX, y: 50 + i * (NODE_H + GAP), w: NODE_W, h: NODE_H })
-  })
-
-  // Functions — center column
-  const fns = model.entries.filter(e => e.type === 'F').slice(0, 7)
-  fns.forEach((e, i) => {
-    nodes.push({ id: `fn-${i}`, label: e.description, type: 'F', x: PX.fnX, y: 50 + i * (NODE_H + GAP), w: NODE_W, h: NODE_H })
-  })
-
-  // Values — right column
-  const vals = model.entries.filter(e => e.type === 'V').slice(0, 7)
-  vals.forEach((e, i) => {
-    nodes.push({ id: `val-${i}`, label: e.description, type: 'V', x: PX.valX, y: 50 + i * (NODE_H + GAP), w: NODE_W, h: NODE_H })
-  })
-
-  // Constraints + Resources — bottom row (under functions)
-  const constrs = model.entries.filter(e => e.type === 'C' || e.type === 'R').slice(0, 4)
-  const fnBottom = 50 + Math.max(fns.length, 1) * (NODE_H + GAP) + 20
-  constrs.forEach((e, i) => {
-    nodes.push({ id: `cr-${i}`, label: e.description, type: e.type as EntryType, x: PX.fnX + i * (NODE_W + 10), y: fnBottom, w: NODE_W, h: NODE_H })
-  })
-
-  // Stakeholder → Function arrows (dashed gray)
-  for (let si = 0; si < stks.length; si++) {
-    for (let fi = 0; fi < Math.min(fns.length, 2); fi++) {
-      arrows.push({ fromId: `stk-${si}`, toId: `fn-${fi}`, color: '#94a3b8', strokeWidth: 1.5, dashed: true, bidir: false })
-    }
-  }
-
-  // Function → Value arrows (solid blue thick)
-  for (let fi = 0; fi < fns.length; fi++) {
-    const vi = Math.min(fi, vals.length - 1)
-    if (vi >= 0) {
-      arrows.push({ fromId: `fn-${fi}`, toId: `val-${vi}`, color: '#2563eb', strokeWidth: 2.5, dashed: false, bidir: false })
-    }
-  }
-
-  // Function → Constraint/Resource arrows (dashed orange thin)
-  for (let fi = 0; fi < fns.length; fi++) {
-    for (let ci = 0; ci < constrs.length; ci++) {
-      arrows.push({ fromId: `fn-${fi}`, toId: `cr-${ci}`, color: '#f97316', strokeWidth: 1, dashed: true, bidir: false })
-    }
-  }
-
-  return { nodes, arrows }
-}
-
-function computeStronglyRelatedLayout(model: ModelLibraryEntry): { nodes: VizNode[]; arrows: VizArrow[] } {
-  const nodes: VizNode[] = []
-  const arrows: VizArrow[] = []
-  const NODE_W = 130; const NODE_H = 32
-
-  const rows = {
-    stakeholders: model.stakeholders.slice(0, 5),
-    functions:    model.entries.filter(e => e.type === 'F').slice(0, 5),
-    values:       model.entries.filter(e => e.type === 'V').slice(0, 5),
-    constrs:      model.entries.filter(e => e.type === 'C' || e.type === 'R').slice(0, 5),
-  }
-
-  function rowX(count: number, i: number, totalW = 800): number {
-    const spacing = totalW / (count + 1)
-    return spacing * (i + 1) - NODE_W / 2
-  }
-
-  rows.stakeholders.forEach((s, i) => nodes.push({ id: `stk-${i}`, label: s, type: 'stakeholder', x: rowX(rows.stakeholders.length, i), y: 20,  w: NODE_W, h: NODE_H }))
-  rows.functions.forEach((e, i)    => nodes.push({ id: `fn-${i}`,  label: e.description, type: 'F', x: rowX(rows.functions.length, i),    y: 120, w: NODE_W, h: NODE_H }))
-  rows.values.forEach((e, i)       => nodes.push({ id: `val-${i}`, label: e.description, type: 'V', x: rowX(rows.values.length, i),        y: 220, w: NODE_W, h: NODE_H }))
-  rows.constrs.forEach((e, i)      => nodes.push({ id: `cr-${i}`,  label: e.description, type: e.type as EntryType, x: rowX(rows.constrs.length, i), y: 320, w: NODE_W, h: NODE_H }))
-
-  const stk = rows.stakeholders; const fns = rows.functions; const vals = rows.values; const crs = rows.constrs
-
-  // Stakeholder → Function (medium blue, bidirectional)
-  for (let si = 0; si < stk.length; si++) {
-    const fi = si % Math.max(fns.length, 1)
-    if (fi < fns.length) arrows.push({ fromId: `stk-${si}`, toId: `fn-${fi}`, color: '#2563eb', strokeWidth: 2, dashed: false, bidir: true })
-  }
-  // Function → Value (thick blue)
-  for (let fi = 0; fi < fns.length; fi++) {
-    const vi = Math.min(fi, vals.length - 1)
-    if (vi >= 0) arrows.push({ fromId: `fn-${fi}`, toId: `val-${vi}`, color: '#2563eb', strokeWidth: 3.5, dashed: false, bidir: false })
-  }
-  // Value → Function feedback (thin dashed blue, bidirectional)
-  for (let vi = 0; vi < vals.length; vi++) {
-    const fi = vi % Math.max(fns.length, 1)
-    if (fi < fns.length) arrows.push({ fromId: `val-${vi}`, toId: `fn-${fi}`, color: '#3b82f6', strokeWidth: 1, dashed: true, bidir: true })
-  }
-  // Function → Constraint (thin orange)
-  for (let fi = 0; fi < fns.length; fi++) {
-    for (let ci = 0; ci < crs.length; ci++) {
-      arrows.push({ fromId: `fn-${fi}`, toId: `cr-${ci}`, color: '#f97316', strokeWidth: 1.2, dashed: false, bidir: false })
-    }
-  }
-
-  return { nodes, arrows }
-}
-
-const valueFlowLayout  = computed(() => selectedModel.value ? computeValueFlowLayout(selectedModel.value)  : { nodes: [], arrows: [] })
-const stronglyRelLayout = computed(() => selectedModel.value ? computeStronglyRelatedLayout(selectedModel.value) : { nodes: [], arrows: [] })
+// ── Visualization helpers ─────────────────────────────────────────────────────
+// v485 (2026-07-20) — All viz layout code EXTRACTED to
+// `src/composables/useValueFlowLayout.ts` (pure functions, Twin-portable) +
+// `src/components/PlanguageDiagram.vue` (SVG + drill-down + click-highlight).
+// This panel only holds the scroll wrappers + Copy/Mail chrome; the diagram
+// mounts via `<PlanguageDiagram :model="..." mode="sankey-focus|strongly-related" />`.
 
 // ── Tailwind class maps (static strings — no JIT runtime concatenation) ───────
 
@@ -939,11 +985,11 @@ const viz3dSEntries = computed(() =>
 // 2D mode: columns config — defines display order and colour tokens
 // Pure data — Twin-portable (no Vue API).
 const VIZ2D_COLS = [
-  { type: 'F', label: 'F. Functions',    bg: 'bg-orange-50',  border: 'border-orange-200',  badge: 'bg-orange-100 text-orange-800',  dot: 'bg-orange-400' },
-  { type: 'V', label: 'V. Values',       bg: 'bg-blue-50',    border: 'border-blue-200',    badge: 'bg-blue-100 text-blue-800',      dot: 'bg-blue-400'   },
-  { type: 'C', label: 'C. Constraints',  bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', badge: 'bg-fuchsia-100 text-fuchsia-800',dot: 'bg-fuchsia-400'},
-  { type: 'R', label: 'R. Resources',    bg: 'bg-sky-50',     border: 'border-sky-200',     badge: 'bg-sky-100 text-sky-800',        dot: 'bg-sky-400'    },
-  { type: 'S', label: 'S. Stakeholders', bg: 'bg-violet-50',  border: 'border-violet-200',  badge: 'bg-violet-100 text-violet-800',  dot: 'bg-violet-400' },
+  { type: 'F', label: 'Functions',    bg: 'bg-orange-50',  border: 'border-orange-200',  badge: 'bg-orange-100 text-orange-800',  dot: 'bg-orange-400' },
+  { type: 'V', label: 'Values',       bg: 'bg-blue-50',    border: 'border-blue-200',    badge: 'bg-blue-100 text-blue-800',      dot: 'bg-blue-400'   },
+  { type: 'C', label: 'Constraints',  bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', badge: 'bg-fuchsia-100 text-fuchsia-800',dot: 'bg-fuchsia-400'},
+  { type: 'R', label: 'Resources',    bg: 'bg-sky-50',     border: 'border-sky-200',     badge: 'bg-sky-100 text-sky-800',        dot: 'bg-sky-400'    },
+  { type: 'S', label: 'Stakeholders', bg: 'bg-violet-50',  border: 'border-violet-200',  badge: 'bg-violet-100 text-violet-800',  dot: 'bg-violet-400' },
 ] as const
 
 function viz2dEntries(type: string) {
@@ -1120,60 +1166,88 @@ function faceStyle(transform: string): Record<string, string> {
                 : '',
             ]"
           >
-            <!-- Category row button -->
-            <button
-              type="button"
-              :class="[
-                'flex-1 flex items-center gap-2 px-1 py-1.5 text-left text-xs transition-colors duration-150 rounded min-w-0',
-                selectedCategoryId === cat.id
-                  ? 'text-blue-800 font-semibold'
-                  : 'text-slate-600 hover:text-slate-800',
-              ]"
-              :title="`Browse ${cat.label} — click to view models in this category`"
-              @click="selectTopLevelCat(cat.id)"
-            >
-              <span class="text-sm shrink-0" aria-hidden="true">{{ cat.emoji }}</span>
-              <!-- Rename input or label -->
-              <template v-if="renamingCategoryId === cat.id">
-                <input
-                  ref="renameInputRef"
-                  v-model="renameInputValue"
-                  type="text"
-                  class="flex-1 min-w-0 text-xs bg-white border border-blue-400 rounded px-1 py-0.5 outline-none"
-                  :aria-label="`Rename category — currently '${cat.label}'`"
-                  title="Rename this category — press Enter to save, Escape to cancel"
-                  @keydown="handleRenameKeydown"
-                  @blur="saveRename"
-                  @click.stop
-                />
-              </template>
-              <template v-else>
+            <!-- v481 (2026-07-20) — RENAME MODE: input rendered as a TOP-LEVEL sibling
+                 of the row, NOT inside the `<button>`.  Nesting an `<input>` inside a
+                 `<button>` is invalid HTML — Safari refuses focus, blur fires on the
+                 outer button not the inner input, and typed keystrokes go nowhere.
+                 That was the real root cause of Tom's "could not name category" (v480
+                 shipped the pencil label + dblclick but the input itself was still
+                 broken). -->
+            <template v-if="renamingCategoryId === cat.id">
+              <span class="text-sm shrink-0 pl-1" aria-hidden="true">{{ cat.emoji }}</span>
+              <input
+                ref="renameInputRef"
+                v-model="renameInputValue"
+                type="text"
+                class="flex-1 min-w-0 text-xs bg-white border-2 border-blue-500 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-blue-300"
+                :aria-label="`Rename category — currently '${cat.label}'`"
+                title="Type the new category name — press Enter to save · Escape to cancel"
+                @keydown="handleRenameKeydown"
+                @blur="saveRename"
+              />
+              <button
+                type="button"
+                class="shrink-0 w-5 h-5 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 text-xs font-bold"
+                title="Save the new category name — same as pressing Enter"
+                @mousedown.prevent
+                @click.stop="saveRename"
+              >✓</button>
+              <button
+                type="button"
+                class="shrink-0 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-xs"
+                title="Cancel rename — same as pressing Escape"
+                @mousedown.prevent
+                @click.stop="cancelRename"
+              >✕</button>
+            </template>
+
+            <!-- v481 — BROWSE MODE: standard row with label + pencil + delete.  Pencil
+                 is icon-only per Icon-Plus-Text SUPREME's "inside-component micro-button
+                 next to a labelled parent" narrow exemption (v480's "Rename" text label
+                 crowded the sidebar).  Discoverability comes from (a) HoverHint spelling
+                 out both modes; (b) double-click on the row also opens rename. -->
+            <template v-else>
+              <button
+                type="button"
+                :class="[
+                  'flex-1 flex items-center gap-2 px-1 py-1.5 text-left text-xs transition-colors duration-150 rounded min-w-0',
+                  selectedCategoryId === cat.id
+                    ? 'text-blue-800 font-semibold'
+                    : 'text-slate-600 hover:text-slate-800',
+                ]"
+                :title="cat.isRenameable
+                  ? `Browse ${cat.label} — single-click to view models · double-click to rename this category`
+                  : `Browse ${cat.label} — click to view models in this category`"
+                @click="selectTopLevelCat(cat.id)"
+                @dblclick.stop="cat.isRenameable ? startRename(cat) : null"
+              >
+                <span class="text-sm shrink-0" aria-hidden="true">{{ cat.emoji }}</span>
                 <span class="flex-1 min-w-0 truncate">{{ cat.label }}</span>
                 <span class="shrink-0 text-[10px] text-slate-400">{{ catCount(cat.id) }}</span>
-              </template>
-            </button>
+              </button>
 
-            <!-- Rename button -->
-            <button
-              v-if="cat.isRenameable && renamingCategoryId !== cat.id"
-              type="button"
-              class="shrink-0 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150 text-[10px]"
-              :title="`Rename '${cat.label}' — click to edit the category name`"
-              @click.stop="startRename(cat)"
-            >
-              <EditGlyph size="compact" aria-label="Rename category" />
-            </button>
+              <!-- Rename pencil (icon-only micro-button, exempt per Icon-Plus-Text SUPREME) -->
+              <button
+                v-if="cat.isRenameable"
+                type="button"
+                class="shrink-0 w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150"
+                :title="`Rename '${cat.label}' — click this pencil (or double-click the row) to change the category name`"
+                @click.stop="startRename(cat)"
+              >
+                <EditGlyph size="compact" aria-label="Rename category" />
+              </button>
 
-            <!-- Delete button (only user-created — not 'my-models'/'our-models') -->
-            <button
-              v-if="cat.id !== 'my-models' && cat.id !== 'our-models' && !cat.isBuiltin"
-              type="button"
-              class="shrink-0 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors duration-150 text-[10px]"
-              :title="`Delete '${cat.label}' category — removes the category and all models in it`"
-              @click.stop="deleteCategory(cat)"
-            >
-              ✕
-            </button>
+              <!-- Delete button (only user-created — not 'my-models'/'our-models') -->
+              <button
+                v-if="cat.id !== 'my-models' && cat.id !== 'our-models' && !cat.isBuiltin"
+                type="button"
+                class="shrink-0 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors duration-150 text-[10px]"
+                :title="`Delete '${cat.label}' category — removes the category and all models in it`"
+                @click.stop="deleteCategory(cat)"
+              >
+                ✕
+              </button>
+            </template>
           </div>
 
           <!-- Divider -->
@@ -1293,12 +1367,32 @@ function faceStyle(transform: string): Record<string, string> {
                   <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
                   <span class="text-[10px] text-amber-700 font-medium">Analysing…</span>
                 </div>
+                <!-- v480 (2026-07-20) — Tom "analysis failed, and I cannot name the model
+                     category" — the prior strip said "Analysis failed" with NO error message
+                     and NO way to retry.  Now: dot + label + actual error message (truncated
+                     to keep card layout) + Retry pin per Icon-Plus-Text SUPREME. -->
                 <div
                   v-else-if="model.source === 'user' && model.analysisStatus === 'error'"
-                  class="flex items-center gap-1.5 px-4 py-1.5 bg-orange-50 border-b border-orange-100"
+                  class="flex flex-col gap-1 px-4 py-1.5 bg-orange-50 border-b border-orange-100"
                 >
-                  <span class="inline-block w-2 h-2 rounded-full bg-orange-500" aria-hidden="true" />
-                  <span class="text-[10px] text-orange-700 font-medium">Analysis failed</span>
+                  <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-orange-500 shrink-0" aria-hidden="true" />
+                    <span class="text-[10px] text-orange-700 font-medium">Analysis failed</span>
+                    <button
+                      type="button"
+                      class="ml-auto shrink-0 flex items-center gap-1 px-2 py-0.5 rounded bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-semibold transition-colors duration-150"
+                      title="Retry analysis — runs the AI extraction again on this model's text"
+                      @click.stop="triggerAnalyse(model.id)"
+                    >
+                      <span aria-hidden="true">↻</span>
+                      <span>Retry</span>
+                    </button>
+                  </div>
+                  <p
+                    v-if="model.analysisError"
+                    class="text-[10px] text-orange-800 leading-snug break-words"
+                    :title="model.analysisError"
+                  >{{ model.analysisError.length > 220 ? model.analysisError.slice(0, 220) + '…' : model.analysisError }}</p>
                 </div>
 
                 <!-- Model Quality Score (if defect analysis has been run) -->
@@ -1618,6 +1712,25 @@ function faceStyle(transform: string): Record<string, string> {
             >
               <span aria-hidden="true">📧</span> Mail
             </button>
+            <!-- v491 (2026-07-21) — Tom "closing radial sunburst did not go back
+                 to previous state (choice of visualization) all close should revert
+                 to state before it was opened".  Fixed: this CloseDot now RESTORES
+                 the previous state (closes the current tool → returns to model
+                 detail view with the "Specific Model Analysis Tools" dropdown
+                 available), NOT destructively exits the whole Model Library.
+                 The Model Library's OWN top-level CloseDot at line ~1046 handles
+                 "exit Library entirely" — this sub-header CloseDot handles ONLY
+                 "close this tool".  v484 initial ship emitted `close` which
+                 was over-reach.  New universal rule banked: **CloseDot on any
+                 sub-panel must revert to the state BEFORE that sub-panel opened,
+                 never destructively skip past intermediate states.** -->
+            <CloseDot
+              variant="on-dark"
+              size="lg"
+              aria-label="Close this tool and return to the model detail view"
+              title="Close — return to the model detail view (the Specific Model Analysis Tools menu).  To exit the Model Library entirely, use the CloseDot at the top of the Library panel."
+              @click="closeTool"
+            />
           </div>
 
           <!-- Batch Change Entries tool -->
@@ -1677,7 +1790,7 @@ function faceStyle(transform: string): Record<string, string> {
                 <p class="text-xs font-bold text-slate-600">Preview <span class="font-normal text-slate-400">({{ batchMatchedEntries.length }} entries matched)</span></p>
               </div>
               <div v-if="batchMatchedEntries.length === 0" class="text-xs text-slate-400 italic py-2">No entries match the current filter</div>
-              <div v-else class="flex flex-col gap-1.5 max-h-48 overflow-y-auto rounded-xl ring-1 ring-slate-200 bg-white p-3">
+              <ScrollContainer v-else outer-class="max-h-48 rounded-xl ring-1 ring-slate-200 bg-white" inner-class="flex flex-col gap-1.5 p-3">
                 <div v-for="m in batchMatchedEntries" :key="m.idx" class="flex items-start gap-2 text-xs">
                   <PlTypeBadge :entry-type="m.entry.type" class="shrink-0 mt-0.5" show-label />
                   <span v-if="batchAction === 'delete'" class="text-red-600 line-through">{{ m.entry.description }}</span>
@@ -1687,7 +1800,7 @@ function faceStyle(transform: string): Record<string, string> {
                     <span class="text-slate-800 truncate">{{ batchNewText || '(empty)' }}</span>
                   </template>
                 </div>
-              </div>
+              </ScrollContainer>
             </div>
             <!-- Apply button -->
             <div class="flex items-center gap-3">
@@ -1734,7 +1847,7 @@ function faceStyle(transform: string): Record<string, string> {
             <div v-if="findText.trim()" class="flex flex-col gap-2">
               <p class="text-xs font-bold text-slate-600">{{ findReplacePreview.length }} match{{ findReplacePreview.length === 1 ? '' : 'es' }} found</p>
               <div v-if="findReplacePreview.length === 0" class="text-xs text-slate-400 italic">No matches found for "{{ findText }}"</div>
-              <div v-else class="rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden max-h-64 overflow-y-auto">
+              <ScrollContainer v-else outer-class="rounded-xl ring-1 ring-slate-200 bg-white max-h-64">
                 <table class="w-full text-xs">
                   <thead class="bg-slate-50 border-b border-slate-200">
                     <tr><th class="px-3 py-2 text-left font-semibold text-slate-500">Field</th><th class="px-3 py-2 text-left font-semibold text-slate-500">Original</th><th class="px-3 py-2 text-left font-semibold text-slate-500">Result</th></tr>
@@ -1747,7 +1860,7 @@ function faceStyle(transform: string): Record<string, string> {
                     </tr>
                   </tbody>
                 </table>
-              </div>
+              </ScrollContainer>
             </div>
             <div class="flex items-center gap-3">
               <button type="button"
@@ -1820,156 +1933,219 @@ function faceStyle(transform: string): Record<string, string> {
             </div>
           </ScrollContainer>
 
-          <!-- Value Flow visualization -->
-          <ScrollContainer v-if="toolMode === 'viz-flow' && selectedModel" outer-class="flex-1 min-h-0 relative" inner-class="p-5 flex flex-col gap-4">
-            <!-- Legend -->
-            <div class="flex flex-wrap gap-3 text-[10px] font-semibold">
-              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-slate-400 opacity-60"></span> Stakeholders</span>
-              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-orange-500"></span> Functions</span>
-              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-blue-500"></span> Values</span>
-              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-fuchsia-500"></span> Constraints / <span class="inline-block w-3 h-3 rounded bg-sky-500 ml-1"></span> Resources</span>
-              <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-blue-600"></span> delivers value</span>
-              <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-slate-400 border-dashed"></span> contributes to</span>
-            </div>
-            <div class="rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
-              <svg
-                viewBox="0 0 900 520"
-                class="w-full"
-                xmlns="http://www.w3.org/2000/svg"
-                role="img"
-                :aria-label="`Value Flow diagram for ${selectedModel.title}`"
-              >
-                <defs>
-                  <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                    <polygon points="0 0, 8 3, 0 6" fill="#2563eb" />
-                  </marker>
-                  <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                    <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
-                  </marker>
-                  <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                    <polygon points="0 0, 8 3, 0 6" fill="#f97316" />
-                  </marker>
-                </defs>
-
-                <!-- Column header labels -->
-                <text x="100" y="20" text-anchor="middle" font-size="11" fill="#64748b" font-weight="600">STAKEHOLDERS</text>
-                <text x="390" y="20" text-anchor="middle" font-size="11" fill="#64748b" font-weight="600">FUNCTIONS</text>
-                <text x="680" y="20" text-anchor="middle" font-size="11" fill="#64748b" font-weight="600">VALUES</text>
-
-                <!-- Arrows first (behind nodes) -->
-                <template v-for="arrow in valueFlowLayout.arrows" :key="`${arrow.fromId}-${arrow.toId}`">
-                  <template v-if="valueFlowLayout.nodes.find(n=>n.id===arrow.fromId) && valueFlowLayout.nodes.find(n=>n.id===arrow.toId)">
-                    <line
-                      :x1="(valueFlowLayout.nodes.find(n=>n.id===arrow.fromId)!.x + valueFlowLayout.nodes.find(n=>n.id===arrow.fromId)!.w)"
-                      :y1="(valueFlowLayout.nodes.find(n=>n.id===arrow.fromId)!.y + valueFlowLayout.nodes.find(n=>n.id===arrow.fromId)!.h / 2)"
-                      :x2="valueFlowLayout.nodes.find(n=>n.id===arrow.toId)!.x"
-                      :y2="(valueFlowLayout.nodes.find(n=>n.id===arrow.toId)!.y + valueFlowLayout.nodes.find(n=>n.id===arrow.toId)!.h / 2)"
-                      :stroke="arrow.color"
-                      :stroke-width="arrow.strokeWidth"
-                      :stroke-dasharray="arrow.dashed ? '4 3' : 'none'"
-                      :marker-end="arrow.color === '#2563eb' ? 'url(#arrowBlue)' : arrow.color === '#f97316' ? 'url(#arrowOrange)' : 'url(#arrowGray)'"
-                      opacity="0.7"
-                    />
-                  </template>
-                </template>
-
-                <!-- Nodes -->
-                <template v-for="node in valueFlowLayout.nodes" :key="node.id">
-                  <!-- Node background -->
-                  <rect
-                    :x="node.x" :y="node.y" :width="node.w" :height="node.h" rx="6"
-                    :fill="node.type === 'stakeholder' ? '#e2e8f0' : node.type === 'F' ? '#fed7aa' : node.type === 'V' ? '#bfdbfe' : node.type === 'C' ? '#fdf4ff' : '#f0f9ff'"
-                    :stroke="node.type === 'stakeholder' ? '#94a3b8' : node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#c026d3' : '#0284c7'"
-                    stroke-width="1.5"
-                  />
-                  <!-- Type badge (for entries) -->
-                  <template v-if="node.type !== 'stakeholder'">
-                    <rect :x="node.x + 4" :y="node.y + 4" width="18" height="16" rx="3"
-                      :fill="node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#d946ef' : '#0ea5e9'" />
-                    <text :x="node.x + 13" :y="node.y + 15" text-anchor="middle" font-size="9" fill="white" font-weight="700">{{ node.type }}</text>
-                  </template>
-                  <!-- Label -->
-                  <text
-                    :x="node.type !== 'stakeholder' ? node.x + 26 : node.x + 8"
-                    :y="node.y + node.h / 2 + 4"
-                    font-size="10"
-                    :fill="node.type === 'stakeholder' ? '#475569' : '#1e293b'"
-                    font-weight="500"
-                  >
-                    <tspan>{{ node.label.length > 20 ? node.label.slice(0, 19) + '…' : node.label }}</tspan>
-                  </text>
-                </template>
-
-                <!-- Empty state -->
-                <text v-if="valueFlowLayout.nodes.length === 0" x="450" y="260" text-anchor="middle" font-size="13" fill="#94a3b8">No entries to visualize</text>
-              </svg>
-            </div>
-          </ScrollContainer>
-
-          <!-- Strongly Related visualization -->
-          <ScrollContainer v-if="toolMode === 'viz-related' && selectedModel" outer-class="flex-1 min-h-0 relative" inner-class="p-5 flex flex-col gap-4">
-            <div class="flex flex-wrap gap-3 text-[10px] font-semibold">
-              <span class="flex items-center gap-1"><span class="inline-block w-4" style="height:3px;background:#2563eb"></span> delivers value (thick)</span>
-              <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-blue-500"></span> ↔ stakeholder influence</span>
-              <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-orange-500"></span> constrained by</span>
-              <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-blue-300"></span> feedback</span>
-            </div>
-            <div class="rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
-              <svg viewBox="0 0 860 400" class="w-full" xmlns="http://www.w3.org/2000/svg" :aria-label="`Strongly Related diagram for ${selectedModel.title}`" role="img">
-                <defs>
-                  <marker id="srArrowBlue" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#2563eb"/></marker>
-                  <marker id="srArrowBlueBack" markerWidth="7" markerHeight="5" refX="0" refY="2.5" orient="auto"><polygon points="7 0,0 2.5,7 5" fill="#2563eb"/></marker>
-                  <marker id="srArrowOrange" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#f97316"/></marker>
-                  <marker id="srArrowLightBlue" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#93c5fd"/></marker>
-                </defs>
-
-                <!-- Arrows (behind nodes) -->
-                <template v-for="arrow in stronglyRelLayout.arrows" :key="`${arrow.fromId}-${arrow.toId}`">
-                  <template v-if="stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId) && stronglyRelLayout.nodes.find(n=>n.id===arrow.toId)">
-                    <line
-                      :x1="stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId)!.x + stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId)!.w/2"
-                      :y1="stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId)!.y + stronglyRelLayout.nodes.find(n=>n.id===arrow.fromId)!.h"
-                      :x2="stronglyRelLayout.nodes.find(n=>n.id===arrow.toId)!.x + stronglyRelLayout.nodes.find(n=>n.id===arrow.toId)!.w/2"
-                      :y2="stronglyRelLayout.nodes.find(n=>n.id===arrow.toId)!.y"
-                      :stroke="arrow.color"
-                      :stroke-width="arrow.strokeWidth"
-                      :stroke-dasharray="arrow.dashed ? '4 3' : 'none'"
-                      :marker-end="arrow.color === '#2563eb' ? 'url(#srArrowBlue)' : arrow.color === '#f97316' ? 'url(#srArrowOrange)' : 'url(#srArrowLightBlue)'"
-                      :marker-start="arrow.bidir ? (arrow.color === '#2563eb' ? 'url(#srArrowBlueBack)' : '') : ''"
-                      opacity="0.75"
-                    />
-                  </template>
-                </template>
-
-                <!-- Nodes -->
-                <template v-for="node in stronglyRelLayout.nodes" :key="node.id">
-                  <rect :x="node.x" :y="node.y" :width="node.w" :height="node.h" rx="6"
-                    :fill="node.type === 'stakeholder' ? '#f1f5f9' : node.type === 'F' ? '#fff7ed' : node.type === 'V' ? '#eff6ff' : node.type === 'C' ? '#fdf4ff' : '#f0f9ff'"
-                    :stroke="node.type === 'stakeholder' ? '#94a3b8' : node.type === 'F' ? '#f97316' : node.type === 'V' ? '#3b82f6' : node.type === 'C' ? '#c026d3' : '#0284c7'"
-                    stroke-width="1.5" />
-                  <text :x="node.x + node.w/2" :y="node.y + node.h/2 + 4" text-anchor="middle" font-size="10"
-                    :fill="node.type === 'stakeholder' ? '#64748b' : '#1e293b'" font-weight="500">
-                    {{ node.label.length > 17 ? node.label.slice(0, 16) + '…' : node.label }}
-                  </text>
-                </template>
-
-                <!-- Row labels -->
-                <text x="10" y="36" font-size="9" fill="#94a3b8" font-weight="600">STAKEHOLDERS</text>
-                <text x="10" y="136" font-size="9" fill="#94a3b8" font-weight="600">FUNCTIONS</text>
-                <text x="10" y="236" font-size="9" fill="#94a3b8" font-weight="600">VALUES</text>
-                <text x="10" y="336" font-size="9" fill="#94a3b8" font-weight="600">CONSTRAINTS + RESOURCES</text>
-
-                <text v-if="stronglyRelLayout.nodes.length === 0" x="430" y="200" text-anchor="middle" font-size="13" fill="#94a3b8">No entries to visualize</text>
-              </svg>
-            </div>
-          </ScrollContainer>
-
-          <!-- ── 3D MODEL VIEW ─────────────────────────────────────────────── -->
-          <ScrollContainer
-            v-if="toolMode === 'viz-3d' && selectedModel"
-            outer-class="flex-1 min-h-0 relative"
-            inner-class="p-5 flex flex-col gap-4"
+          <!-- Value Flow — v485: rendered by shared <PlanguageDiagram> component.
+               Parent owns the scroll wrapper + scroll-% pill (r93t fallback); the
+               component owns the SVG + drill-down + click-highlight + prefix-strip. -->
+          <div
+            v-if="toolMode === 'viz-flow' && selectedModel"
+            ref="vizFlowScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('flow')"
           >
+            <div
+              v-if="vizFlowScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizFlowScrollPct}% of Value Flow diagram visible — scroll to see more`"
+              title="Percentage of the Value Flow diagram currently visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizFlowScrollPct }}% shown</span>
+            </div>
+            <div class="p-5">
+              <PlanguageDiagram :model="selectedModel" mode="sankey-focus" />
+            </div>
+          </div>
+
+          <!-- Strongly Related — v485: rendered by shared <PlanguageDiagram>. -->
+          <div
+            v-if="toolMode === 'viz-related' && selectedModel"
+            ref="vizRelatedScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('related')"
+          >
+            <div
+              v-if="vizRelatedScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizRelatedScrollPct}% of Strongly Related diagram visible — scroll to see more`"
+              title="Percentage of the Strongly Related diagram currently visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizRelatedScrollPct }}% shown</span>
+            </div>
+            <div class="p-5">
+              <PlanguageDiagram :model="selectedModel" mode="strongly-related" />
+            </div>
+          </div>
+
+          <!-- Isometric City — v486: pseudo-3D rotatable Planguage city.  Tom Gilb
+               2026-07-20 verbatim "In my dreams it would be pseudo 3D, and visually
+               rotatable" — same shared <PlanguageDiagram> engine, different mode. -->
+          <div
+            v-if="toolMode === 'viz-city' && selectedModel"
+            ref="vizCityScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('city')"
+          >
+            <div
+              v-if="vizCityScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizCityScrollPct}% of Isometric City visible — scroll to see more`"
+              title="Percentage of the Isometric City visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizCityScrollPct }}% shown</span>
+            </div>
+            <div class="p-5 pb-16 min-h-[720px] bg-gradient-to-b from-sky-50 via-white to-slate-100">
+              <PlanguageDiagram :model="selectedModel" mode="isometric-city" />
+            </div>
+          </div>
+
+          <!-- Radial Sunburst — v489 (Tom's design brief pick ②) — concentric rings. -->
+          <div
+            v-if="toolMode === 'viz-sun' && selectedModel"
+            ref="vizSunScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('sun')"
+          >
+            <div
+              v-if="vizSunScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizSunScrollPct}% of Radial Sunburst visible — scroll to see more`"
+              title="Percentage of the Radial Sunburst visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizSunScrollPct }}% shown</span>
+            </div>
+            <div class="p-5 pb-8 bg-gradient-to-br from-amber-50 via-white to-yellow-50">
+              <PlanguageDiagram :model="selectedModel" mode="sunburst" />
+            </div>
+          </div>
+
+          <!-- Constellation Map — v489 (Tom's design brief pick ④) — star clusters on dark bg. -->
+          <div
+            v-if="toolMode === 'viz-star' && selectedModel"
+            ref="vizStarScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative bg-slate-950"
+            @scroll="updateVizScrollPct('star')"
+          >
+            <div
+              v-if="vizStarScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-100/90 text-slate-900 text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizStarScrollPct}% of Constellation Map visible — scroll to see more`"
+              title="Percentage of the Constellation Map visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizStarScrollPct }}% shown</span>
+            </div>
+            <div class="p-5 pb-8">
+              <PlanguageDiagram :model="selectedModel" mode="constellation" />
+            </div>
+          </div>
+
+          <!-- Focus + Context — v490 (Tom's design brief pick ①) — sankey layout with fade-unrelated on click -->
+          <div
+            v-if="toolMode === 'viz-focus' && selectedModel"
+            ref="vizFocusScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('focus')"
+          >
+            <div
+              v-if="vizFocusScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizFocusScrollPct}% of Focus + Context visible — scroll to see more`"
+              title="Percentage of Focus + Context visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizFocusScrollPct }}% shown</span>
+            </div>
+            <div class="p-5">
+              <PlanguageDiagram :model="selectedModel" mode="focus-context" />
+            </div>
+          </div>
+
+          <!-- Layered Accordion — v490 (Tom's design brief pick ⑤) — 5 horizontal stripes -->
+          <div
+            v-if="toolMode === 'viz-accordion' && selectedModel"
+            ref="vizAccordionScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('accordion')"
+          >
+            <div
+              v-if="vizAccordionScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizAccordionScrollPct}% of Layered Accordion visible — scroll to see more`"
+              title="Percentage of Layered Accordion visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizAccordionScrollPct }}% shown</span>
+            </div>
+            <div class="p-5 pb-8 bg-gradient-to-b from-white via-slate-50 to-white">
+              <PlanguageDiagram :model="selectedModel" mode="layered-accordion" />
+            </div>
+          </div>
+
+          <!-- Focus Ring — v490 (Tom's design brief pick ⑥) — chosen node at centre + concentric neighbours -->
+          <div
+            v-if="toolMode === 'viz-ring' && selectedModel"
+            ref="vizRingScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('ring')"
+          >
+            <div
+              v-if="vizRingScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizRingScrollPct}% of Focus Ring visible — scroll to see more`"
+              title="Percentage of Focus Ring visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizRingScrollPct }}% shown</span>
+            </div>
+            <div class="p-5 pb-8 bg-gradient-radial from-blue-50 to-white">
+              <PlanguageDiagram :model="selectedModel" mode="focus-ring" />
+            </div>
+          </div>
+
+          <!-- Time Ribbon — v490 (Tom's design brief pick ⑧) — horizontal timeline lanes -->
+          <div
+            v-if="toolMode === 'viz-ribbon' && selectedModel"
+            ref="vizRibbonScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('ribbon')"
+          >
+            <div
+              v-if="vizRibbonScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${vizRibbonScrollPct}% of Time Ribbon visible — scroll to see more`"
+              title="Percentage of Time Ribbon visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ vizRibbonScrollPct }}% shown</span>
+            </div>
+            <div class="p-5 pb-8 bg-gradient-to-r from-white via-slate-50 to-white">
+              <p class="text-[10px] text-slate-500 italic mb-2">
+                Time Ribbon: entries plotted left-to-right per lane.  Real time positions arrive when r93jjj Qualifiers Phase 2 populates temporal Qualifiers per entry; MVP uses entry index order.
+              </p>
+              <PlanguageDiagram :model="selectedModel" mode="time-ribbon" />
+            </div>
+          </div>
+
+          <!-- ── 3D MODEL VIEW — v482: same r93t fallback -->
+          <div
+            v-if="toolMode === 'viz-3d' && selectedModel"
+            ref="viz3dScrollEl"
+            class="flex-1 min-h-0 overflow-y-auto relative"
+            @scroll="updateVizScrollPct('3d')"
+          >
+            <div
+              v-if="viz3dScrollPct < 100"
+              class="pointer-events-none sticky top-2 float-right mr-2 z-10 inline-flex items-center gap-1 rounded-full bg-slate-800/80 text-white text-[10px] font-semibold px-2.5 py-1 shadow-md"
+              :aria-label="`${viz3dScrollPct}% of 3D Model View visible — scroll to see more`"
+              title="Percentage of the 3D Model View currently visible — scroll down to reveal more"
+            >
+              <span aria-hidden="true">↕</span>
+              <span>{{ viz3dScrollPct }}% shown</span>
+            </div>
+            <div class="p-5 flex flex-col gap-4">
             <!-- Header controls -->
             <div class="flex items-center gap-3 flex-wrap">
               <!-- Title + model name -->
@@ -2033,7 +2209,7 @@ function faceStyle(transform: string): Record<string, string> {
                 >
                   <!-- Face: FRONT — Functions (F) -->
                   <div :style="faceStyle('translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-orange-900/80 border border-orange-500/40">
-                    <p class="text-[9px] font-bold text-orange-300 uppercase tracking-widest mb-1">F. Functions</p>
+                    <p class="text-[9px] font-bold text-orange-300 uppercase tracking-widest mb-1">Functions</p>
                     <div
                       v-for="(e, i) in viz3dFEntries.slice(0, 6)"
                       :key="i"
@@ -2045,7 +2221,7 @@ function faceStyle(transform: string): Record<string, string> {
                   </div>
                   <!-- Face: BACK — Stakeholders (S) -->
                   <div :style="faceStyle('rotateY(180deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-violet-900/80 border border-violet-500/40">
-                    <p class="text-[9px] font-bold text-violet-300 uppercase tracking-widest mb-1">S. Stakeholders</p>
+                    <p class="text-[9px] font-bold text-violet-300 uppercase tracking-widest mb-1">Stakeholders</p>
                     <div
                       v-for="(e, i) in viz3dSEntries.slice(0, 6)"
                       :key="i"
@@ -2057,7 +2233,7 @@ function faceStyle(transform: string): Record<string, string> {
                   </div>
                   <!-- Face: RIGHT — Values (V) -->
                   <div :style="faceStyle('rotateY(90deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-blue-900/80 border border-blue-500/40">
-                    <p class="text-[9px] font-bold text-blue-300 uppercase tracking-widest mb-1">V. Values</p>
+                    <p class="text-[9px] font-bold text-blue-300 uppercase tracking-widest mb-1">Values</p>
                     <div
                       v-for="(e, i) in viz3dVEntries.slice(0, 6)"
                       :key="i"
@@ -2069,7 +2245,7 @@ function faceStyle(transform: string): Record<string, string> {
                   </div>
                   <!-- Face: LEFT — Constraints (C) -->
                   <div :style="faceStyle('rotateY(-90deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-fuchsia-900/80 border border-fuchsia-500/40">
-                    <p class="text-[9px] font-bold text-fuchsia-300 uppercase tracking-widest mb-1">C. Constraints</p>
+                    <p class="text-[9px] font-bold text-fuchsia-300 uppercase tracking-widest mb-1">Constraints</p>
                     <div
                       v-for="(e, i) in viz3dCEntries.slice(0, 6)"
                       :key="i"
@@ -2081,7 +2257,7 @@ function faceStyle(transform: string): Record<string, string> {
                   </div>
                   <!-- Face: TOP — Resources (R) -->
                   <div :style="faceStyle('rotateX(90deg) translateZ(140px)')" class="flex flex-col items-center justify-center gap-1 bg-sky-900/80 border border-sky-500/40">
-                    <p class="text-[9px] font-bold text-sky-300 uppercase tracking-widest mb-1">R. Resources</p>
+                    <p class="text-[9px] font-bold text-sky-300 uppercase tracking-widest mb-1">Resources</p>
                     <div
                       v-for="(e, i) in viz3dREntries.slice(0, 4)"
                       :key="i"
@@ -2111,11 +2287,11 @@ function faceStyle(transform: string): Record<string, string> {
 
             <!-- Entry counts legend (3D level-aware) -->
             <div v-if="vizRenderMode === '3d'" class="flex flex-wrap gap-2 text-[10px]">
-              <span class="px-2 py-1 rounded bg-orange-100 text-orange-800">F. {{ viz3dFEntries.length }}</span>
-              <span v-if="viz3dLevel !== 'Top'" class="px-2 py-1 rounded bg-blue-100 text-blue-800">V. {{ viz3dVEntries.length }}</span>
-              <span v-if="viz3dLevel === 'All'" class="px-2 py-1 rounded bg-fuchsia-100 text-fuchsia-800">C. {{ viz3dCEntries.length }}</span>
-              <span v-if="viz3dLevel === 'All'" class="px-2 py-1 rounded bg-sky-100 text-sky-800">R. {{ viz3dREntries.length }}</span>
-              <span v-if="viz3dLevel !== 'Top'" class="px-2 py-1 rounded bg-violet-100 text-violet-800">S. {{ viz3dSEntries.length }}</span>
+              <span class="px-2 py-1 rounded bg-orange-100 text-orange-800">{{ viz3dFEntries.length }} Functions</span>
+              <span v-if="viz3dLevel !== 'Top'" class="px-2 py-1 rounded bg-blue-100 text-blue-800">{{ viz3dVEntries.length }} Values</span>
+              <span v-if="viz3dLevel === 'All'" class="px-2 py-1 rounded bg-fuchsia-100 text-fuchsia-800">{{ viz3dCEntries.length }} Constraints</span>
+              <span v-if="viz3dLevel === 'All'" class="px-2 py-1 rounded bg-sky-100 text-sky-800">{{ viz3dREntries.length }} Resources</span>
+              <span v-if="viz3dLevel !== 'Top'" class="px-2 py-1 rounded bg-violet-100 text-violet-800">{{ viz3dSEntries.length }} Stakeholders</span>
             </div>
 
             <!-- ── 2D Simple: dark node-map (5 type columns, same canvas feel as 3D) -->
@@ -2184,7 +2360,8 @@ function faceStyle(transform: string): Record<string, string> {
                 </div>
               </div>
             </template>
-          </ScrollContainer>
+            </div>
+          </div>
 
           <!-- Sharpen tool mode -->
           <ScrollContainer v-if="toolMode === 'sharpen' && selectedModel && selectedModel.source === 'user'" outer-class="flex-1 min-h-0 relative" inner-class="p-5 max-w-2xl mx-auto w-full flex flex-col gap-3">
@@ -2585,7 +2762,7 @@ function faceStyle(transform: string): Record<string, string> {
 
             <!-- Version history (if model has versions) -->
             <div v-if="selectedModel.source === 'user' && selectedModel.versions && selectedModel.versions.length > 0" class="flex flex-col gap-2 pt-2 border-t border-slate-200">
-              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Version History ({{ selectedModel.versions.length }})</h3>
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Past Versions ({{ selectedModel.versions.length }})</h3>
               <div class="flex flex-col gap-1.5">
                 <div
                   v-for="version in [...selectedModel.versions].reverse()"
@@ -2694,6 +2871,28 @@ function faceStyle(transform: string): Record<string, string> {
                   <span aria-hidden="true">🎯</span>
                   <span>Decision Mapper</span>
                 </button>
+                <!-- Tom Gilb 2026-06-11: "for sure also a tool in the Model mode, so duplicate
+                     it there". Incorruptible (Eric Ries 2026) runs in MODEL MODE here — Accept Fix
+                     is preview-only; host shows a toast directing user to save as custom model. -->
+                <button
+                  type="button"
+                  class="flex items-center gap-2 rounded-lg bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 hover:from-slate-800 hover:via-indigo-800 hover:to-slate-800 text-white px-3 py-2.5 text-xs font-semibold transition-colors duration-150 ring-1 ring-indigo-700 col-span-2"
+                  title="Incorruptible Agent (Eric Ries 2026) — Health Check this model for short-term-thinking patterns: Quarterly Tyranny, Stakeholder Monoculture, Mission Drift, Founder-Vision Erosion, Innovation-Budget Predation, Governance Hole."
+                  @click="sendToAgent('incorruptible-model')"
+                >
+                  <span aria-hidden="true">⚖️</span>
+                  <span>Incorruptible · Health Check</span>
+                </button>
+                <!-- r93aa — Incorruptible Sharpening from outside the Agent (Tom 2026-06-11). -->
+                <button
+                  type="button"
+                  class="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-700 via-orange-700 to-amber-700 hover:from-amber-600 hover:via-orange-600 hover:to-amber-600 text-white px-3 py-2.5 text-xs font-semibold transition-colors duration-150 ring-1 ring-orange-800 col-span-2"
+                  title="Incorruptible Sharpening (Eric Ries 2026 Q&A) — run the question-and-answer flow on this model. Six categories × 2 questions × 3 AI-suggested starter answers. Probes context the deterministic engine cannot infer; synthesises fixes via the standard Accept-Fix pipeline (preview-only on models)."
+                  @click="sendToAgent('incorruptible-sharpen-model')"
+                >
+                  <span aria-hidden="true">🔪</span>
+                  <span>Incorruptible Sharpening · Q&amp;A</span>
+                </button>
               </div>
 
               <!-- Specific Model Analysis Tools button + dropdown shell -->
@@ -2748,6 +2947,48 @@ function faceStyle(transform: string): Record<string, string> {
                     title="Strongly Related — hierarchical relationship graph with arrow thickness proportional to importance and bidirectional feedback arrows"
                     @click="openTool('viz-related')">
                     <span>🔗</span><span class="font-medium">Strongly Related</span><span class="ml-auto text-slate-400 text-[10px]">relationship graph</span>
+                  </button>
+                  <!-- v486 — Isometric City (Tom's pseudo-3D rotatable dream) -->
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Isometric City — pseudo-3D rotatable Planguage city.  Stakeholders are towers, Functions are warehouses, Values are beacons, Constraints are walls, Resources are depots.  Drag horizontally to rotate; use the slider for precise angle control."
+                    @click="openTool('viz-city')">
+                    <span>🏙</span><span class="font-medium">Isometric City</span><span class="ml-auto text-slate-400 text-[10px]">pseudo-3D · rotatable</span>
+                  </button>
+                  <!-- v489 — Radial Sunburst (design brief pick ②) -->
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Radial Sunburst — concentric rings around your model.  Stakeholders in the inner ring, Values in the next ring out, Functions in the third ring, Constraints and Resources in the outermost ring.  Click any node to drill down."
+                    @click="openTool('viz-sun')">
+                    <span>☀</span><span class="font-medium">Radial Sunburst</span><span class="ml-auto text-slate-400 text-[10px]">concentric rings</span>
+                  </button>
+                  <!-- v489 — Constellation Map (design brief pick ④) -->
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Constellation Map — star clusters on a dark starmap background.  Stakeholders top-left, Values top-right, Functions centre, Constraints bottom-left, Resources bottom-right.  Thin orbital lines connect related entries.  Click any star to drill down."
+                    @click="openTool('viz-star')">
+                    <span>✨</span><span class="font-medium">Constellation Map</span><span class="ml-auto text-slate-400 text-[10px]">star clusters</span>
+                  </button>
+                  <!-- v490 — Focus + Context (design brief pick ①) -->
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Focus + Context — same 3-column Sankey layout as Value Flow, but clicking any node fades unrelated nodes to 22% opacity so the focus + its connected neighbours stand out.  Click again on the drill-down Close pin to un-focus."
+                    @click="openTool('viz-focus')">
+                    <span>🎯</span><span class="font-medium">Focus + Context</span><span class="ml-auto text-slate-400 text-[10px]">fade unrelated</span>
+                  </button>
+                  <!-- v490 — Layered Accordion (design brief pick ⑤) -->
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Layered Accordion — five horizontal stripes (Stakeholders / Functions / Values / Constraints / Resources) top to bottom.  Each stripe carries its own entries left-to-right.  Great for scanning the model type-by-type."
+                    @click="openTool('viz-accordion')">
+                    <span>📚</span><span class="font-medium">Layered Accordion</span><span class="ml-auto text-slate-400 text-[10px]">5 stripes</span>
+                  </button>
+                  <!-- v490 — Focus Ring (design brief pick ⑥) -->
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Focus Ring — first Function at centre (large), Values on inner ring, Stakeholders on middle ring, Constraints and Resources on outer ring.  Spokes connect the focus to its direct value neighbours.  Click any node to drill down."
+                    @click="openTool('viz-ring')">
+                    <span>💫</span><span class="font-medium">Focus Ring</span><span class="ml-auto text-slate-400 text-[10px]">concentric neighbours</span>
+                  </button>
+                  <!-- v490 — Time Ribbon (design brief pick ⑧) -->
+                  <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
+                    title="Time Ribbon — horizontal timeline with five lanes.  Entries within a lane arranged left-to-right by index (MVP: no real time positions yet).  When r93jjj Qualifiers Phase 2 populates temporal Qualifiers per entry, this mode automatically shows real time evolution.  Click any bar to drill down."
+                    @click="openTool('viz-ribbon')">
+                    <span>📅</span><span class="font-medium">Time Ribbon</span><span class="ml-auto text-slate-400 text-[10px]">horizontal lanes</span>
                   </button>
                   <button type="button" class="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 transition-colors duration-150 text-left"
                     title="Model Visualizer — 3D rotating/static cube · 2D Simple node map · 2D Colored Kanban board. Switch modes with the top selector bar."
@@ -2909,7 +3150,7 @@ function faceStyle(transform: string): Record<string, string> {
               v-if="selectedModel.source === 'user' && selectedModel.versions && selectedModel.versions.length > 0"
               class="flex flex-col gap-2 border-t border-slate-200 pt-4 mt-2"
             >
-              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Version History ({{ selectedModel.versions.length }})</h3>
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Past Versions ({{ selectedModel.versions.length }})</h3>
               <div class="flex flex-col gap-1.5">
                 <div
                   v-for="version in [...selectedModel.versions].reverse()"

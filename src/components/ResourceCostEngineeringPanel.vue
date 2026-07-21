@@ -29,7 +29,9 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import BookCoverChip from './BookCoverChip.vue'
+import PlanguageTerm from './PlanguageTerm.vue'
 import type { SpecBlock, REntry, VEntry, CEntry } from '../types/spec'
+import { rBudget, rBudgetLabel } from '../types/spec'
 
 // ── Props / Emits ─────────────────────────────────────────────────────────────
 
@@ -173,7 +175,7 @@ let _copyResetTimer: ReturnType<typeof setTimeout> | null = null
 /** Builds a rich Planguage Cost Engineering analysis prompt from live spec data */
 const claudianPrompt = computed<string>(() => {
   const rLines = resources.value.map(r =>
-    `  ${r.id} — Scale: ${(r as any).scale ?? '?'} — Goal: ${(r as any).goal ?? '?'} — Tolerable (max): ${(r as any).tolerable ?? '?'}`
+    `  ${r.id} — Scale: ${(r as any).scale ?? '?'} — ${rBudgetLabel(r as REntry)}: ${rBudget(r as REntry) || '?'} — Tolerable (max): ${(r as any).tolerable ?? '?'}`
   ).join('\n')
 
   const vLines = values.value.map(v =>
@@ -439,7 +441,7 @@ function constraintCostNote(id: string): string {
                 <div class="flex items-center gap-2 mb-2">
                   <div class="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true" />
                   <h3 class="text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-                    Design-to-Cost Targets · R. Resource Entries
+                    Design-to-Cost Targets · Resource Entries
                   </h3>
                   <span class="ml-auto text-[10px] text-slate-400 font-medium">{{ resources.length }} entries</span>
                 </div>
@@ -448,8 +450,15 @@ function constraintCostNote(id: string): string {
                     <tr class="bg-gradient-to-r from-amber-50 to-slate-50">
                       <th class="border border-slate-200 px-3 py-2 text-left font-semibold text-slate-600 w-[190px]">Resource ID</th>
                       <th class="border border-slate-200 px-3 py-2 text-left font-semibold text-slate-600">Scale</th>
-                      <th class="border border-slate-200 px-3 py-2 text-left font-semibold text-emerald-700 w-[130px]">Goal (Target)</th>
-                      <th class="border border-slate-200 px-3 py-2 text-left font-semibold text-red-600 w-[130px]">Tolerable (Max)</th>
+                      <th class="border border-slate-200 px-3 py-2 text-left font-semibold text-emerald-700 w-[130px]">
+                        <PlanguageTerm term="Budget" class="text-emerald-700 font-semibold" :show-icon="false" />
+                      </th>
+                      <th class="border border-slate-200 px-3 py-2 text-left font-semibold text-amber-700 w-[130px]">
+                        <!-- Tolerable (Max) label removed 2026-06-07: "(Max)" was wrong doctrine.
+                             Tolerable for Resources = MINIMUM allocation for non-failure, not a
+                             consumption cap. PlanguageTerm hover explains the correct definition. -->
+                        <PlanguageTerm term="Tolerable" class="text-amber-700 font-semibold" :show-icon="false" />
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -460,7 +469,7 @@ function constraintCostNote(id: string): string {
                     >
                       <td class="border border-slate-200 px-3 py-2 font-mono text-[11px] text-amber-800 font-bold">{{ r.id }}</td>
                       <td class="border border-slate-200 px-3 py-2 text-slate-600 text-[11px]">{{ (r as any).scale || '—' }}</td>
-                      <td class="border border-slate-200 px-3 py-2 text-emerald-700 font-bold">{{ (r as any).goal || '—' }}</td>
+                      <td class="border border-slate-200 px-3 py-2 text-emerald-700 font-bold">{{ rBudget(r) || '—' }}</td>
                       <td class="border border-slate-200 px-3 py-2 text-red-600 font-semibold">{{ (r as any).tolerable || '—' }}</td>
                     </tr>
                   </tbody>

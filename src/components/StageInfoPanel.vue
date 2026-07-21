@@ -28,6 +28,19 @@ import type { PlGlyphType } from './icons/PlTypeIcon.vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import { stageDarkBgColor } from '../utils/stageProgressColors'
+// r41 v382 (Tom Gilb 2026-06-25 "we need only one well designed export button
+// and function and icon and this is not it") — REPLACE v381's one-off 📨 pin
+// with the canonical <ExportSpecPin> component (same icon GetGlyph + same
+// channel-menu flow used at Stage 10 + Stage 7 + V×Evo + V×Solution tables).
+// The per-channel functions in useInfoPanelExport fire each side-effect on a
+// FRESH user click — fixes the Safari mailto-after-clipboard kill that made
+// v381's Email channel never open Mail.app.
+import ExportSpecPin from './ExportSpecPin.vue'
+import {
+  copyInfoPanel, emailInfoPanel, downloadInfoPanel,
+  messageInfoPanel, copyForChatInfoPanel,
+  type InfoPanelExportInput,
+} from '../composables/useInfoPanelExport'
 
 const props = defineProps<{
   /**
@@ -79,6 +92,29 @@ const SECTION_TINTS = [
   'bg-violet-50/80 border-violet-200',
   'bg-emerald-50/80 border-emerald-200',
 ]
+
+/**
+ * r41 v382 — Build the export input from current stage info.  Computed so
+ * the channel handlers stay reactive to props changes.
+ */
+const exportInput = computed<InfoPanelExportInput | null>(() => {
+  if (!info.value) return null
+  return {
+    kind: 'stage',
+    title: `Stage ${info.value.stage} · ${info.value.label}`,
+    tagline: info.value.tagline,
+    subjectTail: info.value.label,
+    footerId: `Stage ${info.value.stage} of 11 · ${info.value.plType}`,
+    sections: info.value.sections,
+  }
+})
+
+// Channel-event handlers — each fires ONE side-effect on a fresh user click.
+function onCopy()        { if (exportInput.value) copyInfoPanel       (exportInput.value) }
+function onEmail()       { if (exportInput.value) emailInfoPanel      (exportInput.value) }
+function onDownload()    { if (exportInput.value) downloadInfoPanel   (exportInput.value) }
+function onMessage()     { if (exportInput.value) messageInfoPanel    (exportInput.value) }
+function onCopyForChat() { if (exportInput.value) copyForChatInfoPanel(exportInput.value) }
 </script>
 
 <template>
@@ -115,7 +151,7 @@ const SECTION_TINTS = [
                  DD-013 (Tom 2026-06-03 screenshot: "the hovering on this step
                  and others did NOT give 'double click for info' as all should
                  have").  The wrapping button's title intercepts the PlTypeIcon's
-                 automatic DD-013 tooltip; restore the "double-click for detailed
+                 automatic DD-013 HoverHint; restore the "double-click for detailed
                  icon info" suffix explicitly here so the rule is honoured.
                  Single-click opens GlyphDataPanel (via emit), so single-click
                  IS the "for info" gesture here — double-click works too via the
@@ -167,7 +203,12 @@ const SECTION_TINTS = [
               {{ info.label }}
             </span>
 
-            <!-- CloseDot — end of header row (CloseDot rule) -->
+            <!-- CloseDot — end of header row (CloseDot rule).  r41 v382 reverted
+                 v381's custom 📨 pin per Tom Gilb 2026-06-25 *"we need only
+                 one well designed export button and function and icon"* — the
+                 canonical <ExportSpecPin> now lives in its own dedicated row
+                 below the tagline (matches the Stage 10 / Stage 7 / V×Evo /
+                 V×Solution placement pattern). -->
             <div class="ml-auto shrink-0">
               <CloseDot
                 variant="on-dark"
@@ -191,6 +232,29 @@ const SECTION_TINTS = [
             </span>
           </div>
 
+          <!-- r41 v382 (Tom Gilb 2026-06-25 "we need only one well designed
+               export button and function and icon") — canonical <ExportSpecPin>
+               on its own row, light slate-50 backdrop so the dark pin reads
+               against it.  Auto-copies on first click, then offers Email /
+               Download / Message / Copy-for-Chat with 20s countdown.  Each
+               channel fires on a FRESH user click — fixes v381's Safari kill
+               of the chained mailto:.  hasSpec is always TRUE here because
+               the info panel is only opened when info.value exists. -->
+          <div class="shrink-0 px-4 py-3 bg-slate-50 border-b border-slate-200">
+            <ExportSpecPin
+              :has-spec="true"
+              :spec-name="`Stage ${info.stage} · ${info.label}`"
+              label="Export Stage Info"
+              subtitle="auto-copies · choose channel"
+              artefact-kind="Stage Info"
+              @copy="onCopy"
+              @email="onEmail"
+              @download="onDownload"
+              @message="onMessage"
+              @copy-for-chat="onCopyForChat"
+            />
+          </div>
+
           <!-- ── Scrollable body ─────────────────────────────────────── -->
           <!-- max-height on inner-style — the ONLY reliable scroll pattern when the panel
                card uses max-h-[90vh] (not an explicit height).
@@ -203,7 +267,7 @@ const SECTION_TINTS = [
           <ScrollContainer
             outer-class="relative overflow-hidden"
             inner-class="px-4 py-4 space-y-3"
-            inner-style="max-height: calc(90vh - 160px);"
+            inner-style="max-height: calc(90vh - 230px);"
             :no-pill="false"
           >
             <!-- Info sections -->

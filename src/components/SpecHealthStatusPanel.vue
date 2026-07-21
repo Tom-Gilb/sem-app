@@ -40,6 +40,7 @@ import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import SpecHealthBadge from './SpecHealthBadge.vue'
 import { copyPlanHealthReport, emailPlanHealthReport } from '../composables/useSpecHealthExport'
+import { exportPlanHealth } from '../composables/usePlanHealthExport'
 
 const props = defineProps<{
   planModelId: string
@@ -239,6 +240,20 @@ function emailReport(): void {
   emailPlanHealthReport(makeExportInput(), to, [])
 }
 
+// r41 v295 (Tom Gilb 2026-06-22 "always continue · research and innovation").
+// Canonical 📤 Export pin — Export-Button-on-All-Windows SUPREME sweep target.
+// Single-click preview + clipboard + auto-open Mail (To: '' per
+// Mailto-No-Self-To SUPREME) wrapped via exportArtefact().
+async function onExportPin(): Promise<void> {
+  await exportPlanHealth({
+    planName:      props.planName ?? props.planModelId,
+    versionLabel:  props.planVersion ?? '',
+    breakdown:     breakdown.value,
+    snapshotCount: snapshots.value.length,
+    threshold:     ph.custom.value.threshold,
+  })
+}
+
 /** Compact display label for a long URL — host + first path segment max. */
 function shortLinkLabel(url: string): string {
   try {
@@ -294,6 +309,17 @@ function shortLinkLabel(url: string): string {
         title="Open the Spec Health Record Administration (weights, notifications, snapshots)"
         @click="emit('open-admin')"
       >⚙️ Administer</button>
+      <!-- r41 v295 — canonical 📤 Export pin (Export-Button-on-All-Windows SUPREME).
+           Single click = preview window + clipboard + auto-open Mail (To: '' per
+           Mailto-No-Self-To SUPREME). Sister to the existing 📋 Copy + ✉️ Email
+           dual-button pattern; the 📤 Export pin is the canonical unified pin. -->
+      <button
+        type="button"
+        class="text-[11px] px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-white font-semibold transition-colors"
+        title="📤 Export · open preview + copy colourful HTML to clipboard + auto-open Mail (Copy / Mail / Preview in one action; To: empty so you pick the recipient)"
+        aria-label="Export Plan Health — colourful HTML to clipboard, preview window, and Mail"
+        @click="onExportPin"
+      >📤 Export</button>
       <CloseDot variant="on-dark" aria-label="Close Plan Health Status" @click="emit('close')" />
     </div>
 
@@ -333,7 +359,7 @@ function shortLinkLabel(url: string): string {
       <!-- ── History graph ── -->
       <div class="rounded-lg border border-slate-200 p-3 space-y-2">
         <div class="flex items-center gap-2">
-          <h3 class="text-[12px] font-bold text-slate-700">📈 History — Plan Inception → now</h3>
+          <h3 class="text-[12px] font-bold text-slate-700">📈 Past Versions — Plan Inception → now</h3>
           <span class="ml-auto text-[10px] text-slate-500">Y axis: PHI (−100…+100). X axis: Version + Date.</span>
         </div>
 

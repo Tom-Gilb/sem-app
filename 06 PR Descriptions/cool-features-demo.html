@@ -2,1008 +2,1158 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>SEM App color-glyph preview (live colour state)</title>
+<title>SEM Tools — Complete Tool Catalog (112 Planning Tools)</title>
 <style>
-  body { font: 16px -apple-system, system-ui, sans-serif; background: #fafafa; color: #1e293b; padding: 24px; max-width: 1100px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 4px 0; }
-  h2 { font-size: 16px; margin: 24px 0 4px 0; color: #475569; }
-  p.caption { font-size: 13px; color: #64748b; margin: 0 0 16px 0; }
-  table { border-collapse: collapse; margin-bottom: 8px; }
-  th, td { padding: 8px 14px; border: 1px solid #e2e8f0; text-align: left; vertical-align: middle; font-size: 13px; }
-  th { background: #f1f5f9; font-weight: 600; }
-  .glyph-cell { background: #fff; min-width: 120px; }
-  .glyph-cell-dark { background: #1e293b; min-width: 120px; }
-  .keyed { font-family: ui-monospace, "SF Mono", monospace; font-size: 18px; color: #1e293b; background: #fff; }
-  .keyed-dark { color: #f8fafc; background: #1e293b; }
-  .palette-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle; margin-right: 6px; border: 1px solid #cbd5e1; }
-  .footnote { font-size: 12px; color: #94a3b8; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:-apple-system,'Helvetica Neue',sans-serif;background:#eef2f7;color:#1e293b;min-height:100vh}
+a{color:#4338ca;text-decoration:none}
+/* ── Hero ── */
+.hero{background:linear-gradient(135deg,#1e1b4b 0%,#312e81 40%,#4c1d95 70%,#1e3a5f 100%);padding:48px 32px 40px;text-align:center;border-bottom:2px solid #6366f1}
+.hero-badge{display:inline-block;background:#6366f1;color:white;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.hero-version{font-size:10px;color:#64748b;letter-spacing:.4px;margin-bottom:12px;font-family:monospace}
+.hero h1{font-size:36px;font-weight:900;color:white;margin-bottom:8px;letter-spacing:-1px}
+.hero h1 span{color:#a5f3fc}
+.hero-sub{font-size:15px;color:#c7d2fe;margin-bottom:24px}
+.hero-count{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
+.hero-count-item{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 20px;text-align:center}
+.hero-count-item .n{font-size:28px;font-weight:900;color:#a5f3fc}
+.hero-count-item .l{font-size:11px;color:#94a3b8;margin-top:2px}
+/* ── Nav ── */
+.cat-nav{background:#dde4ee;border-bottom:1px solid #c8d4e0;padding:14px 24px;display:flex;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:100}
+.cat-nav a{font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;white-space:nowrap;transition:all .15s}
+/* ── Section ── */
+.section{padding:32px 28px 24px;scroll-margin-top:62px}
+.section-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid rgba(0,0,0,.08)}
+.section-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.section-title{font-size:20px;font-weight:800;color:#1e293b}
+.section-count{margin-left:auto;font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;background:rgba(0,0,0,.07);color:#64748b}
+/* ── Tool Grid ── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.card{background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;transition:transform .12s,border-color .12s,box-shadow .12s;position:relative;overflow:hidden}
+.card:hover{transform:translateY(-2px);border-color:#94a3b8;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.card-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0}
+.card-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+.card-icon{width:32px;height:32px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px}
+.card-name{font-size:13px;font-weight:700;color:#1e293b;line-height:1.3}
+.card-cat{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-top:2px;opacity:.8}
+.card-desc{font-size:11.5px;color:#475569;line-height:1.5}
+.card-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-top:8px;border:1px solid rgba(0,0,0,.1)}
+/* ── Mockup (keep dark — SVGs are built for dark backgrounds) ── */
+.mockup-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;grid-column:span 2}
+.mockup-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+/* ── Footer ── */
+footer{background:#dde4ee;border-top:1px solid #c8d4e0;padding:24px;text-align:center;font-size:12px;color:#475569}
+/* ── Export cluster (per-section) ── */
+.export-cluster{display:flex;gap:4px;flex-shrink:0;margin-left:4px}
+.exp-btn{display:inline-flex;align-items:center;gap:4px;border:none;font-size:11px;font-weight:700;padding:5px 10px;border-radius:14px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.exp-btn:hover{transform:translateY(-1px)}
+.exp-btn-copy{background:#dbeafe;color:#1d4ed8}
+.exp-btn-copy:hover{background:#bfdbfe}
+.exp-btn-email{background:#dcfce7;color:#166534}
+.exp-btn-email:hover{background:#bbf7d0}
+.exp-btn-dl{background:#fef3c7;color:#92400e}
+.exp-btn-dl:hover{background:#fde68a}
+/* ── Export All (hero) ── */
+.hero-export-all{margin-top:18px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.hero-exp-label{color:#c7d2fe;font-size:13px;font-weight:700}
+.hero-exp-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.11);color:#e0e7ff;border:1.5px solid rgba(255,255,255,.22);font-size:12px;font-weight:700;padding:7px 18px;border-radius:22px;cursor:pointer;transition:background .15s}
+.hero-exp-btn:hover{background:rgba(255,255,255,.22)}
+/* ── Expert button & panel ── */
+.expert-btn{display:inline-flex;align-items:center;gap:5px;background:#4338ca;color:white;border:none;font-size:11px;font-weight:700;padding:5px 13px;border-radius:20px;cursor:pointer;letter-spacing:.3px;transition:background .15s,transform .1s;white-space:nowrap;flex-shrink:0}
+.expert-btn:hover{background:#3730a3;transform:translateY(-1px)}
+.expert-btn .glyph{font-family:monospace;font-size:12px;opacity:.9}
+.expert-panel{display:none;margin-top:16px;background:#f0f4ff;border:1.5px solid #c7d2fe;border-radius:12px;padding:20px 24px;position:relative}
+.expert-panel.open{display:block}
+.expert-panel-close{position:absolute;top:10px;right:14px;background:none;border:none;font-size:18px;color:#6366f1;cursor:pointer;font-weight:700;line-height:1}
+.expert-panel-close:hover{color:#4338ca}
+.expert-title{font-size:13px;font-weight:800;color:#3730a3;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.expert-title .glyph{font-family:monospace;font-size:15px;color:#6366f1}
+.expert-body{font-size:13px;color:#334155;line-height:1.7}
+.expert-body p{margin-bottom:8px}
+.expert-body p:last-child{margin-bottom:0}
+.expert-body strong{color:#1e293b}
+.expert-body .cite{font-size:11.5px;color:#6366f1;font-style:italic;margin-top:6px}
+/* ── Card date metadata ── */
+.card-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;margin-bottom:1px}
+.meta-born{font-size:10px;color:#94a3b8;background:#f1f5f9;padding:2px 7px;border-radius:5px}
+.meta-updated{font-size:10px;color:#059669;background:#f0fdf4;border:1px solid #bbf7d0;padding:2px 7px;border-radius:5px;font-weight:700}
+/* ── Diagram expand button (on mockup-card) ── */
+.mockup-expand-btn{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;background:#0f172a;color:#64748b;border:1px solid #334155;padding:4px 12px;border-radius:8px;cursor:pointer;margin-top:8px;transition:all .15s}
+.mockup-expand-btn:hover{background:#334155;color:#e2e8f0}
+/* ── Diagram lightbox ── */
+#diagram-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:800;align-items:center;justify-content:center;padding:24px}
+#diagram-overlay.open{display:flex}
+.diagram-box{background:#1e293b;border-radius:16px;padding:28px;max-width:min(920px,92vw);max-height:90vh;overflow:auto;position:relative}
+.diagram-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;color:#64748b;cursor:pointer;line-height:1;font-weight:400}
+.diagram-close:hover{color:white}
+.diagram-lbl{font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;padding-right:32px}
+/* ── Hero expert ── */
+.hero-expert-wrap{margin-top:20px}
+.hero-expert-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);color:#e0e7ff;border:1.5px solid rgba(255,255,255,.25);font-size:12px;font-weight:700;padding:7px 18px;border-radius:24px;cursor:pointer;letter-spacing:.3px;transition:background .15s}
+.hero-expert-btn:hover{background:rgba(255,255,255,.2)}
+.hero-expert-panel{display:none;margin:16px auto 0;max-width:760px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.2);border-radius:14px;padding:22px 28px;text-align:left}
+.hero-expert-panel.open{display:block}
+.hero-expert-panel p{font-size:13.5px;color:#c7d2fe;line-height:1.75;margin-bottom:10px}
+.hero-expert-panel p:last-child{margin-bottom:0}
+.hero-expert-panel strong{color:#e0e7ff}
+.hero-expert-panel .cite{font-size:12px;color:#a5b4fc;font-style:italic;margin-top:8px}
 </style>
 </head>
 <body>
 
-<h1>SEM App color-glyph preview — live state</h1>
-<p class="caption">
-  Paste the latest SVG markup from <code>src/components/icons/*Glyph.vue</code> into the cells below to verify the rendered colour state before commit.
-  This file is the preview surface for Tom-can't-see-SVG-in-text-aperture review.
-  Per DD-016 (Drawn-≈-Keyed): drawn shape must match the keyed form; colour enlivens but does not change the shape.
-</p>
+<!-- ══════════════════════════════════════════════════════ HERO ══ -->
+<div class="hero">
+  <div class="hero-badge">Tom Gilb · Planguage · Evo</div>
+  <div class="hero-version" id="hero-version"></div>
+  <h1>SEM Tools — <span>Stakes · Ends · Means</span></h1>
+  <p class="hero-sub">Complete Planning Tool Catalog · First AI-backed Planguage toolkit · 2025–2026</p>
 
-<nav style="background:#fef3c7;border:2px solid #d97706;border-radius:12px;padding:14px 18px;margin:14px 0 24px;">
-  <b>Jump:</b>
-  <a href="#spec-relation">Spec-relation Color Keyed Icons</a> ·
-  <a href="#stakeholder">Stakeholder type icon</a> ·
-  <a href="#color-artsy">▶ Color Artsy Icons (6 shipped)</a> ·
-  <a href="#analyze-compounds">▶ Analyze-Spec Compound Glyphs [TYPE]→? (7 proposed)</a> ·
-  <a href="#kiss-feature" style="color:#7c3aed;font-weight:700;">▶ KISS Feature (NEW 2026-06-05)</a> ·
-  <a href="#resources-guided-ux" style="color:#059669;font-weight:700;">▶ Resources Guided UX (NEW 2026-06-05)</a> ·
-  <a href="#scroll-arrows" style="color:#0369a1;font-weight:700;">▶ Bidirectional Scroll Arrows (NEW 2026-06-05)</a> ·
-  <a href="#book-cover-chip" style="color:#6d28d9;font-weight:700;">▶ BookCoverChip widget (NEW 2026-06-05)</a> ·
-  <a href="#cost-engineering" style="color:#92400e;font-weight:700;">▶ Cost Engineering Tool (NEW 2026-06-05)</a> ·
-  <a href="#wcag-contrast" style="color:#d97706;font-weight:700;">▶ WCAG AA Contrast Audit (NEW 2026-06-05)</a>
+  <div class="hero-expert-wrap">
+    <button class="hero-expert-btn" onclick="toggleHeroExpert()"><span class="glyph">[!]</span> Expert Overview</button>
+    <div class="hero-expert-panel" id="hero-expert">
+      <p><strong>SEM Tools is the first AI-native toolkit built on Tom Gilb's 60-year Planguage methodology.</strong> Unlike agile/scrum tools that track work, SEM measures Value delivery — the reason work exists at all. Every tool here quantifies what stakeholders actually need, not what developers think they should build.</p>
+      <p>The two-factor advantage that makes this unique: <strong>(1) Planguage articulation</strong> — Plans are structured artefacts with quantified Scale/Meter/Tolerable/Goal/Wish, named stakeholders, and explicit constraints. Orders of magnitude denser than "tell me about your plan" in chat. <strong>(2) AI applied to the structured artefact</strong> — Claudian operates on quantified Planguage data AND draws from the full Gilb corpus (65 books), LLM training, and internet sources simultaneously. The result is AI reasoning grounded in 60 years of engineering methodology.</p>
+      <p><strong>Every tool here is a candidate design for Tom's Twin</strong> (gilb.com/tomtwin) — the industrial-grade Planguage planning system built by Kai Gilb. SEM is the design sandbox. Twin is the production app. This catalog is the design backlog for both.</p>
+      <p class="cite">Tom Gilb, 2026-06-03: "This is the first time in 60 years I have had such a good tool to help exploit my Planguage and Evo. This is the beautiful pioneer work we are doing together — for the benefit of humanity, and more successful planning."</p>
+    </div>
+  </div>
+
+  <div class="hero-export-all">
+    <span class="hero-exp-label">Export Info About All 112 Tools →</span>
+    <button class="hero-exp-btn" onclick="exportAll('copy')">📋 Copy All</button>
+    <button class="hero-exp-btn" onclick="exportAll('email')">✉ Email All</button>
+    <button class="hero-exp-btn" onclick="exportAll('download')">⬇ Download All</button>
+  </div>
+
+  <div class="hero-count">
+    <div class="hero-count-item"><div class="n">112</div><div class="l">Planning Tools</div></div>
+    <div class="hero-count-item"><div class="n">11</div><div class="l">Planning Stages</div></div>
+    <div class="hero-count-item"><div class="n">5</div><div class="l">Penta Sectors</div></div>
+    <div class="hero-count-item"><div class="n">60+</div><div class="l">Gilb Books Integrated</div></div>
+    <div class="hero-count-item"><div class="n">8</div><div class="l">Planguage Type Icons</div></div>
+    <div class="hero-count-item"><div class="n">26</div><div class="l">Sharpening Themes</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ STICKY NAV ══ -->
+<nav class="cat-nav">
+  <a href="#core" style="background:#064e3b;color:#6ee7b7">🧠 Core Planning</a>
+  <a href="#penta" style="background:#1e1b4b;color:#a5b4fc">🔺 Penta Model</a>
+  <a href="#sharp" style="background:#78350f;color:#fcd34d">🔪 Sharpening</a>
+  <a href="#ai" style="background:#312e81;color:#c4b5fd">🤖 AI Tools</a>
+  <a href="#viz" style="background:#0c4a6e;color:#7dd3fc">📊 Visualization</a>
+  <a href="#export" style="background:#14532d;color:#86efac">📤 Export &amp; Email</a>
+  <a href="#govern" style="background:#1c1917;color:#d6d3d1">⚖️ Governance</a>
+  <a href="#nav" style="background:#0f172a;color:#cbd5e1">🧭 Navigation &amp; UX</a>
+  <a href="#glyphs" style="background:#4a044e;color:#f0abfc">🎨 Glyphs &amp; Icons</a>
+  <a href="#agents" style="background:#1e3a5f;color:#93c5fd">🕵️ Agent Tools</a>
 </nav>
 
-<p class="caption" style="background:#ecfdf5;border-left:4px solid #16a34a;padding:10px 14px;margin:8px 0 20px;">
-  <b>Three glyph families — semantically orthogonal (Tom 2026-06-04):</b><br>
-  1. <b>Color Glyphs</b> identify a Planguage <b>ENTRY TYPE</b> (Function / Value / Solution / Constraint / Resource / Stakeholder / Evo-Step / Task).<br>
-  2. <b>Keyed Action Glyphs</b> identify an <b>ACTION</b> performed on a spec (Copy <code>[*]=[*]</code> · Email <code>[*]→@</code> · Save <code>*→[*]</code> · Get <code>[*]→*</code> · Edit <code>[*]→[**]</code>).  They render in <code>currentColor</code> so they inherit context (button text colour).<br>
-  3. <b>Nav Tab Glyphs</b> identify a <b>VIEW / WORKSPACE</b>.<br>
-  Never use a Keyed Action Glyph for an entry type.  Never use a Color Glyph for an action.  THIS IS OK (Tom verbatim).
-</p>
+<!-- ══════════════════════════════════════ 1. CORE PLANNING ENGINE ══ -->
+<section class="section" id="core">
+  <div class="section-header">
+    <div class="section-dot" style="background:#10b981"></div>
+    <div class="section-title">🧠 Core Planning Engine</div>
+    <div class="section-count">18 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('core-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="core-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('core-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Core Planning Engine</div>
+    <div class="expert-body">
+      <p>The foundation is the <strong>9-Step Evo Cycle</strong> — proven from 1970s NASA/IBM projects to today's software organisations. Decompose and Prioritise are distinct, separate events; combining them (as most tools do) is the single biggest cause of mis-prioritised work. The key innovation here: planning stages are cyclic workspaces, not sequential gates. You can — and should — loop back from Measure to Spec when delivery reveals that your current Values don't match what stakeholders actually experienced.</p>
+      <p>The <strong>Function Binary Rule (DD-004)</strong> is one of Planguage's most counter-intuitive principles: a Function is either present or absent — full stop. Quality attaches as a Value entry. This means planners cannot hide ambiguity inside a Function description ("user-friendly login") — quality must be stated separately, measurably.</p>
+      <p>The <strong>SUCCESS Definition (DD-006)</strong> measures across 5 axes: Values reached, Functions present, Constraints respected, Conditions satisfied, Resource Budgets respected. A plan is never "done enough" — it is either within all bounds or it isn't. There is no partial success badge.</p>
+      <p class="cite">Tom Gilb on the 9-step cycle: "AI means we no longer have to pander to the masses and their need for simplification. For the first time in history we can afford to DO IT RIGHT."</p>
+    </div>
+  </div>
 
-<h2 id="spec-relation">Spec-relation glyphs (current as of 2026-06-04)</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Glyph</th>
-      <th>Keyed</th>
-      <th>Drawn (light bg)</th>
-      <th>Drawn (dark bg, white text)</th>
-      <th>Colour palette</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><b>Owner</b></td>
-      <td class="keyed">[*]!</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 24" width="64" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <line x1="15" y1="5" x2="15" y2="19" stroke="#7c3aed" />
-          <line x1="8.94" y1="15.5" x2="21.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="8.94" y1="8.5" x2="21.06" y2="15.5" stroke="#7c3aed" />
-          <line x1="42" y1="4" x2="42" y2="15" stroke="#dc2626" />
-          <circle cx="42" cy="20" r="1.6" fill="#dc2626" stroke="none" />
-        </svg>
-      </td>
-      <td class="glyph-cell-dark">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 24" width="64" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <line x1="15" y1="5" x2="15" y2="19" stroke="#7c3aed" />
-          <line x1="8.94" y1="15.5" x2="21.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="8.94" y1="8.5" x2="21.06" y2="15.5" stroke="#7c3aed" />
-          <line x1="42" y1="4" x2="42" y2="15" stroke="#dc2626" />
-          <circle cx="42" cy="20" r="1.6" fill="#dc2626" stroke="none" />
-        </svg>
-      </td>
-      <td>
-        <span class="palette-swatch" style="background:#475569"></span>slate [ ]<br>
-        <span class="palette-swatch" style="background:#7c3aed"></span>violet *<br>
-        <span class="palette-swatch" style="background:#dc2626"></span>red !
-      </td>
-    </tr>
-    <tr>
-      <td><b>Planner</b></td>
-      <td class="keyed">[?]→[*]</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 24" width="92" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <path d="M 11 7 Q 11 3 15 3 Q 19 3 19 7 Q 19 10 15 12 L 15 15" stroke="#d97706" />
-          <circle cx="15" cy="20" r="1.6" fill="#d97706" stroke="none" />
-          <line x1="33" y1="12" x2="50" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="44,7 50,12 44,17" stroke="#64748b" />
-          <polyline points="60,1 55,1 55,23 60,23" stroke="#475569" />
-          <polyline points="75,1 80,1 80,23 75,23" stroke="#475569" />
-          <line x1="67" y1="5" x2="67" y2="19" stroke="#7c3aed" />
-          <line x1="60.94" y1="15.5" x2="73.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="60.94" y1="8.5" x2="73.06" y2="15.5" stroke="#7c3aed" />
-        </svg>
-      </td>
-      <td class="glyph-cell-dark">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 24" width="92" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <path d="M 11 7 Q 11 3 15 3 Q 19 3 19 7 Q 19 10 15 12 L 15 15" stroke="#d97706" />
-          <circle cx="15" cy="20" r="1.6" fill="#d97706" stroke="none" />
-          <line x1="33" y1="12" x2="50" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="44,7 50,12 44,17" stroke="#64748b" />
-          <polyline points="60,1 55,1 55,23 60,23" stroke="#475569" />
-          <polyline points="75,1 80,1 80,23 75,23" stroke="#475569" />
-          <line x1="67" y1="5" x2="67" y2="19" stroke="#7c3aed" />
-          <line x1="60.94" y1="15.5" x2="73.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="60.94" y1="8.5" x2="73.06" y2="15.5" stroke="#7c3aed" />
-        </svg>
-      </td>
-      <td>
-        <span class="palette-swatch" style="background:#475569"></span>slate [ ]<br>
-        <span class="palette-swatch" style="background:#d97706"></span>amber ?<br>
-        <span class="palette-swatch" style="background:#64748b"></span>slate →<br>
-        <span class="palette-swatch" style="background:#7c3aed"></span>violet *
-      </td>
-    </tr>
-    <tr>
-      <td><b>Scribe</b></td>
-      <td class="keyed">[ ]→[*]</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 24" width="88" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#94a3b8" />
-          <polyline points="20,1 25,1 25,23 20,23" stroke="#94a3b8" />
-          <line x1="30" y1="12" x2="48" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="42,7 48,12 42,17" stroke="#64748b" />
-          <polyline points="58,1 53,1 53,23 58,23" stroke="#475569" />
-          <polyline points="73,1 78,1 78,23 73,23" stroke="#475569" />
-          <line x1="65" y1="5" x2="65" y2="19" stroke="#7c3aed" />
-          <line x1="58.94" y1="15.5" x2="71.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="58.94" y1="8.5" x2="71.06" y2="15.5" stroke="#7c3aed" />
-        </svg>
-      </td>
-      <td class="glyph-cell-dark">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 24" width="88" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#94a3b8" />
-          <polyline points="20,1 25,1 25,23 20,23" stroke="#94a3b8" />
-          <line x1="30" y1="12" x2="48" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="42,7 48,12 42,17" stroke="#64748b" />
-          <polyline points="58,1 53,1 53,23 58,23" stroke="#475569" />
-          <polyline points="73,1 78,1 78,23 73,23" stroke="#475569" />
-          <line x1="65" y1="5" x2="65" y2="19" stroke="#7c3aed" />
-          <line x1="58.94" y1="15.5" x2="71.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="58.94" y1="8.5" x2="71.06" y2="15.5" stroke="#7c3aed" />
-        </svg>
-      </td>
-      <td>
-        <span class="palette-swatch" style="background:#94a3b8"></span>light slate [ ] (empty)<br>
-        <span class="palette-swatch" style="background:#64748b"></span>slate →<br>
-        <span class="palette-swatch" style="background:#475569"></span>slate [ ] (filled)<br>
-        <span class="palette-swatch" style="background:#7c3aed"></span>violet *
-      </td>
-    </tr>
-    <tr>
-      <td><b>Plan / Spec</b></td>
-      <td class="keyed">[*+*+*]</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 24" width="72" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <line x1="13" y1="6" x2="13" y2="18" stroke="#7c3aed" />
-          <line x1="8" y1="15" x2="18" y2="9" stroke="#7c3aed" />
-          <line x1="8" y1="9" x2="18" y2="15" stroke="#7c3aed" />
-          <line x1="24" y1="8" x2="24" y2="16" stroke="#64748b" />
-          <line x1="20" y1="12" x2="28" y2="12" stroke="#64748b" />
-          <line x1="34" y1="6" x2="34" y2="18" stroke="#16a34a" />
-          <line x1="29" y1="15" x2="39" y2="9" stroke="#16a34a" />
-          <line x1="29" y1="9" x2="39" y2="15" stroke="#16a34a" />
-          <line x1="45" y1="8" x2="45" y2="16" stroke="#64748b" />
-          <line x1="41" y1="12" x2="49" y2="12" stroke="#64748b" />
-          <line x1="55" y1="6" x2="55" y2="18" stroke="#ea580c" />
-          <line x1="50" y1="15" x2="60" y2="9" stroke="#ea580c" />
-          <line x1="50" y1="9" x2="60" y2="15" stroke="#ea580c" />
-          <polyline points="65,1 70,1 70,23 65,23" stroke="#475569" />
-        </svg>
-      </td>
-      <td class="glyph-cell-dark">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 24" width="72" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <line x1="13" y1="6" x2="13" y2="18" stroke="#7c3aed" />
-          <line x1="8" y1="15" x2="18" y2="9" stroke="#7c3aed" />
-          <line x1="8" y1="9" x2="18" y2="15" stroke="#7c3aed" />
-          <line x1="24" y1="8" x2="24" y2="16" stroke="#64748b" />
-          <line x1="20" y1="12" x2="28" y2="12" stroke="#64748b" />
-          <line x1="34" y1="6" x2="34" y2="18" stroke="#16a34a" />
-          <line x1="29" y1="15" x2="39" y2="9" stroke="#16a34a" />
-          <line x1="29" y1="9" x2="39" y2="15" stroke="#16a34a" />
-          <line x1="45" y1="8" x2="45" y2="16" stroke="#64748b" />
-          <line x1="41" y1="12" x2="49" y2="12" stroke="#64748b" />
-          <line x1="55" y1="6" x2="55" y2="18" stroke="#ea580c" />
-          <line x1="50" y1="15" x2="60" y2="9" stroke="#ea580c" />
-          <line x1="50" y1="9" x2="60" y2="15" stroke="#ea580c" />
-          <polyline points="65,1 70,1 70,23 65,23" stroke="#475569" />
-        </svg>
-      </td>
-      <td>
-        <span class="palette-swatch" style="background:#475569"></span>slate [ ]<br>
-        <span class="palette-swatch" style="background:#7c3aed"></span>violet * (Value)<br>
-        <span class="palette-swatch" style="background:#16a34a"></span>green * (Function)<br>
-        <span class="palette-swatch" style="background:#ea580c"></span>orange * (Solution)<br>
-        <span class="palette-swatch" style="background:#64748b"></span>slate +
-      </td>
-    </tr>
-    <tr>
-      <td><b>Spec Story</b></td>
-      <td class="keyed">[*] ← §</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 24" width="76" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <line x1="15" y1="5" x2="15" y2="19" stroke="#7c3aed" />
-          <line x1="8.94" y1="15.5" x2="21.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="8.94" y1="8.5" x2="21.06" y2="15.5" stroke="#7c3aed" />
-          <line x1="34" y1="12" x2="52" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="40,7 34,12 40,17" stroke="#64748b" />
-          <path d="M 70 4 L 68 6 Q 64 3 60 6 Q 58 10 64 12 Q 70 14 68 18 Q 64 21 60 18 L 58 20" stroke="#2563eb" />
-        </svg>
-      </td>
-      <td class="glyph-cell-dark">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 24" width="76" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <line x1="15" y1="5" x2="15" y2="19" stroke="#7c3aed" />
-          <line x1="8.94" y1="15.5" x2="21.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="8.94" y1="8.5" x2="21.06" y2="15.5" stroke="#7c3aed" />
-          <line x1="34" y1="12" x2="52" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="40,7 34,12 40,17" stroke="#64748b" />
-          <path d="M 70 4 L 68 6 Q 64 3 60 6 Q 58 10 64 12 Q 70 14 68 18 Q 64 21 60 18 L 58 20" stroke="#2563eb" />
-        </svg>
-      </td>
-      <td>
-        <span class="palette-swatch" style="background:#475569"></span>slate [ ]<br>
-        <span class="palette-swatch" style="background:#7c3aed"></span>violet *<br>
-        <span class="palette-swatch" style="background:#64748b"></span>slate ←<br>
-        <span class="palette-swatch" style="background:#2563eb"></span>blue § (hand-drawn)
-      </td>
-    </tr>
-    <tr>
-      <td><b>As Model</b></td>
-      <td class="keyed">[~*]</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 24" width="44" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <path d="M 10 13 Q 12.5 9 15 13 Q 17.5 17 20 13" stroke="#64748b" fill="none" />
-          <line x1="27" y1="5" x2="27" y2="19" stroke="#7c3aed" />
-          <line x1="20.94" y1="15.5" x2="33.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="20.94" y1="8.5" x2="33.06" y2="15.5" stroke="#7c3aed" />
-          <polyline points="37,1 42,1 42,23 37,23" stroke="#475569" />
-        </svg>
-      </td>
-      <td class="glyph-cell-dark">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 24" width="44" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <path d="M 10 13 Q 12.5 9 15 13 Q 17.5 17 20 13" stroke="#64748b" fill="none" />
-          <line x1="27" y1="5" x2="27" y2="19" stroke="#7c3aed" />
-          <line x1="20.94" y1="15.5" x2="33.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="20.94" y1="8.5" x2="33.06" y2="15.5" stroke="#7c3aed" />
-          <polyline points="37,1 42,1 42,23 37,23" stroke="#475569" />
-        </svg>
-      </td>
-      <td>
-        <span class="palette-swatch" style="background:#475569"></span>slate [ ]<br>
-        <span class="palette-swatch" style="background:#64748b"></span>slate ~ (approximately)<br>
-        <span class="palette-swatch" style="background:#7c3aed"></span>violet *<br>
-        <i>"a draft / hypothetical spec entry — not yet committed."</i>
-      </td>
-    </tr>
-    <tr>
-      <td><b>Stakeholder (standalone)</b></td>
-      <td class="keyed">§</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" role="img">
-          <path d="M 19 4 L 17 6 Q 12 3 7 6 Q 5 12 12 12 Q 19 12 17 17 Q 12 21 7 17 L 5 19" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </td>
-      <td class="glyph-cell-dark">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" role="img">
-          <path d="M 19 4 L 17 6 Q 12 3 7 6 Q 5 12 12 12 Q 19 12 17 17 Q 12 21 7 17 L 5 19" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </td>
-      <td>
-        <span class="palette-swatch" style="background:#2563eb"></span>blue § (hand-drawn)
-      </td>
-    </tr>
-  </tbody>
-</table>
+  <!-- SVG Mockup: Penta Pinwheel mini -->
+  <div class="mockup-card" style="margin-bottom:14px">
+    <div class="mockup-label">Penta Model Pinwheel — live 5-sector view</div>
+    <svg viewBox="0 0 320 200" width="100%" style="max-height:180px">
+      <defs>
+        <radialGradient id="hub"><stop offset="0%" stop-color="#f8fafc"/><stop offset="100%" stop-color="#e2e8f0"/></radialGradient>
+      </defs>
+      <!-- Sectors (simplified wedges) -->
+      <path d="M160,100 L160,30 A70,70 0 0,1 218,65 Z" fill="#f97316" fill-opacity=".85"/>
+      <path d="M160,100 L218,65 A70,70 0 0,1 218,135 Z" fill="#ef4444" fill-opacity=".85"/>
+      <path d="M160,100 L218,135 A70,70 0 0,1 160,170 Z" fill="#22c55e" fill-opacity=".85"/>
+      <path d="M160,100 L160,170 A70,70 0 0,1 102,135 Z" fill="#a855f7" fill-opacity=".85"/>
+      <path d="M160,100 L102,135 A70,70 0 0,1 102,65 Z" fill="#3b82f6" fill-opacity=".85"/>
+      <path d="M160,100 L102,65 A70,70 0 0,1 160,30 Z" fill="#8b5cf6" fill-opacity=".85"/>
+      <!-- Hub -->
+      <circle cx="160" cy="100" r="32" fill="url(#hub)" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="160" y="96" text-anchor="middle" font-size="11" font-weight="800" fill="#0f172a">58%</text>
+      <text x="160" y="110" text-anchor="middle" font-size="8" fill="#059669" font-weight="700">good</text>
+      <!-- Labels -->
+      <text x="194" y="56" font-size="7" fill="white" font-weight="700">DESIGN</text>
+      <text x="218" y="104" font-size="7" fill="white" font-weight="700">STKHLDRS</text>
+      <text x="196" y="148" font-size="7" fill="white" font-weight="700">VALUES</text>
+      <text x="112" y="152" font-size="7" fill="white" font-weight="700">RESOURCES</text>
+      <text x="86" y="104" font-size="7" fill="white" font-weight="700">EFFICIENCY</text>
+      <!-- Score bar -->
+      <rect x="240" y="30" width="60" height="140" rx="4" fill="#1e293b" stroke="#334155"/>
+      <rect x="244" y="34" width="52" height="18" rx="3" fill="#10b981" fill-opacity=".9"/>
+      <text x="270" y="47" text-anchor="middle" font-size="8" fill="white" font-weight="700">Efficiency 58%</text>
+      <text x="270" y="72" text-anchor="middle" font-size="7" fill="#94a3b8">V: 9 entries</text>
+      <text x="270" y="87" text-anchor="middle" font-size="7" fill="#94a3b8">F: 2 entries</text>
+      <text x="270" y="102" text-anchor="middle" font-size="7" fill="#94a3b8">S: 5 entries</text>
+      <text x="270" y="117" text-anchor="middle" font-size="7" fill="#94a3b8">C: 1 entry</text>
+      <text x="270" y="132" text-anchor="middle" font-size="7" fill="#94a3b8">R: 1 entry</text>
+      <!-- Stage bar mini -->
+      <rect x="10" y="175" width="300" height="16" rx="4" fill="#1e293b" stroke="#334155"/>
+      <rect x="12" y="177" width="22" height="12" rx="3" fill="#6366f1"/><text x="23" y="187" text-anchor="middle" font-size="6" fill="white">1</text>
+      <rect x="37" y="177" width="22" height="12" rx="3" fill="#6366f1"/><text x="48" y="187" text-anchor="middle" font-size="6" fill="white">2</text>
+      <rect x="62" y="177" width="22" height="12" rx="3" fill="#6366f1"/><text x="73" y="187" text-anchor="middle" font-size="6" fill="white">3</text>
+      <rect x="87" y="177" width="22" height="12" rx="3" fill="#4338ca"/><text x="98" y="187" text-anchor="middle" font-size="6" fill="white">4</text>
+      <rect x="112" y="177" width="22" height="12" rx="3" fill="#374151"/><text x="123" y="187" text-anchor="middle" font-size="6" fill="#9ca3af">5</text>
+      <rect x="137" y="177" width="22" height="12" rx="3" fill="#374151"/><text x="148" y="187" text-anchor="middle" font-size="6" fill="#9ca3af">6</text>
+      <rect x="162" y="177" width="22" height="12" rx="3" fill="#374151"/><text x="173" y="187" text-anchor="middle" font-size="6" fill="#9ca3af">7</text>
+      <rect x="187" y="177" width="22" height="12" rx="3" fill="#374151"/><text x="198" y="187" text-anchor="middle" font-size="6" fill="#9ca3af">8</text>
+      <rect x="212" y="177" width="22" height="12" rx="3" fill="#374151"/><text x="223" y="187" text-anchor="middle" font-size="6" fill="#9ca3af">9</text>
+      <rect x="237" y="177" width="22" height="12" rx="3" fill="#374151"/><text x="248" y="187" text-anchor="middle" font-size="6" fill="#9ca3af">10</text>
+      <rect x="262" y="177" width="22" height="12" rx="3" fill="#374151"/><text x="273" y="187" text-anchor="middle" font-size="6" fill="#9ca3af">11</text>
+      <rect x="287" y="177" width="22" height="12" rx="3" fill="#374151"/><text x="298" y="187" text-anchor="middle" font-size="6" fill="#9ca3af">→</text>
+    </svg>
+  </div>
 
-<h2 id="stakeholder">Stakeholder type icon (canonical Planguage v9, with full tri-colour grammar)</h2>
-<p class="caption">This is one of the 8 ratified Planguage type icons.  Tri-colour grammar: violet ← (value to stakeholder) + blue § hand-drawn (identity, legal-paragraph mark) + green dashed → (resources from stakeholder).  Awaiting Tom's α/β decision on whether to keep this tri-colour or simplify.</p>
-<table>
-  <thead><tr><th>Glyph</th><th>Keyed</th><th>Drawn (large)</th></tr></thead>
-  <tbody>
-    <tr>
-      <td><b>PlStakeholderIcon</b></td>
-      <td class="keyed">←§→</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 48" width="84" height="56" fill="none">
-          <polyline points="5,21 0,24 5,27" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-          <line x1="0" y1="24" x2="18" y2="24" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" />
-          <g stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
-            <path d="M 44 11 L 41 14 Q 33 9 25 14 Q 21 21 33 24 Q 45 27 41 34 Q 33 39 25 34 L 22 37" />
-          </g>
-          <line x1="48" y1="24" x2="66" y2="24" stroke="#22c55e" stroke-width="2" stroke-dasharray="4 2.5" stroke-linecap="round" />
-          <polyline points="63,21 68,24 63,27" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </td>
-    </tr>
-  </tbody>
-</table>
+  <div class="grid" id="core-grid"></div>
+</section>
 
-<h2 id="color-artsy" style="background:#fef3c7;padding:8px 12px;border-radius:8px;border:2px solid #d97706;">▶ Color Artsy Icons — 5 SHIPPED as siblings of Color Keyed Icons (2026-06-04)</h2>
-<p class="caption">
-  Tom 2026-06-04 ratified the two-family rule: *"no harm in having both color keyed icons, and Color Artsy Icons (if we can agree to the terminology)"*.
-  Each row shows the keyed form, the Color Keyed Icon (centre, shipped — `OwnerGlyph.vue` etc.), and the Color Artsy Icon synonym (right, ALSO shipped — `OwnerArtsyGlyph.vue` etc.).  Both render with the SAME basic shape so the user only has to learn one shape per concept; the Artsy variant adds artistic flourishes within that shape (DD-016: "one basic shape, two variations").
-</p>
-<p class="caption" style="background:#eff6ff;border-left:4px solid #2563eb;padding:8px 12px;">
-  <b>5 Color Artsy Icons shipped:</b> <code>OwnerArtsyGlyph</code> · <code>PlannerArtsyGlyph</code> · <code>ScribeArtsyGlyph</code> · <code>PlanArtsyGlyph</code> · <code>SpecStoryArtsyGlyph</code>.  Each file lives in <code>src/components/icons/</code> alongside its Keyed counterpart.  Use them in any UI position where the artistic variant reads better; the Keyed Icon stays as the default "scientific" form.
-</p>
-<table>
-  <thead>
-    <tr>
-      <th>Concept</th>
-      <th>Keyed</th>
-      <th>Color Keyed Icon (current, shipped)</th>
-      <th>Color Glyph synonym proposal (artistic)</th>
-      <th>Artistic rationale</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><b>Owner</b></td>
-      <td class="keyed">[*]!</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 24" width="64" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <line x1="15" y1="5" x2="15" y2="19" stroke="#7c3aed" />
-          <line x1="8.94" y1="15.5" x2="21.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="8.94" y1="8.5" x2="21.06" y2="15.5" stroke="#7c3aed" />
-          <line x1="42" y1="4" x2="42" y2="15" stroke="#dc2626" />
-          <circle cx="42" cy="20" r="1.6" fill="#dc2626" stroke="none" />
-        </svg>
-      </td>
-      <td class="glyph-cell">
-        <!-- Artistic Owner — star inside an open scroll/shield, with a small banner "!" rising. -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 28" width="64" height="28" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Stylised shield/scroll outline (the [*] container) -->
-          <path d="M 6 6 Q 18 2 30 6 L 30 22 Q 18 26 6 22 Z" stroke="#475569" fill="#f8fafc" />
-          <!-- 5-pointed star (the * Value content) -->
-          <polygon points="18,7 20.4,13.5 27.2,13.5 21.7,17.5 23.8,24 18,20 12.2,24 14.3,17.5 8.8,13.5 15.6,13.5" fill="#7c3aed" stroke="#5b21b6" />
-          <!-- Authority banner with ! mark (rises to upper-right) -->
-          <line x1="40" y1="22" x2="40" y2="6" stroke="#dc2626" stroke-width="2.5" />
-          <path d="M 40 6 L 56 8 L 52 12 L 56 16 L 40 16" stroke="#dc2626" fill="#fecaca" />
-          <circle cx="40" cy="24" r="2" fill="#dc2626" stroke="none" />
-        </svg>
-      </td>
-      <td>Shield-scroll holds a 5-point star; authority becomes a red banner-flag.  "Spec held under owner's banner."</td>
-    </tr>
-    <tr>
-      <td><b>Planner</b></td>
-      <td class="keyed">[?]→[*]</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 24" width="92" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <path d="M 11 7 Q 11 3 15 3 Q 19 3 19 7 Q 19 10 15 12 L 15 15" stroke="#d97706" />
-          <circle cx="15" cy="20" r="1.6" fill="#d97706" stroke="none" />
-          <line x1="33" y1="12" x2="50" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="44,7 50,12 44,17" stroke="#64748b" />
-          <polyline points="60,1 55,1 55,23 60,23" stroke="#475569" />
-          <polyline points="75,1 80,1 80,23 75,23" stroke="#475569" />
-          <line x1="67" y1="5" x2="67" y2="19" stroke="#7c3aed" />
-          <line x1="60.94" y1="15.5" x2="73.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="60.94" y1="8.5" x2="73.06" y2="15.5" stroke="#7c3aed" />
-        </svg>
-      </td>
-      <td class="glyph-cell">
-        <!-- Artistic Planner — lightbulb (filament = ?) → starburst (insight) -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 28" width="92" height="28" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Lightbulb (the [?] question) -->
-          <path d="M 16 4 Q 6 4 6 14 Q 6 19 11 22 L 21 22 Q 26 19 26 14 Q 26 4 16 4 Z" stroke="#d97706" fill="#fef3c7" />
-          <!-- Filament: a ? curl inside the bulb -->
-          <path d="M 13 10 Q 13 8 16 8 Q 19 8 19 11 Q 19 14 16 15" stroke="#d97706" stroke-width="1.6" />
-          <circle cx="16" cy="18" r="1.2" fill="#d97706" stroke="none" />
-          <!-- Bulb base -->
-          <line x1="11" y1="24" x2="21" y2="24" stroke="#d97706" />
-          <!-- Sweeping pen-arrow (the planning act) -->
-          <path d="M 32 14 Q 44 6 56 14" stroke="#64748b" />
-          <polyline points="52,9 56,14 51,16" stroke="#64748b" />
-          <!-- Insight starburst (the resolved [*]) -->
-          <line x1="73" y1="6" x2="73" y2="22" stroke="#7c3aed" />
-          <line x1="65" y1="20" x2="81" y2="8" stroke="#7c3aed" />
-          <line x1="65" y1="8" x2="81" y2="20" stroke="#7c3aed" />
-          <line x1="65" y1="14" x2="81" y2="14" stroke="#7c3aed" />
-          <circle cx="73" cy="14" r="2.5" fill="#7c3aed" stroke="none" />
-        </svg>
-      </td>
-      <td>Lightbulb-with-?-filament → curved pen-arrow → 6-point insight burst.  "Hypothesis becomes insight via planning."</td>
-    </tr>
-    <tr>
-      <td><b>Scribe</b></td>
-      <td class="keyed">[ ]→[*]</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 24" width="88" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#94a3b8" />
-          <polyline points="20,1 25,1 25,23 20,23" stroke="#94a3b8" />
-          <line x1="30" y1="12" x2="48" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="42,7 48,12 42,17" stroke="#64748b" />
-          <polyline points="58,1 53,1 53,23 58,23" stroke="#475569" />
-          <polyline points="73,1 78,1 78,23 73,23" stroke="#475569" />
-          <line x1="65" y1="5" x2="65" y2="19" stroke="#7c3aed" />
-          <line x1="58.94" y1="15.5" x2="71.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="58.94" y1="8.5" x2="71.06" y2="15.5" stroke="#7c3aed" />
-        </svg>
-      </td>
-      <td class="glyph-cell">
-        <!-- Artistic Scribe — blank page → quill-stroke → page with asterisk + text lines -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 28" width="88" height="28" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Blank parchment page (the empty [ ]) -->
-          <path d="M 4 4 L 22 4 L 22 26 L 4 26 Z" stroke="#94a3b8" fill="#f8fafc" />
-          <!-- Faint dotted "to be filled" hint inside -->
-          <line x1="8" y1="10" x2="18" y2="10" stroke="#cbd5e1" stroke-dasharray="2 2" />
-          <line x1="8" y1="15" x2="18" y2="15" stroke="#cbd5e1" stroke-dasharray="2 2" />
-          <line x1="8" y1="20" x2="18" y2="20" stroke="#cbd5e1" stroke-dasharray="2 2" />
-          <!-- Quill-pen mid-stroke (the arrow) — calligraphic taper, ink trail -->
-          <path d="M 30 18 Q 40 8 52 14" stroke="#64748b" stroke-width="2" />
-          <polyline points="48,10 52,14 48,17" stroke="#64748b" stroke-width="2" />
-          <circle cx="30" cy="18" r="1.2" fill="#1e293b" /><!-- ink drop at start -->
-          <!-- Filled page (the [*] result) -->
-          <path d="M 60 4 L 84 4 L 84 26 L 60 26 Z" stroke="#475569" fill="#fff" />
-          <!-- Asterisk on filled page -->
-          <line x1="72" y1="9" x2="72" y2="17" stroke="#7c3aed" stroke-width="2" />
-          <line x1="68" y1="15" x2="76" y2="11" stroke="#7c3aed" stroke-width="2" />
-          <line x1="68" y1="11" x2="76" y2="15" stroke="#7c3aed" stroke-width="2" />
-          <!-- Text lines below -->
-          <line x1="64" y1="20" x2="80" y2="20" stroke="#475569" stroke-width="1.4" />
-          <line x1="64" y1="23" x2="76" y2="23" stroke="#475569" stroke-width="1.4" />
-        </svg>
-      </td>
-      <td>Blank parchment with dotted "to-be-filled" lines → quill-pen with ink-drop → page with asterisk + text lines.  "The scribe's act made visible."</td>
-    </tr>
-    <tr>
-      <td><b>Plan / Spec</b></td>
-      <td class="keyed">[*+*+*]</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 24" width="72" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <line x1="13" y1="6" x2="13" y2="18" stroke="#7c3aed" />
-          <line x1="8" y1="15" x2="18" y2="9" stroke="#7c3aed" />
-          <line x1="8" y1="9" x2="18" y2="15" stroke="#7c3aed" />
-          <line x1="24" y1="8" x2="24" y2="16" stroke="#64748b" />
-          <line x1="20" y1="12" x2="28" y2="12" stroke="#64748b" />
-          <line x1="34" y1="6" x2="34" y2="18" stroke="#16a34a" />
-          <line x1="29" y1="15" x2="39" y2="9" stroke="#16a34a" />
-          <line x1="29" y1="9" x2="39" y2="15" stroke="#16a34a" />
-          <line x1="45" y1="8" x2="45" y2="16" stroke="#64748b" />
-          <line x1="41" y1="12" x2="49" y2="12" stroke="#64748b" />
-          <line x1="55" y1="6" x2="55" y2="18" stroke="#ea580c" />
-          <line x1="50" y1="15" x2="60" y2="9" stroke="#ea580c" />
-          <line x1="50" y1="9" x2="60" y2="15" stroke="#ea580c" />
-          <polyline points="65,1 70,1 70,23 65,23" stroke="#475569" />
-        </svg>
-      </td>
-      <td class="glyph-cell">
-        <!-- Artistic Plan/Spec — three intertwined ribbons in Value/Function/Solution colors -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 28" width="72" height="28" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Violet ribbon (Value) -->
-          <path d="M 8 4 Q 28 12 8 24" stroke="#7c3aed" />
-          <!-- Green ribbon (Function) -->
-          <path d="M 36 4 Q 16 14 36 24" stroke="#16a34a" />
-          <!-- Orange ribbon (Solution) -->
-          <path d="M 64 4 Q 44 12 64 24" stroke="#ea580c" />
-          <!-- Centre asterism (3-star unification) -->
-          <circle cx="36" cy="14" r="3" fill="#fff" stroke="#475569" stroke-width="1.5" />
-        </svg>
-      </td>
-      <td>Three intertwined Value (violet) / Function (green) / Solution (orange) ribbons converge on a central point — "spec types unified into one plan".  The keyed `[*+*+*]` reads as composition; this is the same composition as living art.</td>
-    </tr>
-    <tr>
-      <td><b>Spec Story</b></td>
-      <td class="keyed">[*] ← §</td>
-      <td class="glyph-cell">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 24" width="76" height="24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7,1 2,1 2,23 7,23" stroke="#475569" />
-          <polyline points="23,1 28,1 28,23 23,23" stroke="#475569" />
-          <line x1="15" y1="5" x2="15" y2="19" stroke="#7c3aed" />
-          <line x1="8.94" y1="15.5" x2="21.06" y2="8.5" stroke="#7c3aed" />
-          <line x1="8.94" y1="8.5" x2="21.06" y2="15.5" stroke="#7c3aed" />
-          <line x1="34" y1="12" x2="52" y2="12" stroke="#64748b" stroke-linecap="butt" />
-          <polyline points="40,7 34,12 40,17" stroke="#64748b" />
-          <path d="M 70 4 L 68 6 Q 64 3 60 6 Q 58 10 64 12 Q 70 14 68 18 Q 64 21 60 18 L 58 20" stroke="#2563eb" />
-        </svg>
-      </td>
-      <td class="glyph-cell">
-        <!-- Artistic SpecStory — open book on left, speech-arrow back to a small § person on right -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 28" width="76" height="28" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Open book (the [*] spec being told) -->
-          <path d="M 4 6 L 16 4 L 16 24 L 4 22 Z" stroke="#475569" fill="#f8fafc" />
-          <path d="M 28 6 L 16 4 L 16 24 L 28 22 Z" stroke="#475569" fill="#f8fafc" />
-          <!-- Star on the page -->
-          <line x1="10" y1="11" x2="10" y2="17" stroke="#7c3aed" />
-          <line x1="7" y1="15" x2="13" y2="13" stroke="#7c3aed" />
-          <line x1="7" y1="13" x2="13" y2="15" stroke="#7c3aed" />
-          <!-- Curved speech-storyline arrow back toward the source -->
-          <path d="M 32 14 Q 44 6 56 14" stroke="#64748b" stroke-dasharray="3 2" />
-          <polyline points="36,11 32,14 36,17" stroke="#64748b" />
-          <!-- § person on the right (hand-drawn) -->
-          <path d="M 70 8 L 68 10 Q 64 7 60 10 Q 58 13 64 14 Q 70 15 68 18 Q 64 20 60 18 L 58 20" stroke="#2563eb" stroke-width="2" />
-        </svg>
-      </td>
-      <td>Open book → dashed speech-storyline arrow ← stakeholder figure (§).  "The story this spec tells, sourced from this stakeholder."  Storyline is dashed = "told by".</td>
-    </tr>
-  </tbody>
-</table>
+<!-- ══════════════════════════════════════════════ 2. PENTA MODEL ══ -->
+<section class="section" id="penta">
+  <div class="section-header">
+    <div class="section-dot" style="background:#818cf8"></div>
+    <div class="section-title">🔺 Penta Model &amp; SVERD</div>
+    <div class="section-count">12 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('penta-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="penta-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('penta-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Penta Model &amp; SVERD</div>
+    <div class="expert-body">
+      <p><strong>SVERD (Stakeholders · Values · Efficiency · Resources · Design)</strong> is the complete ontology of any plan. It was co-invented by Tom Gilb and Al Shalloway in 2022 as a visual representation of how the 5 fundamental planning dimensions interrelate. The pinwheel makes visible what most planning tools hide: the direct relationship between Resource investment and Value achievement.</p>
+      <p>The <strong>Efficiency score at the centre</strong> (Value achievement ÷ Resource utilisation) is the only metric that ultimately matters: are you getting Value relative to what you're spending? A plan with 100% on-time delivery but 40% Value achievement is not a success — SEM shows this immediately.</p>
+      <p>The <strong>3-Ring Design hierarchy</strong> (Solutions → Evo Steps → Tasks) encodes a key Planguage insight: Solutions are the DESIGN decisions at the architecture level; Evo Steps decompose Solutions into delivery increments; Tasks decompose further into work units. Hierarchy radiates outward from the core — denser decisions at centre, implementation detail at the edge.</p>
+      <p>The <strong>Governance + Cascade Tracking</strong> system encodes a truth most planning tools ignore: changing a Value Goal propagates downstream. Solutions must be redesigned, Resource budgets re-estimated, Evo Steps re-sequenced. "Cascade Not Yet Calculated" is an honest declaration, not a failure state.</p>
+      <p class="cite">Tom Gilb, 2026-06-07: "Solutions inner, the quantity and hierarchy spreads outward." — on the 3-ring Design sector geometry.</p>
+    </div>
+  </div>
+  <div class="grid" id="penta-grid"></div>
+</section>
 
-<h2 id="analyze-compounds" style="background:#ede9fe;padding:8px 12px;border-radius:8px;border:2px solid #7c3aed;margin-top:36px;">▶ Analyze-Spec Compound Glyphs — <code>[TYPE]→?</code> — 7 PROPOSED (2026-06-05)</h2>
-<p class="caption">
-  The pattern <code>[*]→?</code> means "analyze a spec entry" — a spec item inside brackets, a transformation arrow, and a question mark (insight/analysis result).
-  The <code>*</code> can be replaced with the specific type icon.  These are <b>compound glyphs</b> — the outer <code>[ ]</code> brackets (slate) act as the entry-type container; the inner mini icon identifies WHICH type is being analyzed; the cyan <code>→</code> is the transformation (analysis happening); the violet <code>?</code> is the result (insight, question answered).<br>
-  <b>Resources compound installed in Stage 10 Pin 2.</b>  Others are PROPOSALS — awaiting Tom's approval before shipping as <code>.vue</code> components.
-</p>
-<table>
-  <thead>
-    <tr>
-      <th>Keyed Form</th>
-      <th>Preview (canonical colours)</th>
-      <th>Meaning</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody>
+<!-- ══════════════════════════════════════════════ 3. SHARPENING ══ -->
+<section class="section" id="sharp">
+  <div class="section-header">
+    <div class="section-dot" style="background:#f59e0b"></div>
+    <div class="section-title">🔪 Sharpening Interviews</div>
+    <div class="section-count">10 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('sharp-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="sharp-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('sharp-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Sharpening Interviews</div>
+    <div class="expert-body">
+      <p>The Sharpening Interviews are designed with one purpose: <strong>to surface the questions planners never ask themselves</strong>. The 26-theme Solution Sharpening interview spans Architecture Level Thinking, Reusability, Simplification, Adaptability, Reversibility, International scale, Competitiveness, Innovation, and 18 further dimensions. Each theme represents a class of design failure that Gilb has documented across decades of project post-mortems.</p>
+      <p><strong>Architecture Level Thinking alone</strong> (Theme 1) typically surfaces 3–8× more value potential than any local optimisation. Most development teams optimise within the wrong system boundary — this theme forces them to question the boundary itself before optimising within it.</p>
+      <p>The <strong>[?!"] Justification system</strong> creates a permanent audit trail. Every answer is backed by evidence — not just what the planner decided, but WHY (Analysis [!]), from WHAT source (["] with citation), and with what confidence (Credibility 0–10). This is analogous to Gilb's IET Evidence + IET Source + ±Uncertainty in Competitive Engineering. A plan that cannot be justified is a plan that cannot be defended.</p>
+      <p>The <strong>4 selection modes</strong> (Mixed / All / My answer only / Ticked only) give the planner precise control over which AI suggestions enter the effective answer — tick what resonates, type what's unique, combine freely.</p>
+      <p class="cite">Competitive Engineering ch.14: "Architecture-level solutions deliver 3–8× more value than local patches."</p>
+    </div>
+  </div>
 
-    <!-- ── 1. Generic [*]→? ──────────────────────────────── -->
-    <tr>
-      <td class="keyed">[*]→?</td>
-      <td class="glyph-cell" style="background:#f8fafc;">
-        <svg viewBox="0 0 100 48" width="200" height="96" fill="none" aria-label="Analyze any spec entry" role="img">
-          <!-- Left bracket -->
-          <path d="M 8,7 L 3,7 L 3,41 L 8,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Generic asterisk * (violet — any spec entry) -->
-          <line x1="25" y1="24" x2="39" y2="24" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" />
-          <line x1="27" y1="18" x2="37" y2="30" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" />
-          <line x1="37" y1="18" x2="27" y2="30" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" />
-          <circle cx="32" cy="24" r="2.5" fill="#7c3aed" />
-          <!-- Right bracket -->
-          <path d="M 57,7 L 62,7 L 62,41 L 57,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Transformation arrow (cyan) -->
-          <line x1="65" y1="24" x2="76" y2="24" stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" />
-          <polyline points="73,21 78,24 73,27" stroke="#0ea5e9" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Analytical question mark (violet) -->
-          <text x="82" y="32" font-size="17" font-family="Georgia,serif" font-weight="bold" fill="#7c3aed">?</text>
-        </svg>
-      </td>
-      <td>Analyze any spec entry (generic).  Use when the entry type is unknown or mixed.  <code>*</code> = any Planguage entry.</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL — base pattern</td>
-    </tr>
+  <!-- Mockup: Sharpening interview card -->
+  <div class="mockup-card" style="margin-bottom:14px">
+    <div class="mockup-label">Sharpening Interview — question card with AI suggestions + justification</div>
+    <svg viewBox="0 0 480 130" width="100%" style="max-height:130px">
+      <rect width="480" height="130" fill="#0f172a" rx="8"/>
+      <!-- Header bar -->
+      <rect width="480" height="28" fill="#1e1b4b" rx="8"/>
+      <rect width="480" height="12" y="16" fill="#1e1b4b"/>
+      <text x="14" y="18" font-size="9" fill="#a5b4fc" font-weight="700">🔪 Solution Sharpening — Architecture Level Thinking · Q1 of 52</text>
+      <rect x="380" y="6" width="90" height="16" rx="8" fill="#6366f1"/>
+      <text x="425" y="18" text-anchor="middle" font-size="8" fill="white" font-weight="700">26 / 52 answered</text>
+      <!-- Progress bar -->
+      <rect x="0" y="27" width="480" height="4" fill="#1e293b"/>
+      <rect x="0" y="27" width="240" height="4" fill="#f59e0b"/>
+      <!-- Question -->
+      <text x="14" y="48" font-size="9" fill="#f1f5f9" font-weight="700">Is this solution architected at the right system level to avoid local patching?</text>
+      <text x="14" y="60" font-size="8" fill="#94a3b8">Why this matters: Architecture-level solutions deliver 3–8× more value than local patches (CE ch.14)</text>
+      <!-- Suggestion chips -->
+      <rect x="14" y="68" width="140" height="20" rx="10" fill="#1e293b" stroke="#4ade80" stroke-width="1.2"/>
+      <rect x="14" y="68" width="8" height="20" rx="2" fill="#4ade80"/>
+      <text x="30" y="82" font-size="7.5" fill="#f1f5f9">↑ Elevate to system boundary</text>
+      <rect x="162" y="68" width="150" height="20" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <text x="175" y="82" font-size="7.5" fill="#94a3b8">☐ Refactor as a cross-cutting concern</text>
+      <rect x="320" y="68" width="148" height="20" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <text x="333" y="82" font-size="7.5" fill="#94a3b8">☐ Delegate to infrastructure layer</text>
+      <!-- Justification -->
+      <rect x="14" y="94" width="452" height="28" rx="4" fill="#1e1b4b" stroke="#312e81"/>
+      <text x="20" y="106" font-size="7" fill="#818cf8" font-weight="700">[?!"] Analysis:</text>
+      <text x="80" y="106" font-size="7" fill="#a5b4fc">Current solution is a point-fix — CE recommends architectural scope for sustained value delivery.</text>
+      <text x="20" y="118" font-size="7" fill="#818cf8" font-weight="700">["] Source:</text>
+      <text x="70" y="118" font-size="7" fill="#94a3b8">Competitive Engineering ch.14 p.287 · gilb.com/optima · Credibility: 8/10</text>
+    </svg>
+  </div>
 
-    <!-- ── 2. Resources [→O]→? ───────────────────────────── -->
-    <tr>
-      <td class="keyed">[→O]→?</td>
-      <td class="glyph-cell" style="background:#f8fafc;">
-        <svg viewBox="0 0 100 48" width="200" height="96" fill="none" aria-label="Analyze Resource entries" role="img">
-          <!-- Left bracket -->
-          <path d="M 8,7 L 3,7 L 3,41 L 8,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Mini →O Resource glyph (dark green #166534) -->
-          <line x1="10" y1="17" x2="25" y2="17" stroke="#166534" stroke-width="2" stroke-dasharray="3 2" stroke-linecap="round" />
-          <polyline points="22,14 26,17 22,20" stroke="#166534" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <line x1="10" y1="31" x2="25" y2="31" stroke="#166534" stroke-width="2" stroke-dasharray="3 2" stroke-linecap="round" />
-          <polyline points="22,28 26,31 22,34" stroke="#166534" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <ellipse cx="40" cy="24" rx="12" ry="9" stroke="#166534" stroke-width="2.2" />
-          <!-- Right bracket -->
-          <path d="M 57,7 L 62,7 L 62,41 L 57,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Transformation arrow (cyan) -->
-          <line x1="65" y1="24" x2="76" y2="24" stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" />
-          <polyline points="73,21 78,24 73,27" stroke="#0ea5e9" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Analytical question mark (violet) -->
-          <text x="82" y="32" font-size="17" font-family="Georgia,serif" font-weight="bold" fill="#7c3aed">?</text>
-        </svg>
-      </td>
-      <td>Analyze Resource entries.  "Query the Resource budget: what is being spent, on what, and is it optimal?"  Inner <code>→O</code> = Resource icon (dashed arrows in, oval = system boundary, no output arrow — resource consumed).  Canonical dark green = Kai "green for money".</td>
-      <td style="color:#16a34a;font-weight:bold;font-size:12px;">✅ INSTALLED — Stage 10 Pin 2</td>
-    </tr>
+  <div class="grid" id="sharp-grid"></div>
+</section>
 
-    <!-- ── 3. Function [→O→]→? ───────────────────────────── -->
-    <tr>
-      <td class="keyed">[→O→]→?</td>
-      <td class="glyph-cell" style="background:#f8fafc;">
-        <svg viewBox="0 0 100 48" width="200" height="96" fill="none" aria-label="Analyze Function entries" role="img">
-          <!-- Left bracket -->
-          <path d="M 8,7 L 3,7 L 3,41 L 8,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Mini →O→ Function glyph: orange dashed in, blue oval, cyan solid out -->
-          <line x1="9" y1="17" x2="16" y2="17" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="2.5 2" stroke-linecap="round" />
-          <polyline points="13,14 17,17 13,20" stroke="#f59e0b" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <line x1="9" y1="31" x2="16" y2="31" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="2.5 2" stroke-linecap="round" />
-          <polyline points="13,28 17,31 13,34" stroke="#f59e0b" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <ellipse cx="27" cy="24" rx="8" ry="7" stroke="#2563eb" stroke-width="2" />
-          <line x1="36" y1="17" x2="50" y2="17" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" />
-          <polyline points="47,14 51,17 47,20" stroke="#0ea5e9" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <line x1="36" y1="31" x2="50" y2="31" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" />
-          <polyline points="47,28 51,31 47,34" stroke="#0ea5e9" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Right bracket -->
-          <path d="M 57,7 L 62,7 L 62,41 L 57,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Transformation arrow (cyan) -->
-          <line x1="65" y1="24" x2="76" y2="24" stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" />
-          <polyline points="73,21 78,24 73,27" stroke="#0ea5e9" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Analytical question mark (violet) -->
-          <text x="82" y="32" font-size="17" font-family="Georgia,serif" font-weight="bold" fill="#7c3aed">?</text>
-        </svg>
-      </td>
-      <td>Analyze Function entries.  "Is this function present?  Is it delivering value?  Are resources adequate?"  Inner <code>→O→</code> = full Function icon (orange dashed resource arrows in, blue oval capability, cyan solid value arrows out).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
-    </tr>
+<!-- ══════════════════════════════════════════════ 4. AI TOOLS ══ -->
+<section class="section" id="ai">
+  <div class="section-header">
+    <div class="section-dot" style="background:#818cf8"></div>
+    <div class="section-title">🤖 AI &amp; Agent Tools</div>
+    <div class="section-count">18 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('ai-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="ai-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('ai-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — AI &amp; Agent Tools</div>
+    <div class="expert-body">
+      <p>The key architectural principle: <strong>AI is Claudian (external to the app), not embedded</strong>. This means AI quality equals model quality, not API budget. The SEM App contains zero embedded API calls — all AI happens in Claudian (this session), writing structured results to files the SEM App reads. No user API key needed. Resilient to provider changes.</p>
+      <p>The <strong>KISS Panel</strong> (Keep Improvement Super Surprising) is the most analytically powerful tool. It doesn't ask "what should we do?" — it mathematically computes which constraints, goals, or solutions, if changed, deliver the highest Value/Resource ratio. The 5 improvement types are ranked by ROI: Constraint relaxation (4.1×) consistently outperforms adding new Solutions (3.8×), because a constraint is a hard ceiling — removing it immediately unlocks all solutions blocked beneath it.</p>
+      <p>The <strong>Conjunction-of-Technologies principle</strong> governs every AI prompt: the full Planguage JSON is always passed (not a prose summary), and every AI suggestion carries a source-layer badge — Derived from plan / Cited from Gilb / LLM training / Internet-fetched. This makes AI reasoning transparent and auditable, not a black box.</p>
+      <p><strong>Model selection matters:</strong> Haiku is banned for structural work. One Haiku debacle cost 11 hours of debugging work that Sonnet would have resolved in minutes. The economy of cheap models is false — it transfers cost from API tokens to human time, at the worst exchange rate possible.</p>
+      <p class="cite">Tom Gilb, 2026-06-02: "I want to use AI for all my functionality but from my local Claude Code."</p>
+    </div>
+  </div>
 
-    <!-- ── 4. Value [O--*→]→? ────────────────────────────── -->
-    <tr>
-      <td class="keyed">[O--*→]→?</td>
-      <td class="glyph-cell" style="background:#f8fafc;">
-        <svg viewBox="0 0 100 48" width="200" height="96" fill="none" aria-label="Analyze Value entries" role="img">
-          <!-- Left bracket -->
-          <path d="M 8,7 L 3,7 L 3,41 L 8,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Mini O--*→ Value glyph: blue circle, cyan axis/dot/arrow -->
-          <circle cx="14" cy="24" r="4" stroke="#2563eb" stroke-width="2" />
-          <line x1="18" y1="24" x2="48" y2="24" stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" />
-          <circle cx="33" cy="24" r="2.5" fill="#0ea5e9" />
-          <polyline points="45,21 50,24 45,27" stroke="#0ea5e9" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Right bracket -->
-          <path d="M 57,7 L 62,7 L 62,41 L 57,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Transformation arrow (cyan) -->
-          <line x1="65" y1="24" x2="76" y2="24" stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" />
-          <polyline points="73,21 78,24 73,27" stroke="#0ea5e9" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Analytical question mark (violet) -->
-          <text x="82" y="32" font-size="17" font-family="Georgia,serif" font-weight="bold" fill="#7c3aed">?</text>
-        </svg>
-      </td>
-      <td>Analyze Value entries.  "Are Goals being reached?  What is the current Status vs Tolerable?"  Inner <code>O--*→</code> = Value icon (blue source-Function circle, cyan scale axis, data-instance dot, delivery arrow).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
-    </tr>
+  <!-- Mockup: KISS panel mini -->
+  <div class="mockup-card" style="margin-bottom:14px">
+    <div class="mockup-label">KISS Panel — Keep Improvement Super Surprising (5 ranked improvements)</div>
+    <svg viewBox="0 0 480 110" width="100%" style="max-height:110px">
+      <rect width="480" height="110" fill="#0f172a" rx="8"/>
+      <rect width="480" height="26" fill="#1e1b4b" rx="8"/>
+      <rect width="480" height="10" y="16" fill="#1e1b4b"/>
+      <text x="14" y="17" font-size="10" font-weight="900" fill="#fbbf24">K</text>
+      <text x="24" y="17" font-size="10" font-weight="900" fill="#34d399">I</text>
+      <text x="34" y="17" font-size="10" font-weight="900" fill="#22d3ee">S</text>
+      <text x="44" y="17" font-size="10" font-weight="900" fill="#f472b6">S</text>
+      <text x="58" y="17" font-size="9" fill="#94a3b8">Keep Improvement Super Surprising · 5 ranked cost-effective improvements</text>
+      <!-- Improvement cards -->
+      <rect x="8" y="30" width="88" height="72" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <rect x="8" y="30" width="88" height="14" rx="5" fill="#92400e"/>
+      <rect x="8" y="40" width="88" height="4" fill="#92400e"/>
+      <text x="52" y="40" text-anchor="middle" font-size="7" fill="#fbbf24" font-weight="700">🥇 #1 · ROI 4.1×</text>
+      <text x="52" y="52" text-anchor="middle" font-size="7" fill="#f1f5f9" font-weight="700">Relax Constraint</text>
+      <text x="52" y="62" text-anchor="middle" font-size="6.5" fill="#94a3b8">C.Budget 100%→130%</text>
+      <text x="52" y="72" text-anchor="middle" font-size="6" fill="#4ade80">↑ V.Deployment +22%</text>
+      <text x="52" y="82" text-anchor="middle" font-size="6" fill="#4ade80">↑ V.LeadTime +18%</text>
+      <text x="52" y="95" text-anchor="middle" font-size="6" fill="#6ee7b7">▶ See 4 alternatives</text>
 
-    <!-- ── 5. Stakeholder [←§→]→? ────────────────────────── -->
-    <tr>
-      <td class="keyed">[←§→]→?</td>
-      <td class="glyph-cell" style="background:#f8fafc;">
-        <svg viewBox="0 0 100 48" width="200" height="96" fill="none" aria-label="Analyze Stakeholder entries" role="img">
-          <!-- Left bracket -->
-          <path d="M 8,7 L 3,7 L 3,41 L 8,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Mini ←§→ Stakeholder glyph -->
-          <!-- Violet arrow IN (value TO stakeholder, arrowhead on left) -->
-          <polyline points="12,21 8,24 12,27" stroke="#7c3aed" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <line x1="8" y1="24" x2="22" y2="24" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" />
-          <!-- Mini § hand-drawn (blue) — compact double-loop -->
-          <path d="M 35,15 Q 31,12 28,16 Q 26,20 31,22 Q 36,24 34,28 Q 31,32 27,28" stroke="#2563eb" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Green dashed arrow OUT (resources FROM stakeholder) -->
-          <line x1="40" y1="24" x2="52" y2="24" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="3 2" stroke-linecap="round" />
-          <polyline points="49,21 53,24 49,27" stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Right bracket -->
-          <path d="M 57,7 L 62,7 L 62,41 L 57,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Transformation arrow (cyan) -->
-          <line x1="65" y1="24" x2="76" y2="24" stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" />
-          <polyline points="73,21 78,24 73,27" stroke="#0ea5e9" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Analytical question mark (violet) -->
-          <text x="82" y="32" font-size="17" font-family="Georgia,serif" font-weight="bold" fill="#7c3aed">?</text>
-        </svg>
-      </td>
-      <td>Analyze Stakeholder entries.  "Are stakeholder interests accounted for?  Who is missing?  Are value + resource flows to/from this stakeholder correct?"  Inner <code>←§→</code> = Stakeholder icon (violet value IN arrow, blue hand-drawn §, green dashed resource OUT arrow).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
-    </tr>
+      <rect x="102" y="30" width="88" height="72" rx="5" fill="#1e293b" stroke="#94a3b8" stroke-width="1"/>
+      <rect x="102" y="30" width="88" height="14" rx="5" fill="#1e3a5f"/>
+      <rect x="102" y="40" width="88" height="4" fill="#1e3a5f"/>
+      <text x="146" y="40" text-anchor="middle" font-size="7" fill="#93c5fd" font-weight="700">🥈 #2 · ROI 3.8×</text>
+      <text x="146" y="52" text-anchor="middle" font-size="7" fill="#f1f5f9" font-weight="700">Add Solution</text>
+      <text x="146" y="62" text-anchor="middle" font-size="6.5" fill="#94a3b8">S.AutoDeploy new</text>
 
-    <!-- ── 6. Task [→O→*]→? ──────────────────────────────── -->
-    <tr>
-      <td class="keyed">[→O→*]→?</td>
-      <td class="glyph-cell" style="background:#f8fafc;">
-        <svg viewBox="0 0 100 48" width="200" height="96" fill="none" aria-label="Analyze Task entries" role="img">
-          <!-- Left bracket -->
-          <path d="M 8,7 L 3,7 L 3,41 L 8,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Mini →O→* Task glyph (slate) -->
-          <!-- Dashed in -->
-          <line x1="9" y1="24" x2="14" y2="24" stroke="#94a3b8" stroke-width="2" stroke-dasharray="2.5 1.8" stroke-linecap="round" />
-          <polyline points="11,21 15,24 11,27" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Circle (task process) -->
-          <circle cx="22" cy="24" r="6" stroke="#94a3b8" stroke-width="2" />
-          <!-- Solid out -->
-          <line x1="28" y1="24" x2="38" y2="24" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round" />
-          <polyline points="35,21 39,24 35,27" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Sub-level asterisk (dim slate) -->
-          <line x1="42" y1="24" x2="50" y2="24" stroke="#64748b" stroke-width="1.8" stroke-linecap="round" />
-          <line x1="43.5" y1="21" x2="48.5" y2="27" stroke="#64748b" stroke-width="1.8" stroke-linecap="round" />
-          <line x1="48.5" y1="21" x2="43.5" y2="27" stroke="#64748b" stroke-width="1.8" stroke-linecap="round" />
-          <!-- Right bracket -->
-          <path d="M 57,7 L 62,7 L 62,41 L 57,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Transformation arrow (cyan) -->
-          <line x1="65" y1="24" x2="76" y2="24" stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" />
-          <polyline points="73,21 78,24 73,27" stroke="#0ea5e9" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Analytical question mark (violet) -->
-          <text x="82" y="32" font-size="17" font-family="Georgia,serif" font-weight="bold" fill="#7c3aed">?</text>
-        </svg>
-      </td>
-      <td>Analyze Task entries.  "Are tasks properly scoped?  Do they trace to an Evo Step?  Are effort estimates realistic?"  Inner <code>→O→*</code> = Task icon (dashed effort in, circle task process, solid output arrow, dim asterisk for sub-level output).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
-    </tr>
+      <rect x="196" y="30" width="88" height="72" rx="5" fill="#1e293b" stroke="#94a3b8" stroke-width="1"/>
+      <rect x="196" y="30" width="88" height="14" rx="5" fill="#1c1917"/>
+      <rect x="196" y="40" width="88" height="4" fill="#1c1917"/>
+      <text x="240" y="40" text-anchor="middle" font-size="7" fill="#d6d3d1" font-weight="700">🥉 #3 · ROI 3.0×</text>
+      <text x="240" y="52" text-anchor="middle" font-size="7" fill="#f1f5f9" font-weight="700">Stakeholder Power</text>
 
-    <!-- ── 7. Evo Step [<→+→]→? ──────────────────────────── -->
-    <tr>
-      <td class="keyed">[&lt;→+→]→?</td>
-      <td class="glyph-cell" style="background:#f8fafc;">
-        <svg viewBox="0 0 100 48" width="200" height="96" fill="none" aria-label="Analyze Evo Step entries" role="img">
-          <!-- Left bracket -->
-          <path d="M 8,7 L 3,7 L 3,41 L 8,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Mini <→+→ Evo Step glyph (amber) -->
-          <!-- Chevron < (past anchor) -->
-          <polyline points="15,17 9,24 15,31" stroke="#ca8a04" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Planning gap (dashed faint) -->
-          <line x1="17" y1="24" x2="21" y2="24" stroke="#ca8a04" stroke-width="1.5" stroke-dasharray="2 1.5" stroke-linecap="round" opacity="0.45" />
-          <!-- Value dot 1 (bright yellow) -->
-          <circle cx="25" cy="24" r="3.5" fill="#facc15" />
-          <!-- Arrow (value delivery) -->
-          <line x1="29" y1="24" x2="37" y2="24" stroke="#ca8a04" stroke-width="2" stroke-linecap="round" />
-          <polyline points="34,21 38,24 34,27" stroke="#ca8a04" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Plus (accumulation) -->
-          <line x1="40" y1="24" x2="46" y2="24" stroke="#ca8a04" stroke-width="2" stroke-linecap="round" />
-          <line x1="43" y1="21" x2="43" y2="27" stroke="#ca8a04" stroke-width="2" stroke-linecap="round" />
-          <!-- Value dot 2 -->
-          <circle cx="51" cy="24" r="3.5" fill="#facc15" />
-          <!-- Right bracket -->
-          <path d="M 57,7 L 62,7 L 62,41 L 57,41" stroke="#64748b" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Transformation arrow (cyan) -->
-          <line x1="65" y1="24" x2="76" y2="24" stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" />
-          <polyline points="73,21 78,24 73,27" stroke="#0ea5e9" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-          <!-- Analytical question mark (violet) -->
-          <text x="82" y="32" font-size="17" font-family="Georgia,serif" font-weight="bold" fill="#7c3aed">?</text>
-        </svg>
-      </td>
-      <td>Analyze Evo Step entries.  "Is this step delivering its committed Value Goal?  Are the Resources on budget?  Has it been measured (Stage 8)?"  Inner <code>&lt;→+→</code> = Evo Step icon (amber chevron = past anchor, yellow dots = value delivered, plus = accumulation).</td>
-      <td style="color:#64748b;font-size:12px;">PROPOSAL</td>
-    </tr>
+      <rect x="290" y="30" width="88" height="72" rx="5" fill="#1e293b" stroke="#94a3b8" stroke-width="1"/>
+      <text x="334" y="40" text-anchor="middle" font-size="7" fill="#67e8f9" font-weight="700">#4 · ROI 2.8×</text>
+      <text x="334" y="52" text-anchor="middle" font-size="7" fill="#f1f5f9" font-weight="700">Relax Value Goal</text>
 
-  </tbody>
-</table>
+      <rect x="384" y="30" width="88" height="72" rx="5" fill="#1e293b" stroke="#94a3b8" stroke-width="1"/>
+      <text x="428" y="40" text-anchor="middle" font-size="7" fill="#c4b5fd" font-weight="700">#5 · ROI 2.3×</text>
+      <text x="428" y="52" text-anchor="middle" font-size="7" fill="#f1f5f9" font-weight="700">Reallocate Resource</text>
+    </svg>
+  </div>
 
-<p class="caption" style="background:#fef9c3;border-left:4px solid #ca8a04;padding:10px 14px;margin:8px 0 20px;">
-  <b>Special cases — entry types whose notation already contains brackets:</b><br>
-  <b>Constraint <code>[→O→]</code></b> — the Constraint icon's own bold orange brackets ARE the <code>[*]</code> container.  The compound "Analyze Constraint" is simply: full Constraint icon + <code>→?</code> appended.  No extra outer brackets needed (that would produce confusing <code>[[→O→]]→?</code>).<br>
-  <b>Solution <code>[*]→</code></b> — similarly, the Solution icon's medium orange brackets serve as the container.  Compound: full Solution icon + <code>→?</code> appended = <code>[*]→→?</code> (the first arrow belongs to the Solution, the second → is the transformation).  Visually reads as "query the solution path."
-</p>
+  <div class="grid" id="ai-grid"></div>
+</section>
 
-<!-- ── KISS Feature section ──────────────────────────────────────────────── -->
-<h2 id="kiss-feature" style="background:#1e1b4b;color:#c4b5fd;padding:12px 18px;border-radius:10px;border:2px solid #7c3aed;margin-top:40px;font-size:18px;">
-  ▶ KISS — Keep Improvement Super Surprising  ✅ SHIPPED 2026-06-05
-</h2>
-<p class="caption" style="background:#1e1b4b;color:#a5b4fc;border-left:4px solid #7c3aed;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
-  Tom Gilb 2026-06-05 verbatim: "Tell me the 5 most cost-effective spec improvements I can do now (in any spec type) to enable the most dramatic early improvement in resources… BLOW OUR mind with KISSES. KISS: Keep Improvement Super Surprising."
-</p>
-<table style="width:100%;border-collapse:collapse;background:#0f172a;color:#e2e8f0;">
-  <thead>
-    <tr style="background:#1e1b4b;">
-      <th style="color:#c4b5fd;padding:10px 16px;text-align:left;border:1px solid #312e81;">Feature</th>
-      <th style="color:#c4b5fd;padding:10px 16px;text-align:left;border:1px solid #312e81;">Description</th>
-      <th style="color:#c4b5fd;padding:10px 16px;text-align:left;border:1px solid #312e81;">Files</th>
-      <th style="color:#c4b5fd;padding:10px 16px;text-align:left;border:1px solid #312e81;">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-weight:700;color:#a78bfa;">KISS Panel (5 Improvements)</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;">Dramatic dark violet panel: Phase A focus selectors (tick resources + add new); Phase B 5 VDT-ranked improvement cards, each with inline Change Differential Diagram. K/I/S/S header acronym in distinct vivid colors. 4-alt collapsible accordion per improvement. Wired as Stage 10 Pin 5.</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;font-family:monospace;color:#67e8f9;">ResourcesKissPanel.vue (NEW)<br>App.vue (5th pin)</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;color:#4ade80;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-weight:700;color:#a78bfa;">Change Differential Diagram</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;">Visual before/after per improvement: dark slate-950 background, vivid zone bars (red/amber/emerald/teal/cyan), delta arrows (↑↓✦◈→ in semantic colors), net-impact footer row (values-lifted / resource-saving% / ROI×). Invented by Claudian 2026-06-05 — no prior Planguage visual; based on VDT (Gilb EVO 2024 ch.7) logic.</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;font-family:monospace;color:#67e8f9;">ResourcesKissPanel.vue (inline)</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;color:#4ade80;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-weight:700;color:#a78bfa;">useKissAnalysis VDT Engine</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;">Pure TypeScript (Twin-portable). 5 improvement types: constraint-relax (ROI 4.1×), solution-add (ROI 3.8×), stakeholder-power (ROI 3.0×), value-goal-relax (ROI 2.8×), resource-realloc (ROI 2.3×). Each has ChangeDiff[] + 4 KissAlternatives with tradeoffs/approvalNeeded/gilbCite. Ironclad-ship demo fallback. No API calls — Claude-Code-as-AI-Layer rule.</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;font-family:monospace;color:#67e8f9;">useKissAnalysis.ts (NEW, 740 lines)</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;color:#4ade80;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-weight:700;color:#fbbf24;">OPTIMA Panel Overhaul</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;">Tom screenshot feedback addressed: (1) dark slate-950/amber-950 header (more dramatic); (2) live consequence panel after slider move (↑↓ per value, oldVal→newVal, auto-hides 5s); (3) rebalancing suggestions strip (Lift lowest / −20% test / Reset); (4) ↕ DRAG instruction prominent; (5) entry counts in header; (6) all entry cards dark (emerald-950/amber-950/red-950); (7) axis labels vivid amber/emerald/teal.</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;font-family:monospace;color:#67e8f9;">ResourceOptimaPanel.vue (MODIFIED)</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;color:#4ade80;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-weight:700;color:#86efac;">suggestedAnswers (9 dimensions)</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;">All 9 ResourcesSharpenDimension objects populated with suggestedAnswers: 3–5 complete Planguage-syntax answers per guided question (36 questions total, 100+ answers). Every answer Gilb-cited (CE 2005, EVO 2024, PoSEM, Value Improvement, Cost Engineering, Optima, SE). Enables EvoSharpInterview-style UX (next pass).</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;font-size:12px;font-family:monospace;color:#67e8f9;">resourcesSharpenDimensions.ts (MODIFIED)</td>
-      <td style="padding:10px 16px;border:1px solid #1e293b;color:#4ade80;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-  </tbody>
-</table>
+<!-- ══════════════════════════════════════════════ 5. VISUALIZATION ══ -->
+<section class="section" id="viz">
+  <div class="section-header">
+    <div class="section-dot" style="background:#0ea5e9"></div>
+    <div class="section-title">📊 Visualization</div>
+    <div class="section-count">9 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('viz-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="viz-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('viz-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Visualization</div>
+    <div class="expert-body">
+      <p>The <strong>Value Flow Diagram</strong> makes explicit what most architecture diagrams hide: causal chains from Functions through Solutions to Values. When a planner can see "this Solution delivers 42% of this Value" as a visual arc with magnitude, they make better trade-off decisions. Most project visualisations show work — Evo diagrams show <em>impact</em>.</p>
+      <p>The <strong>V × Step VDT Table</strong> (Value Decision Table) is Planguage's answer to the question "which Evo Step matters most?" — it maps every Value against every Evo Step, showing expected impact per cell. Empty cells are not blanks to be ignored; they are prompts: "Have you assessed whether this Step affects this Value? If not, why not?"</p>
+      <p>The <strong>OPTIMA MultiVision sliders</strong> implement the Tolerable/Goal/Wish commitment spectrum visually. Moving a slider from 50 (Goal) to 100 (Wish) is not just aspirational — it immediately shows the consequence: which Solutions become insufficient, which constraints become binding, what new Resources are needed. The plan reacts to the vision, not the other way around.</p>
+      <p class="cite">Gilb's SEM Diagrams concept (DD-005): "ONE panel where all 4 knowledge sources merge against the spec — Functions as central spine, Values and Resources as satellites, Means with impact magnitudes."</p>
+    </div>
+  </div>
+  <div class="grid" id="viz-grid"></div>
+</section>
 
-<!-- ── Resources Guided UX section ──────────────────────────────────────── -->
-<h2 id="resources-guided-ux" style="background:#064e3b;color:#6ee7b7;padding:12px 18px;border-radius:10px;border:2px solid #059669;margin-top:40px;font-size:18px;">
-  ▶ Resources Guided Questions — EvoSharpInterview-style UX  ✅ SHIPPED 2026-06-05
-</h2>
-<p class="caption" style="background:#064e3b;color:#a7f3d0;border-left:4px solid #059669;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
-  Tom Gilb 2026-06-05 verbatim: "FOR ALL guided questions, i want same logic as applied in sharpening earlier. a handful 3-6 tailored powerful impressive answers to user select any set of. Along with a space for a Planner answer … Exactly like earlier stage sharpening (use same logic). Iteration allowed."
-</p>
-<table style="width:100%;border-collapse:collapse;background:#f0fdf4;color:#1e293b;">
-  <thead>
-    <tr style="background:#d1fae5;">
-      <th style="color:#065f46;padding:10px 16px;text-align:left;border:1px solid #a7f3d0;">Feature</th>
-      <th style="color:#065f46;padding:10px 16px;text-align:left;border:1px solid #a7f3d0;">Description</th>
-      <th style="color:#065f46;padding:10px 16px;text-align:left;border:1px solid #a7f3d0;">Files</th>
-      <th style="color:#065f46;padding:10px 16px;text-align:left;border:1px solid #a7f3d0;">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #d1fae5;font-weight:700;color:#065f46;">useResourcesSharpAnswers</td>
-      <td style="padding:10px 16px;border:1px solid #d1fae5;font-size:12px;">Resources-stage persistence mirror of useEvoSharpAnswers. Storage key resources:v1:${planId} (plan-scoped, not step-scoped). Same QuestionAnswer + SelectionMode types, computeEffectiveAnswer, and full API (getAnswer, setTypedAnswer, toggleTicked, setMode, isTicked, getEffectiveAnswer, answeredInCategory). Self-contained — no circular imports.</td>
-      <td style="padding:10px 16px;border:1px solid #d1fae5;font-size:12px;font-family:monospace;color:#059669;">useResourcesSharpAnswers.ts (NEW, 260 lines)</td>
-      <td style="padding:10px 16px;border:1px solid #d1fae5;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #d1fae5;font-weight:700;color:#065f46;">Per-question Interactive Blocks</td>
-      <td style="padding:10px 16px;border:1px solid #d1fae5;font-size:12px;">Each of the 9 dimensions × 4 questions now has a full EvoSharpInterview-style interactive block: Planner textarea, 3–5 tickable suggested-answer chips (emerald highlight on tick, #N mono label), 4 mode pills (Mixed/All/My answer only/Ticked only, active=emerald-600), effective-answer preview box. Answered/total badge on accordion header (green=done, amber=partial, slate=none). Overall N/M progress in header subtitle.</td>
-      <td style="padding:10px 16px;border:1px solid #d1fae5;font-size:12px;font-family:monospace;color:#059669;">ResourcesSharpenPanel.vue (+121 lines)</td>
-      <td style="padding:10px 16px;border:1px solid #d1fae5;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-  </tbody>
-</table>
+<!-- ══════════════════════════════════════════════ 6. EXPORT & EMAIL ══ -->
+<section class="section" id="export">
+  <div class="section-header">
+    <div class="section-dot" style="background:#22c55e"></div>
+    <div class="section-title">📤 Export &amp; Email</div>
+    <div class="section-count">10 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('export-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="export-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('export-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Export &amp; Email</div>
+    <div class="expert-body">
+      <p>The <strong>flat-table email standard</strong> is not a cosmetic choice. It is a precision communication tool: each entry type rendered in its canonical Planguage colour (violet=Value, green=Function, orange=Solution, red=Constraint, blue=Stakeholder) so any recipient immediately identifies what type of planning assertion they are reading — without reading a legend.</p>
+      <p>The <strong>Keynote compatibility requirement</strong> drove five design constraints: no nested tables (Keynote splits them into free-floating separate tables), no div backgrounds (stripped by Keynote), explicit bgcolor= attributes on every cell, no height= on text cells (Keynote treats it as maximum, clips wrapped lines), and pre-split long text into one-line-per-row. Every constraint was discovered by Tom's screenshot and resolved by Claudian — a five-round iterative process.</p>
+      <p>The <strong>Auto-Open Mail + clipboard pattern</strong> encodes a precise UX contract: mailto: fires Mail.app automatically (auto-open beats zero-paste); the colourful HTML goes to the clipboard; one ⌘V paste in the Mail compose window upgrades the body from plain text to full colour. The LOUD "PASTE ⌘V HERE FOR COLOR VERSION" cue at the top of every email body is non-negotiable — Tom's muscle memory depends on it appearing in the same position every time.</p>
+      <p class="cite">Tom Gilb, 2026-06-04: "WHEN EMAILING I LIKE always (design rule, note) to send colorful html version of the spec. More fun and dramatic, by far."</p>
+    </div>
+  </div>
 
-<p class="footnote">
-  Open this file in Safari: <code>open /Users/Tomgilbs/Documents/MyVault/.claude/glyph-preview.html</code><br>
-  Future workflow: Claudian updates the SVG markup in this file BEFORE applying changes to <code>src/components/icons/*Glyph.vue</code>.  Tom opens the file in Safari to preview, approves or rejects, and only then does the code change get committed.<br>
-  Artistic synonyms (above) are PROPOSALS — nothing in <code>src/components/icons/</code> has been changed.
-</p>
+  <!-- Mockup: Colourful HTML spec email -->
+  <div class="mockup-card" style="margin-bottom:14px">
+    <div class="mockup-label">Colorful HTML Spec Email — flat-table, Planguage canonical colors, Keynote-pasteable</div>
+    <svg viewBox="0 0 480 120" width="100%" style="max-height:120px">
+      <rect width="480" height="120" fill="#f8fafc" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+      <!-- Email header -->
+      <rect width="480" height="22" fill="#1e3a5f" rx="8"/>
+      <rect width="480" height="8" y="14" fill="#1e3a5f"/>
+      <text x="14" y="15" font-size="9" fill="#93c5fd">To: Tom@Gilb.com · Subject: DOVE Plan Spec — 2026-06-08</text>
+      <rect x="14" y="26" width="452" height="14" rx="3" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+      <text x="240" y="36" text-anchor="middle" font-size="8" fill="#92400e" font-weight="700">PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION · Exported: 2026-06-08</text>
+      <!-- Functions table -->
+      <rect x="14" y="44" width="140" height="12" rx="2" fill="#064e3b"/>
+      <text x="84" y="53" text-anchor="middle" font-size="7.5" fill="white" font-weight="700">Functions</text>
+      <rect x="14" y="56" width="140" height="10" rx="0" fill="#d1fae5"/>
+      <text x="20" y="64" font-size="7" fill="#065f46">F.1 · Provide Planning Interface</text>
+      <rect x="14" y="66" width="140" height="10" rx="0" fill="#ecfdf5"/>
+      <text x="20" y="74" font-size="7" fill="#065f46">F.2 · Support Planguage Entry</text>
+      <!-- Values table -->
+      <rect x="162" y="44" width="150" height="12" rx="2" fill="#4c1d95"/>
+      <text x="237" y="53" text-anchor="middle" font-size="7.5" fill="white" font-weight="700">Values</text>
+      <rect x="162" y="56" width="150" height="10" rx="0" fill="#ede9fe"/>
+      <text x="168" y="64" font-size="7" fill="#4c1d95">V.Deploy · Goal: 95% · Status: 72%</text>
+      <rect x="162" y="66" width="150" height="10" rx="0" fill="#f5f3ff"/>
+      <text x="168" y="74" font-size="7" fill="#4c1d95">V.LeadTime · Goal: 2d · Status: 4.5d</text>
+      <!-- Solutions table -->
+      <rect x="320" y="44" width="160" height="12" rx="2" fill="#7c2d12"/>
+      <text x="400" y="53" text-anchor="middle" font-size="7.5" fill="white" font-weight="700">Solutions</text>
+      <rect x="320" y="56" width="160" height="10" rx="0" fill="#fff7ed"/>
+      <text x="326" y="64" font-size="7" fill="#7c2d12">S.1 · Automated CI/CD Pipeline</text>
+      <!-- Constraints -->
+      <rect x="14" y="80" width="466" height="12" rx="2" fill="#7f1d1d"/>
+      <text x="240" y="89" text-anchor="middle" font-size="7.5" fill="white" font-weight="700">Constraints</text>
+      <rect x="14" y="92" width="466" height="18" rx="0" fill="#fff1f2"/>
+      <text x="20" y="103" font-size="7" fill="#7f1d1d">C.1 · Budget must not exceed $42,000 total Capital Budget for Project</text>
+      <text x="20" y="113" font-size="6.5" fill="#9f1239">Scale: $ Total · Meter: Corp Accounting · Goal: ≤42000</text>
+    </svg>
+  </div>
 
-<!-- ── Bidirectional Scroll Arrows + Progress Track section ─────────────── -->
-<h2 id="scroll-arrows" style="background:#0c4a6e;color:#7dd3fc;padding:12px 18px;border-radius:10px;border:2px solid #0369a1;margin-top:40px;font-size:18px;">
-  ▶ Bidirectional Scroll Arrows + Progress Track — ↑ / ↕ / ↓ · N% shown  ✅ SHIPPED 2026-06-05
-</h2>
-<p class="caption" style="background:#0c4a6e;color:#bae6fd;border-left:4px solid #0369a1;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
-  Tom Gilb 2026-06-05 verbatim: "the scroll arrow point down, but when we are at bottom it can point up and in middle both ways" + "Idea for Scroll: show with % or bar the % of the total scrollable which is in the window"
-</p>
-<table style="width:100%;border-collapse:collapse;background:#f0f9ff;color:#1e293b;">
-  <thead>
-    <tr style="background:#bae6fd;">
-      <th style="color:#0c4a6e;padding:10px 16px;text-align:left;border:1px solid #7dd3fc;">State</th>
-      <th style="color:#0c4a6e;padding:10px 16px;text-align:left;border:1px solid #7dd3fc;">Indicator</th>
-      <th style="color:#0c4a6e;padding:10px 16px;text-align:left;border:1px solid #7dd3fc;">Description</th>
-      <th style="color:#0c4a6e;padding:10px 16px;text-align:left;border:1px solid #7dd3fc;">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">At top (scrollTop = 0)</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:18px;text-align:center;">↓</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Bottom pill only. More content below, nothing above yet. hasMore=true, hasLess=false.</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">In middle</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:18px;text-align:center;">↑ &amp; ↕</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Top ↑ pill appears at top-2 with downward gradient. Bottom pill shows ↕ (bidirectional). Both hasMore AND hasLess true.</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">At bottom</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:18px;text-align:center;">↑</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Top ↑ pill only. All content scrolled into view below. hasMore=false, hasLess=true.</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">Right-edge progress track</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:14px;text-align:center;font-family:monospace;">│▊│</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">3px vertical track on right edge. Thumb height = visibleRatio × 100% (min 8%). Thumb position = scrollRatio × (100 − thumbHeight)%. Always visible when content overflows. Suppressed by noPill.</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-weight:700;color:#0c4a6e;">Pill % label</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;text-align:center;">↓ 40% shown</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;font-size:12px;">Both top and bottom bounce pills now display "N% shown" (Math.round(visibleRatio × 100)) instead of the bare "scroll" label. The % shown = fraction of total content currently in the viewport window.</td>
-      <td style="padding:10px 16px;border:1px solid #bae6fd;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-  </tbody>
-</table>
+  <div class="grid" id="export-grid"></div>
+</section>
 
-<!-- ── WCAG AA Contrast Audit section ───────────────────────────────────── -->
-<h2 id="wcag-contrast" style="background:#1c1917;color:#fde68a;padding:12px 18px;border-radius:10px;border:2px solid #d97706;margin-top:40px;font-size:18px;">
-  ▶ WCAG AA Contrast Audit Standard — automated CI gate  ✅ SHIPPED 2026-06-05
-</h2>
-<p class="caption" style="background:#1c1917;color:#fef3c7;border-left:4px solid #d97706;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
-  Tom Gilb 2026-06-05 verbatim: "I should not ever have to tell you this, please develop standards and tests: the text is whiteout unreadable by us humans"
-</p>
-<table style="width:100%;border-collapse:collapse;background:#fffbeb;color:#1e293b;">
-  <thead>
-    <tr style="background:#fde68a;">
-      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Component</th>
-      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Description</th>
-      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Threshold</th>
-      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">wcagContrast.ts</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">Pure WCAG 2.1 utilities: hexToRgb, relativeLuminance, contrastRatio, passesWCAG_AA (≥ 4.5:1), passesWCAG_AA_Large (≥ 3.0:1). Twin-portable — no Vue, no DOM dependency.</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">WCAG 2.1 §1.4.3</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">wcagContrast.audit.test.ts</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">13 BUTTON_COMBOS rows: Pin 1–6 sub-buttons (bg-white + dark type = 4.5:1), Pin 3 violet-50 container fallback (4.5:1), 3 dark gradient headers (emerald/violet/amber = 3.0:1 large text), 3 All Tools footer pills (4.5:1). RULE: any new button/label/chip colour must be added here. 21/21 tests pass in CI.</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">≥ 4.5:1 normal · ≥ 3.0:1 large</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ 21/21 pass</td>
-    </tr>
-  </tbody>
-</table>
+<!-- ══════════════════════════════════════════════ 7. GOVERNANCE ══ -->
+<section class="section" id="govern">
+  <div class="section-header">
+    <div class="section-dot" style="background:#94a3b8"></div>
+    <div class="section-title">⚖️ Governance &amp; Version Control</div>
+    <div class="section-count">14 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('govern-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="govern-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('govern-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Governance &amp; Version Control</div>
+    <div class="expert-body">
+      <p>The <strong>Plan Health Index (PHI)</strong> scores a plan across five dimensions: completeness, clarity, feasibility, constraint-satisfaction, and Value coverage. Each dimension has an Expert Why? paragraph with a mandatory URL citation — planners must be able to verify the reasoning, not just accept a score. A PHI without citations is an opinion; with citations it is a standard.</p>
+      <p>The <strong>No-Silent-Removal rule</strong> was ratified after a single commit (d6db016) silently dropped 8 permanent-surface affordances — none caught by Claudian, all discovered by Tom. The rule is simple: never remove any element of a permanent surface without explicit Tom approval, obtained beforehand. The list of known silent-drop incidents is maintained as an audit log and reviewed every session.</p>
+      <p>The <strong>Consequence Cascade system</strong> implements the principle that planning changes are never local. Changing a Value Goal propagates: Solutions may need redesign (direct), Resource costs change (2nd-order), Value delivery is affected (nth-order). "Cascade Not Yet Calculated" is not a failure — it is an honest declaration that downstream analysis has not yet been done. Most planning tools pretend this propagation does not exist.</p>
+      <p>The <strong>Weekly Full Backup</strong> was ratified after the 2026-05-19 disaster (git reset --hard destroyed 8 days of work). Two layers: surgical prompt files (fast, small) + full app tar.gz (~4MB, excludes node_modules). Both refreshed every session start. History is never auto-deleted — the backlog of timestamped backups is itself a safety net.</p>
+      <p class="cite">Tom Gilb, 2026-05-27: "Trust is critical to your AI business. You are building back after my 19may.26may disaster of deleting all work 'accidentally'."</p>
+    </div>
+  </div>
+  <div class="grid" id="govern-grid"></div>
+</section>
 
-<!-- ── BookCoverChip section ─────────────────────────────────────────────── -->
-<h2 id="book-cover-chip" style="background:#3b0764;color:#d8b4fe;padding:12px 18px;border-radius:10px;border:2px solid #7c3aed;margin-top:40px;font-size:18px;">
-  ▶ BookCoverChip — Miniature Gilb-book reference widget  ✅ SHIPPED 2026-06-05
-</h2>
-<p class="caption" style="background:#3b0764;color:#ede9fe;border-left:4px solid #7c3aed;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
-  Tom Gilb 2026-06-05 verbatim: "When recommending my books, any books, a miniature cover picture of the books should be placed alongside the text about the book (or several books). With any free and public (like in my book references) download link (priority Researchgate, The Leanpub, then Gilb dropbox)"
-</p>
-<table style="width:100%;border-collapse:collapse;background:#faf5ff;color:#1e293b;">
-  <thead>
-    <tr style="background:#ede9fe;">
-      <th style="color:#4c1d95;padding:10px 16px;text-align:left;border:1px solid #c4b5fd;">Feature</th>
-      <th style="color:#4c1d95;padding:10px 16px;text-align:left;border:1px solid #c4b5fd;">Description</th>
-      <th style="color:#4c1d95;padding:10px 16px;text-align:left;border:1px solid #c4b5fd;">File</th>
-      <th style="color:#4c1d95;padding:10px 16px;text-align:left;border:1px solid #c4b5fd;">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #ede9fe;font-weight:700;color:#4c1d95;">Standard mode</td>
-      <td style="padding:10px 16px;border:1px solid #ede9fe;font-size:12px;">32×48px pure-CSS book spine (no external images), 3D drop-shadow, darker left-stripe via shadeColor(). Title / author / year below. Conditional download links in priority order: ResearchGate (emerald), Leanpub (indigo), Dropbox (blue). TwinPod-URI Access Policy enforced — only distribution URLs accepted.</td>
-      <td style="padding:10px 16px;border:1px solid #ede9fe;font-size:12px;font-family:monospace;color:#7c3aed;">BookCoverChip.vue (NEW, 227 lines)</td>
-      <td style="padding:10px 16px;border:1px solid #ede9fe;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #ede9fe;font-weight:700;color:#4c1d95;">Compact mode</td>
-      <td style="padding:10px 16px;border:1px solid #ede9fe;font-size:12px;">20×28px cover, inline title, first available link labelled "free PDF". Used in space-constrained contexts (citation badges, narrow columns).</td>
-      <td style="padding:10px 16px;border:1px solid #ede9fe;font-size:12px;font-family:monospace;color:#7c3aed;">BookCoverChip.vue (compact prop)</td>
-      <td style="padding:10px 16px;border:1px solid #ede9fe;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-  </tbody>
-</table>
+<!-- ══════════════════════════════════════════════ 8. NAVIGATION & UX ══ -->
+<section class="section" id="nav">
+  <div class="section-header">
+    <div class="section-dot" style="background:#64748b"></div>
+    <div class="section-title">🧭 Navigation &amp; UX Rules</div>
+    <div class="section-count">14 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('nav-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="nav-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('nav-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Navigation &amp; UX Rules</div>
+    <div class="expert-body">
+      <p>The <strong>MOVE Principle</strong> (Make Options Visible Easily) was named by Tom Gilb in 2026. It encodes a fundamental UX truth: cognitive load from hidden options costs more than the screen space saved by hiding them. Every option the user might want at a given moment must be visible without scroll-hunt, menu-dive, or recall-from-memory. Friction-by-design is the enemy.</p>
+      <p>The <strong>Top-and-Bottom Navigation Mirror (DD-014)</strong> solves a specific usability failure: when a planner finishes a long sharpening interview, they are at the bottom of the page. Making them scroll back up to click "Next" is friction-by-design. Every navigation control at the top mirrors at the bottom when content scrolls past one viewport. This is not a nice-to-have — it is binding for every new surface.</p>
+      <p>The <strong>Interaction Disclosure rule (DD-009)</strong> implements "Zero-Training UI": no user should ever need to read a manual, be taught by someone else, or discover behaviour by accident. Every button has a title. Every multi-mode element (single-click AND double-click) lists ALL modes in its tooltip. Non-obvious interactions (drag, long-press, Cmd-click) are never silent.</p>
+      <p>The <strong>Loading State rule (Rule 8)</strong> has no exceptions: every spinner must have ALL FOUR elements — spinner, elapsed seconds counter, asymptotic % progress bar, and amuse content (8 rotating domain-relevant fact cards). A bare spinner leaves the user wondering if the app is frozen. The elapsed seconds counter is the most important element: it transforms "is this broken?" into "it has been working for 12 seconds."</p>
+      <p class="cite">Tom Gilb, 2026-06-04: "Make Options Visible Easily — MOVE. Let's call this the MOVE principle."</p>
+    </div>
+  </div>
+  <div class="grid" id="nav-grid"></div>
+</section>
 
-<!-- ── Cost Engineering Tool section ────────────────────────────────────── -->
-<h2 id="cost-engineering" style="background:#451a03;color:#fde68a;padding:12px 18px;border-radius:10px;border:2px solid #b45309;margin-top:40px;font-size:18px;">
-  ▶ Cost Engineering Tool — Static + Dynamic Design-to-Cost  ✅ SHIPPED 2026-06-05
-</h2>
-<p class="caption" style="background:#451a03;color:#fef3c7;border-left:4px solid #b45309;padding:10px 14px;margin:8px 0 16px;border-radius:0 8px 8px 0;">
-  Tom Gilb 2026-06-05 verbatim: "COST ENGINEERING: THE TOOL, SEPARATE TOOL for Dynamic (Evo Step) Design to [Cost, Value, Constraint] and for initial statics upfront Design to [Cost, Value, Constraint]. Based on ideas in Cost Engineering."
-</p>
-<table style="width:100%;border-collapse:collapse;background:#fffbeb;color:#1e293b;">
-  <thead>
-    <tr style="background:#fde68a;">
-      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Tab / Feature</th>
-      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Description</th>
-      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">File</th>
-      <th style="color:#451a03;padding:10px 16px;text-align:left;border:1px solid #fcd34d;">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">Static — Upfront Design-to-Cost</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">Design-to-Cost Targets table from R. entries (budget, target, max-allowed, status), Value Delivery within Budget from V. entries (Goal, Wish vs budget), Constraint Check from C. entries with cost implications. Demo data when spec is null. Gilb Cost Engineering citation via BookCoverChip.</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;font-family:monospace;color:#b45309;">ResourceCostEngineeringPanel.vue (NEW, 536 lines)</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">Dynamic — Evo Step Cost Tracking</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">Per-Evo-Step table: planned cost vs value delivered vs constraint status. VDT-style V/C ratio ranking (≥2.0=emerald, 1.0–1.9=amber, &lt;1.0=red). DEEP Principle note on cross-step resource trade-offs. Actionable recommendation for lowest V/C step.</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;font-family:monospace;color:#b45309;">ResourceCostEngineeringPanel.vue (Dynamic tab)</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-    <tr>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-weight:700;color:#451a03;">[$→*] International Keyed Icon</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;">DD-015 compliant: bracket + dollar + arrow + asterisk (no English letters). $ = cost/resource, → = transformation, * = output. Appears on Pin 6 in the Stage 10 Visualize grid and in the panel header gradient (amber/slate-900).</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;font-size:12px;font-family:monospace;color:#b45309;">App.vue (Pin 6)</td>
-      <td style="padding:10px 16px;border:1px solid #fde68a;color:#059669;font-weight:700;">✅ SHIPPED</td>
-    </tr>
-  </tbody>
-</table>
+<!-- ══════════════════════════════════════════════ 9. GLYPHS & ICONS ══ -->
+<section class="section" id="glyphs">
+  <div class="section-header">
+    <div class="section-dot" style="background:#c084fc"></div>
+    <div class="section-title">🎨 Glyphs &amp; Icon System</div>
+    <div class="section-count">12 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('glyphs-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="glyphs-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('glyphs-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Glyphs &amp; Icon System</div>
+    <div class="expert-body">
+      <p>The Planguage glyph system is <strong>25 years old</strong>. The keyed notation ([ ], *, →, !) is mathematically international — brackets and asterisks carry the same meaning in Japanese, Arabic, and English. <strong>F/V/S/C/R abbreviations were banned</strong> because they encode the English names of Planguage concepts, making the system unusable in other languages. Tom Gilb: "I want international icons."</p>
+      <p>The <strong>two-family glyph system</strong> (Color Keyed Icon + Color Artsy Icon) encodes a cognitive-economy principle: users learn one basic shape, recognise it in two variations. The Color Keyed Icon is the scientific form — literal keyed characters rendered with hand-stroke quality. The Color Artsy Icon is the artistic form — creative interpretation of the same concept. Same shape, two variations — users never have to learn two different visual languages.</p>
+      <p>The <strong>colour regime</strong> is not decorative. Each of the 8 Planguage canonical colours (violet/green/red/orange/blue/dark-green/amber/slate) identifies a specific entry type. A recipient who sees a violet table in an email knows immediately they are reading Value entries — without reading a header. The colourful-HTML export and the glyph system are two facets of the same Conjunction-of-Technologies principle: colour does the semantic lifting that text alone cannot.</p>
+      <p><strong>DD-017 (Color-on-Background Contrast)</strong> was ratified because Tom Gilb has red-green colorblindness. Dark green and red on dark backgrounds are unreadable for R-G colorblind users — a fact that affects 8% of male users globally. Canonical-colored text must always appear on a white background.</p>
+      <p class="cite">Tom Gilb, 2026-06-04: "The reason for my rule was that users did not have to learn 2 different visual shapes. One basic shape, 2 variations."</p>
+    </div>
+  </div>
 
-<p class="footnote">
-  Open this file in Safari: <code>open /Users/Tomgilbs/Documents/MyVault/.claude/glyph-preview.html</code><br>
-  Future workflow: Claudian updates the SVG markup in this file BEFORE applying changes to <code>src/components/icons/*Glyph.vue</code>.  Tom opens the file in Safari to preview, approves or rejects, and only then does the code change get committed.<br>
-  Artistic synonyms (above) are PROPOSALS — nothing in <code>src/components/icons/</code> has been changed.
-</p>
+  <!-- Mockup: Glyph family -->
+  <div class="mockup-card" style="margin-bottom:14px">
+    <div class="mockup-label">Planguage Glyph Family — all 8 entry-type icons + 6 action glyphs (Color Keyed International standard)</div>
+    <svg viewBox="0 0 480 80" width="100%" style="max-height:80px">
+      <rect width="480" height="80" fill="#0f172a" rx="6"/>
+      <!-- Type icons row -->
+      <text x="14" y="14" font-size="7" fill="#475569" font-weight="700">ENTRY TYPE GLYPHS (international, no English letters)</text>
+      <!-- F. Function -->
+      <rect x="14" y="18" width="48" height="28" rx="4" fill="#052e16" stroke="#16a34a" stroke-width="1"/>
+      <text x="38" y="30" text-anchor="middle" font-size="9" fill="#4ade80" font-family="monospace">[→→]</text>
+      <text x="38" y="42" text-anchor="middle" font-size="6" fill="#86efac">Function</text>
+      <!-- V. Value -->
+      <rect x="68" y="18" width="48" height="28" rx="4" fill="#2e1065" stroke="#7c3aed" stroke-width="1"/>
+      <text x="92" y="30" text-anchor="middle" font-size="9" fill="#c4b5fd" font-family="monospace">[*&gt;*]</text>
+      <text x="92" y="42" text-anchor="middle" font-size="6" fill="#ddd6fe">Value</text>
+      <!-- S. Solution -->
+      <rect x="122" y="18" width="48" height="28" rx="4" fill="#431407" stroke="#ea580c" stroke-width="1"/>
+      <text x="146" y="30" text-anchor="middle" font-size="9" fill="#fdba74" font-family="monospace">[*→⚙]</text>
+      <text x="146" y="42" text-anchor="middle" font-size="6" fill="#fed7aa">Solution</text>
+      <!-- C. Constraint -->
+      <rect x="176" y="18" width="48" height="28" rx="4" fill="#450a0a" stroke="#dc2626" stroke-width="1"/>
+      <text x="200" y="30" text-anchor="middle" font-size="9" fill="#fca5a5" font-family="monospace">[*≤*]</text>
+      <text x="200" y="42" text-anchor="middle" font-size="6" fill="#fecaca">Constraint</text>
+      <!-- R. Resource -->
+      <rect x="230" y="18" width="48" height="28" rx="4" fill="#3b0764" stroke="#9333ea" stroke-width="1"/>
+      <text x="254" y="30" text-anchor="middle" font-size="9" fill="#d8b4fe" font-family="monospace">[*⇒$]</text>
+      <text x="254" y="42" text-anchor="middle" font-size="6" fill="#e9d5ff">Resource</text>
+      <!-- Stakeholder -->
+      <rect x="284" y="18" width="48" height="28" rx="4" fill="#172554" stroke="#3b82f6" stroke-width="1"/>
+      <text x="308" y="30" text-anchor="middle" font-size="9" fill="#93c5fd" font-family="monospace">[§]</text>
+      <text x="308" y="42" text-anchor="middle" font-size="6" fill="#bfdbfe">Stakeholder</text>
+      <!-- Evo Step -->
+      <rect x="338" y="18" width="48" height="28" rx="4" fill="#0c4a6e" stroke="#0284c7" stroke-width="1"/>
+      <text x="362" y="30" text-anchor="middle" font-size="9" fill="#7dd3fc" font-family="monospace">[→Δ]</text>
+      <text x="362" y="42" text-anchor="middle" font-size="6" fill="#bae6fd">Evo Step</text>
+      <!-- Task -->
+      <rect x="392" y="18" width="48" height="28" rx="4" fill="#1c1917" stroke="#78716c" stroke-width="1"/>
+      <text x="416" y="30" text-anchor="middle" font-size="9" fill="#d6d3d1" font-family="monospace">[✓]</text>
+      <text x="416" y="42" text-anchor="middle" font-size="6" fill="#e7e5e4">Task</text>
+      <!-- Action glyphs row -->
+      <text x="14" y="57" font-size="7" fill="#475569" font-weight="700">ACTION GLYPHS — keyed notation, currentColor</text>
+      <text x="14" y="72" font-size="9" fill="#94a3b8" font-family="monospace">*→[*]  [*]→*  [*]=[*]  [*]→@  [*]→[**]  [*]→[ ]  [?!"]</text>
+      <text x="266" y="72" font-size="7" fill="#475569">Save · Get · Copy · Email · Edit · Clear · Justify</text>
+    </svg>
+  </div>
 
+  <div class="grid" id="glyphs-grid"></div>
+</section>
+
+<!-- ══════════════════════════════════════════════ 10. AGENT TOOLS ══ -->
+<section class="section" id="agents">
+  <div class="section-header">
+    <div class="section-dot" style="background:#38bdf8"></div>
+    <div class="section-title">🕵️ Agent &amp; Board Tools</div>
+    <div class="section-count">15 Tools</div>
+    <button class="expert-btn" onclick="toggleExpert('agents-expert')"><span class="glyph">[!]</span> Expert</button>
+  </div>
+  <div class="expert-panel" id="agents-expert">
+    <button class="expert-panel-close" onclick="toggleExpert('agents-expert')">×</button>
+    <div class="expert-title"><span class="glyph">[!]</span> Expert Analysis — Agent &amp; Board Tools</div>
+    <div class="expert-body">
+      <p>The <strong>10-agent architecture maps exactly to the 9-step Evo cycle</strong>: each agent specialises in one stage of the planning cycle. Agent #1 (Evo Sharp Interview) operates at Stage 10 — sharpening by iteration. Agent #2 (Evo Planner) generates the delivery plan at Stage 6. Agent #3 (Step Improvement + FEED ME!) improves individual Evo Steps. Agents #4–#8 cover Domain Models, Stakeholders, Critical Analysis, Plan Composition, and Decision Support.</p>
+      <p>The <strong>Planguage Analyzer (Agent unified)</strong> is the full Conjunction-of-Technologies realisation: one panel that merges all 4 knowledge sources (current plan / Gilb corpus / LLM training / internet) against the spec, with per-finding source-layer badges. Every finding is attributed to its source — planners know whether they are reading a deterministic calculation, a Gilb citation, a general LLM suggestion, or a live internet finding.</p>
+      <p>The <strong>Standards Auditor</strong> reads the current spec and checks it against Kai-Zen standards (Template_Write_*.md + Rule_Write_*.md). Returns per-defect violations with specific standard citations. This is not "AI says your plan is incomplete" — it is "Rule_Write_planguage-spec.md §4.3 requires a Scale for every Value entry; V.Deployment is missing one."</p>
+      <p>The <strong>Maria Board Agent</strong> operationalises the Planguage governance loop: board decisions become structured entries, meeting minutes become tracked changes, governance records become version history. The board is a stakeholder — its decisions affect Values, Constraints, and Resources. Maria makes that visible.</p>
+      <p class="cite">Conjunction-of-Technologies SUPREME principle: "Every Claudian prompt MUST pass the Planguage structure, not a natural-language summary. The spec JSON or relevant entry objects — NOT 'the plan is about X'."</p>
+    </div>
+  </div>
+  <div class="grid" id="agents-grid"></div>
+</section>
+
+<footer>
+  <p style="font-size:14px;color:#6366f1;font-weight:700;margin-bottom:6px">SEM App — Stakes · Ends · Means</p>
+  <p>Tom Gilb · Planguage · Evo · SVERD · <span style="color:#94a3b8">Penta Model co-invented with Al Shalloway (2022)</span></p>
+  <p style="margin-top:4px">Design sandbox for Tom's Twin (gilb.com/tomtwin) · All AI via Claude Code · No embedded API calls</p>
+  <p style="margin-top:8px;color:#94a3b8">Generated by Claudian · 2026-06-08 · 112 Planning Tools catalogued</p>
+</footer>
+
+<script>
+// ══════════════════════ DATA ══════════════════════
+const FEATURES = [
+
+// ── 1. CORE PLANNING ENGINE (18) ──
+{s:'core', name:'11-Stage Planning Bar', icon:'🗺', col:'#6366f1', desc:'Tile navigation bar across all 11 Evo stages — Stakes → Spec → Solutions → Decompose → Prioritise → Develop → Deliver → Measure → Learn → Evo-Impact → Evo-Steps. Each tile shows entry counts and supports free-jump navigation.', tag:'Navigation SUPREME'},
+{s:'core', name:'Free-Jump Stage Navigation', icon:'⚡', col:'#6366f1', desc:'Any stage can be entered at any time — no gates, no waterfall locks. Matches Evo spirit: learning in later stages demands returning to earlier ones. Stage 1 seeds all later stages automatically.', tag:'DD-007'},
+{s:'core', name:'Plan Model (SpecBlock)', icon:'📐', col:'#10b981', desc:'Structured Planguage SpecBlock persisting all F./V./S./C./R. entries with full field schemas. Twin-portable field names aligned to Template_Write_*.md standards.', tag:'Core Data'},
+{s:'core', name:'LLM Spec Parser', icon:'🧬', col:'#10b981', desc:'One-click natural-language → structured Planguage spec parsing. Extracts Functions, Values, Solutions, Constraints, Resources from free text. Backward-compat schema with migration normaliser.', tag:'AI Parse'},
+{s:'core', name:'Plan History (Multi-Plan)', icon:'📚', col:'#6366f1', desc:'Multiple plans stored independently in localStorage. History panel shows all saved plans with restore, delete, rename. Per-item crash-safe per-record migration prevents full-history wipe on parse error.', tag:'Persistence'},
+{s:'core', name:'Auto-Save + Recovery Banner', icon:'💾', col:'#22c55e', desc:'3-minute autosave with Saved-N-min-ago pill in title bar. On crash/reload: recovery banner prompts restore of the unsaved working tree. Safety commits before any destructive operation.', tag:'Data Safety'},
+{s:'core', name:'Plan Title Bar (Crest)', icon:'👑', col:'#6366f1', desc:'Full Plan crest row: PHI badge, plan title + pencil edit, Owner/Planner/Scribe chips, Version pill, Saved pill, Sharpen badge, Plan Story button, Governance button — always visible, never silently removed.', tag:'SUPREME UI'},
+{s:'core', name:'Planguage Spec Editor', icon:'✏️', col:'#10b981', desc:'Full tabbed spec editor for all entry types with per-type field templates, add/delete, and live preview. Saves to plan model on every keystroke.', tag:'Editor'},
+{s:'core', name:'Function Binary Rule (DD-004)', icon:'⚙️', col:'#22c55e', desc:'Functions are WHAT a system DOES — binary presence/absence, not quality. Quality attaches as Value entries. presenceTest field replaces successCriteria. Enforced in parser, editor, and UI labels.', tag:'Planguage'},
+{s:'core', name:'Inanimate Stakeholders', icon:'🔒', col:'#3b82f6', desc:'Stakeholders include data, regulations, systems — not just humans. GDPR, HIPAA, ISO all stakeholders with C. entry requirements. Parser detects regulatory bodies automatically.', tag:'Planguage'},
+{s:'core', name:'9-Step Evo Cycle', icon:'🔄', col:'#6366f1', desc:'Full 9-step Evo: Stakeholders → Values → Solutions → Decompose → Prioritise → Develop → Deliver → Measure → Learn. Deming\'s PDSA is a 4-step antecedent; Evo is the rigorous 9-step advancement. AI no longer requires simplification.', tag:'Planguage'},
+{s:'core', name:'SUCCESS Definition (DD-006)', icon:'🏆', col:'#f59e0b', desc:'SUCCESS = ALL Values within ALL Constraints across 5 axes (Values reached / Functions present / Constraints respected / Conditions satisfied / Resource Budgets respected). Never a single pass/fail pill.', tag:'Planguage'},
+{s:'core', name:'Priority Engine (DD-006)', icon:'🎯', col:'#f59e0b', desc:'Primary prioritisation = reaching Value Wishes within all Constraints. Not effort-min, not popularity, not fastest-ship. Constraint satisfaction is the hard outer boundary; Wishes are the optimisation target inside.', tag:'Planguage'},
+{s:'core', name:'Plan Importer (LLM Parse)', icon:'📥', col:'#10b981', desc:'Upload PDF or DOCX → Claudian extracts and structures Planguage entries. Handles messy real-world documents with malformed-JSON resilience and schema normalisation.', tag:'Import'},
+{s:'core', name:'SEM Teaches Incrementally', icon:'🎓', col:'#6366f1', desc:'Every surface teaches sound planning engineering as it is needed — not in a book, not in lectures. Hover-defines Planguage terms, Glossary-cited validity checklists, source-layer badges per AI suggestion.', tag:'Education'},
+{s:'core', name:'Planguage Glossary Integration', icon:'📖', col:'#7c3aed', desc:'732-entry living Planguage Glossary (Kai-Zen standards). Commitment language: Tolerable = minimum non-failure threshold, Goal = committed promise, Wish = stakeholder dream. Hover-definitions on every term.', tag:'Glossary'},
+{s:'core', name:'Standards-First Compliance', icon:'📋', col:'#10b981', desc:'Before every implementation: check 10.Standard/Standard.Kai-Zen/ for relevant Proc/Template/Rule. Field names match Template_Write_*.md. Conflicts flagged to Proposed-Updates-to-Kais-Standards.md.', tag:'Standards'},
+{s:'core', name:'Twin Portability', icon:'🔗', col:'#6366f1', desc:'Every design decision evaluated for portability to Kai Gilb\'s industrial Twin app (Solid Pod, 65 books). No Vue-only shortcuts. Field names, composable interfaces, and prompt schemas all portable to different tech stacks.', tag:'Architecture'},
+
+// ── 2. PENTA MODEL (12) ──
+{s:'penta', name:'Penta Model Pinwheel', icon:'🌀', col:'#818cf8', desc:'Interactive 5-sector SVERD pinwheel (Stakeholders · Values · Efficiency · Resources · Design) with live efficiency score at centre, clickable sectors, and hover/click drill-down to individual entries.', tag:'Co-invented 2022'},
+{s:'penta', name:'Penta Full Edit (all 5 types)', icon:'✏️', col:'#818cf8', desc:'Click any entry in the pinwheel → full Planguage template editor on the right. All 5 entry types (F./V./S./C./R.) are editable, deletable, and creatable. Editable ID tag, comma-formatted numbers, Delete button with governance tracking.', tag:'r04 2026-06-08'},
+{s:'penta', name:'Penta Governance (version history)', born:'Jun 2026', icon:'📜', col:'#818cf8', desc:'Every edit tracked: field changed, before/after values, cascade impact status. Save Version button creates a named snapshot. Approve/Reject/Integrate workflow mirrors real governance processes.', tag:'Governance'},
+{s:'penta', name:'PentaOptima Command Bar', icon:'⌨️', col:'#818cf8', desc:'Natural language command bar at bottom of Penta panel. 5 preset commands plus free textarea. Commands apply to the full spec (e.g. "Reduce all Resources by 50%"). Claude processes the command and suggests spec changes.', tag:'AI Commands'},
+{s:'penta', name:'Efficiency Score (live)', icon:'📈', col:'#10b981', desc:'Centre hub shows live Efficiency % (Value achievement ÷ Resource utilisation). Updates as Values and Resources are edited. Grade: excellent/good/fair/poor with matching colour. Preview shows "After edit: ~N%" as you type.', tag:'Live Metric'},
+{s:'penta', name:'3-Ring Design Hierarchy', born:'Jun 2026', icon:'🏗', col:'#f97316', desc:'Design sector has 3 concentric rings: Solutions (inner, orange-600) → Evo Steps (middle, orange-500) → Tasks (outer, orange-400). Tom Gilb: "Solutions inner, quantity and hierarchy spreads outward."', tag:'Design Sector'},
+{s:'penta', name:'SVERD Sector Click-Drill', icon:'🔍', col:'#818cf8', desc:'Click any sector label → right panel shows all entries in that sector with type, description, and budget/goal data. Click an entry → full edit template. Back button returns to sector list.', tag:'Interaction'},
+{s:'penta', name:'MultiVision / OPTIMA Sliders', icon:'🎚', col:'#818cf8', desc:'VDT-grounded ambition sliders: 0=Tolerable, 50=Goal, 100=Wish for every Value. Resource budget sliders. Live consequence computation. Vision Balance score. Lock This Vision with before/after summary.', tag:'OPTIMA'},
+{s:'penta', name:'Create New Entries from Penta', icon:'➕', col:'#818cf8', desc:'"+New Value/Resource/Function/Constraint/Solution" buttons in each sector view. Full create form with auto-suggested ID (V.N/F.N etc.), all Planguage fields, and governance tracking of [CREATED] entries.', tag:'r03 2026-06-08'},
+{s:'penta', name:'Delete with Governance', icon:'🗑', col:'#ef4444', desc:'Delete button on every entry editor. Removal tracked as [DELETED] in Governance with cascade impact flag. Constraint deletion shows warning about downstream dependencies.', tag:'Safety'},
+{s:'penta', name:'Comma-Formatted Numbers', icon:'🔢', col:'#818cf8', desc:'All numeric fields (Budget, Consumed, Goal, Tolerable, Status) accept comma-formatted input: "42,000" and "42000" both valid. Values display with commas on load. parseNum() + fmtNum() helpers.', tag:'r04 2026-06-08'},
+{s:'penta', name:'Editable Entry ID (Tag)', icon:'🏷', col:'#818cf8', desc:'The entry ID badge ("R.1") is now an editable text input. Rename to meaningful IDs like "R.CapitalBudget". Applied on "Apply Changes" — spec updated, governance tracked, panel resets if ID changed.', tag:'r04 2026-06-08'},
+
+// ── 3. SHARPENING (10) ──
+{s:'sharp', name:'Evo Sharpening Interview (12 cats)', icon:'🔪', col:'#f59e0b', desc:'12 category × 3 question × 3 AI suggestion structure (108 suggestions total). 4 selection modes (Mixed/All/My answer/Ticked only). Tick to approve, add own answer, effective-answer preview. localStorage persistence per plan.', tag:'EvoSharp'},
+{s:'sharp', name:'Solution Sharpening (26 themes)', icon:'🏛', col:'#ea580c', desc:'26-theme sharpening interview (Architecture Level, Reusable, Simplification, Adaptable, Reversible, International, Competitive, Innovative, Low Cost, Maintenance, Outsourced, AI Solutions, Security, Usability, Reliability, Risk Reduction…). 52 questions, 156 AI suggestions.', tag:'r03 2026-06-08'},
+{s:'sharp', name:'Resources Sharpening (9 dims)', icon:'💰', col:'#9333ea', desc:'9-dimension Resources interview (3–5 Planguage-syntax answers per question). Same tick-approve / 4-mode UX as Evo Sharpening. Storage key resources:v1:{planId}. answeredInCategory + answeredCount helpers.', tag:'r04 2026-06-05'},
+{s:'sharp', name:'Q&A Justification ([?!"] pin)', icon:'[?!"]', col:'#6366f1', desc:'After every question and suggested answer: the [?!"] pin shows Analysis [!] (what in the spec caused this?), Source ["] (Gilb book citation + URL + credibility 0–10). Hidden by default, auto-opens when answer given. Planguage Parameter "Justification" stored permanently.', tag:'r05 2026-06-08'},
+{s:'sharp', name:'Credibility Dot Meter', born:'Jun 2026', icon:'●', col:'#0ea5e9', desc:'10-dot visual meter per AI suggestion: green=high (9-10), cyan=good (7-8), amber=moderate (5-6), red=speculative (<5). Based on evidence strength. Part of Q&A Justification system.', tag:'Trust Signal'},
+{s:'sharp', name:'Sharpen Rounds Badge', icon:'🔖', col:'#f59e0b', desc:'Title bar badge showing number of sharpening sessions completed. Persistent across sessions. Motivates continued refinement.', tag:'Progress'},
+{s:'sharp', name:'Sharpening Export (Markdown)', icon:'📋', col:'#f59e0b', desc:'Export all sharpening answers as structured Markdown with legend, per-theme answered questions. Copies to clipboard + shows inline preview drawer with CloseDot.', tag:'Export'},
+{s:'sharp', name:'Source-Layer Badges per Suggestion', icon:'🏷', col:'#f59e0b', desc:'Every AI suggestion labelled by provenance: "Derived from plan" (deterministic) / "Cited from Gilb" (book+page) / "LLM training" / "Internet-fetched". Conjunction-of-Technologies SUPREME principle.', tag:'Provenance'},
+{s:'sharp', name:'SourceBadge Component', icon:'📌', col:'#f59e0b', desc:'Universal badge component rendered on every suggestion showing source type with colour coding. Used across Evo Sharp, Solution Sharp, Resources Sharp interviews.', tag:'Component'},
+{s:'sharp', name:'Per-Suggestion Because/Sources', born:'Jun 2026', icon:'🗒', col:'#6366f1', desc:'When a suggestion is ticked, the planner can add their own Because [!] and Sources ["] — why they approved this particular suggestion. Stored as QuestionAnswer.suggBecause / suggSources. Included in spec export.', tag:'Justification'},
+
+// ── 4. AI TOOLS (18) ──
+{s:'ai', name:'Evo Planner (AI Plan Generator)', icon:'🤖', col:'#7c3aed', desc:'AI generates a full Evo Plan from the current spec: linked solutions, effort percentages, acceptance criteria, risk flags. EVO_PLANNER_PROMPT with exact-match reinforcement. Sonnet minimum (Haiku banned for this task).', tag:'AI Generate'},
+{s:'ai', name:'FEED ME! (Audrey II)', icon:'🌱', col:'#ef4444', desc:'Third Evo Tool — Audrey II-themed feedback/learning assistant that critically audits each Evo Step against Planguage standards. Detects missing Scale/Meter/Tolerable/Goal, vague solutions, resource gaps.', tag:'Evo Tool #3'},
+{s:'ai', name:'Evo Step Improvement + Skunkworks', icon:'🚀', col:'#f97316', desc:'Second Evo Tool for improving individual Evo steps. Skunkworks mode proposes radical alternative approaches. Mock seed prevents blank-screen on first use. VDT projection + constraint relaxation output.', tag:'Evo Tool #2'},
+{s:'ai', name:'KISS Panel (5 ranked improvements)', icon:'💋', col:'#7c3aed', desc:'Keep Improvement Super Surprising — pure-TS VDT engine ranking 5 improvement types by ROI: Constraint-relax (4.1×) / Solution-add (3.8×) / Stakeholder-power (3.0×) / Value-goal-relax (2.8×) / Resource-realloc (2.3×). Each with 4 KissAlternatives + Change Differential Diagram.', tag:'r03 2026-06-05'},
+{s:'ai', name:'Change Differential Diagram', born:'Jun 2026', icon:'📊', col:'#7c3aed', desc:'Dark slate-950 background, vivid zone bars (red/amber/emerald/teal/cyan), delta arrows ↑↓✦◈, net-impact row. Shows exact before/after impact of each KISS improvement on Values and Resources.', tag:'KISS Viz'},
+{s:'ai', name:'Evo Critiquer (Agent #6)', icon:'🔭', col:'#0ea5e9', desc:'Critical analysis and improvement suggestions for Evo steps. Checks against Planguage standards. All 4 Loading-State rule elements: spinner + elapsed seconds + % progress bar + amuse content.', tag:'Agent #6'},
+{s:'ai', name:'Maria Board Governance Agent', icon:'📋', col:'#64748b', desc:'Board work parser and governance agent. Parses meeting minutes, decisions, and governance records into structured Planguage entries. Background analysis + email delivery. Resilient JSON parsing.', tag:'Governance AI'},
+{s:'ai', name:'Implied Entries Panel', icon:'💡', col:'#10b981', desc:'Detects Tier 1 (required-field missing) and Tier 2 (implied relationship) gaps in the spec. Accept-all button auto-pastes all suggestions. "AI Draft Missing Value Specs" for blank spec fields.', tag:'AI Assist'},
+{s:'ai', name:'PentaOptima Natural Language', icon:'💬', col:'#818cf8', desc:'Free-text AI commands applied to the full Penta model spec. 5 presets including "Reduce all Resources by 50%" + "Relax all Constraints by 20%". Claude processes and returns structured SpecBlock changes.', tag:'AI Commands'},
+{s:'ai', name:'Stakeholder Extractor', icon:'👥', col:'#3b82f6', desc:'LLM tool extracting stakeholder mentions from plan text. First-person pronoun filtering. Inanimate stakeholders (GDPR, data systems) correctly detected. Returns structured S. entries with roles.', tag:'AI Extract'},
+{s:'ai', name:'Plan Importer Parser', icon:'📑', col:'#10b981', desc:'LLM-powered PDF/DOCX import extracting and structuring Planguage entries. Schema normalisation converts legacy strings to typed objects. Sonnet minimum for reliable JSON.', tag:'Import AI'},
+{s:'ai', name:'Auto-Paste Reinforcement', icon:'📎', col:'#10b981', desc:'Exact-match reinforcement in LLM prompts ensures JSON output matches expected schema precisely. Prevents hallucinated field names. Per-call user-content builder in useEvoPlannerAPI.ts.', tag:'Prompt Eng'},
+{s:'ai', name:'Domain Model Library (Agent #4)', icon:'🗂', col:'#0ea5e9', desc:'Reusable domain models and system architecture patterns. Category overhaul, active model context, cross-agent actions. Model Quality Indicator showing completeness and consistency metrics.', tag:'Agent #4'},
+{s:'ai', name:'Decisions Agent (Agent #8)', icon:'⚖️', col:'#0ea5e9', desc:'Decision analysis and trade-off evaluation across multiple plan options. Compares alternative solutions against Value/Constraint space. Outputs ranked decision matrix.', tag:'Agent #8'},
+{s:'ai', name:'Conjunction-of-Technologies', icon:'🔬', col:'#10b981', desc:'SUPREME AI principle: every Claudian prompt passes full Planguage JSON (not prose summary). Every suggestion carries a source-layer badge. Gilb corpus + LLM training + internet all exploited together.', tag:'SUPREME'},
+{s:'ai', name:'Loading State (Rule 8 — all 4 elements)', icon:'⏳', col:'#f59e0b', desc:'Every AI loading state has ALL FOUR: spinner + elapsed seconds counter + asymptotic % progress bar (caps 95% until done) + amuse content (8-10 rotating domain-relevant fact cards, 8s auto-advance). No bare spinner ever.', tag:'UX Rule 8'},
+{s:'ai', name:'Claudian-as-AI-Layer (SUPREME)', icon:'🧠', col:'#6366f1', desc:'Zero embedded API calls in SEM App. All AI happens in Claudian (this session), writing results to files the SEM App reads. No user API key needed. Decouples AI cost from app runtime. Resilient to provider changes.', tag:'Architecture'},
+{s:'ai', name:'Model Selection Rule', icon:'🎯', col:'#ef4444', desc:'Haiku banned for multi-section JSON, multi-file UI refactors, schema changes, Git history ops. Sonnet minimum for structural work. Count-and-recount audit required before any refactor. Haiku debacle (11 hours wasted) documented.', tag:'Quality'},
+
+// ── 5. VISUALIZATION (9) ──
+{s:'viz', name:'Value Flow Diagram', icon:'🌊', col:'#0ea5e9', desc:'Causal chain visualization: Functions → Values → Solutions → Evo Steps with connector lines, impact indicators, and magnitude arrows. Headline box pulses in sync with focused node (2s ease-in-out).', tag:'Diagram'},
+{s:'viz', name:'MultiForks SVG Diagram', icon:'🍴', col:'#0ea5e9', desc:'Responsive fork diagram showing Solutions with Tolerable/Goal/Wish markers and Resource budget allocation. Solutions rendered as rectangles (not ovals). Resource vocabulary (Budget/Deadline/Headcount) with proportionate positioning.', tag:'Diagram'},
+{s:'viz', name:'Spec Direct Relations', icon:'🕸', col:'#0ea5e9', desc:'Full-screen relationship map between spec entries. Arrow lines show connections. Copy/email export of the relation map. Darker connector lines for readability. Full-screen modal with CloseDot.', tag:'Diagram'},
+{s:'viz', name:'Spec Mini-Map', icon:'🗺', col:'#0ea5e9', desc:'Condensed spatial overview of the entire spec structure. Shows entry distribution, relationship density, and coverage gaps at a glance.', tag:'Overview'},
+{s:'viz', name:'V × Step VDT Table', icon:'📊', col:'#6366f1', desc:'Value Decision Table at Evo Impact stage: Values as rows, Evo Steps as columns. Cells show expected Value impact per step. Self-explaining empty cells prompt the planner to assess coverage.', tag:'VDT'},
+{s:'viz', name:'Impact Estimation View', icon:'📈', col:'#6366f1', desc:'Full V × Evo-Step VDT panel at Stage 11. Forecasts value delivery per evo step. Resource budget allocation per step. Effort% visible per step.', tag:'Forecast'},
+{s:'viz', name:'Penta SVG Pinwheel', icon:'🌀', col:'#818cf8', desc:'500×500 SVG with correct arc-path geometry, polar-to-cartesian label placement, hover highlights, click selection, and 3-ring Design hierarchy. All rendered without canvas — pure scalable SVG.', tag:'SVG'},
+{s:'viz', name:'Arrow Info Panel', icon:'↔️', col:'#0ea5e9', desc:'Tooltip and panel showing details about relationship arrows between entries: source entry, target entry, relationship type, and impact magnitude.', tag:'Tooltips'},
+{s:'viz', name:'3D Model View', icon:'🧊', col:'#0ea5e9', desc:'Three-dimensional visualization of system models showing relationship hierarchies, layers, and structural dependencies.', tag:'3D'},
+
+// ── 6. EXPORT & EMAIL (10) ──
+{s:'export', name:'Colorful HTML Spec Email', icon:'🎨', col:'#22c55e', desc:'ONE flat <table> (no nested tables, no <div> backgrounds). bgcolor= attributes AND inline style= for Mail/Keynote/Outlook compatibility. Per-entry-type canonical colors. Sibling tables per type — each a draggable Keynote table. LOUD ⌘V cue at top of email.', tag:'SUPREME Rule'},
+{s:'export', name:'Auto-Open Mail + Clipboard', icon:'📬', col:'#22c55e', desc:'mailto: fires Mail.app automatically. Colorful HTML goes to clipboard. One ⌘V paste in Mail = full colourful spec in body. No .eml save-to-Downloads. SEM Email Body Standard: ⌘V cue + stamp + separator + full plain-text inline.', tag:'Auto-Open'},
+{s:'export', name:'Descender-Clipping Prevention', icon:'✂️', col:'#22c55e', desc:'Pre-split wrappable text into multiple <tr> rows (1 line per row). Keynote calculates row height from first cell render and refuses to grow — splitting at source gives correct multi-line display. softWrap(text, maxChars) helper.', tag:'Keynote Safe'},
+{s:'export', name:'Copy/Email on All Windows (MOVE)', icon:'📋', col:'#22c55e', desc:'Copy + Email buttons at BOTH top and bottom of every long window with shareable content. Tom verbatim: "email everywhere we find copy." MOVE principle applied to export.', tag:'MOVE'},
+{s:'export', name:'Export Button on All Windows', icon:'⬆️', col:'#22c55e', desc:'Universal: every substantial window has an Export button building 100% of the model as colourful HTML — cures the "27% of model visible" problem. Preview window + clipboard copy + auto-opens Mail.', tag:'Universal'},
+{s:'export', name:'Plain-Text Fallback', icon:'📝', col:'#22c55e', desc:'Every export includes a TSV/Markdown plain-text fallback for screen readers, ancient mail clients, and corporate filters that strip rich content. pasting the clipboard HTML upgrades to colour.', tag:'Fallback'},
+{s:'export', name:'Email Length Truncation Safety', icon:'✂️', col:'#22c55e', desc:'Binary-search truncation: encodeURIComponent(body).length ≤ 7000 (below Safari\'s 8KB ceiling). Truncation appended with note. LOUD ⌘V cue + stamp + separator NEVER truncated.', tag:'Safety'},
+{s:'export', name:'Planguage Glossary Footnotes', icon:'📖', col:'#22c55e', desc:'Every export includes canonical Planguage Glossary footnotes for every term referenced. Recipients understand Tolerable/Goal/Wish without prior training.', tag:'Education'},
+{s:'export', name:'Solution-Sharpening Export', icon:'📤', col:'#ea580c', desc:'Export all Solution Sharpening answers as structured Markdown. CloseDot inline preview drawer. Copies to clipboard. Per-theme answered questions with justification included.', tag:'Export'},
+{s:'export', name:'Colorful Exports Rule (SUPREME)', icon:'🌈', col:'#22c55e', desc:'Every export (Copy/Mail/share/file save) MUST be a colored HTML table. Never pure text. Tables and colors are a universal design rule. First ratified 2026-05-26.', tag:'SUPREME'},
+
+// ── 7. GOVERNANCE (14) ──
+{s:'govern', name:'Plan Version History', icon:'📜', col:'#94a3b8', desc:'All saved plan versions with title, date, owner prominence. Restore any prior version. diff-style change summary between versions. Per-field change tracking.', tag:'Version Ctrl'},
+{s:'govern', name:'Penta Governance Panel', icon:'⚖️', col:'#94a3b8', desc:'Side panel showing all pending changes, saved versions, and cascade impact analysis. Approve / Reject / Integrate workflow. Tom: "go through the same governance here as for all changes."', tag:'Governance'},
+{s:'govern', name:'Cascade Impact Tracking', icon:'🌊', col:'#94a3b8', desc:'Every numeric change (Goal, Budget, Tolerable) flagged for cascade analysis. "Cascade not yet calculated" status until reviewer assesses downstream impacts. Part of version approval workflow.', tag:'Impact'},
+{s:'govern', name:'Plan Health Index (PHI)', icon:'💊', col:'#10b981', desc:'Multi-factor plan health score: completeness, clarity, feasibility, constraint-satisfaction, Value coverage. PHI dot badge on title bar. Expert Why? paragraphs with mandatory URL citation for every factor.', tag:'Health Score'},
+{s:'govern', name:'AI Expert Reviewers (PHI)', icon:'👔', col:'#10b981', desc:'Domain-specific AI personas scoring plan health from their expertise (finance, UX, architecture, safety). Each provides a score + Expert Why? + improvement suggestion.', tag:'PHI'},
+{s:'govern', name:'Error Boundary (Vue 3)', icon:'🛡', col:'#ef4444', desc:'Vue 3 error catcher preventing app crashes. Graceful error display with retry. Universal Recovery Layer: panic reset, hang watchdog timer, concurrent call guard.', tag:'Resilience'},
+{s:'govern', name:'3-Minute Autosave', icon:'💾', col:'#10b981', desc:'Automatic save every 3 minutes. Saved-N-min-ago pill in title bar. savedLabelClick handler. Distinct from manual Save (which creates a named version).', tag:'Safety'},
+{s:'govern', name:'Git Safety Rule (SUPREME)', icon:'🔐', col:'#ef4444', desc:'Before any git reset --hard / checkout / restore: run git status, show all uncommitted changes, commit first with descriptive message. Ratified after losing 11-stage PlanningStageBar (2026-05-19 to 2026-05-26).', tag:'SUPREME'},
+{s:'govern', name:'No-Silent-Removal Rule (SUPREME)', icon:'🚫', col:'#ef4444', desc:'NEVER remove any title bar / stage bar / pin cluster element without explicit Tom approval. 8 elements were silently dropped in commit d6db016 — none caught by Claudian. Rule prevents recurrence. Known silent-drop incident log maintained.', tag:'SUPREME'},
+{s:'govern', name:'SEM Design History Log', icon:'📔', col:'#94a3b8', desc:'5300+ line design log: every feature, every fix, every decision with Tom verbatim quotes, before/after descriptions, and file impact lists. THE design backlog for Tom\'s Twin. One document, one place.', tag:'Log'},
+{s:'govern', name:'Weekly Full Backup Rule', icon:'📦', col:'#10b981', desc:'Two backup layers every session: Layer 1 = LLM prompts (surgical, fast). Layer 2 = full app tar.gz excluding node_modules (~4MB). Stored in ~/Downloads/CRITICAL BACKUPS. Never auto-deleted.', tag:'Backup'},
+{s:'govern', name:'Spell-Out-Type-Names Rule', born:'Jun 2026', icon:'🅰', col:'#94a3b8', desc:'Never V/F/S/C/R as abbreviations in UI text. Spell out Value/Function/Solution/Constraint/Resource, or use the canonical icon. 39 fixes shipped 2026-06-06 across 8 files.', tag:'DD-015'},
+{s:'govern', name:'Banned Scrum Vocabulary Rule', born:'Jun 2026', icon:'🚷', col:'#ef4444', desc:'"Sprint" and all Scrum terms banned from prompts, UI labels, file names, exports. Planguage replacements: sprint→Evo Step, sprint backlog→Tasks, retro→Study-Act, standup→Step status check. ~30 legacy files flagged for rename.', tag:'SUPREME'},
+{s:'govern', name:'TwinPod URI Access Policy', born:'Jun 2026', icon:'🔒', col:'#94a3b8', desc:'TwinPod book URIs (pdfUri/mdUri) are AI-internal ONLY. Never rendered as download links in UI, email, or exports. User-facing distribution via official publication channels (Leanpub/Dropbox/ResearchGate). userFacingDownloadUri() returns null by design.', tag:'Privacy'},
+
+// ── 8. NAVIGATION & UX (14) ──
+{s:'nav', name:'MOVE Principle (SUPREME)', icon:'👁', col:'#6366f1', desc:'Make Options Visible Easily — every option the user might want must be visible without scroll-hunt, menu-dive, or recall-from-memory. Named by Tom Gilb 2026-06-04. Umbrella for DD-014, CloseDot, Copy/Email everywhere, AI-Max.', tag:'SUPREME'},
+{s:'nav', name:'Top-and-Bottom Navigation Mirror (DD-014)', icon:'↕️', col:'#6366f1', desc:'Any navigation control (Back/Return/Next/Continue) at the TOP must also appear at the BOTTOM when content scrolls past one viewport. Border-t separator. Applied: all sharpening interviews, stage templates, modals.', tag:'DD-014'},
+{s:'nav', name:'CloseDot (Universal Close)', icon:'●', col:'#64748b', desc:'ALL three close affordances on every modal/panel/drawer: CloseDot at right of header + backdrop click-outside + Escape key via registerExclusiveSurface. Size lg (32px) on drawers. No × SVG crosses ever.', tag:'DD-009 Rule'},
+{s:'nav', name:'Single-Surface Rule', icon:'🪟', col:'#64748b', desc:'Every full-screen surface calls registerExclusiveSurface(id, openRef). Opening one closes all others. Esc closes any open surface. Tom: "We have no concept of multiple actions simultaneously."', tag:'Rule'},
+{s:'nav', name:'ScrollContainer Rule', icon:'📜', col:'#64748b', desc:'Every overflow-y-auto / overflow-x-auto / max-h-* MUST be wrapped in <ScrollContainer>. Bidirectional scroll arrows. No exceptions — even tiny dropdowns.', tag:'Rule'},
+{s:'nav', name:'Activity-Scroll Rule', icon:'📍', col:'#64748b', desc:'Every long-running activity flag (spinner, streaming, error banner below fold) calls registerActivityScroll(id, activeRef, getTargetEl). Window scrolls to activity on false→true transition.', tag:'Rule'},
+{s:'nav', name:'Actions Hub (tile grid)', icon:'⚡', col:'#6366f1', desc:'Tile grid replacing text dropdown for all SEM actions. Live-data thumbnails (real plan content, counts, names — never cartoons). Visualize Hub and Actions Hub with real Planguage entry data in every tile.', tag:'Hub'},
+{s:'nav', name:'Interaction Disclosure Rule (DD-009)', icon:'💬', col:'#64748b', desc:'Every button has a title attribute. Multi-mode elements list ALL modes in tooltip (single-click AND dbl-click). Non-obvious interactions (drag, long-press, Cmd-click) never silent — always in hover tooltip. "Zero-Training UI."', tag:'DD-009'},
+{s:'nav', name:'Define (⌘D Selection Pill)', icon:'📖', col:'#10b981', desc:'Select any text → ⌘D or floating 📖 Define pill triggers Planguage Glossary lookup. Vault glossary search + AI definition. No select-none on body content; z-index ≤ 600; no stopPropagation on selectionchange.', tag:'Define'},
+{s:'nav', name:'Permission Tiers Rule (SUPREME)', icon:'🚦', col:'#6366f1', desc:'GREEN (act, log, move on) / YELLOW (act, then notify) / RED (3 gates only: remove permanent surface / break persisted data schema / destructive git). Minimum necessary friction. Flow loss is highest-cost outcome.', tag:'SUPREME'},
+{s:'nav', name:'AI-Max Principle (SUPREME)', icon:'🤖', col:'#7c3aed', desc:'Never a blank field if a starting point can be derived. Every input surface shows AI-derived suggestions before the user types. Always accept/modify/dismiss. Source badge on every suggestion. Setting: Off/Standard/Maximum (default Maximum).', tag:'SUPREME'},
+{s:'nav', name:'Control Pins at Top Rule', icon:'📌', col:'#6366f1', desc:'ALL control pins / persistent action buttons on TOP lines. Never floating bottom-left or bottom-right. Settings ⚙ / SOS 🆘 / Actions ⚡ / Agents / EVO Tools all top-right. Tom: "ALL CONTROL PINS ARE AT TOP LINES, NEVER FLOATING BOTTOM."', tag:'Rule'},
+{s:'nav', name:'Plan Story Button', icon:'📖', col:'#6366f1', desc:'Title bar button opening narrative view of the full plan — Functions/Values/Solutions in story form. Stays visible on title bar (no silent removal). Inline editing from story view.', tag:'Navigation'},
+{s:'nav', name:'SOS Panel', icon:'🆘', col:'#ef4444', desc:'Emergency help panel accessible from title bar pin. Quick recovery actions, help links, diagnostic info. Always visible in pin cluster.', tag:'Help'},
+
+// ── 9. GLYPHS & ICONS (12) ──
+{s:'glyphs', name:'8 Planguage Type Icons (Color Keyed)', icon:'🎨', col:'#c084fc', desc:'Full icon family: PlFunctionIcon / PlValueIcon / PlSolutionIcon / PlConstraintIcon / PlResourceIcon / PlStakeholderIcon / PlEvoStepIcon / PlTaskIcon. All keyed-form derived, colour-per-type, internationally readable (no English letters).', tag:'DD-015 Rule'},
+{s:'glyphs', name:'International Icons Rule (DD-015)', icon:'🌍', col:'#c084fc', desc:'F/V/S/C/R letter abbreviations BANNED inside glyphs. Allowed: brackets [ ], asterisk *, transformation arrow →←↔, mathematical symbols, universal punctuation ?!…, numerals. Tom: "I want international icons."', tag:'DD-015 SUPREME'},
+{s:'glyphs', name:'Color Keyed Icon vs Color Artsy Icon (DD-016)', icon:'🖌', col:'#c084fc', desc:'Two glyph families: Color Keyed Icon (literal keyed form, hand-drawn quality) + Color Artsy Icon (artistic synonym). Same basic shape, two variations — users learn once, recognise in both contexts. Colour enlivens; shape must match keyed form element-by-element.', tag:'DD-016'},
+{s:'glyphs', name:'JustificationGlyph ([?!"])', icon:'[?!"]', col:'#6366f1', desc:'New glyph for the Q&A Justification pin. Renders literal Planguage keyed notation [?!"] in monospace: [?]=Questions, [!]=Remarks/Analysis, ["]=Citations. Two visual states: closed (slate) / open (indigo). @click.stop inside <label> elements.', tag:'r05 2026-06-08'},
+{s:'glyphs', name:'PentaGlyph (5-sector star)', icon:'⭐', col:'#818cf8', desc:'SVG glyph representing the Penta model\'s 5 sectors. Used in Penta panel header (Planguage-Glyph-First DD-011). No generic envelope/clipboard SVGs — every icon is purpose-built for SEM semantics.', tag:'DD-011'},
+{s:'glyphs', name:'Action Glyphs (6 keyed)', icon:'⚙️', col:'#94a3b8', desc:'SaveGlyph (*→[*]) · GetGlyph ([*]→*) · CopyGlyph ([*]=[*]) · EmailGlyph ([*]→@) · EditGlyph ([*]→[**]) · CancelEmptyGlyph ([*]→[ ]). All currentColor. Never envelope/clipboard/floppy disk icons.', tag:'DD-011'},
+{s:'glyphs', name:'Priority Triple Glyph', icon:'▶▶▶', col:'#f59e0b', desc:'Three-arrow priority indicator (A>B>C bounded system). Used for Priority Triple ordering of entries. Keyed form: [A>B>C].', tag:'Priority'},
+{s:'glyphs', name:'Owner/Planner/Scribe Glyphs', icon:'👑', col:'#94a3b8', desc:'Three role glyphs on title bar: OwnerGlyph ([*]! = owner accountability), PlannerGlyph ([?]→[*] = question-to-action), ScribeGlyph ([ ]→[*] = capturing-to-record). All international keyed form.', tag:'Roles'},
+{s:'glyphs', name:'PlTypeIcon Dbl-Click → GlyphDataPanel (DD-013)', icon:'ℹ️', col:'#c084fc', desc:'Every <PlTypeIcon> opens GlyphDataPanel on double-click. Hover tooltip includes "· Double-click for detailed icon info". Automatic — implemented inside PlTypeIcon.vue via useGlyphPanel. No per-call-site wiring.', tag:'DD-013'},
+{s:'glyphs', name:'No Generic Icon Libraries (DD-012)', icon:'🚫', col:'#c084fc', desc:'Zero Heroicons, Feather, Material, FontAwesome, Lucide, Phosphor icons. Every icon either from src/components/icons/ or a new *Glyph.vue designed to family conventions. Tom: "never outdated icons and none of those small ones from the set you use. Never again!"', tag:'DD-012 SUPREME'},
+{s:'glyphs', name:'Color-on-Background Contrast (DD-017)', icon:'🎨', col:'#c084fc', desc:'Tom Gilb has red-green colorblindness. Dark/medium green and red on dark backgrounds unreadable. Fix: canonical-colored text on WHITE background. Full contrast chart with pass/fail combinations. Global rule.', tag:'DD-017 SUPREME'},
+{s:'glyphs', name:'Glyph Preview HTML (preview-before-commit)', icon:'👀', col:'#c084fc', desc:'/.claude/glyph-preview.html is the live preview surface for SVG glyphs. Tom cannot see SVG in text chat. Claudian updates the preview HTML in parallel with any glyph code change so Tom can open in Safari before merge.', tag:'Process'},
+
+// ── 10. AGENT TOOLS (15) ──
+{s:'agents', name:'Evo Sharp Interview (Agent #1)', icon:'🔬', col:'#38bdf8', desc:'First Evo Agent panel. 12-category guided sharpening at Evo Impact stage. Per-category accordion with answered/total badges (green=done, amber=partial, slate=none). Overall N/M progress subtitle.', tag:'Agent #1'},
+{s:'agents', name:'Evo Planner (Agent #2)', icon:'📐', col:'#38bdf8', desc:'Second Evo Agent: AI-generates full Evo Plan. Steps linked to Solutions. effortPercent per step. Acceptance criteria. Risk flags. Fallback mock seed if API call returns malformed JSON.', tag:'Agent #2'},
+{s:'agents', name:'Evo Step Improvement (Agent #3)', icon:'⬆️', col:'#38bdf8', desc:'Third Evo Agent: improves individual Evo steps. Skunkworks mode. Mock seed + VDT projection + constraint relaxation types. Per-step improvement suggestions with Gilb citations.', tag:'Agent #3'},
+{s:'agents', name:'Domain Model Library (Agent #4)', icon:'📚', col:'#38bdf8', desc:'Reusable domain and system models. Category browser, active model context, and cross-agent actions. Searchable library. Model Quality Indicator with completeness/consistency metrics.', tag:'Agent #4'},
+{s:'agents', name:'Stakeholder Mapper (Agent #5)', icon:'🗺', col:'#38bdf8', desc:'Fifth Evo Agent: visualizes stakeholder relationships and maps their requirements across Values and Solutions. Conflict detection between stakeholder needs.', tag:'Agent #5'},
+{s:'agents', name:'Evo Critiquer (Agent #6)', icon:'🔭', col:'#38bdf8', desc:'Sixth Evo Agent: critical analysis of Evo steps against Planguage standards. Detects missing fields, vague solutions, resource overcommitments. Full Loading-State rule (spinner+secs+%+amuse).', tag:'Agent #6'},
+{s:'agents', name:'FEED ME! (Agent #3b)', icon:'🌿', col:'#38bdf8', desc:'Audrey II feedback/learning assistant auditing Evo Steps. Mock seed prevents blank first-use. Background analysis. Audit-trail types. 3rd Evo Tool with entertaining botanical persona.', tag:'Evo Tool #3b'},
+{s:'agents', name:'Plan Agent (Agent #7)', icon:'🧩', col:'#38bdf8', desc:'Plan composition, assembly, and high-level planning operations agent. Integrates findings from all other agents into a unified plan recommendation.', tag:'Agent #7'},
+{s:'agents', name:'Decisions Agent (Agent #8)', icon:'⚖️', col:'#38bdf8', desc:'Trade-off analysis and decision support across multiple plan options. Ranks alternatives by Planguage SUCCESS criteria.', tag:'Agent #8'},
+{s:'agents', name:'Maria Board Agent', icon:'📋', col:'#38bdf8', desc:'Board governance agent parsing meeting minutes and decisions. Board Member Cards with auto-suggest role assignment. Settings panel, activity log, design log, standards tracker.', tag:'Board'},
+{s:'agents', name:'KISS Agent Panel', icon:'💋', col:'#7c3aed', desc:'Standalone agent panel for Keep Improvement Super Surprising analysis. Phase A: resource focus checkboxes + new resource input. Phase B: 5 improvement cards with Change Differential Diagrams + 4-alternative accordions.', tag:'KISS'},
+{s:'agents', name:'Goal Ladder', icon:'🪜', col:'#38bdf8', desc:'Scaffolded approach to raising ambition levels. Shows the ladder of improvement from current Status → Tolerable → Goal → Wish. Highlights the gap and suggests intermediate steps.', tag:'Ambition'},
+{s:'agents', name:'DEEP Analyzer', icon:'🔬', col:'#38bdf8', desc:'Defect detection and elimination panel. Cross-references spec against Planguage standards and identifies defects with severity ratings and fix suggestions.', tag:'Quality'},
+{s:'agents', name:'Standards Auditor', icon:'📏', col:'#38bdf8', desc:'Reads current spec, checks against 10.Standard/Standard.Kai-Zen/Template_Write_*.md + Rule_Write_*.md. Returns per-defect violation with Gilb-Standard citation. Planguage-vs-Standards Auditor.', tag:'Standards'},
+{s:'agents', name:'Planguage Analyzer (Unified)', icon:'🔭', col:'#38bdf8', desc:'ONE panel merging all 4 knowledge sources (current plan / Gilb corpus / LLM training / internet) against the spec. Per-finding source-layer badge. The full Conjunction-of-Technologies realisation.', tag:'Unified AI'},
+{s:'agents', name:'Incorruptible Agent', icon:'⚖️', col:'#4f46e5', desc:'Eric Ries 2026 strategic-resilience check. 6 defect categories (Quarterly Tyranny / Stakeholder Monoculture / Mission Drift / Founder-Vision Erosion / Innovation-Budget Predation / Governance Hole) mapped to Ries Figure 5.1 four-pillar framework (Purpose / Coherence / Integrity / Compliance). Per-finding Accept Fix with Source: stamping + Undo. Sharpening Q&A flow synthesises answers into Plan edits. Incorruptibility Score 0-100.', tag:'Ries 2026'},
+{s:'agents', name:'Elon Agent', icon:'⚡', col:'#0e7490', desc:'Tom Gilb 2026-06-12. Musk\'s Methods + Dove Pace-of-Innovation paper. 9 defect categories with Pace-of-Innovation as DOMINANT (Dove names it the dominant Requirement; weighs 2× in Velocity Score, sorts first in UI, cyan accent). Covers Musk 5-step algorithm (Question Requirements → Delete → Simplify → Accelerate → Automate), First-Principles violations, Vertical-Integration gaps, Idiot-Index blindness. Sharpening Q&A. Velocity Score 0-100.', tag:'Musk 2026'},
+
+]
+
+// ══════════════════════ RENDER ══════════════════════
+const SECTION_MAP = {core:'core-grid',penta:'penta-grid',sharp:'sharp-grid',ai:'ai-grid',viz:'viz-grid',export:'export-grid',govern:'govern-grid',nav:'nav-grid',glyphs:'glyphs-grid',agents:'agents-grid'}
+
+FEATURES.forEach(f => {
+  const grid = document.getElementById(SECTION_MAP[f.s])
+  if (!grid) return
+  // Date metadata: parse updated date from tag if present (e.g. 'r04 2026-06-08')
+  const tagDate = (f.tag.match(/\d{4}-\d{2}-\d{2}/) || [])[0]
+  const born = f.born || SECTION_INFO[f.s].defaultBorn
+  const card = document.createElement('div')
+  card.className = 'card'
+  card.innerHTML = `
+    <div class="card-accent" style="background:${f.col}"></div>
+    <div class="card-top">
+      <div class="card-icon" style="background:${f.col}22;border:1px solid ${f.col}44">${f.icon}</div>
+      <div>
+        <div class="card-name">${f.name}</div>
+        <div class="card-cat" style="color:${f.col}">${f.s.toUpperCase()}</div>
+      </div>
+    </div>
+    <div class="card-desc">${f.desc}</div>
+    <div class="card-meta">
+      <span class="meta-born" title="Date first shipped">⊕ ${born}</span>
+      ${tagDate ? `<span class="meta-updated" title="Last improved ${tagDate}">↻ ${tagDate}</span>` : ''}
+    </div>
+    <span class="card-tag" style="background:${f.col}22;color:${f.col};border-color:${f.col}44">${f.tag}</span>
+  `
+  grid.appendChild(card)
+})
+
+// Tool count by section
+const counts = {}
+FEATURES.forEach(f => { counts[f.s] = (counts[f.s]||0)+1 })
+console.log('Planning Tool counts by section:', counts, 'Total:', FEATURES.length)
+
+// ══════════════════════ EXPERT PANELS ══════════════════════
+function toggleExpert(id) {
+  const panel = document.getElementById(id)
+  if (!panel) return
+  const isOpen = panel.classList.contains('open')
+  // Close all other expert panels first
+  document.querySelectorAll('.expert-panel.open').forEach(p => p.classList.remove('open'))
+  if (!isOpen) {
+    panel.classList.add('open')
+    // Scroll the panel into view smoothly
+    setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+  }
+}
+
+function toggleHeroExpert() {
+  const panel = document.getElementById('hero-expert')
+  if (!panel) return
+  panel.classList.toggle('open')
+}
+
+// ══════════════════════ EXPORT ENGINE ══════════════════════
+
+// Section metadata — name, accent colour, dark header colour, defaultBorn
+const SECTION_INFO = {
+  core:   { name: 'Core Planning Engine',         color: '#10b981', dark: '#065f46', defaultBorn: 'May 2026' },
+  penta:  { name: 'Penta Model & SVERD',           color: '#818cf8', dark: '#3730a3', defaultBorn: 'May 2026' },
+  sharp:  { name: 'Sharpening Interviews',         color: '#f59e0b', dark: '#92400e', defaultBorn: 'May 2026' },
+  ai:     { name: 'AI & Agent Tools',              color: '#818cf8', dark: '#3730a3', defaultBorn: 'May 2026' },
+  viz:    { name: 'Visualization',                 color: '#0ea5e9', dark: '#0c4a6e', defaultBorn: 'May 2026' },
+  export: { name: 'Export & Email',                color: '#22c55e', dark: '#14532d', defaultBorn: 'Jun 2026' },
+  govern: { name: 'Governance & Version Control',  color: '#94a3b8', dark: '#334155', defaultBorn: 'May 2026' },
+  nav:    { name: 'Navigation & UX Rules',         color: '#6366f1', dark: '#1e1b4b', defaultBorn: 'May 2026' },
+  glyphs: { name: 'Glyphs & Icon System',          color: '#c084fc', dark: '#4a044e', defaultBorn: 'May 2026' },
+  agents: { name: 'Agent & Board Tools',           color: '#38bdf8', dark: '#0c4a6e', defaultBorn: 'May 2026' },
+}
+
+// HTML-escape helper (needed because some descs contain <table>, <div> etc.)
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+// ── Build colourful flat-table HTML for one section (Gilb HTML Table Standard)
+// ONE flat <table> — no nested tables, no <div> backgrounds, bgcolor + inline style
+function buildSectionHtml(sId) {
+  const info  = SECTION_INFO[sId]
+  const tools = FEATURES.filter(f => f.s === sId)
+  let html = `<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-family:Arial,Helvetica,sans-serif;margin:0 0 16px 0">`
+  // Section header row
+  html += `<tr><td colspan="2" bgcolor="${info.dark}" style="background:${info.dark};padding:10px 18px">`
+  html += `<span style="font-size:14px;font-weight:800;color:white">${esc(info.name)}</span>`
+  html += `<span style="font-size:11px;color:rgba(255,255,255,.65);margin-left:10px">${tools.length} tools</span>`
+  html += `</td></tr>`
+  // One row per tool
+  tools.forEach((t, i) => {
+    const bg = i % 2 === 0 ? '#f8fafc' : '#ffffff'
+    html += `<tr>`
+    html += `<td bgcolor="${bg}" style="background:${bg};padding:8px 12px;width:36%;vertical-align:top;border-bottom:1px solid #e2e8f0">`
+    html += `<span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:5px;margin-right:5px;background:${info.color}22;color:${info.color};border:1px solid ${info.color}44">${esc(t.tag)}</span>`
+    html += `<span style="font-size:12px;font-weight:700;color:#1e293b">${esc(t.name)}</span>`
+    html += `</td>`
+    html += `<td bgcolor="${bg}" style="background:${bg};padding:8px 12px;font-size:12px;color:#475569;line-height:1.5;border-bottom:1px solid #e2e8f0;vertical-align:top">${esc(t.desc)}</td>`
+    html += `</tr>`
+  })
+  html += `</table>`
+  return html
+}
+
+// ── Build plain-text for one section
+function buildSectionPlain(sId) {
+  const info  = SECTION_INFO[sId]
+  const tools = FEATURES.filter(f => f.s === sId)
+  const bar = '─'.repeat(Math.min(info.name.length + 6, 56))
+  let text = `${info.name}\n${bar}\n\n`
+  tools.forEach(t => {
+    text += `• ${t.name}  [${t.tag}]\n  ${t.desc}\n\n`
+  })
+  return text
+}
+
+// ── Build colourful HTML for ALL sections with a catalog header table
+function buildAllHtml() {
+  const date = new Date().toISOString().split('T')[0]
+  let html = `<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-family:Arial,Helvetica,sans-serif;margin:0 0 20px 0">`
+  html += `<tr><td bgcolor="#1e1b4b" style="background:#1e1b4b;padding:20px 24px;text-align:center">`
+  html += `<span style="display:block;font-size:22px;font-weight:900;color:white">SEM Tools — Complete Planning Tool Catalog</span>`
+  html += `<span style="display:block;font-size:12px;color:#c7d2fe;margin-top:6px">112 Tools · Tom Gilb · Planguage · Evo · SVERD · Exported: ${date}</span>`
+  html += `</td></tr></table>`
+  Object.keys(SECTION_INFO).forEach(sId => { html += buildSectionHtml(sId) })
+  return html
+}
+
+// ── Build plain-text for ALL sections
+function buildAllPlain() {
+  const date = new Date().toISOString().split('T')[0]
+  let text = `SEM Tools — Complete Planning Tool Catalog\n`
+  text += `112 Tools · Tom Gilb · Planguage · Evo · SVERD\n`
+  text += `Exported: ${date}\n`
+  text += `${'═'.repeat(56)}\n\n`
+  Object.keys(SECTION_INFO).forEach(sId => { text += buildSectionPlain(sId) + '\n' })
+  return text
+}
+
+// ── SEM Email Body Standard:
+//    LOUD ⌘V cue + stamp + separator + full plain-text inline
+//    Binary-search truncation: encodeURIComponent(body).length ≤ 7000
+function buildMailBody(plain) {
+  const date   = new Date().toISOString().split('T')[0]
+  const header = `PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION\nExported: ${date}\n${'─'.repeat(56)}\n\n`
+  const full   = header + plain
+  if (encodeURIComponent(full).length <= 7000) return full
+  const tail = '\n\n…[plain-text truncated to fit mailto: limit — press ⌘V above for the full colour version]'
+  let lo = 0, hi = plain.length
+  while (lo < hi - 1) {
+    const mid = (lo + hi) >> 1
+    if (encodeURIComponent(header + plain.slice(0, mid) + tail).length <= 7000) lo = mid
+    else hi = mid
+  }
+  return header + plain.slice(0, lo) + tail
+}
+
+// ── Copy — three-tier fallback so it works on file://, https://, and Obsidian app://
+async function copyHtml(html, plain) {
+  // Tier 1 — modern ClipboardItem API (needs HTTPS or localhost)
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html':  new Blob([html],  { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' }),
+        })
+      ])
+      return true
+    } catch (_) { /* fall through */ }
+  }
+  // Tier 2 — clipboard.writeText (plain only, needs HTTPS)
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try { await navigator.clipboard.writeText(plain); return 'text-only' } catch (_) {}
+  }
+  // Tier 3 — execCommand('copy') on a contenteditable div — works on file:// in Safari
+  try {
+    const el = document.createElement('div')
+    el.setAttribute('contenteditable', 'true')
+    el.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none'
+    el.innerHTML = html
+    document.body.appendChild(el)
+    const sel = window.getSelection()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    sel.removeAllRanges()
+    sel.addRange(range)
+    const ok = document.execCommand('copy')
+    sel.removeAllRanges()
+    document.body.removeChild(el)
+    if (ok) return 'exec-html'
+  } catch (_) {}
+  return false
+}
+
+// ── Toast notification
+function showToast(msg) {
+  let t = document.getElementById('sem-toast')
+  if (!t) {
+    t = document.createElement('div')
+    t.id = 'sem-toast'
+    t.style.cssText = [
+      'position:fixed', 'bottom:28px', 'right:28px',
+      'background:#1e293b', 'color:white',
+      'font-size:13px', 'font-weight:700',
+      'padding:12px 22px', 'border-radius:12px',
+      'box-shadow:0 4px 24px rgba(0,0,0,.3)',
+      'z-index:9999', 'transition:opacity .3s',
+      'pointer-events:none', 'opacity:0',
+    ].join(';')
+    document.body.appendChild(t)
+  }
+  t.textContent = msg
+  t.style.opacity = '1'
+  clearTimeout(t._to)
+  t._to = setTimeout(() => { t.style.opacity = '0' }, 3600)
+}
+
+// ── Export one section (copy / email / download)
+async function exportSection(sId, mode) {
+  const info  = SECTION_INFO[sId]
+  const html  = buildSectionHtml(sId)
+  const plain = buildSectionPlain(sId)
+
+  if (mode === 'copy') {
+    const ok = await copyHtml(html, plain)
+    if (ok === true || ok === 'exec-html') showToast(`✔ Copied: ${info.name} — colour HTML on clipboard · ⌘V to paste`)
+    else if (ok === 'text-only')           showToast(`✔ Copied (plain text): ${info.name} — ⌘V to paste`)
+    else                                   showToast('⚠ Copy failed — try right-clicking and choosing "Select All" then Copy')
+  }
+
+  else if (mode === 'email') {
+    const copied = await copyHtml(html, plain)
+    const body   = buildMailBody(plain)
+    const subj   = `SEM Tools — ${info.name}`
+    window.location.href = `mailto:Tom@Gilb.com?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`
+    const note = (copied === true || copied === 'exec-html')
+      ? 'Mail opening — press ⌘V in the body for colour version, then Send.'
+      : 'Mail opening — ⌘V to paste colour (if copy worked), then Send.'
+    setTimeout(() => showToast(`✉ ${note}`), 500)
+  }
+
+  else if (mode === 'download') {
+    const date    = new Date().toISOString().split('T')[0]
+    const fullHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>SEM Tools — ${esc(info.name)}</title></head><body style="font-family:Arial,Helvetica,sans-serif;padding:28px;background:#f8fafc;max-width:900px;margin:0 auto">${html}</body></html>`
+    const fname   = `sem-tools-${sId}-${date}.html`
+    const a = document.createElement('a')
+    // data: URI works on file:// and all contexts; blob: URL needs HTTPS
+    try {
+      a.href = URL.createObjectURL(new Blob([fullHtml], { type: 'text/html' }))
+    } catch (_) {
+      a.href = 'data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml)
+    }
+    a.download = fname
+    document.body.appendChild(a); a.click()
+    setTimeout(() => { document.body.removeChild(a); if (a.href.startsWith('blob:')) URL.revokeObjectURL(a.href) }, 300)
+    showToast(`↓ Downloading: ${fname}`)
+  }
+}
+
+// ── Export all sections (copy / email / download)
+async function exportAll(mode) {
+  const html  = buildAllHtml()
+  const plain = buildAllPlain()
+
+  if (mode === 'copy') {
+    const ok = await copyHtml(html, plain)
+    if (ok === true || ok === 'exec-html') showToast('✔ Copied: All 112 Tools — colour HTML on clipboard · ⌘V to paste')
+    else if (ok === 'text-only')           showToast('✔ Copied (plain text): All 112 Tools — ⌘V to paste')
+    else                                   showToast('⚠ Copy failed — try right-clicking and choosing "Select All" then Copy')
+  }
+
+  else if (mode === 'email') {
+    const copied = await copyHtml(html, plain)
+    const body   = buildMailBody(plain)
+    const subj   = 'SEM Tools — Complete Planning Tool Catalog (112 Tools)'
+    window.location.href = `mailto:Tom@Gilb.com?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`
+    const note = (copied === true || copied === 'exec-html')
+      ? 'Mail opening — press ⌘V in the body for colour version, then Send.'
+      : 'Mail opening — ⌘V to paste colour (if copy worked), then Send.'
+    setTimeout(() => showToast(`✉ ${note}`), 400)
+  }
+
+  else if (mode === 'download') {
+    const date     = new Date().toISOString().split('T')[0]
+    const fullHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>SEM Tools — Complete Planning Tool Catalog</title></head><body style="font-family:Arial,Helvetica,sans-serif;padding:28px;background:#f8fafc;max-width:1000px;margin:0 auto">${html}</body></html>`
+    const fname    = `sem-tools-complete-catalog-${date}.html`
+    const a = document.createElement('a')
+    // data: URI works on file:// and all contexts; blob: URL needs HTTPS
+    try {
+      a.href = URL.createObjectURL(new Blob([fullHtml], { type: 'text/html' }))
+    } catch (_) {
+      a.href = 'data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml)
+    }
+    a.download = fname
+    document.body.appendChild(a); a.click()
+    setTimeout(() => { document.body.removeChild(a); if (a.href.startsWith('blob:')) URL.revokeObjectURL(a.href) }, 300)
+    showToast(`↓ Downloaded: ${fname}`)
+  }
+}
+
+// ── Diagram lightbox ─────────────────────────────────────────────────────────
+function openDiagram(sectionId) {
+  const section = document.getElementById(sectionId)
+  if (!section) return
+  const mockup = section.querySelector('.mockup-card')
+  if (!mockup) return
+  const svg = mockup.querySelector('svg')
+  if (!svg) return
+  const labelEl = mockup.querySelector('.mockup-label')
+  const title   = labelEl ? labelEl.textContent : 'Diagram'
+
+  let overlay = document.getElementById('diagram-overlay')
+  if (!overlay) {
+    overlay = document.createElement('div')
+    overlay.id = 'diagram-overlay'
+    overlay.innerHTML =
+      '<div class="diagram-box">' +
+        '<button class="diagram-close" onclick="closeDiagram()" title="Close (Esc)">×</button>' +
+        '<div class="diagram-lbl" id="diagram-lbl"></div>' +
+        '<div id="diagram-content"></div>' +
+      '</div>'
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeDiagram() })
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDiagram() })
+    document.body.appendChild(overlay)
+  }
+  document.getElementById('diagram-lbl').textContent = title
+  const content = document.getElementById('diagram-content')
+  const clone = svg.cloneNode(true)
+  clone.removeAttribute('style')
+  clone.style.cssText = 'width:100%;height:auto;display:block;border-radius:6px'
+  content.innerHTML = ''
+  content.appendChild(clone)
+  overlay.classList.add('open')
+  document.body.style.overflow = 'hidden'
+}
+
+function closeDiagram() {
+  const overlay = document.getElementById('diagram-overlay')
+  if (overlay) overlay.classList.remove('open')
+  document.body.style.overflow = ''
+}
+
+// ── Inject Expand buttons on every mockup-card that has an SVG ───────────────
+;(function injectDiagramButtons() {
+  ;['core','sharp','ai','export','glyphs'].forEach(sId => {
+    const section = document.getElementById(sId)
+    if (!section) return
+    const mockup = section.querySelector('.mockup-card')
+    if (!mockup || !mockup.querySelector('svg')) return
+    const btn = document.createElement('button')
+    btn.className = 'mockup-expand-btn'
+    btn.title = 'Expand diagram to full view'
+    btn.innerHTML = '⤢ Expand diagram'
+    btn.onclick = () => openDiagram(sId)
+    mockup.appendChild(btn)
+  })
+})()
+
+// ── Inject Copy / Email / Download clusters into every section header ────────
+;(function injectExportClusters() {
+  Object.keys(SECTION_INFO).forEach(sId => {
+    const section = document.getElementById(sId)
+    if (!section) return
+    const header = section.querySelector('.section-header')
+    if (!header) return
+    const cluster = document.createElement('div')
+    cluster.className = 'export-cluster'
+    const n = esc(SECTION_INFO[sId].name)
+    cluster.innerHTML =
+      `<button class="exp-btn exp-btn-copy"  onclick="exportSection('${sId}','copy')"     title="Copy ${n} as colour HTML">📋</button>` +
+      `<button class="exp-btn exp-btn-email" onclick="exportSection('${sId}','email')"    title="Email ${n} to Tom@Gilb.com">✉</button>` +
+      `<button class="exp-btn exp-btn-dl"    onclick="exportSection('${sId}','download')" title="Download ${n} as HTML file">⬇</button>`
+    header.appendChild(cluster)
+  })
+})()
+
+// ── Version stamp — reads file's last-modified date, formats as YYYY-MM-DD · HH:MM CEST ──
+;(function() {
+  const el = document.getElementById('hero-version')
+  if (!el) return
+  try {
+    const d = new Date(document.lastModified)
+    // Format in Europe/Paris (CET/CEST) — matches Tom's timezone
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Paris',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(d)
+    const get = t => (parts.find(p => p.type === t) || {}).value || ''
+    // Determine CET vs CEST offset at that moment
+    const offsetMin = -d.toLocaleString('en', { timeZone: 'Europe/Paris', timeZoneName: 'shortOffset' })
+      .split('GMT')[1]?.replace(':', '') | 0
+    const tz = offsetMin >= 200 ? 'CEST' : 'CET'
+    el.textContent = `v ${get('year')}-${get('month')}-${get('day')} · ${get('hour')}:${get('minute')} ${tz}`
+  } catch(e) {
+    el.textContent = `v ${new Date().toISOString().slice(0,10)}`
+  }
+})()
+</script>
 </body>
 </html>

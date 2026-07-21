@@ -1,5 +1,24 @@
 <script setup lang="ts">
 // PlanningStageBar.vue — 11-stage visual workflow tile bar.
+//
+// r41 v350 (Tom Gilb 2026-06-25 *"the names are not change but al the icons
+// have and size"*): icons swapped from custom hand-drawn 40×40 SVGs to the
+// canonical `<PlTypeIcon size="xl">` (56×56) per stage's plType, MATCHING
+// the main-app ValueCounter stage bar.  Pre-v350 this file rendered its
+// own visual idiom (smaller, custom artwork); v350 brings parity with the
+// canonical Planguage glyph family Tom uses elsewhere (counter tiles,
+// chip-Source highlights, etc.).
+import PlTypeIcon from './icons/PlTypeIcon.vue'
+import type { PlGlyphType } from './icons/PlTypeIcon.vue'
+// r41 v379 (Tom Gilb 2026-06-25 "the old hover text is there together with, if i
+// move cursor, the new one") — pull canonical stage HoverHint from PLANNING_STAGES
+// and pass per-stage `:title` to <PlTypeIcon>.  Without an explicit title prop,
+// PlTypeIcon falls back to its plType canonical label (e.g. constraint =
+// "Constraint — hard boundary that must not be violated…"), leaking the OLD
+// Stage 5 framing.  Routing via PLANNING_STAGES makes every stage tile's icon
+// HoverHint match the stage's actual purpose — eliminates the parallel-
+// implementation drift Trace-Before-Patch SUPREME guards against.
+import { PLANNING_STAGES } from '../data/planningStages'
 // Rebuilt 2026-05-27 from screenshot evidence after git reset --hard wiped the
 // original (which was never committed to git between 2026-05-19 and 2026-05-27).
 //
@@ -35,113 +54,36 @@ const emit = defineEmits<{
 // `color` = Tailwind bg token for the icon accent ring (inactive tiles).
 // `activeGradient` = gradient classes for the active tile background.
 
-// Exported so App.vue's Back/Next pin-pair (and any future stage-navigator)
-// can render destination-stage info (label + gradient colors) without
-// duplicating this list. Tom 2026-06-03: "buttons should be identical to
-// the stage pins". Single-source ensures they stay visually consistent.
-export const STAGES = [
-  {
-    n: 1,
-    label: 'Stakes',
-    appStage: 1,
-    color: 'text-violet-400',
-    activeFrom: 'from-violet-700',
-    activeTo: 'to-indigo-600',
-    icon: 'stakes',
-  },
-  {
-    n: 2,
-    label: 'Solutions',
-    appStage: 1,
-    color: 'text-amber-400',
-    activeFrom: 'from-amber-600',
-    activeTo: 'to-orange-500',
-    icon: 'solutions',
-  },
-  {
-    n: 3,
-    label: 'Sharpen',
-    appStage: 1,
-    color: 'text-sky-400',
-    activeFrom: 'from-sky-700',
-    activeTo: 'to-blue-600',
-    icon: 'sharpen',
-  },
-  {
-    n: 4,
-    label: 'Impacts',
-    appStage: 3,
-    color: 'text-cyan-400',
-    activeFrom: 'from-cyan-700',
-    activeTo: 'to-teal-600',
-    icon: 'impacts',
-  },
-  {
-    n: 5,
-    label: 'Refine',
-    appStage: 2,
-    color: 'text-indigo-400',
-    activeFrom: 'from-indigo-700',
-    activeTo: 'to-violet-600',
-    icon: 'refine',
-  },
-  {
-    n: 6,
-    label: 'Evo Steps',
-    appStage: 2,
-    color: 'text-emerald-400',
-    activeFrom: 'from-emerald-700',
-    activeTo: 'to-green-600',
-    icon: 'evo-steps',
-  },
-  {
-    n: 7,
-    label: 'Evo Impact',
-    appStage: 3,
-    color: 'text-rose-400',
-    activeFrom: 'from-rose-700',
-    activeTo: 'to-pink-600',
-    icon: 'evo-impact',
-  },
-  {
-    n: 8,
-    label: 'Tasks',
-    appStage: 4,
-    color: 'text-pink-400',
-    activeFrom: 'from-pink-700',
-    activeTo: 'to-rose-600',
-    icon: 'tasks',
-  },
-  {
-    n: 9,
-    label: 'Study-Act',
-    appStage: 2,
-    color: 'text-amber-400',
-    activeFrom: 'from-amber-700',
-    activeTo: 'to-yellow-600',
-    icon: 'study-act',
-  },
-  {
-    n: 10,
-    label: 'Plan',
-    appStage: 2,
-    color: 'text-emerald-400',
-    activeFrom: 'from-emerald-600',
-    activeTo: 'to-green-500',
-    icon: 'plan',
-  },
-  {
-    n: 11,
-    label: 'Export',
-    appStage: 5,
-    color: 'text-violet-400',
-    activeFrom: 'from-violet-700',
-    activeTo: 'to-purple-600',
-    icon: 'export',
-  },
+// r41 v298 (Tom Gilb 2026-06-23) — `export const` REMOVED.  `<script setup>`
+// cannot contain ES module exports per Vue compiler; this `export const STAGES`
+// pre-dated the strict-enforcement Vite version and was silently OK before.
+// SpecEditorPanel embed (r41 v298) re-activated this file's compile and the
+// error surfaced.  STAGES kept as a local const (renamed via const-only),
+// destination-stage label lookup that App.vue previously could have used now
+// happens via EDITOR_STAGE_NAMES inside SpecEditorPanel directly.
+// r41 v350 — STAGES tile metadata.  Labels + plType now read from canonical
+// PLANNING_STAGES (single source of truth, can never drift again).  The local
+// metadata retained per tile = appStage routing + gradient colour scheme.
+const STAGES: ReadonlyArray<{
+  n: number
+  label: string
+  plType: PlGlyphType
+  appStage: number
+  activeFrom: string
+  activeTo: string
+}> = [
+  { n: 1,  label: 'Stakes',     plType: 'stakeholder', appStage: 1, activeFrom: 'from-violet-700',  activeTo: 'to-indigo-600' },
+  { n: 2,  label: 'Solutions',  plType: 'solution',    appStage: 1, activeFrom: 'from-amber-600',   activeTo: 'to-orange-500' },
+  { n: 3,  label: 'Sharpen',    plType: 'function',    appStage: 1, activeFrom: 'from-sky-700',     activeTo: 'to-blue-600' },
+  { n: 4,  label: 'Impacts',    plType: 'value',       appStage: 3, activeFrom: 'from-cyan-700',    activeTo: 'to-teal-600' },
+  { n: 5,  label: 'Refine Attributes', plType: 'constraint', appStage: 2, activeFrom: 'from-indigo-700', activeTo: 'to-violet-600' },
+  { n: 6,  label: 'Evo Steps',  plType: 'evo-step',    appStage: 2, activeFrom: 'from-emerald-700', activeTo: 'to-green-600' },
+  { n: 7,  label: 'Evo Impact', plType: 'value',       appStage: 3, activeFrom: 'from-rose-700',    activeTo: 'to-pink-600' },
+  { n: 8,  label: 'Tasks',      plType: 'task',        appStage: 4, activeFrom: 'from-pink-700',    activeTo: 'to-rose-600' },
+  { n: 9,  label: 'Study-Act',  plType: 'evo-step',    appStage: 2, activeFrom: 'from-amber-700',   activeTo: 'to-yellow-600' },
+  { n: 10, label: 'Resources',  plType: 'resource',    appStage: 2, activeFrom: 'from-emerald-600', activeTo: 'to-green-500' },
+  { n: 11, label: 'Export',     plType: 'constraint',  appStage: 5, activeFrom: 'from-violet-700',  activeTo: 'to-purple-600' },
 ] as const
-
-type StageIcon = typeof STAGES[number]['icon']
 
 function isActive(s: typeof STAGES[number]): boolean {
   // r17 fix (2026-06-02): compare planning stage index (1–11) not appStage (1–5).
@@ -154,6 +96,16 @@ function isReachable(s: typeof STAGES[number]): boolean {
   if (!props.hasSpec) return false
   if (s.appStage > 2 && !props.hasPlan) return false
   return true
+}
+
+/**
+ * r41 v379 — canonical per-stage HoverHint text routed into the PlTypeIcon
+ * `title` prop so the stage's actual purpose (from PLANNING_STAGES) shows on
+ * hover, NOT the plType canonical label (which would leak "Constraint — hard
+ * boundary…" for stages 5 + 11 even though their stage purpose differs).
+ */
+function stageIconTitle(n: number): string {
+  return PLANNING_STAGES.find(p => p.stage === n)?.title ?? ''
 }
 </script>
 
@@ -169,17 +121,24 @@ function isReachable(s: typeof STAGES[number]): boolean {
 
       <template v-for="(s, idx) in STAGES" :key="s.n">
 
-        <!-- ── Connecting arrow (between tiles) ────────────────────────── -->
+        <!-- ── Connecting arrow (between tiles) — r41 v377 (Tom Gilb 2026-
+             06-26 "the arrow info does not work"): added HoverHint that
+             names the transition (Stage N: <label> → Stage N+1: <label>) so
+             planner gets a meaningful tooltip instead of silence on hover.
+             Arrow stays decorative (aria-hidden) but the wrapping div is
+             aria-label'd for SR users. -->
         <div
           v-if="idx > 0"
           class="flex items-center px-1 shrink-0"
-          aria-hidden="true"
+          :title="`Stage ${STAGES[idx - 1].n} (${STAGES[idx - 1].label}) → Stage ${s.n} (${s.label}) — click either tile to jump`"
+          :aria-label="`Transition from Stage ${STAGES[idx - 1].n} ${STAGES[idx - 1].label} to Stage ${s.n} ${s.label}`"
         >
           <svg
             class="w-4 h-4 transition-colors duration-300"
             :class="isActive(s) ? 'text-teal-300' : 'text-slate-600'"
             viewBox="0 0 16 16"
             fill="currentColor"
+            aria-hidden="true"
           >
             <path d="M3 8h8M8 4l4 4-4 4" stroke="currentColor" stroke-width="1.5"
                   stroke-linecap="round" stroke-linejoin="round" fill="none"/>
@@ -194,7 +153,7 @@ function isReachable(s: typeof STAGES[number]): boolean {
           :aria-current="isActive(s) ? 'step' : undefined"
           :title="isReachable(s) ? `Go to ${s.label}` : `${s.label} — complete earlier stages first`"
           class="relative flex flex-col items-center justify-between
-                 w-[78px] h-[88px] rounded-xl px-1.5 py-2
+                 w-[100px] h-[108px] rounded-xl px-1.5 py-2
                  transition-all duration-300 shrink-0
                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900"
           :class="[
@@ -219,105 +178,37 @@ function isReachable(s: typeof STAGES[number]): boolean {
           >{{ s.n }}</span>
 
           <!-- ── Icon (center) ────────────────────────────────────────── -->
+          <!-- r41 v350 (Tom Gilb 2026-06-25 *"the names are not change but al
+               the icons have and size"*): single canonical `<PlTypeIcon>` at
+               xl size, matching the main-app ValueCounter stage bar.  Eleven
+               hand-drawn SVGs replaced with one component reference + plType
+               per stage from the canonical PLANNING_STAGES mapping.  The
+               native Pl*Icon multi-colour scheme renders against the dark
+               tile background; ring/shadow treatment delegated to the tile
+               container.  `no-detail-click="true"` because the tile itself
+               is the navigation click target — opening GlyphDataPanel on
+               the same click would compete with the navigate-to-stage emit. -->
           <div class="flex-1 flex items-center justify-center w-full mt-2" aria-hidden="true">
-
-            <!-- Stakes icon: stakeholder circle + goal arrow -->
-            <svg v-if="s.icon === 'stakes'" viewBox="0 0 40 40" class="w-10 h-10">
-              <circle cx="14" cy="12" r="5" :fill="isActive(s) ? '#c4b5fd' : '#a78bfa'" opacity="0.9"/>
-              <path d="M6 28c0-5 4-8 8-8h5" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" fill="none"/>
-              <circle cx="28" cy="20" r="7" fill="none" :stroke="isActive(s) ? '#fde68a' : '#fbbf24'" stroke-width="2"/>
-              <path d="M24 20h8M28 16v8" :stroke="isActive(s) ? '#fde68a' : '#fbbf24'" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-
-            <!-- Solutions icon: bracket with forward arrow [→] -->
-            <svg v-else-if="s.icon === 'solutions'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 8v5c0 3 3 3 3 7s-3 4-3 7v5" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-              <path d="M32 8v5c0 3-3 3-3 7s3 4 3 7v5" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-              <path d="M15 20h10M21 15l5 5-5 5" :stroke="isActive(s) ? '#fcd34d' : '#fbbf24'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>
-
-            <!-- Sharpen icon: two arrows converging to a point -->
-            <svg v-else-if="s.icon === 'sharpen'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 10l12 10" :stroke="isActive(s) ? '#7dd3fc' : '#38bdf8'" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M8 30l12-10" :stroke="isActive(s) ? '#7dd3fc' : '#38bdf8'" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="22" cy="20" r="3" :fill="isActive(s) ? '#38bdf8' : '#7dd3fc'"/>
-              <path d="M25 20h7" :stroke="isActive(s) ? '#bae6fd' : '#bae6fd'" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-
-            <!-- Impacts icon: arrows hitting target -->
-            <svg v-else-if="s.icon === 'impacts'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 14l8 6" :stroke="isActive(s) ? '#67e8f9' : '#22d3ee'" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M8 26l8-6" :stroke="isActive(s) ? '#67e8f9' : '#22d3ee'" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M16 20h8" :stroke="isActive(s) ? '#a5f3fc' : '#67e8f9'" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="26" cy="20" r="6" fill="none" :stroke="isActive(s) ? '#a5f3fc' : '#67e8f9'" stroke-width="2"/>
-              <circle cx="26" cy="20" r="2.5" :fill="isActive(s) ? '#a5f3fc' : '#22d3ee'"/>
-            </svg>
-
-            <!-- Refine icon: funnel / narrowing brackets -->
-            <svg v-else-if="s.icon === 'refine'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 10h24l-9 12v8l-6-3V22z" :fill="isActive(s) ? '#a5b4fc' : '#818cf8'" opacity="0.85"/>
-              <path d="M8 10h24l-9 12v8l-6-3V22z" stroke="#c7d2fe" stroke-width="1" stroke-linejoin="round" fill="none"/>
-            </svg>
-
-            <!-- Evo Steps icon: cycling arrows -->
-            <svg v-else-if="s.icon === 'evo-steps'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M20 8a12 12 0 0 1 12 12" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-              <path d="M32 20a12 12 0 0 1-12 12" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-              <path d="M20 32a12 12 0 0 1-12-12" stroke="#f87171" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-              <path d="M8 20a12 12 0 0 1 12-12" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-              <!-- Arrowheads -->
-              <path d="M29 14l3 6-3 0" fill="#34d399"/>
-              <path d="M14 31l-3-6 3 0" fill="#fbbf24"/>
-            </svg>
-
-            <!-- Evo Impact icon: crossed measurement arrows -->
-            <svg v-else-if="s.icon === 'evo-impact'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M10 30l20-20" :stroke="isActive(s) ? '#fda4af' : '#fb7185'" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M10 10l20 20" :stroke="isActive(s) ? '#fda4af' : '#fb7185'" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="20" cy="20" r="5" fill="none" :stroke="isActive(s) ? '#fb7185' : '#fda4af'" stroke-width="2"/>
-              <path d="M20 8v4M20 28v4M8 20h4M28 20h4" :stroke="isActive(s) ? '#fecdd3' : '#fecdd3'" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-
-            <!-- Tasks icon: stacked checklist rows -->
-            <svg v-else-if="s.icon === 'tasks'" viewBox="0 0 40 40" class="w-10 h-10">
-              <rect x="8" y="10" width="24" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#f472b6'" opacity="0.9"/>
-              <rect x="8" y="18" width="18" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#f472b6'" opacity="0.7"/>
-              <rect x="8" y="26" width="22" height="5" rx="2" :fill="isActive(s) ? '#f9a8d4' : '#f472b6'" opacity="0.5"/>
-              <path d="M34 19l-4 4-2-2" :stroke="isActive(s) ? '#fce7f3' : '#fce7f3'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>
-
-            <!-- Study-Act icon: Deming cycle (circular arrows with book) -->
-            <svg v-else-if="s.icon === 'study-act'" viewBox="0 0 40 40" class="w-10 h-10">
-              <circle cx="20" cy="20" r="12" fill="none" :stroke="isActive(s) ? '#fcd34d' : '#fbbf24'" stroke-width="2"/>
-              <path d="M20 8v4M32 20h-4M20 32v-4M8 20h4" :stroke="isActive(s) ? '#fde68a' : '#fcd34d'" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M14 14h12v8H14z" :fill="isActive(s) ? '#fef3c7' : '#fef3c7'" opacity="0.8"/>
-              <path d="M20 14v8" :stroke="isActive(s) ? '#d97706' : '#d97706'" stroke-width="1.5"/>
-              <!-- Arrow at top indicating cycle -->
-              <path d="M16 9l4-3 4 3" :stroke="isActive(s) ? '#fcd34d' : '#fbbf24'" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-
-            <!-- Plan icon: upward growth chart -->
-            <svg v-else-if="s.icon === 'plan'" viewBox="0 0 40 40" class="w-10 h-10">
-              <path d="M8 32V24l6-4 6 2 6-8 6-4" :stroke="isActive(s) ? '#6ee7b7' : '#34d399'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <circle cx="14" cy="20" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#34d399'"/>
-              <circle cx="20" cy="22" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#34d399'"/>
-              <circle cx="26" cy="14" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#34d399'"/>
-              <circle cx="32" cy="10" r="2.5" :fill="isActive(s) ? '#6ee7b7' : '#34d399'"/>
-              <path d="M8 32h24" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-
-            <!-- Export icon: box with outward arrow -->
-            <svg v-else-if="s.icon === 'export'" viewBox="0 0 40 40" class="w-10 h-10">
-              <rect x="8" y="18" width="16" height="14" rx="3" :fill="isActive(s) ? '#a78bfa' : '#8b5cf6'" opacity="0.85"/>
-              <path d="M20 10h10M25 6l5 4-5 4" :stroke="isActive(s) ? '#ddd6fe' : '#c4b5fd'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <path d="M20 24h4" stroke="#ddd6fe" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-
+            <PlTypeIcon
+              :pl-type="s.plType"
+              size="xl"
+              :no-detail-click="true"
+              :title="stageIconTitle(s.n)"
+              :class="isActive(s) ? 'drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'opacity-90'"
+            />
           </div>
 
-          <!-- Stage label (bottom) -->
+          <!-- Stage label (bottom) — r41 v377 (Tom Gilb 2026-06-26 "the
+               stages are squashed"): removed `truncate` so full labels
+               render.  `whitespace-normal` + `break-words` allows 2-line
+               wrap for the longer ones ("Evo Steps", "Evo Impact", "Study-
+               Act") within the bumped 100px tile width.  Tile height also
+               bumped 104→108px to comfortably fit two short lines.  Tom
+               flagged this multiple times before; v377 banks it
+               structurally so any future tile-width change must preserve
+               full label visibility. -->
           <span
-            class="text-[10px] font-bold leading-none text-center px-0.5 truncate w-full"
+            class="text-[10px] font-bold leading-tight text-center px-0.5 w-full whitespace-normal break-words"
             :class="isActive(s) ? 'text-white' : 'text-slate-200'"
           >
             <span v-if="isActive(s)" class="opacity-70" aria-hidden="true">▶ </span>{{ s.label }}

@@ -14,6 +14,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ref, computed } from 'vue'
 import { MODEL_ID } from '../config/llm'
+import { CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT } from '../config/planguagePrompt'
+import { stampEntries, stampEntry } from '../utils/sourceStamp'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -28,6 +30,12 @@ export interface PlanguagizedEntry {
   details?: string
   sourceText?: string  // snippet of original text this was derived from
   confidence: 'high' | 'medium' | 'low'
+  /** Producer-stamp sweep (Tom Gilb 2026-06-20): every entry carries a
+   *  provenance string "<Generator> · <Plan> · <YYYY-MM-DD>".  Distinct
+   *  from `sourceText` (verbatim snippet); `source` names the generator. */
+  source?: string
+  sourceType?: 'human' | 'ai' | 'system'
+  fieldSources?: Record<string, import('../types/spec').FieldSource>
 }
 
 export interface PlanProblem {
@@ -107,10 +115,14 @@ function _extractJson<T>(text: string): T {
 
 // ── Entry builder ─────────────────────────────────────────────────────────────
 
-function _buildEntry(raw: Record<string, unknown>, idx: number): PlanguagizedEntry {
+function _buildEntry(
+  raw: Record<string, unknown>,
+  idx: number,
+  ctx?: { planTitle?: string; generator?: string; stage?: string },
+): PlanguagizedEntry {
   const type = (['F','V','C','R','S'].includes(String(raw.type)) ? raw.type : 'F') as PlanguagizedEntry['type']
   const tag = String(raw.tag ?? `${type}.${idx + 1}`)
-  return {
+  const entry: PlanguagizedEntry = {
     id: tag,
     type,
     tag,
@@ -119,6 +131,17 @@ function _buildEntry(raw: Record<string, unknown>, idx: number): PlanguagizedEnt
     sourceText: raw.sourceText != null ? String(raw.sourceText) : undefined,
     confidence: (['high','medium','low'].includes(String(raw.confidence)) ? raw.confidence : 'medium') as PlanguagizedEntry['confidence'],
   }
+  // r41 v415 (Tom Gilb 2026-07-01 Source Attribution SUPREME full-app sweep)
+  // — Spec Importer is Class A (raw-text sourced from imported blob).  The
+  // per-entry `sourceText` field IS the trigger; use it as `triggerText`.
+  return stampEntry(entry, {
+    generator:   ctx?.generator ?? 'Spec Importer (LLM)',
+    planName:    ctx?.planTitle,
+    sourceType:  'ai',
+    tool:        ctx?.generator ?? 'Spec Importer',
+    stage:       ctx?.stage ?? 'model-import',
+    triggerText: entry.sourceText?.slice(0, 80),
+  })
 }
 
 function _buildProblem(raw: Record<string, unknown>, idx: number): PlanProblem {
@@ -170,7 +193,7 @@ function loadPlans(): void {
 
 function _buildSampleHotelPlan(): ImportedPlan {
   const now = new Date().toISOString()
-  const entries: PlanguagizedEntry[] = [
+  const entriesRaw: PlanguagizedEntry[] = [
     { id: 'F.1', type: 'F', tag: 'F.1', description: 'Carbon Monitoring', details: undefined, sourceText: 'reduce carbon emissions by 50% by 2030', confidence: 'high' },
     { id: 'F.2', type: 'F', tag: 'F.2', description: 'EV Charging', details: undefined, sourceText: 'EV charging', confidence: 'high' },
     { id: 'F.3', type: 'F', tag: 'F.3', description: 'Local Sourcing', details: undefined, sourceText: 'local sourcing', confidence: 'medium' },
@@ -179,6 +202,14 @@ function _buildSampleHotelPlan(): ImportedPlan {
     { id: 'C.1', type: 'C', tag: 'C.1', description: 'Must comply with EU Green Deal regulations', details: 'Regulatory compliance constraint — binary', sourceText: 'comply with EU Green Deal regulations', confidence: 'high' },
     { id: 'R.1', type: 'R', tag: 'R.1', description: 'Green Initiatives Budget', details: '€2M over 3 years for sustainability initiatives', sourceText: 'Budget for green initiatives: €2M over 3 years', confidence: 'high' },
   ]
+  // r41 v415 — Sample seeds are Class B (SEM-app sourced, deterministic).
+  const entries: PlanguagizedEntry[] = stampEntries(entriesRaw, {
+    generator:  'Sample Plan Builder',
+    planName:   'Hotel CO₂ Reduction Strategy',
+    sourceType: 'system',
+    tool:       'Sample Hotel Plan Seed',
+    stage:      'seed-sample-plan',
+  })
   const problems: PlanProblem[] = [
     { id: 'p1', severity: 'major', category: 'missing-field', entryRef: 'V.1', description: 'V.1 CO₂ Reduction is missing a Meter — how will carbon emissions be measured in practice?', suggestion: 'Add Meter: "Third-party carbon audit report, annual" to V.1', applied: false },
     { id: 'p2', severity: 'minor', category: 'ambiguity', entryRef: 'F.3', description: 'F.3 Local Sourcing is vague — no measurable target for what percentage of sourcing must be local', suggestion: 'Either move the quantitative target to a V. entry (e.g. V.3: Local Sourcing Rate, Scale: % spend, Goal: ≥60%) or add a detail to F.3', applied: false },
@@ -208,7 +239,7 @@ function _buildSampleHotelPlan(): ImportedPlan {
 
 function _buildSampleHabitPlan(): ImportedPlan {
   const now = new Date().toISOString()
-  const entries: PlanguagizedEntry[] = [
+  const entriesRaw: PlanguagizedEntry[] = [
     { id: 'F.1', type: 'F', tag: 'F.1', description: 'Habit Tracking', details: undefined, sourceText: 'habit tracking', confidence: 'high' },
     { id: 'F.2', type: 'F', tag: 'F.2', description: 'Reminder System', details: undefined, sourceText: 'reminders', confidence: 'high' },
     { id: 'F.3', type: 'F', tag: 'F.3', description: 'Social Sharing', details: undefined, sourceText: 'social sharing', confidence: 'high' },
@@ -219,6 +250,14 @@ function _buildSampleHabitPlan(): ImportedPlan {
     { id: 'C.1', type: 'C', tag: 'C.1', description: 'Must comply with WCAG 2.1 AA accessibility standard', details: 'All UI components must pass WCAG 2.1 Level AA automated and manual tests', sourceText: 'accessible to all users including disabled users', confidence: 'high' },
     { id: 'R.1', type: 'R', tag: 'R.1', description: 'Year 1 Revenue Target', details: '$499K annually (100K users × $4.99/mo × 12 months theoretical maximum)', sourceText: 'Revenue from premium subscription at $4.99/month', confidence: 'low' },
   ]
+  // r41 v415 — Sample seed (Class B).
+  const entries: PlanguagizedEntry[] = stampEntries(entriesRaw, {
+    generator:  'Sample Plan Builder',
+    planName:   'Mobile Habit Tracker App Brief',
+    sourceType: 'system',
+    tool:       'Sample Habit Plan Seed',
+    stage:      'seed-sample-plan',
+  })
   const problems: PlanProblem[] = [
     { id: 'p1', severity: 'major', category: 'missing-field', entryRef: 'V.1', description: 'V.1 User Acquisition is missing a Meter — analytics dashboard is named but the specific metric (DAU? registered?) is not defined', suggestion: 'Add Meter: "Registered users count, App Store Connect + backend analytics, measured weekly"', applied: false },
     { id: 'p2', severity: 'minor', category: 'ambiguity', entryRef: 'C.1', description: 'C.1 accessibility constraint scope is unclear — does it apply to the entire app, or just specific screens?', suggestion: 'Specify Scope: "All public-facing screens including onboarding, habit entry, and dashboard" for C.1', applied: false },
@@ -288,7 +327,23 @@ async function importAndConvert(text: string, signal?: AbortSignal): Promise<voi
 
     // ── STEP 1: Convert ──────────────────────────────────────────────────────
 
-    const convertSystem = `You are an expert Planguage analyst trained in Tom Gilb's Competitive Engineering. Convert any input text into structured Planguage entries. Rules: F. entries are BINARY (present or absent) — description is a bare-noun capability; V. entries have Scale/Meter/Goal/Tolerable (all required); C. entries use "Must [not]..." form; R. entries describe budgets/quantities; S. entries are stakeholder-specific capabilities. Be thorough — extract ALL implied values and constraints, not just explicit ones. Return ONLY valid JSON.`
+    // r41 v270 (Tom Gilb 2026-06-21 SUPREME — Canonical Planguage Extractor):
+    // replaced the prior 1-sentence parallel primer with the canonical primer
+    // (single source of truth across every SEM App extraction site).  Composes
+    // with Trace-Before-Patch SUPREME (parallel-impl drift class banked
+    // 2026-06-17) + Architectural Resilience SUPREME.
+    const convertSystem = `You are an expert Planguage analyst trained in Tom Gilb's Competitive Engineering. Convert any input text into structured Planguage entries.
+
+== UNIVERSAL-TEXT INPUT FORMAT (input shape for this caller) ==
+The input you will receive is ARBITRARY TEXT — business brief, strategy doc,
+rough notes, uploaded file content, slide deck text, OKR/DOVE framework, or
+similar. The Planguage discipline below applies verbatim regardless of input
+format. Extract ALL implied values and constraints, not just explicit ones —
+be thorough.
+
+${CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT}
+
+Return ONLY valid JSON — no prose, no code fences.`
 
     const convertUser = `Convert this text to Planguage entries:
 
@@ -314,8 +369,10 @@ Return JSON exactly:
 
     type ConvertResult = { title: string; entries: Record<string, unknown>[] }
     const convertParsed = _extractJson<ConvertResult>(convertText)
-    const entries = (convertParsed.entries ?? []).map((e, i) => _buildEntry(e as Record<string, unknown>, i))
     const title = String(convertParsed.title ?? 'Imported Plan')
+    const entries = (convertParsed.entries ?? []).map((e, i) =>
+      _buildEntry(e as Record<string, unknown>, i, { planTitle: title, generator: 'Spec Importer (LLM Convert)' }),
+    )
 
     _updatePlan(planId, { title, importStatus: 'analysing' })
 
@@ -421,7 +478,13 @@ Return JSON exactly:
 
     type ImproveResult = { entries: Record<string, unknown>[]; changeLabel: string }
     const parsed = _extractJson<ImproveResult>(text)
-    const newEntries = (parsed.entries ?? []).map((e, i) => _buildEntry(e as Record<string, unknown>, i))
+    const newEntries = (parsed.entries ?? []).map((e, i) =>
+      _buildEntry(e as Record<string, unknown>, i, {
+        planTitle: plan.title,
+        generator: `Spec Importer Improve · "${command.slice(0, 40)}"`,
+        stage:     'spec-importer-improve',
+      }),
+    )
     const changeLabel = String(parsed.changeLabel ?? command)
 
     // Re-analyse the improved version

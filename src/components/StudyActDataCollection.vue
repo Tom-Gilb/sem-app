@@ -1035,7 +1035,7 @@ const INDICATOR_OPTIONS: IndicatorType[] = ['leading', 'lagging', 'unspecified']
 
         <!-- Group version history -->
         <div v-if="currentFeedback && currentFeedback.versions.length > 0" class="mt-4">
-          <h3 class="text-xs font-semibold text-slate-700 mb-2">Group version history ({{ currentFeedback.versions.length }})</h3>
+          <h3 class="text-xs font-semibold text-slate-700 mb-2">Group past versions ({{ currentFeedback.versions.length }})</h3>
           <ul class="space-y-1 text-xs">
             <li
               v-for="v in [...currentFeedback.versions].reverse()"

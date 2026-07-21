@@ -38,8 +38,20 @@ const GAP_TEMPLATES: Record<string, SpecGap[]> = {
     { id: 'g-per-2', category: 'Consistency', description: 'No V. entry for habit or consistency tracking', template: 'Personal', severity: 'recommended', exampleEntry: 'V.HabitConsistency — days per week the habit is performed' },
   ],
   General: [
-    { id: 'g-gen-1', category: 'Completeness', description: 'No V. entry with all required fields (Scale, Meter, Goal, Tolerable)', template: 'General', severity: 'critical', exampleEntry: 'Every V. entry should have Scale (what), Meter (how), Goal (target), Tolerable (minimum)' },
-    { id: 'g-gen-2', category: 'Traceability', description: 'No S. entries — solutions not defined', template: 'General', severity: 'recommended', exampleEntry: 'Add S. entries that trace to each F. entry — one implementation approach per function' },
+    // r41 2026-06-20 (Tom Gilb verbatim correction of the earlier wrong
+    // formulation) — refined per rule_value_definition_identity.md SUPREME:
+    //   Unconditional requirements for a Value spec are: (1) a defined
+    //   Scale of Measure, AND (2) at least ONE future required state — a
+    //   Scalar Constraint (Tolerable) and/or a Target (Wish, Goal,
+    //   Stretch).  Meter is desirable but NOT initially required and does
+    //   NOT determine the spec object's characteristics.  The earlier
+    //   wording flagged "missing Meter" as a critical defect, which
+    //   would fire FALSE POSITIVES on every legitimate Value still in the
+    //   planning phase.  Composes with Spell-out-Type-Names SUPREME
+    //   (`V.` / `S.` / `F.` dotted-prefix abbreviations replaced with
+    //   canonical full words).
+    { id: 'g-gen-1', category: 'Completeness', description: 'No Value entry with the two unconditional fields (Scale + at least one of Tolerable / Goal / Wish)', template: 'General', severity: 'critical', exampleEntry: 'Every Value entry should have at minimum a Scale (the dimension of measurement) and at least one future required state — a Scalar Constraint (Tolerable) and/or a Target (Wish, Goal, Stretch). A Meter is desirable but not initially required.' },
+    { id: 'g-gen-2', category: 'Traceability', description: 'No Solution entries — solutions not defined', template: 'General', severity: 'recommended', exampleEntry: 'Add Solution entries that trace to each Function entry — one implementation approach per Function.' },
   ],
 }
 

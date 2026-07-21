@@ -31,6 +31,7 @@
  */
 
 import type { VEntry, REntry, SEntry } from '../types/spec'
+import { rBudget, rBudgetLabel } from '../types/spec'
 import type { ImpactMatrix, VCRatio } from '../types/impact'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -231,13 +232,13 @@ function renderResourcesSection(state: MultiVisionExportState): string {
       return `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 6px 0;border-collapse:collapse;border:1px solid #fdba74;">
   <tr><td bgcolor="#c2410c" style="background:#c2410c;color:#ffffff;padding:4px 18px;font:800 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.08em;text-transform:uppercase;">${esc(r.id)} <span style="float:right;background:#ffffff;color:#c2410c;padding:2px 8px;border-radius:9999px;font:700 11px/1 'Helvetica Neue',Arial,sans-serif;">${pos}% budget</span></td></tr>
   ${descRows}
-  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:4px 18px 6px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#1f2937;"><b>Scale:</b> ${esc(r.scale || '—')} · <b>Goal:</b> ${esc(r.goal || '—')}</td></tr>
+  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:4px 18px 6px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#1f2937;"><b>Scale:</b> ${esc(r.scale || '—')} · <b>${esc(rBudgetLabel(r))}:</b> ${esc(rBudget(r) || '—')}</td></tr>
 </table>`
     }).join('')
   } else {
     rows = `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 6px 0;border-collapse:collapse;border:1px solid #fdba74;">
   <tr><td bgcolor="#c2410c" style="background:#c2410c;color:#ffffff;padding:4px 18px;font:700 11px/1.4 'Helvetica Neue',Arial,sans-serif;">AGGREGATE BUDGET <span style="float:right;background:#ffffff;color:#c2410c;padding:2px 8px;border-radius:9999px;">${state.aggregateBudget}%</span></td></tr>
-  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:6px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#6b7280;">No Resource entries in the spec — add R. entries for unit-aware sliders.</td></tr>
+  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:6px 18px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#6b7280;">No Resource entries in the spec — add Resource entries for unit-aware sliders.</td></tr>
 </table>`
   }
   return header + intro + rows
@@ -365,12 +366,12 @@ export function renderMultiVisionPlainText(state: MultiVisionExportState): strin
   lines.push(SR)
   lines.push(`Available capital: $${state.availableCapital.toFixed(0)}k of $${state.totalCapitalCost.toFixed(0)}k total`)
   if (state.resources.length === 0) {
-    lines.push(`Aggregate budget: ${state.aggregateBudget}%  (no R. entries in spec)`)
+    lines.push(`Aggregate budget: ${state.aggregateBudget}%  (no Resource entries in spec)`)
   } else {
     for (const r of state.resources) {
       const pos = state.rSliders[r.id] ?? 100
       lines.push(`${r.id} (${pos}% budget): ${r.description}`)
-      lines.push(`  Scale: ${r.scale || '—'}   Goal: ${r.goal || '—'}`)
+      lines.push(`  Scale: ${r.scale || '—'}   ${rBudgetLabel(r)}: ${rBudget(r) || '—'}`)
     }
   }
   lines.push('')

@@ -17,6 +17,8 @@ import {
   addOwner, updateOwner, removeOwner,
   addPlanner, updatePlanner, removePlanner,
   addScribe, updateScribe, removeScribe,
+  addArchitect, updateArchitect, removeArchitect,
+  addCTO, updateCTO, removeCTO,
   setDeviceUserName,
 } from '../composables/useSpecModel'
 import type { PlanModel, PlanOwner } from '../composables/useSpecModel'
@@ -24,14 +26,20 @@ import type { PlanModel, PlanOwner } from '../composables/useSpecModel'
 const props = defineProps<{
   planModel: PlanModel
   /** Pre-select a tab on open */
-  initialTab?: 'owners' | 'planners' | 'scribes'
+  initialTab?: 'owners' | 'planners' | 'scribes' | 'architects' | 'ctos'
+  /**
+   * Distance from viewport top in px. Defaults to 264 (148 stage bar + ~116 plan crest).
+   * App.vue passes contentTopPad so the panel always sits just below the plan crest,
+   * regardless of whether the DNA strip is open or closed.
+   */
+  topOffset?: number
 }>()
 
 const emit = defineEmits<{ close: [] }>()
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-const activeTab = ref<'owners' | 'planners' | 'scribes'>(props.initialTab ?? 'owners')
+const activeTab = ref<'owners' | 'planners' | 'scribes' | 'architects' | 'ctos'>(props.initialTab ?? 'owners')
 watch(() => props.initialTab, (t) => { if (t) activeTab.value = t })
 
 // ── Auto-save on tab switch ──────────────────────────────────────────────────
@@ -71,6 +79,18 @@ const TAB = {
     addLabel: '+ Add Scribe',
     responsibilityPlaceholder: 'e.g. Morning session, Sprint 3 kickoff',
   },
+  architects: {
+    icon: '🏗', label: 'Architect',
+    hint: 'Technical design owner — accountable for system architecture, integration patterns, and architectural decision records. Often consulted on Solutions and Constraints.',
+    addLabel: '+ Add Architect',
+    responsibilityPlaceholder: 'e.g. Platform architecture, integration patterns',
+  },
+  ctos: {
+    icon: '⭐', label: 'CTO',
+    hint: 'Chief Technology Officer or technology executive — accountable for strategic direction, technology bets, and cross-cutting tech decisions across the spec.',
+    addLabel: '+ Add CTO',
+    responsibilityPlaceholder: 'e.g. Technology strategy, vendor selection',
+  },
 } as const
 
 type TabKey = keyof typeof TAB
@@ -78,15 +98,21 @@ type TabKey = keyof typeof TAB
 const cfg = computed(() => TAB[activeTab.value])
 
 const list = computed<PlanOwner[]>(() => {
-  if (activeTab.value === 'owners')   return props.planModel.owners
-  if (activeTab.value === 'planners') return props.planModel.planners
-  return props.planModel.scribes ?? []
+  if (activeTab.value === 'owners')     return props.planModel.owners
+  if (activeTab.value === 'planners')   return props.planModel.planners
+  if (activeTab.value === 'scribes')    return props.planModel.scribes ?? []
+  if (activeTab.value === 'architects') return props.planModel.architects ?? []
+  if (activeTab.value === 'ctos')       return props.planModel.ctos ?? []
+  return []
 })
 
 function _count(tab: TabKey): number {
-  if (tab === 'owners')   return props.planModel.owners.length
-  if (tab === 'planners') return props.planModel.planners.length
-  return (props.planModel.scribes ?? []).length
+  if (tab === 'owners')     return props.planModel.owners.length
+  if (tab === 'planners')   return props.planModel.planners.length
+  if (tab === 'scribes')    return (props.planModel.scribes ?? []).length
+  if (tab === 'architects') return (props.planModel.architects ?? []).length
+  if (tab === 'ctos')       return (props.planModel.ctos ?? []).length
+  return 0
 }
 
 // ── Edit / Add form ───────────────────────────────────────────────────────────
@@ -217,6 +243,10 @@ function saveFormToTab(tab: TabKey): void {
     editingId.value ? updateOwner(editingId.value, data) : addOwner(data)
   } else if (tab === 'planners') {
     editingId.value ? updatePlanner(editingId.value, data) : addPlanner(data)
+  } else if (tab === 'architects') {
+    editingId.value ? updateArchitect(editingId.value, data) : addArchitect(data)
+  } else if (tab === 'ctos') {
+    editingId.value ? updateCTO(editingId.value, data) : addCTO(data)
   } else {
     if (editingId.value) {
       // If this is the default device-user scribe, also update the stored device
@@ -245,9 +275,11 @@ function requestRemove(id: string): void {
 }
 
 function confirmRemove(id: string): void {
-  if (activeTab.value === 'owners')        removeOwner(id)
-  else if (activeTab.value === 'planners') removePlanner(id)
-  else                                     removeScribe(id)
+  if (activeTab.value === 'owners')          removeOwner(id)
+  else if (activeTab.value === 'planners')   removePlanner(id)
+  else if (activeTab.value === 'architects') removeArchitect(id)
+  else if (activeTab.value === 'ctos')       removeCTO(id)
+  else                                       removeScribe(id)
   if (editingId.value === id) cancelForm()
   pendingRemoveId.value = null
 }
@@ -335,9 +367,12 @@ const DATE_FIELDS = [
          confirmation-bar (collapses to 0 when v-if false) / ScrollContainer
          (1fr) / footer. Tom 2026-05-15: "feedback / save button / save on close". -->
     <div
-      class="fixed top-[112px] left-4 z-[58] w-96 bg-white rounded-xl shadow-2xl
+      class="fixed left-4 z-[58] w-96 bg-white rounded-xl shadow-2xl
              border border-indigo-100 grid grid-rows-[auto_auto_auto_1fr_auto] overflow-hidden"
-      style="max-height: calc(100vh - 13rem)"
+      :style="{
+        top: (props.topOffset ?? 264) + 'px',
+        maxHeight: 'calc(100vh - ' + (props.topOffset ?? 264) + 'px - 2rem)',
+      }"
       role="dialog"
       :aria-label="`Plan ${cfg.label}s`"
     >
@@ -403,7 +438,7 @@ const DATE_FIELDS = [
       <!-- Tabs -->
       <div class="flex border-b border-gray-100 shrink-0">
         <button
-          v-for="tab in (['owners', 'planners', 'scribes'] as const)"
+          v-for="tab in (['owners', 'planners', 'scribes', 'architects', 'ctos'] as const)"
           :key="tab"
           type="button"
           :class="[

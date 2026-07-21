@@ -271,7 +271,7 @@ export function useVizThumbs({ specBlock, confirmedSteps, vcRatios }: VizThumbsO
     }))
     let finThumb: string
     if (finItems.length === 0) {
-      finThumb = noData('No V. entries')
+      finThumb = noData('No Value entries')
     } else {
       let finBody = ''
       finItems.forEach((item, i) => {

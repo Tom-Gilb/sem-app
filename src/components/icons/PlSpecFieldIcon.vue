@@ -47,7 +47,7 @@ export type SpecFieldType =
 
 /**
  * Canonical Planguage-precise hover labels for all 10 field types.
- * Concise enough for a tooltip; precise enough to teach Planguage.
+ * Concise enough for a HoverHint; precise enough to teach Planguage.
  * Aligned with Tom Gilb Competitive Engineering (2005) and 10.Standard/.
  */
 const CANONICAL_LABELS: Record<SpecFieldType, string> = {
@@ -74,7 +74,7 @@ const props = withDefaults(defineProps<{
    * xs=14px · sm=18px (default) · md=22px.
    */
   size?: 'xs' | 'sm' | 'md'
-  /** Override the default canonical label (aria-label + hover tooltip). */
+  /** Override the default canonical label (aria-label + hover HoverHint). */
   title?: string
 }>(), {
   size: 'sm',
@@ -86,7 +86,7 @@ const resolvedTitle = computed(() => props.title ?? CANONICAL_LABELS[props.field
 
 <template>
   <!--
-    Wrapper span carries the browser-native hover tooltip via title attribute.
+    Wrapper span carries the browser-native hover HoverHint via title attribute.
     SVG uses aria-label for the screen-reader accessible name (avoids duplicate
     announcement when both <title> element and aria-label are present).
     shrink-0 prevents icon compression in flex containers with long labels.

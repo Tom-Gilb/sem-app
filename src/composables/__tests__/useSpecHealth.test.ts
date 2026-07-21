@@ -70,10 +70,13 @@ beforeEach(() => {
 // ── Group meta sanity ────────────────────────────────────────────────────────
 
 describe('ASPECT_GROUPS metadata', () => {
-  it('seeds 6 active groups whose default weights sum to ~1.0', () => {
+  it('seeds 7 groups (6 with nonzero weight sum ~1.0, plus spec-quality at 0.00)', () => {
+    // spec-quality was added 2026-06-09 as seeded:true with defaultWeight 0.00 (initially inactive)
     const seeded = Object.values(ASPECT_GROUPS).filter(g => g.seeded)
-    expect(seeded.length).toBe(6)
-    const sum = seeded.reduce((a, g) => a + g.defaultWeight, 0)
+    expect(seeded.length).toBe(7)
+    const nonZero = seeded.filter(g => g.defaultWeight > 0)
+    expect(nonZero.length).toBe(6)
+    const sum = nonZero.reduce((a, g) => a + g.defaultWeight, 0)
     expect(sum).toBeGreaterThan(0.99)
     expect(sum).toBeLessThan(1.01)
   })
@@ -123,6 +126,149 @@ describe('Default aspects — Spec Defects', () => {
     }))
     expect(ev.findings?.sort()).toEqual(['V.B', 'X.1'])
     expect(ev.score).toBeLessThan(1)
+  })
+})
+
+// ── r07 — Value Definition Identity SUPREME (Tom Gilb 2026-06-16) ─────────────
+// Regression coverage for the four NEW + retrofitted defect aspects banked
+// per the rule_value_definition_identity.md memory rule + SUCCESS book § 2.1
+// + § 3.3.  Each test pins one rule:
+//   - sd-missing-goal: must NOT fire when Wish is present (Wish→Goal commitment)
+//   - sd-ship-blocking-no-target: SHIP-BLOCKING when Tolerable but no {Wish, Goal}
+//   - sd-no-tolerable: CRITICAL when V. lacks Tolerable
+//   - sd-no-ambition: HIGH when V. lacks Ambition Level
+//   - uk-no-meter: down-weighted to 0.10 per lifecycle (planning vs delivery)
+
+describe('Default aspects — Value Definition Identity (r07 SUPREME)', () => {
+  const aspects = getDefaultAspects()
+  const get = (id: string) => aspects.find(a => a.id === id)!
+
+  describe('sd-missing-goal — Wish→Goal commitment evolution', () => {
+    it('does NOT fire when Wish is present (Wish satisfies at-least-one-Target)', () => {
+      const ev = get('sd-missing-goal').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.A', { wish: 'Wish [Q4.2026] 95%' }),   // Wish only — no Goal yet
+          v('V.B', { wish: 'Wish [Q4.2026] 99%' }),   // Wish only
+        ]}),
+      }))
+      // Wish present → not bad → perfect score
+      expect(ev.score).toBe(1)
+      expect(ev.findings).toEqual([])
+    })
+
+    it('fires when neither Goal nor Wish is present', () => {
+      const ev = get('sd-missing-goal').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.A'),                                  // nothing
+          v('V.B', { goal: 'Goal [Q1.2026] 90%' }),  // Goal only — fine
+        ]}),
+      }))
+      expect(ev.findings).toEqual(['V.A'])
+    })
+
+    it('does NOT fire when Goal is present even without Wish', () => {
+      const ev = get('sd-missing-goal').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.A', { goal: 'Goal [Q1.2026] 90%' }),
+        ]}),
+      }))
+      expect(ev.score).toBe(1)
+    })
+  })
+
+  describe('sd-ship-blocking-no-target — SUCCESS book § 2.1 + § 3.3', () => {
+    it('fires SHIP-BLOCKING when Tolerable present but NO Wish AND NO Goal', () => {
+      const ev = get('sd-ship-blocking-no-target').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.NoAim', { tolerable: 'Tolerable [Q1.2026] 60%' }),  // has Tolerable, no Target
+          v('V.OK',    { tolerable: 'Tolerable 60%', goal: 'Goal 90%' }),
+        ]}),
+      }))
+      expect(ev.findings).toEqual(['V.NoAim'])
+      // SHIP-BLOCKING uses catastrophic -1 score so it sorts above all other defects
+      expect(ev.score).toBe(-1)
+    })
+
+    it('does NOT fire when Tolerable present + Wish present', () => {
+      const ev = get('sd-ship-blocking-no-target').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.A', { tolerable: 'Tolerable 60%', wish: 'Wish 99%' }),
+        ]}),
+      }))
+      expect(ev.score).toBe(1)
+      expect(ev.findings).toEqual([])
+    })
+
+    it('does NOT fire when Tolerable is absent (no Tolerable → not yet ship-blocking, sd-no-tolerable handles it)', () => {
+      const ev = get('sd-ship-blocking-no-target').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.NoTol'),  // no Tolerable, no Wish, no Goal — sd-no-tolerable surfaces this
+        ]}),
+      }))
+      // SHIP-BLOCKING only fires when Tolerable is set but no Target exists
+      expect(ev.findings).toEqual([])
+    })
+  })
+
+  describe('sd-no-tolerable — CRITICAL constraint level', () => {
+    it('fires when V. lacks Tolerable', () => {
+      const ev = get('sd-no-tolerable').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.WithTol', { tolerable: 'Tolerable 60%' }),
+          v('V.NoTol'),
+        ]}),
+      }))
+      expect(ev.findings).toEqual(['V.NoTol'])
+    })
+
+    it('perfect score when every V. has Tolerable', () => {
+      const ev = get('sd-no-tolerable').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.A', { tolerable: '≤ 12 h' }),
+          v('V.B', { tolerable: '[70 mg/dL, 180 mg/dL]' }),  // bidirectional per r07
+        ]}),
+      }))
+      expect(ev.score).toBe(1)
+    })
+  })
+
+  describe('sd-no-ambition — HIGH (practice in all Tom Gilb books)', () => {
+    it('fires when V. lacks Ambition Level', () => {
+      const ev = get('sd-no-ambition').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.NoAmbition'),
+          v('V.WithAmbition', {
+            ambitionLevel: [{ statement: 'Every new engineer ships PR within day one.' }],
+          }),
+        ]}),
+      }))
+      expect(ev.findings).toEqual(['V.NoAmbition'])
+    })
+
+    it('treats empty-statement Ambition as missing', () => {
+      const ev = get('sd-no-ambition').evaluate(ctx({
+        spec: spec({ values: [
+          v('V.EmptyStatement', { ambitionLevel: [{ statement: '   ' }] }),
+        ]}),
+      }))
+      expect(ev.findings).toEqual(['V.EmptyStatement'])
+    })
+  })
+
+  describe('uk-no-meter — lifecycle: delivery-time, not planning-time', () => {
+    it('still detects missing Meter but at down-weighted 0.10 (was 0.35)', () => {
+      const aspect = get('uk-no-meter')
+      // Per r07 lifecycle rule: Meter is delivery-time-required, planning-time-optional.
+      // The weight reflects that — soft hint, not a heavy drag on PHI.
+      expect(aspect.defaultWeight).toBe(0.10)
+    })
+
+    it('detail copy mentions Evo step lifecycle', () => {
+      const ev = get('uk-no-meter').evaluate(ctx({
+        spec: spec({ values: [v('V.NoMeter')] }),
+      }))
+      expect(ev.detail).toMatch(/Develop|Deliver|Measure|Learn|deferred to delivery/i)
+    })
   })
 })
 

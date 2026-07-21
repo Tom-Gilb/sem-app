@@ -67,12 +67,20 @@ watch(tasksByStep, (val) => emit('update:tasksByStep', { ...val }), { deep: true
 // Root cause: previously tasks were lazy (only loaded when a section was manually
 // expanded). VFD showed "No tasks yet" until the user opened TaskList AND expanded
 // each step. suggestTasks() is synchronous rule-based extraction — cheap, no LLM.
+//
+// v499 (2026-07-21) — Tom Gilb "in the tasks stage at least the tasks should all
+// be open and visible".  Two-part fix: (a) each <details> renders with `open`
+// attribute so the tasks show without user interaction; (b) openSteps[step.name]
+// pre-set to true so the pill shows "close" not "tasks" — matching the actual
+// expanded state.  Task suggestions were ALREADY pre-populated (v352 above);
+// this ship completes the intent by also opening the disclosure widgets.
 onMounted(() => {
   props.steps.forEach(step => {
     if (!initialised[step.name]) {
       initialised[step.name] = true
       tasksByStep[step.name] = suggestTasks(step)
     }
+    openSteps[step.name] = true   // v499 — open every section by default
   })
 })
 
@@ -321,10 +329,16 @@ function toggleEnrich(taskId: string): void {
       No Evo steps yet — generate an Evo Plan first.
     </div>
 
-    <!-- One collapsible section per step -->
+    <!-- One collapsible section per step —
+         v499 (2026-07-21) — `open` attribute default per Tom Gilb "in the tasks
+         stage at least the tasks should all be open and visible".  Users can
+         still collapse individual sections by clicking the summary; the CLOSE
+         pill toggles them back.  Suggestions are pre-populated on mount
+         (v352), so open-by-default has zero extra cost. -->
     <details
       v-for="step in steps"
       :key="step.name"
+      open
       class="mb-4 rounded-lg border border-gray-200 bg-white shadow-sm"
       @toggle="onToggle($event, step)"
     >

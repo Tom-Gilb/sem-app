@@ -116,7 +116,8 @@ describe('TaskList.vue', () => {
   })
 
   describe('remove task', () => {
-    test('clicking Remove button removes the task row', async () => {
+    test('clicking Delete task in actions menu removes the task row', async () => {
+      // Remove is now inside a dropdown: click "Actions for task N" → "Delete task"
       const wrapper = mount(TaskList, { props: { steps: [STEPS[0]] } })
       const details = wrapper.find('details')
       const detailsEl = details.element as HTMLDetailsElement
@@ -126,11 +127,19 @@ describe('TaskList.vue', () => {
       const beforeCount = wrapper.findAll('input[type="checkbox"]').length
       expect(beforeCount).toBeGreaterThan(0)
 
-      // Click the first remove button
-      const removeButtons = wrapper.findAll('button').filter(b =>
-        b.attributes('aria-label')?.includes('Remove task')
+      // Open the first task's actions menu
+      const actionsBtn = wrapper.findAll('button').find(b =>
+        b.attributes('aria-label')?.startsWith('Actions for task'),
       )
-      await removeButtons[0].trigger('click')
+      expect(actionsBtn).toBeTruthy()
+      await actionsBtn!.trigger('click')
+
+      // Click 'Delete task' in the dropdown menu
+      const deleteBtn = wrapper.findAll('button[role="menuitem"]').find(b =>
+        b.text().includes('Delete task'),
+      )
+      expect(deleteBtn).toBeTruthy()
+      await deleteBtn!.trigger('click')
 
       const afterCount = wrapper.findAll('input[type="checkbox"]').length
       expect(afterCount).toBe(beforeCount - 1)
@@ -161,18 +170,21 @@ describe('TaskList.vue', () => {
       expect(addButtons[0].classes()).toContain('min-h-[44px]')
     })
 
-    test('Remove Task button has min-h-[44px] and min-w-[44px] classes', async () => {
+    test('Task actions button (gateway to delete) has min-h-[44px] and min-w-[44px] classes', async () => {
+      // Delete is inside a dropdown opened by "Actions for task N" button.
+      // The 44px touch target requirement applies to the actions trigger button.
       const wrapper = mount(TaskList, { props: { steps: [STEPS[0]] } })
       const details = wrapper.find('details')
       const detailsEl = details.element as HTMLDetailsElement
       detailsEl.open = true
       await details.trigger('toggle')
 
-      const removeButtons = wrapper.findAll('button').filter(b =>
-        b.attributes('aria-label')?.includes('Remove task')
+      const actionsBtn = wrapper.findAll('button').find(b =>
+        b.attributes('aria-label')?.startsWith('Actions for task'),
       )
-      expect(removeButtons[0].classes()).toContain('min-w-[44px]')
-      expect(removeButtons[0].classes()).toContain('min-h-[44px]')
+      expect(actionsBtn).toBeTruthy()
+      expect(actionsBtn!.classes()).toContain('min-w-[44px]')
+      expect(actionsBtn!.classes()).toContain('min-h-[44px]')
     })
 
     test('summary element has min-h-[44px] class for 44px touch target', () => {
@@ -280,7 +292,10 @@ describe('TaskList.vue', () => {
       expect(effortInputs.length).toBeGreaterThanOrEqual(2)
     })
 
-    test('effort hours inputs have correct aria-labels', async () => {
+    test('effort hours inputs have correct aria-labels (low/high estimates)', async () => {
+      // The effort field was split into low + high estimate inputs (2026-06-09).
+      // Each task has aria-label="Hours low estimate for task N" and
+      // "Hours high estimate for task N".
       const wrapper = mount(TaskList, { props: { steps: [STEPS[0]] } })
       const details = wrapper.find('details')
       const detailsEl = details.element as HTMLDetailsElement
@@ -289,7 +304,10 @@ describe('TaskList.vue', () => {
 
       const effortInputs = wrapper.findAll('input[type="number"]')
       for (const input of effortInputs) {
-        expect(input.attributes('aria-label')).toContain('Effort hours for task')
+        const label = input.attributes('aria-label') ?? ''
+        expect(
+          label.includes('Hours low estimate for task') || label.includes('Hours high estimate for task'),
+        ).toBe(true)
       }
     })
   })

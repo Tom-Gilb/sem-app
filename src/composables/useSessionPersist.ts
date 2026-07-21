@@ -13,6 +13,7 @@ import type { SpecBlock } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import type { ImpactMatrix } from '../types/impact'
 import type { TaskSuggestion } from '../types/task'
+import { normalizeSpecBlock } from '../utils/normalizeSpec'
 
 const SESSION_KEY = 'sem-session-v2'
 
@@ -66,7 +67,17 @@ export function useSessionPersist() {
       ) {
         return null
       }
-      return parsed
+      // r41 v287 (Tom Gilb 2026-06-22 verbatim *"and I dream that you develop
+      // tests to detect it wonk work at all"*) — normalize the loaded spec at
+      // the STORAGE BOUNDARY. Every downstream consumer (`_ensurePlanModel`,
+      // `_nameFromSpec`, `headline()`, `currentSpec` ref, every composable that
+      // reads `.description.slice` / `.trim` / `.length`) receives a SpecBlock
+      // where every string field is guaranteed to be a real string. No
+      // late-firing watcher, no race window — the dirty data does not leave
+      // this function. Composes with the App.vue `customRef` (set-time
+      // normalize) — both layers redundantly guarantee cleanliness so a
+      // direct assignment OR a session-restore path are both safe.
+      return { ...parsed, currentSpec: normalizeSpecBlock(parsed.currentSpec) }
     } catch {
       return null
     }

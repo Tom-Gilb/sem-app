@@ -1,6 +1,6 @@
 <!-- UNIT_TYPE=Widget -->
 <!--
-  PlanguageTerm — wraps a Planguage field label with a hover/focus tooltip
+  PlanguageTerm — wraps a Planguage field label with a hover/focus HoverHint
   carrying the CANONICAL Glossary definition.
 
   History:
@@ -49,7 +49,7 @@
         aria-hidden="true"
       >{{ keyedIcon }}</span>
     </span>
-    <!-- Tom Gilb 2026-06-06 bug fix: tooltip was using absolute + left-1/2 + -translate-x-1/2,
+    <!-- Tom Gilb 2026-06-06 bug fix: HoverHint was using absolute + left-1/2 + -translate-x-1/2,
          which overflows the viewport when the term sits near the right edge of the window
          (Tom's screenshot: WISH definition cut off at window border).  Now teleported to body
          + fixed-positioned via getBoundingClientRect, with clamp() keeping the box inside the
@@ -136,14 +136,14 @@ const show = ref(false)
 const termAnchorEl = ref<HTMLElement | null>(null)
 const tooltipStyle = ref<Record<string, string>>({})
 
-// Compute viewport-clamped position when tooltip shows.
+// Compute viewport-clamped position when HoverHint shows.
 // Tom Gilb 2026-06-06 bug fix: prior implementation used CSS-only centred
 // positioning that overflowed the viewport on right-edge terms.
 function onShow(): void {
   show.value = true
   const anchor = termAnchorEl.value
   if (!anchor) return
-  // nextTick / rAF so the teleported tooltip is in DOM and measurable.
+  // nextTick / rAF so the teleported HoverHint is in DOM and measurable.
   requestAnimationFrame(() => {
     const rect = anchor.getBoundingClientRect()
     const TOOLTIP_W = 384  // matches max-w-md (24rem ≈ 384px) — safe upper bound

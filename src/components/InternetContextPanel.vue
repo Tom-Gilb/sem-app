@@ -224,7 +224,7 @@ function severityClasses(sev: string): string {
                 v-if="selectedStakeholder"
                 type="button"
                 class="px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-bold hover:bg-sky-700"
-                title="Copies a Claudian prompt for this stakeholder to clipboard.  Claudian uses WebSearch / WebFetch to find current authoritative information + cites URLs.  Paste the JSON result back here."
+                title="Copies a Claudian prompt for this stakeholder to clipboard.  Claudian uses WebSearch / WebFetch to find current authoritative information + cites URLs.  Paste the Planguage Representation result back here."
                 @click="copyStakeholderPrompt"
               >{{ stakeholderCopyFlash ? '✓ Prompt copied' : 'Fetch via Claudian' }}</button>
             </div>
@@ -265,7 +265,7 @@ function severityClasses(sev: string): string {
             </div>
 
             <section v-if="stakeholderShowPaste" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <h4 class="text-xs font-bold text-slate-700 mb-1">Paste Claudian JSON</h4>
+              <h4 class="text-xs font-bold text-slate-700 mb-1">Paste Claudian Planguage Representation</h4>
               <textarea v-model="stakeholderPasteText" rows="4" placeholder='{"findings": [...]}' class="w-full rounded-lg border border-slate-300 px-3 py-2 text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-sky-400" />
               <div class="flex items-center gap-2 mt-2">
                 <button type="button" class="px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-bold hover:bg-sky-700" @click="stakeholderPaste">Paste &amp; Save</button>
@@ -334,7 +334,7 @@ function severityClasses(sev: string): string {
             </div>
 
             <section v-if="benchmarkShowPaste" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <h4 class="text-xs font-bold text-slate-700 mb-1">Paste Claudian JSON</h4>
+              <h4 class="text-xs font-bold text-slate-700 mb-1">Paste Claudian Planguage Representation</h4>
               <textarea v-model="benchmarkPasteText" rows="4" placeholder='{"findings": [...]}' class="w-full rounded-lg border border-slate-300 px-3 py-2 text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-sky-400" />
               <div class="flex items-center gap-2 mt-2">
                 <button type="button" class="px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-bold hover:bg-sky-700" @click="benchmarkPaste">Paste &amp; Save</button>

@@ -34,9 +34,15 @@ export function useOKRExport() {
         lines.push(`(Presence: ${f.presenceTest || f.successCriteria})`)
       }
 
-      // Find linked V. entries: V. id is referenced in functionOfValue
+      // Find linked V. entries: V. id is referenced in functionOfValue.
+      // r41 v40 — defensive `?? ''` because freshly-generated specs from the
+      // LLM sometimes omit the `functionOfValue` field on F. entries, which
+      // would crash this filter with `undefined is not an object (evaluating
+      // f.functionOfValue.includes)` and bring down the whole SpecOutput
+      // render (Tom Gilb 2026-06-15 surfaced during the UK Ship Contract
+      // parse-fallback test).
       let linkedValues: VEntry[] = spec.values.filter((v) =>
-        f.functionOfValue.includes(v.id)
+        (f.functionOfValue ?? '').includes(v.id)
       )
 
       // Fall back to all V. entries if none linked

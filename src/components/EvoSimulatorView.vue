@@ -49,7 +49,7 @@ const {
   dispose,
 } = useEvoSimulation(props.steps, props.vcRatios, props.cycleLength)
 
-// ── Tooltip ────────────────────────────────────────────────────────────────────
+// ── HoverHint ────────────────────────────────────────────────────────────────────
 
 const hoveredIndex = ref<number | null>(null)
 
@@ -250,7 +250,7 @@ function tickLabel(weeks: number): string {
                   >✓</span>
                 </div>
 
-                <!-- Tooltip -->
+                <!-- HoverHint -->
                 <Transition
                   enter-active-class="transition-all duration-150"
                   enter-from-class="opacity-0 translate-y-1"

@@ -9,7 +9,8 @@
 // This file ships the same content to the bundle so the panel can render
 // offline and so Copy + Email actions work without a fetch.
 
-import { openEml, textToEmailHtml } from './useEmlExport'
+import { textToEmailHtml } from './useEmlExport'
+import { exportEmail } from './useExportShared'
 
 export interface EditAboutSection {
   /** Short heading shown as a card title in the panel. */
@@ -89,13 +90,11 @@ export function getAboutEditGlyphText(): string {
 }
 
 /**
- * Open a .eml draft in Mail.app with the Edit Glyph explanation
- * pre-filled in the body — no manual paste required (Tom Gilb rule 2026-05-29).
- *
- * Replaces the old `buildAboutEditGlyphMailto()` + `window.location.href` pattern.
+ * Email the Edit Glyph explanation via mailto: + clipboard
+ * (Auto-Open Email Rule, SUPREME, CLAUDE.md — .eml retired 2026-06-07).
  */
-export function openEditGlyphEmail(): void {
+export async function openEditGlyphEmail(): Promise<void> {
   const subject = 'The SEM App Edit Glyph — [*]→[**]'
   const text    = getAboutEditGlyphText()
-  openEml(textToEmailHtml(text, subject), subject, { plainBody: text })
+  await exportEmail(textToEmailHtml(text, subject), subject, 'Edit Glyph explanation', 'Tom@Gilb.com', text)
 }

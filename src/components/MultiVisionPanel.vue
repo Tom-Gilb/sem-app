@@ -27,16 +27,60 @@ import ScrollContainer from './ScrollContainer.vue'
 import PlanguageTerm from './PlanguageTerm.vue'
 import MultiForksGlyph from './icons/MultiForksGlyph.vue'
 import { useMultiVision } from '../composables/useMultiVision'
+// r41 v119 — canonical HoverHint source for Planguage keyed-level chars
+// (Tom Gilb 2026-06-17: "in keyed icons in values there is no info ... rule
+// is everywhere, fix everywhere").
+import { keyedLevelHoverHint } from '../composables/useKeyedLevelInfo'
 import { PLANGUAGE_TERMS } from '../composables/usePlanguageTerms'
 import { renderMultiVisionHtml, renderMultiVisionPlainText, type MultiVisionExportState } from '../composables/useMultiVisionExport'
 import { useSpecModel } from '../composables/useSpecModel'
 import { useToast } from '../composables/useToast'
+import { rBudget, rBudgetLabel } from '../types/spec'
+// r41 v301 (Tom Gilb 2026-06-23 verbatim "gmorgen. Please continue w backlog.")
+// Embedded universal chrome — same shape as SpecEditorPanel v298 and PentaPanel v301.
+// Composes with Stages-are-Cyclic SUPREME, No-Silent-Removal SUPREME, MOVE Principle,
+// DD-009 Zero-Training UI, Twin portability.
+import PlanningStageBar from './PlanningStageBar.vue'
+import AgentsStrip from './AgentsStrip.vue'
+import Stage2SubStepStrip from './Stage2SubStepStrip.vue'
+import type { Stage2SubStepKey } from '../data/stage2SubSteps'
+import type { AgentRegistryId } from '../composables/useAgentRegistry'
+
+const props = defineProps<{
+  /** r41 v301 — current planning stage (1–11) for the embedded PlanningStageBar. */
+  planningStage?: number
+  /** r41 v301 — spec-presence map for AgentsStrip gating. */
+  specPresence?: Partial<Record<string, boolean>>
+  /** r41 v301 — current Stage 2 sub-step. */
+  stage2SubStep?: Stage2SubStepKey
+  /** r41 v301 — completed Stage 2 sub-steps. */
+  stage2DoneSteps?: Stage2SubStepKey[]
+  /** r41 v301 — has-plan flag for PlanningStageBar tile gating. */
+  hasPlan?: boolean
+  /** r41 v301 — has-spec flag (MultiVision reads from specModel composable; let App.vue pass it). */
+  hasSpec?: boolean
+}>()
 
 const emit = defineEmits<{
   'close': []
   /** r97 — request parent open the MultiForks fork diagram. */
   'open-multiforks': []
+  /** r41 v301 — embedded chrome navigation events (mirrored from SpecEditorPanel v298). */
+  'navigate-stage': [n: number]
+  'open-agent': [agentId: AgentRegistryId]
+  'go-stage2-substep': [target: Stage2SubStepKey]
+  'continue-stage2': []
 }>()
+
+// r41 v301 — Stage names for the breadcrumb sentence.
+// r41 v349 (Tom 2026-06-25 stage-label revert sweep): import canonical (was a 5-stage-drift duplicate).
+import { PLANNING_STAGES as _CANONICAL_STAGES } from '../data/planningStages'
+const MV_STAGE_NAMES: Record<number, string> = Object.fromEntries(
+  _CANONICAL_STAGES.map(s => [s.stage, s.label])
+)
+const mvCurrentStageName = computed(() =>
+  props.planningStage ? (MV_STAGE_NAMES[props.planningStage] ?? `Stage ${props.planningStage}`) : null
+)
 
 const {
   vSliders,
@@ -105,13 +149,17 @@ function _triggerRipple(id: string, direction: 'up' | 'down'): void {
 
 function handleWishSlider(id: string, newVal: number): void {
   const old = vWishSliders[id] ?? 75
-  _triggerRipple(id, newVal > old ? 'up' : 'down')
+  // Guard: only trigger ripple when there's a real directional change.
+  // Without the guard, zero-delta events (slider at min/max) still fire a
+  // ripple, which causes unnecessary re-renders on all other Value cards.
+  if (newVal !== old) _triggerRipple(id, newVal > old ? 'up' : 'down')
   setVWishSlider(id, newVal)
 }
 
 function handleTolerableSlider(id: string, newVal: number): void {
   const old = vTolerableSliders[id] ?? 25
-  _triggerRipple(id, newVal > old ? 'up' : 'down')
+  // Guard: only trigger ripple when there's a real directional change.
+  if (newVal !== old) _triggerRipple(id, newVal > old ? 'up' : 'down')
   setVTolerableSlider(id, newVal)
 }
 
@@ -305,10 +353,13 @@ const initialWishSliders      = ref<Record<string, number>>({})
 const initialTolerableSliders = ref<Record<string, number>>({})
 
 onMounted(() => {
+  // Capture Value slider baselines for Slider Trace
   for (const v of values.value) {
     initialWishSliders.value[v.id]      = vWishSliders[v.id]      ?? 75
     initialTolerableSliders.value[v.id] = vTolerableSliders[v.id] ?? 25
   }
+  // Capture budget baseline for Budget Slider Trace
+  initialAggregateBudget.value = aggregateBudget.value
 })
 
 /** Map a 0–100 slider position to the Planguage commitment level it selects,
@@ -410,6 +461,186 @@ function traceWishDeltaStr(id: string, v: TEntry): string {
   return _deltaStr(initialWishSliders.value[id] ?? 75, vWishSliders[id] ?? 75, iL.num, cL.num)
 }
 
+// ── Budget Slider Trace + Funding Threshold Ruler (Tom 2026-06-06) ────────────
+// Three companion features for the aggregate budget slider:
+//   (a) initialAggregateBudget — captured onMounted, same pattern as Value sliders.
+//   (b) fundingThresholds — for each solution (V/C rank order) the minimum budget %
+//       that funds it: cumulative_cost / totalCapital × 100. Rendered as tick marks
+//       so Tom can see the REAL $ threshold for every solution on the slider track.
+//   (c) fundingChangeEvent — when the funded-solutions set changes (slider crossed a
+//       threshold), flash a banner naming which solution just gained or lost funding
+//       and what $ threshold caused it. This is the "consequence" Tom could not see.
+
+const initialAggregateBudget = ref<number>(77) // overwritten onMounted
+
+interface FundingThreshold {
+  solutionId:   string
+  label:        string     // truncated description or id
+  minBudgetPct: number     // budget % at which this solution enters the funded set
+  cumCostK:     number     // cumulative cost ($k) of the top-k solutions (their sum = threshold)
+  ownCostK:     number     // this solution's own cost ($k)
+  vcRatio:      number
+  rank:         number     // 1-based priority rank (rank 1 = best V/C = funded first)
+}
+
+/** Sorted ascending by minBudgetPct — the actual real-scale budget levels. */
+const fundingThresholds = computed<FundingThreshold[]>(() => {
+  const sols = solutions.value
+  const total = totalCapitalCost.value
+  if (sols.length === 0 || total <= 0) return []
+  const { vcRatios, capitalCosts } = snapshot.value
+  const sorted = [...sols].sort((a, b) => (vcRatios[b.id] ?? 0) - (vcRatios[a.id] ?? 0))
+  let cumCost = 0
+  return sorted.map((sol, i) => {
+    const cost = capitalCosts[sol.id] ?? 0
+    cumCost += cost
+    return {
+      solutionId:   sol.id,
+      label:        (sol.description ?? sol.id).slice(0, 20),
+      minBudgetPct: Math.ceil((cumCost / total) * 100),
+      cumCostK:     Math.round(cumCost),
+      ownCostK:     Math.round(cost),
+      vcRatio:      vcRatios[sol.id] ?? 0,
+      rank:         i + 1,
+    }
+  })
+})
+
+/** Flash banner when budget slider crosses a funding threshold. */
+interface FundingChangeEvent {
+  dir:          'gain' | 'loss'
+  label:        string
+  thresholdPct: number
+  cumCostK:     number
+}
+const fundingChangeEvent = ref<FundingChangeEvent | null>(null)
+let _fundingBannerTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(fundedSolutions, (newFunded, oldFunded) => {
+  if (!oldFunded) return
+  const newIds = new Set(newFunded.map(s => s.id))
+  const oldIds = new Set((oldFunded as typeof newFunded).map(s => s.id))
+  const gained = newFunded.filter(s => !oldIds.has(s.id))
+  const lost   = (oldFunded as typeof newFunded).filter(s => !newIds.has(s.id))
+  const changed = gained[0] ?? lost[0]
+  if (!changed) return
+  const dir: 'gain' | 'loss' = gained.length > 0 ? 'gain' : 'loss'
+  const thr = fundingThresholds.value.find(t => t.solutionId === changed.id)
+  if (_fundingBannerTimer !== null) clearTimeout(_fundingBannerTimer)
+  fundingChangeEvent.value = {
+    dir,
+    label:         (changed.description ?? changed.id).slice(0, 38),
+    thresholdPct:  thr?.minBudgetPct ?? 0,
+    cumCostK:      thr?.cumCostK ?? 0,
+  }
+  _fundingBannerTimer = setTimeout(() => {
+    fundingChangeEvent.value = null
+    _fundingBannerTimer = null
+  }, 4500)
+})
+
+// ── Real-scale value at the current slider position (Tom 2026-06-06) ──────────
+// Tom verbatim: "it keeps on mentioning a 50 level. I think this is outdated
+// and the relevant numbers are the real scale numbers"
+// The abstract 0-100 slider position is a UI convenience; the numbers that matter
+// are the actual Planguage spec values (Tolerable / Goal / Wish in their native unit).
+// These helpers map slider position → the spec value string for that commitment level.
+
+type VLike = { id: string; tolerable: string; goal: string; wish?: string | null }
+
+function _specValAtPos(pos: number, v: VLike): string {
+  const level = commitmentLevelChoice(pos)
+  if (level.termName === 'Tolerable') return thresholdDisplay(v.tolerable)
+  if (level.termName === 'Goal')      return thresholdDisplay(v.goal)
+  return thresholdDisplay(v.wish ?? '')
+}
+
+/** Real spec value at the current Tolerable slider position. */
+function tolerableSliderRealVal(v: VLike): string {
+  return _specValAtPos(vTolerableSliders[v.id] ?? 25, v)
+}
+
+/** Real spec value at the current Wish slider position. */
+function wishSliderRealVal(v: VLike): string {
+  return _specValAtPos(vWishSliders[v.id] ?? 75, v)
+}
+
+/** Name of the commitment level the Wish slider selects ("Tolerable" / "Goal" / "Wish"). */
+function wishSliderLevelName(v: VLike): string {
+  return commitmentLevelChoice(vWishSliders[v.id] ?? 75).termName
+}
+
+// ── Lock This Vision — confirmation overlay ────────────────────────────────────
+// Tom (2026-06-06): "after Lock This Model the app disappeared, at the least a
+// confirmation: 'Your adjusted levels of performance, will be the valid ones in
+// your Planguage planning specifications now.' Maybe even with a summary of
+// changes in a window? (which can be exported)"
+// The confirmation shows: Tom's exact text + table of changed Values (before →
+// after in real spec values on native scale) + budget change + Balance score
+// snapshot + Export button.  Close button on the confirmation calls emit('close').
+
+interface LockChangeSummaryRow {
+  label:        string    // Value description (truncated to 32 chars)
+  scale:        string    // Scale for unit context
+  tolerBefore:  string    // real spec value before session
+  tolerAfter:   string    // real spec value now
+  wishBefore:   string    // real spec value before session
+  wishAfter:    string    // real spec value now
+  tolerChanged: boolean
+  wishChanged:  boolean
+}
+interface LockSummary {
+  rows:             LockChangeSummaryRow[]
+  budgetBefore:     number   // % at session start
+  budgetAfter:      number   // % now
+  budgetCostBefore: number   // $k at session start
+  budgetCostAfter:  number   // $k now
+  balanceAfter:     number   // current Vision Balance score
+  anyChanged:       boolean
+}
+
+const lockConfirmOpen = ref(false)
+const lockSummary     = ref<LockSummary | null>(null)
+
+function showLockConfirm(): void {
+  const rows: LockChangeSummaryRow[] = []
+  for (const v of values.value) {
+    const initWish   = initialWishSliders.value[v.id]      ?? 75
+    const initToler  = initialTolerableSliders.value[v.id] ?? 25
+    const curWish    = vWishSliders[v.id]                  ?? 75
+    const curToler   = vTolerableSliders[v.id]             ?? 25
+    rows.push({
+      label:        (v.description ?? v.id).slice(0, 32),
+      scale:        v.scale ? v.scale.slice(0, 40) : '',
+      tolerBefore:  _specValAtPos(initToler, v),
+      tolerAfter:   _specValAtPos(curToler,  v),
+      wishBefore:   _specValAtPos(initWish,  v),
+      wishAfter:    _specValAtPos(curWish,   v),
+      tolerChanged: curToler !== initToler,
+      wishChanged:  curWish  !== initWish,
+    })
+  }
+  const budgetBefore = initialAggregateBudget.value
+  const budgetAfter  = aggregateBudget.value
+  const totalK       = totalCapitalCost.value
+  lockSummary.value = {
+    rows,
+    budgetBefore,
+    budgetAfter,
+    budgetCostBefore: Math.round(totalK * budgetBefore / 100),
+    budgetCostAfter:  Math.round(totalK * budgetAfter  / 100),
+    balanceAfter:     balanceScore.value,
+    anyChanged:       rows.some(r => r.tolerChanged || r.wishChanged) || budgetBefore !== budgetAfter,
+  }
+  lockConfirmOpen.value = true
+}
+
+function closeLockConfirm(): void {
+  lockConfirmOpen.value = false
+  lockSummary.value     = null
+  emit('close')
+}
+
 // ── Scale / threshold display per Value entry ─────────────────────────────────
 function scaleDisplay(scale: string): string {
   return scale ? trunc(scale, 60) : '(no Scale recorded)'
@@ -424,6 +655,20 @@ function thresholdDisplay(value: string): string {
   if (parsed.num === null) return value ? trunc(value, 18) : '—'
   return parsed.display
 }
+
+// ── Pending-changes dirty flag ────────────────────────────────────────────────
+// True when any slider has moved from its captured initial position (onMounted).
+// Drives the amber "not yet applied to model" sticky banner and the bottom CTA
+// pulse state. Tom 2026-06-09: "apply and lock in is not visible or obvious,
+// even 'not applied to model' would be interesting."
+const hasPendingChanges = computed<boolean>(() => {
+  for (const v of values.value) {
+    if ((vWishSliders[v.id]      ?? 75) !== (initialWishSliders.value[v.id]      ?? 75)) return true
+    if ((vTolerableSliders[v.id] ?? 25) !== (initialTolerableSliders.value[v.id] ?? 25)) return true
+  }
+  if (aggregateBudget.value !== initialAggregateBudget.value) return true
+  return false
+})
 
 // ── Layout: when there are no Resource entries, Values column spans full width ─
 const hasResources = computed(() => resources.value.length > 0)
@@ -477,16 +722,50 @@ function _buildExportState(): MultiVisionExportState {
   }
 }
 
+/** Build a proper RFC 2822 multipart/alternative .eml string.
+ *
+ *  When macOS opens a file with MIME type `message/rfc822`, it hands the file
+ *  to Mail.app (the registered OS handler) as a new compose window with the
+ *  HTML body already rendered — no ⌘V paste needed.  This is the preferred
+ *  path per Tom 2026-06-06: "i am still hoping you can paste html in email
+ *  for me".  Web browsers cannot programmatically paste into other apps
+ *  (OS security boundary), but serving a pre-built .eml file sidesteps that
+ *  constraint entirely.
+ */
+function _buildEml(subject: string, htmlBody: string, plainBody: string): string {
+  const boundary = `==MV-${Date.now()}==`
+  return [
+    'MIME-Version: 1.0',
+    `Date: ${new Date().toUTCString()}`,
+    'From: SEM App <noreply@sem-app.local>',
+    'To: Tom@Gilb.com',
+    `Subject: ${subject}`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    '',
+    plainBody,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    '',
+    htmlBody,
+    '',
+    `--${boundary}--`,
+  ].join('\r\n')
+}
+
 async function exportMultiVision(): Promise<void> {
   try {
-    const state = _buildExportState()
-    const htmlText  = renderMultiVisionHtml(state)
+    const state    = _buildExportState()
+    const htmlText = renderMultiVisionHtml(state)
     const plainText = renderMultiVisionPlainText(state)
 
-    // SEM Email Body Standard — LOUD paste cue at top of plain inline body
-    const isoDate = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+    const isoDate  = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+    const subject  = `MultiVision · ${specModel.value?.name ?? 'Plan'} · ${isoDate}`
     const separator = '─'.repeat(56)
-    const mailBody = [
+    const plainBody = [
       'PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION',
       `Exported: ${isoDate}`,
       separator,
@@ -494,71 +773,96 @@ async function exportMultiVision(): Promise<void> {
       plainText,
     ].join('\n')
 
-    // 1. Put HTML + plain on the clipboard (dual-MIME ClipboardItem).
-    let clipboardOK = false
-    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-      try {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/html':  new Blob([htmlText],  { type: 'text/html'  }),
-            'text/plain': new Blob([plainText], { type: 'text/plain' }),
-          }),
-        ])
-        clipboardOK = true
-      } catch (err) {
-        console.warn('[MultiVision export] clipboard.write failed — falling back to writeText', err)
-      }
-    }
-    if (!clipboardOK) {
-      try {
-        await navigator.clipboard.writeText(plainText)
-        clipboardOK = true
-      } catch (err) {
-        console.warn('[MultiVision export] clipboard.writeText also failed', err)
-      }
-    }
+    // ── Strategy A: .eml blob ─────────────────────────────────────────────────
+    // Build a proper multipart/alternative email file.  The HTML part is ALREADY
+    // in the body — Mail.app renders it when it opens the file.  No ⌘V needed.
+    // MUST happen synchronously (before any await) to stay inside the user-
+    // gesture handler chain and avoid Safari popup-blocker.
+    const emlContent = _buildEml(subject, htmlText, plainBody)
+    const emlBlob    = new Blob([emlContent], { type: 'message/rfc822' })
+    const emlUrl     = URL.createObjectURL(emlBlob)
+    // Use an <a> without `download` attribute — tells the browser to navigate
+    // rather than save.  For MIME type message/rfc822 (which Safari cannot
+    // render inline), macOS hands the file to Mail.app as a compose window.
+    const emlLink = document.createElement('a')
+    emlLink.href  = emlUrl
+    // No emlLink.download — intentionally absent so the OS MIME handler fires.
+    emlLink.style.display = 'none'
+    document.body.appendChild(emlLink)
+    emlLink.click()
+    document.body.removeChild(emlLink)
+    setTimeout(() => URL.revokeObjectURL(emlUrl), 15_000)
 
-    // 2. Open Mail with subject + plain body (per SEM Email Body Standard).
-    const subject = `MultiVision · ${specModel.value?.name ?? 'Plan'} · ${isoDate}`
-    // Truncate the mailto body if needed (≤ 7000 chars after encode).
-    let bodyForMailto = mailBody
-    const MAX_BODY = 7000
-    while (encodeURIComponent(bodyForMailto).length > MAX_BODY && bodyForMailto.length > 200) {
-      bodyForMailto = bodyForMailto.slice(0, Math.max(200, bodyForMailto.length - 500)) +
-        '\n\n…[plain-text truncated to fit mailto: limit — press ⌘V above for the full colour version]'
-    }
-    const mailto = `mailto:Tom@Gilb.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyForMailto)}`
-
-    // 3. Open a separate window with the full HTML so Tom can see 100% of the
-    //    model immediately (his original complaint — "27% of the model").
+    // ── Strategy B fallback: preview window (100% of the model) ───────────────
+    // Open the colourful HTML in a separate window immediately so Tom can see
+    // the full export even if the .eml approach behaves differently on his
+    // browser config.
     try {
       const w = window.open('', '_blank', 'width=1100,height=820,scrollbars=yes')
-      if (w) {
-        w.document.open()
-        w.document.write(htmlText)
-        w.document.close()
-      }
+      if (w) { w.document.open(); w.document.write(htmlText); w.document.close() }
     } catch (err) {
       console.warn('[MultiVision export] could not open preview window', err)
     }
 
-    // 4. Trigger mailto.
-    try {
-      window.location.href = mailto
-    } catch (err) {
-      console.warn('[MultiVision export] mailto: open failed', err)
+    // ── Clipboard copy (belt-and-suspenders) ──────────────────────────────────
+    // If the .eml approach somehow doesn't open Mail, the HTML is on the
+    // clipboard as a ⌘V fallback.  Must await AFTER all synchronous
+    // window.open / link.click calls so we stay in the user-gesture chain.
+    let clipboardOK = false
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html':  new Blob([htmlText],  { type: 'text/html'  }),
+          'text/plain': new Blob([plainText], { type: 'text/plain' }),
+        })])
+        clipboardOK = true
+      } catch (err) {
+        console.warn('[MultiVision export] clipboard.write failed', err)
+      }
+    }
+    if (!clipboardOK) {
+      try { await navigator.clipboard.writeText(plainText); clipboardOK = true } catch { /* continue */ }
     }
 
-    // 5. Toast.
-    const msg = clipboardOK
-      ? '⬇ MultiVision exported · preview window open · Mail opening · press ⌘V in the body for the colour version'
-      : '⬇ MultiVision preview window open · Mail opening · clipboard copy failed (use the preview window)'
-    showToast(msg, 6500)
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    showToast(
+      '📧 Mail should open with HTML body already in place · if it saved to Downloads instead, open that file · preview window also open'
+      + (clipboardOK ? ' · ⌘V pastes colour version as backup' : ''),
+      7000,
+    )
   } catch (err) {
     console.error('[MultiVision export] unexpected failure', err)
     showToast(`Export failed: ${String(err).slice(0, 90)}`, 5000)
   }
 }
+
+// r41 v301 — embedded-chrome handlers + guidance computed.  No-Silent-Data-Loss SUPREME:
+// MultiVision changes are only persisted to the spec via the explicit Lock-this-Vision
+// confirmation flow, so unsaved slider drag is intentional pending state — leaving it
+// pending when navigating away is the correct behaviour (matches r93jjj Universal Undo,
+// since the slider state lives in useMultiVision composable refs, not in the spec).
+function onMVEmbeddedStageNav(n: number): void  { emit('navigate-stage', n) }
+function onMVEmbeddedAgentOpen(agentId: AgentRegistryId): void { emit('open-agent', agentId) }
+function onMVEmbeddedStage2Go(target: Stage2SubStepKey): void  { emit('go-stage2-substep', target) }
+function onMVEmbeddedStage2Continue(): void { emit('continue-stage2') }
+
+// r41 v301 — guidance-bar dynamic sentence.  Stage-Has-A-Purpose SUPREME.
+const mvComputedSpecPresence = computed(() => {
+  if (props.specPresence) return props.specPresence
+  return {
+    spec:         !!props.hasSpec,
+    values:       (values.value?.length ?? 0) > 0,
+    resources:    (resources.value?.length ?? 0) > 0,
+    solutions:    (solutions.value?.length ?? 0) > 0,
+  } as Partial<Record<string, boolean>>
+})
+const mvGuidanceText = computed<string>(() => {
+  if (!values.value?.length || !resources.value?.length)
+    return 'MultiVision needs at least one Value and one Resource to balance. Add them in Stage 1/2 and return here.'
+  if (fundedSolutions.value.length === 0)
+    return 'No funded Solutions yet — drag Value sliders down or Resource sliders up to free budget. Locked-in choices write back to the Planguage spec.'
+  return 'Drag sliders to balance Values against Resources. The right column shows which Solutions fit the budget and which Values still get delivered. Click "Lock this Vision" when satisfied to commit to the spec.'
+})
 </script>
 
 <template>
@@ -608,6 +912,54 @@ async function exportMultiVision(): Promise<void> {
             </div>
           </div>
 
+          <!-- ── r41 v301 (Tom Gilb 2026-06-23) — Embedded universal chrome.
+               PlanningStageBar + AgentsStrip + Stage2SubStepStrip (when stage===2)
+               + guidance bar.  Mirrors SpecEditorPanel v298 / PentaPanel v301. -->
+          <PlanningStageBar
+            v-if="props.planningStage != null"
+            :current-stage="props.planningStage ?? 1"
+            :has-spec="!!props.hasSpec"
+            :has-plan="!!props.hasPlan"
+            @navigate="onMVEmbeddedStageNav"
+          />
+          <AgentsStrip
+            :has-spec="!!props.hasSpec"
+            :spec-presence="mvComputedSpecPresence as Record<string, boolean>"
+            @open-maria="onMVEmbeddedAgentOpen('maria')"
+            @open-contracts="onMVEmbeddedAgentOpen('contracts')"
+            @open-models="onMVEmbeddedAgentOpen('models')"
+            @open-stakeholder-mapper="onMVEmbeddedAgentOpen('stakeholder-mapper')"
+            @open-evo-critiquer="onMVEmbeddedAgentOpen('evo-step-critique')"
+            @open-spec-importer="onMVEmbeddedAgentOpen('plan-importer')"
+            @open-decisions="onMVEmbeddedAgentOpen('decisions')"
+            @open-strategy="onMVEmbeddedAgentOpen('strategy-agent')"
+            @open-incorruptible="onMVEmbeddedAgentOpen('incorruptible')"
+            @open-incorruptible-sharpen="onMVEmbeddedAgentOpen('incorruptible-sharpen')"
+            @open-elon="onMVEmbeddedAgentOpen('elon')"
+            @open-elon-sharpen="onMVEmbeddedAgentOpen('elon-sharpen')"
+            @open-munger="onMVEmbeddedAgentOpen('munger')"
+            @open-munger-sharpen="onMVEmbeddedAgentOpen('munger-sharpen')"
+            @open-heilmeier="onMVEmbeddedAgentOpen('heilmeier')"
+            @open-auto-dbo="onMVEmbeddedAgentOpen('autoDbo')"
+            @open-mode-picker="onMVEmbeddedAgentOpen"
+          />
+          <Stage2SubStepStrip
+            v-if="props.planningStage === 2"
+            :current="props.stage2SubStep"
+            :done="props.stage2DoneSteps"
+            @go="onMVEmbeddedStage2Go"
+            @continue="onMVEmbeddedStage2Continue"
+          />
+          <div
+            v-if="props.planningStage != null"
+            class="shrink-0 flex items-start gap-2 px-4 py-2 bg-slate-900/55 border-b border-white/10 text-[12px] leading-snug text-amber-100/90"
+            role="note"
+            aria-label="What this surface is for"
+          >
+            <span class="shrink-0 mt-0.5 text-amber-300/80" aria-hidden="true">▸</span>
+            <span>{{ mvGuidanceText }}<span v-if="mvCurrentStageName" class="ml-1 opacity-70">· Stage {{ props.planningStage }}: {{ mvCurrentStageName }}</span></span>
+          </div>
+
           <!-- Color swatch divider strip -->
           <div
             class="shrink-0 h-[10px] w-full"
@@ -615,8 +967,51 @@ async function exportMultiVision(): Promise<void> {
             aria-hidden="true"
           />
 
+          <!-- ── Pending-Changes Banner ─────────────────────────────────────
+               Appears immediately when any slider moves — before the user
+               scrolls to the bottom CTA.  MOVE principle: the "apply" action
+               must be visible at the TOP, not only at the end of a long scroll.
+               DD-017: amber-50 bg + amber-900 text — readable for R-G colorblind.
+               Tom 2026-06-09: "apply and lock in is not visible or obvious,
+               even 'not applied to model' would be interesting." ─────────────── -->
+          <Transition
+            enter-active-class="transition-all duration-200 ease-out"
+            leave-active-class="transition-all duration-150 ease-in"
+            enter-from-class="opacity-0 -translate-y-1"
+            leave-to-class="opacity-0 -translate-y-1"
+          >
+            <div
+              v-if="hasPendingChanges && !lockConfirmOpen"
+              class="shrink-0 flex items-center gap-2.5 px-5 py-2.5 border-b border-amber-300"
+              style="background:#fffbeb;"
+              role="status"
+              aria-live="polite"
+            >
+              <!-- Warning glyph -->
+              <span class="shrink-0 font-mono font-black text-amber-600 select-none" style="font-size:15px;">⚠</span>
+              <!-- Message -->
+              <span class="flex-1 text-xs font-semibold text-amber-900 leading-snug">
+                Slider changes <strong>not yet applied to model</strong> — the spec is unchanged until you lock in.
+              </span>
+              <!-- Prominent CTA — mirrors the bottom "Lock this Vision" button (DD-014) -->
+              <button
+                type="button"
+                class="shrink-0 flex items-center gap-1.5 text-xs font-bold text-white rounded-lg px-3.5 py-2
+                       transition-all hover:scale-[1.02] active:scale-[0.98]
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                style="background: linear-gradient(135deg, #d97706, #b45309);"
+                title="Apply slider changes and lock them into the Planguage spec now"
+                @click="showLockConfirm()"
+              >
+                Apply &amp; Lock In →
+              </button>
+            </div>
+          </Transition>
+
           <!-- ── Scrollable body ──────────────────────────────────────────── -->
+          <!-- Hidden while the Lock confirmation overlay is showing -->
           <ScrollContainer
+            v-if="!lockConfirmOpen"
             outer-class="relative overflow-hidden"
             inner-class="px-5 py-5 space-y-6"
             inner-style="max-height: calc(92vh - 110px);"
@@ -628,6 +1023,16 @@ async function exportMultiVision(): Promise<void> {
               <div class="flex flex-col sm:flex-row items-center gap-4">
                 <!-- Gauge SVG -->
                 <div class="shrink-0 flex flex-col items-center">
+                  <!-- r41 v35 — Tom Gilb 2026-06-15 verbatim BUG: "multivision
+                       bug no hover on score explaining it".  Wrapped the whole
+                       gauge in a host span carrying the HoverHint AND added an
+                       SVG <title> child so both DOM-host hover (works in Vue/
+                       Tailwind) AND SVG-native title (works in screen readers +
+                       Safari fallback) explain the score. -->
+                  <span
+                    class="block cursor-help"
+                    :title="`Vision Balance ${balanceScore}% — the share of your Value entries that meet their Constraint OR Target threshold under your current Vision settings (Ambition sliders) and Resource Budget settings.  Computed live by useMultiVision.balanceScore.  Green ≥ 70% balanced, yellow 40-70 mixed, rose < 40 unbalanced.  Click the (i) button below for the full definition + breakdown.`"
+                  >
                   <svg
                     viewBox="0 0 180 100"
                     width="180"
@@ -636,6 +1041,7 @@ async function exportMultiVision(): Promise<void> {
                     aria-label="Vision balance gauge"
                     role="img"
                   >
+                    <title>Vision Balance {{ balanceScore }}% — share of Value entries meeting their Constraint or Target under current Ambition + Resource settings.</title>
                     <path
                       :d="gaugeTrackPath"
                       stroke="#e5e7eb"
@@ -663,6 +1069,7 @@ async function exportMultiVision(): Promise<void> {
                       style="transition: fill 300ms ease;"
                     >{{ balanceScore }}%</text>
                   </svg>
+                  </span>
                   <div class="text-[11px] font-bold text-gray-700 uppercase tracking-[0.18em] -mt-1 flex items-center gap-1">
                     Vision Balance
                     <button
@@ -725,7 +1132,7 @@ async function exportMultiVision(): Promise<void> {
                     id="vb-definition"
                     class="rounded-lg bg-white border border-indigo-200 px-3 py-2 text-[12px] text-gray-700 space-y-1"
                   >
-                    <p><strong>Formula:</strong> count(Value entries that MEET their chosen commitment level) ÷ count(all Values) × 100.</p>
+                    <p><strong>Formula:</strong> count(Value entries that MEET their chosen commitment level) / count(all Values) × 100.</p>
                     <p><strong>Per-Value commitment level</strong> is set by your Value slider, which picks WHICH of the declared numeric levels from the spec the project commits to MEET: the <span class="text-amber-700 font-semibold"><PlanguageTerm term="Tolerable" class="text-amber-700" /> <PlanguageTerm term="Constraint" class="text-amber-700" /> level</span> (escape project failure), the <span class="text-emerald-700 font-semibold"><PlanguageTerm term="Goal" class="text-emerald-700" /> <PlanguageTerm term="Target" class="text-emerald-700" /> level</span> (committed promise), or the <span class="text-violet-700 font-semibold"><PlanguageTerm term="Wish" class="text-violet-700" /> <PlanguageTerm term="Target" class="text-violet-700" /> level</span> (stakeholder dream). MEET is BINARY against that chosen numeric level — Tom Gilb 2026-06-06: "speed limit 90, caught at 91 = exceeded; age 18 for alcohol, 17+11mo+28d = cannot legally buy." Planguage has no normalised 0/50/100 commitment scale.</p>
                     <p class="text-[11px] italic text-slate-600">Note: <PlanguageTerm term="Ambition" class="text-slate-600" /> is a vague summary, not a precise level — you cannot MEET it. The slider chooses a Constraint or Target (both precise) to commit to.</p>
                     <p><strong>Per-Value delivery</strong> is the average <strong>Percentage Impact `%.→`</strong> (Glossary *306) across all funded Solutions on that Value — 0 % = at Past/benchmark, 100 % = target reached (Goal or Wish). This is the IET relative scale: it lets us add and compare Values with different native units. Like Celsius / Fahrenheit, the IET scale is convertible to native units (CE book IET chapter).</p>
@@ -973,7 +1380,7 @@ async function exportMultiVision(): Promise<void> {
                       <span
                         class="text-[13px] font-extrabold rounded-lg px-2.5 py-1 transition-all duration-300"
                         :class="deliveryBadgeClass(v.id)"
-                        :title="`Percentage Impact *306 — IET % Target Achievement: ${(vDelivery[v.id] ?? 0).toFixed(0)}%. 0% = at Past/benchmark; 100% = target reached (Goal or Wish). Funded Solutions move ${v.id} ${(vDelivery[v.id] ?? 0).toFixed(0)}% of the way from baseline to target. Your chosen commitment level is ${vSliders[v.id] ?? 50}% on the same scale. Status: ${feasibilityLabel(v.id)}.`"
+                        :title="`IET % Target Achievement (Percentage Impact *306): ${(vDelivery[v.id] ?? 0).toFixed(0)}%. 0% = at Past/benchmark; 100% = target reached. Funded Solutions move ${v.id} ${(vDelivery[v.id] ?? 0).toFixed(0)}% of the way from baseline to commitment. Wish slider targets the ${wishSliderLevelName(v)} level — spec value: ${wishSliderRealVal(v)} (native scale). Tolerable slider — spec value: ${tolerableSliderRealVal(v)}. Status: ${feasibilityLabel(v.id)}.`"
                       >
                         {{ (vDelivery[v.id] ?? 0).toFixed(0) }}%
                       </span>
@@ -1051,7 +1458,7 @@ async function exportMultiVision(): Promise<void> {
                     <div>
                       <div class="text-[8px] font-bold uppercase tracking-wide text-amber-800 mb-1 flex items-center gap-1">
                         Tolerable
-                        <span class="font-mono opacity-70">&gt;&gt;</span>
+                        <span class="font-mono opacity-70" :title="keyedLevelHoverHint('tolerable')">&gt;&gt;</span>
                         · Scalar Constraint · drag to set the failure-avoidance line
                       </div>
                       <!-- Floating label tracking thumb -->
@@ -1089,8 +1496,15 @@ async function exportMultiVision(): Promise<void> {
                          Widths driven live from both slider positions.
                          Tolerable thumb = left boundary of TOLERABLE band.
                          Wish thumb     = right boundary of TOLERABLE band.
-                         Handles thumb-cross (Tolerable > Wish) via zoneWidths(). -->
-                    <div class="rounded-lg overflow-hidden flex h-8 shadow-inner select-none -mt-0.5">
+                         Handles thumb-cross (Tolerable > Wish) via zoneWidths().
+                         pointer-events-none: zone bar is display-only; it sits
+                         between the two sliders and must never intercept the
+                         mousedown that belongs to the slider thumbs. Without this
+                         the first click on a slider near the zone bar lands on
+                         this div instead, the slider never gets mouse capture,
+                         and it appears frozen (the "TWIN APP LISTING REACH" bug,
+                         2026-06-06). -->
+                    <div class="rounded-lg overflow-hidden flex h-8 shadow-inner select-none -mt-0.5 pointer-events-none">
                       <!-- FAILED: 0 → Tolerable position -->
                       <div
                         class="flex items-center justify-center shrink-0 overflow-hidden
@@ -1133,7 +1547,7 @@ async function exportMultiVision(): Promise<void> {
                     <div>
                       <div class="text-[8px] font-bold uppercase tracking-wide text-violet-800 mb-1 flex items-center gap-1">
                         Wish
-                        <span class="font-mono opacity-70">&gt;?</span>
+                        <span class="font-mono opacity-70" :title="keyedLevelHoverHint('wish')">&gt;?</span>
                         · Stakeholder Target · drag to set the dream level
                       </div>
                       <div class="relative h-4 mb-0.5 pointer-events-none">
@@ -1167,18 +1581,40 @@ async function exportMultiVision(): Promise<void> {
                          the design and resources etc.") — NOT a slider, computed
                          from OPTIMA balancing between Tolerable + Wish.  Shown
                          as a chip so the user understands Goal EMERGES, it is
-                         not set directly. -->
+                         not set directly.
+                         Tom 2026-06-06: "the relevant numbers are the real scale
+                         numbers" — show spec Goal value in native units, not
+                         the abstract 0-100 slider midpoint. -->
                     <div class="rounded-md bg-emerald-50 border border-emerald-300 px-2.5 py-1.5 text-[10px] leading-snug space-y-0.5">
-                      <div class="flex items-center gap-1.5">
+                      <div class="flex items-center gap-1.5 flex-wrap gap-y-1">
                         <span class="font-bold uppercase tracking-wide text-[9px] text-emerald-800">
-                          Goal <span class="font-mono opacity-70">&gt;</span> · derived
+                          Goal <span class="font-mono opacity-70" :title="keyedLevelHoverHint('goal')">&gt;</span> · spec declared
                         </span>
-                        <span class="ml-auto inline-block px-1.5 py-0.5 rounded bg-emerald-700 text-white text-[9px] font-mono font-bold">
-                          {{ vDerivedGoal[v.id] ?? 50 }} / 100
+                        <!-- Real spec Goal value in native units (not abstract 0-100) -->
+                        <span
+                          class="ml-auto inline-block px-1.5 py-0.5 rounded bg-emerald-700 text-white text-[9px] font-mono font-bold"
+                          :title="`Spec Goal value (native Scale unit): ${thresholdDisplay(v.goal)}. OPTIMA will negotiate the actual committed level given Resources + competing Values — the committed Goal emerges from that balancing.`"
+                        >
+                          {{ thresholdDisplay(v.goal) }}
                         </span>
                       </div>
-                      <p class="text-emerald-900">
-                        EMERGES from OPTIMA balancing of Tolerable + Wish + Resource Budget.  The user does NOT set Goal directly — it commits only when the 7 Glossary validity conditions hold (technically + economically possible, cost-consistent, effective, profitable, prioritised, qualifying conditions true).
+                      <!-- Show all three Planguage levels in real units for reference -->
+                      <div class="flex items-baseline gap-3 text-[9px] mt-1 flex-wrap">
+                        <span>
+                          <span class="font-mono text-amber-700" :title="keyedLevelHoverHint('tolerable')">&gt;&gt;</span>
+                          <span class="text-amber-800 ml-0.5">{{ thresholdDisplay(v.tolerable) }}</span>
+                        </span>
+                        <span class="font-bold text-emerald-800">
+                          <span class="font-mono" :title="keyedLevelHoverHint('goal')">&gt;</span>
+                          <span class="ml-0.5">{{ thresholdDisplay(v.goal) }}</span>
+                        </span>
+                        <span v-if="v.wish && v.wish !== '—' && v.wish !== ''">
+                          <span class="font-mono text-violet-700" :title="keyedLevelHoverHint('wish')">&gt;?</span>
+                          <span class="text-violet-800 ml-0.5">{{ thresholdDisplay(v.wish) }}</span>
+                        </span>
+                      </div>
+                      <p class="text-emerald-900 mt-1">
+                        EMERGES from OPTIMA balancing of Tolerable + Wish + Resource Budget.  The user does NOT set Goal directly — it commits only when the 7 Glossary validity conditions hold.
                       </p>
                     </div>
 
@@ -1543,7 +1979,7 @@ async function exportMultiVision(): Promise<void> {
                     <!-- Threshold labels -->
                     <div class="flex items-baseline text-[10px] text-gray-600">
                       <span class="flex-1"><strong class="text-amber-700">Tolerable:</strong> {{ thresholdDisplay(r.tolerable) }}</span>
-                      <span class="flex-1 text-center"><strong class="text-emerald-700">Goal:</strong> {{ thresholdDisplay(r.goal) }}</span>
+                      <span class="flex-1 text-center"><strong class="text-emerald-700">{{ rBudgetLabel(r) }}:</strong> {{ thresholdDisplay(rBudget(r)) }}</span>
                       <span v-if="r.wish" class="flex-1 text-right"><strong class="text-violet-700">Wish:</strong> {{ thresholdDisplay(r.wish) }}</span>
                     </div>
                     <!-- Budget fill bar (behind slider) -->
@@ -1582,6 +2018,7 @@ async function exportMultiVision(): Promise<void> {
                 <!-- Aggregate budget slider (no Resource entries) -->
                 <template v-else>
                   <div class="rounded-lg bg-white border border-orange-200 p-3 space-y-2 shadow-sm">
+                    <!-- Header row -->
                     <div class="flex items-center justify-between">
                       <div>
                         <div class="text-[12px] font-semibold text-gray-800">
@@ -1598,31 +2035,146 @@ async function exportMultiVision(): Promise<void> {
                         {{ aggregateBudget }}%
                       </span>
                     </div>
+
+                    <!-- Fill bar -->
                     <div class="relative h-[10px] rounded-full bg-gray-200 overflow-hidden">
                       <div
-                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-200"
+                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-75"
                         style="background: linear-gradient(90deg, #4f46e5, #7c3aed)"
                         :style="{ width: aggregateBudget + '%' }"
                         aria-hidden="true"
                       />
                     </div>
+
+                    <!-- Slider -->
                     <input
                       type="range"
                       min="0"
                       max="100"
                       :value="aggregateBudget"
                       class="r-slider w-full -mt-1"
-                      title="Aggregate budget fraction (0 = no budget · 100 = full)"
+                      title="Aggregate budget fraction (0 = no budget · 100 = full). Drag left to de-fund solutions; drag right past threshold marks to fund more."
                       aria-label="Available budget percentage"
                       style="background: transparent"
                       @input="setAggregateBudget(+($event.target as HTMLInputElement).value)"
                     />
-                    <div class="flex items-center justify-between text-[10px] text-gray-600">
+
+                    <!-- ── Funding Threshold Ruler ──────────────────────────
+                         Tick marks at the exact budget % where each solution
+                         enters the funded set (greedy V/C order).
+                         GREEN tick  = solution IS currently funded (budget ≥ threshold).
+                         SLATE tick  = solution NOT yet funded (budget < threshold).
+                         Real $ labels give Tom the actual scale numbers. -->
+                    <div
+                      v-if="fundingThresholds.length > 0"
+                      class="relative mt-1"
+                      style="height: 46px;"
+                      aria-hidden="true"
+                    >
+                      <!-- Ruler base track -->
+                      <div
+                        class="absolute left-0 right-0 rounded-full bg-gray-100"
+                        style="top: 5px; height: 4px;"
+                      />
+                      <!-- Filled portion (tracks slider) -->
+                      <div
+                        class="absolute left-0 rounded-full transition-all duration-75"
+                        style="top: 5px; height: 4px; background: linear-gradient(90deg, #6366f1, #7c3aed)"
+                        :style="{ width: `${aggregateBudget}%` }"
+                      />
+                      <!-- Per-solution threshold ticks -->
+                      <div
+                        v-for="t in fundingThresholds"
+                        :key="t.solutionId"
+                        class="absolute flex flex-col items-center"
+                        style="top: 0; transform: translateX(-50%);"
+                        :style="{ left: `${t.minBudgetPct}%` }"
+                        :title="`#${t.rank} ${t.solutionId} — requires $${t.cumCostK}k (${t.minBudgetPct}% of $${totalCapitalCost.toFixed(0)}k total). Own cost: $${t.ownCostK}k. Value/Cost ratio: ${t.vcRatio.toFixed(1)}. ${aggregateBudget >= t.minBudgetPct ? 'FUNDED ✓' : 'NOT YET FUNDED — drag slider right past this tick.'}`"
+                      >
+                        <!-- Tick line -->
+                        <div
+                          class="rounded-full transition-colors duration-150"
+                          style="width: 2px; height: 14px;"
+                          :class="aggregateBudget >= t.minBudgetPct ? 'bg-emerald-500' : 'bg-slate-300'"
+                        />
+                        <!-- "$Xk · N%" label -->
+                        <span
+                          class="text-[7px] font-bold leading-tight whitespace-nowrap"
+                          style="margin-top: 1px;"
+                          :class="aggregateBudget >= t.minBudgetPct ? 'text-emerald-700' : 'text-slate-400'"
+                        >
+                          ${{ t.cumCostK }}k · {{ t.minBudgetPct }}%
+                        </span>
+                        <!-- Solution rank + ID (truncated) -->
+                        <span
+                          class="leading-tight whitespace-nowrap overflow-hidden text-ellipsis"
+                          style="font-size: 6px; max-width: 52px; display: block; text-align: center;"
+                          :class="aggregateBudget >= t.minBudgetPct ? 'text-emerald-600' : 'text-slate-400'"
+                        >
+                          #{{ t.rank }} {{ t.solutionId.slice(0, 10) }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- ── Budget Slider Trace ──────────────────────────────
+                         Dark instrument strip: session-start position vs.
+                         current. Shows delta in percentage-points AND real $.
+                         Always visible (collapses to "no change" label when unchanged). -->
+                    <div class="rounded-lg px-3 py-2 space-y-1.5 -mx-0.5" style="background:#1e293b;">
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-[7px] font-black uppercase tracking-[0.2em] text-slate-400">Budget Trace</span>
+                        <span class="text-[7px] text-slate-500 italic">· vs. session start</span>
+                      </div>
+                      <!-- Track with ghost tick + delta segment + current dot -->
+                      <div class="relative" style="height: 14px;">
+                        <!-- Ghost tick (initial position) -->
+                        <div
+                          class="absolute top-0 bottom-0 rounded-full"
+                          style="width: 2px; background: rgba(251,191,36,0.45);"
+                          :style="{ left: `${initialAggregateBudget}%` }"
+                        />
+                        <!-- Delta segment (red = budget cut, green = budget raised) -->
+                        <div
+                          v-if="aggregateBudget !== initialAggregateBudget"
+                          class="absolute rounded-full"
+                          style="top: 5px; bottom: 5px;"
+                          :class="aggregateBudget > initialAggregateBudget ? 'bg-emerald-500/70' : 'bg-red-500/70'"
+                          :style="_segStyle(initialAggregateBudget, aggregateBudget)"
+                        />
+                        <!-- Current position dot -->
+                        <div
+                          class="absolute rounded-full border-2 border-orange-400"
+                          style="width: 10px; height: 10px; background:#1e293b; top: 2px; transform: translateX(-50%);"
+                          :style="{ left: `${aggregateBudget}%` }"
+                        />
+                      </div>
+                      <!-- Label row: initial → delta → current -->
+                      <div class="flex items-center justify-between text-[8px]">
+                        <span class="text-slate-400">
+                          ◈ {{ initialAggregateBudget }}% · ${{ Math.round(totalCapitalCost * initialAggregateBudget / 100) }}k
+                        </span>
+                        <span
+                          v-if="aggregateBudget !== initialAggregateBudget"
+                          class="font-bold"
+                          :class="aggregateBudget > initialAggregateBudget ? 'text-emerald-400' : 'text-red-400'"
+                        >
+                          {{ aggregateBudget > initialAggregateBudget ? '+' : '' }}{{ aggregateBudget - initialAggregateBudget }}pp
+                          (${{ Math.abs(Math.round((aggregateBudget - initialAggregateBudget) / 100 * totalCapitalCost)) }}k)
+                        </span>
+                        <span v-else class="text-slate-600 italic text-[7px]">no change</span>
+                        <span class="text-slate-400">
+                          ◉ {{ aggregateBudget }}% · ${{ availableCapital.toFixed(0) }}k
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- $ available / total row -->
+                    <div class="flex items-center justify-between text-[10px] text-gray-600 pt-0.5">
                       <span>${{ availableCapital.toFixed(0) }}k available</span>
                       <span>${{ totalCapitalCost.toFixed(0) }}k total</span>
                     </div>
-                    <p class="text-[11px] text-gray-500 italic mt-1">
-                      Add Resource (R.) entries to the spec for unit-aware sliders ($, weeks, FTE…).
+                    <p class="text-[11px] text-gray-500 italic">
+                      Add Resource entries to the spec for unit-aware sliders ($, weeks, FTE…).
                     </p>
                   </div>
                 </template>
@@ -1651,6 +2203,36 @@ async function exportMultiVision(): Promise<void> {
                   ranked by Value-per-Cost ratio
                 </span>
               </div>
+
+              <!-- ── Funding-change consequence banner ──────────────────
+                   Fires when budget slider crosses a funding threshold.
+                   Makes the consequence of slider movement immediately
+                   visible: which solution just gained or lost funding,
+                   and the exact $ threshold that was crossed.
+                   Tom verbatim: "Could not see any consequences (like
+                   cannot fund some solutions fully)" — this is the fix. -->
+              <Transition name="ripple-fade">
+                <div
+                  v-if="fundingChangeEvent"
+                  class="animate-pulse rounded-md border px-2.5 py-1.5
+                         text-[10px] font-bold leading-snug flex items-center gap-1.5"
+                  :class="fundingChangeEvent.dir === 'gain'
+                    ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
+                    : 'bg-red-50 border-red-400 text-red-800'"
+                  aria-live="polite"
+                >
+                  <span class="text-sm leading-none shrink-0">
+                    {{ fundingChangeEvent.dir === 'gain' ? '🟢' : '🔴' }}
+                  </span>
+                  <span>
+                    {{ fundingChangeEvent.dir === 'gain' ? '⬆' : '⬇' }}
+                    <strong>{{ fundingChangeEvent.label }}</strong>
+                    {{ fundingChangeEvent.dir === 'gain'
+                      ? `now funded — budget crossed $${fundingChangeEvent.cumCostK}k (${fundingChangeEvent.thresholdPct}%)`
+                      : `DROPPED — budget fell below $${fundingChangeEvent.cumCostK}k (${fundingChangeEvent.thresholdPct}%)` }}
+                  </span>
+                </div>
+              </Transition>
 
               <!-- No solutions at all -->
               <div
@@ -1795,7 +2377,7 @@ async function exportMultiVision(): Promise<void> {
                 class="text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200
                        rounded-lg px-4 py-2 transition-colors focus:outline-none
                        focus-visible:ring-2 focus-visible:ring-gray-400"
-                title="Reset all sliders to default · Value sliders to 50 (Goal level), Resource sliders to 100% (full budget)"
+                title="Reset all sliders to default · Tolerable → lower third, Wish → upper third, Resource budget → 100%"
                 @click="resetSliders()"
               >
                 ↺ Reset to Defaults
@@ -1830,20 +2412,225 @@ async function exportMultiVision(): Promise<void> {
               >
                 ⬇ Export · Full Model
               </button>
+              <!-- Bottom Apply/Lock CTA — mirrors the pending-changes banner above (DD-014).
+                   When sliders are dirty: amber gradient + ⚠ prefix + "Apply & Lock In →".
+                   When no pending changes: standard indigo "Lock this Vision ✓". -->
+              <button
+                type="button"
+                class="ml-auto text-sm font-semibold text-white rounded-lg px-5 py-2
+                       transition-all hover:scale-[1.02] active:scale-[0.98]
+                       focus:outline-none focus-visible:ring-2"
+                :class="hasPendingChanges ? 'focus-visible:ring-amber-400' : 'focus-visible:ring-indigo-400'"
+                :style="hasPendingChanges
+                  ? 'background: linear-gradient(135deg, #d97706, #b45309);'
+                  : 'background: linear-gradient(135deg, #4f46e5, #7c3aed);'"
+                :title="hasPendingChanges
+                  ? 'Apply slider adjustments — changes are pending and not yet written to the spec'
+                  : 'Lock this Vision configuration — confirms changes and closes the panel'"
+                @click="showLockConfirm()"
+              >
+                <span v-if="hasPendingChanges">⚠ Apply &amp; Lock In →</span>
+                <span v-else>Lock this Vision ✓</span>
+              </button>
+            </div>
+
+          </ScrollContainer>
+
+          <!-- ── Lock This Vision — Confirmation overlay ───────────────────────
+               Shown after the user clicks "Lock this Vision ✓". Replaces the
+               ScrollContainer body with a summary of changes in real Planguage
+               spec values (native scale) and Tom's requested confirmation text.
+               Closes via closeLockConfirm() which also fires emit('close').
+               Tom (2026-06-06): "at the least a confirmation: 'Your adjusted
+               levels of performance, will be the valid ones in your Planguage
+               planning specifications now.' Maybe even with a summary of changes
+               in a window? (which can be exported)" ─────────────────────────── -->
+          <ScrollContainer
+            v-if="lockConfirmOpen && lockSummary"
+            outer-class="flex flex-col"
+            inner-class="px-5 py-6 gap-5 flex flex-col"
+            inner-style="max-height: calc(92vh - 110px);"
+          >
+            <!-- ── Confirmation heading ──────────────────────────────────────── -->
+            <div class="flex items-center gap-3">
+              <div
+                class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                style="background: linear-gradient(135deg, #4f46e5, #7c3aed)"
+              >
+                ✓
+              </div>
+              <div>
+                <div class="text-lg font-bold text-indigo-900">Vision Locked ✓</div>
+                <div class="text-xs text-slate-500 mt-0.5">
+                  {{ new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) }}
+                </div>
+              </div>
+              <!-- CloseDot: top-right of confirmation, also calls closeLockConfirm -->
+            </div>
+
+            <!-- ── Tom's exact requested confirmation text ───────────────────── -->
+            <div
+              class="rounded-xl border-2 border-indigo-200 bg-indigo-50 px-5 py-4
+                     text-sm font-medium text-indigo-900 leading-relaxed"
+            >
+              Your adjusted levels of performance, will be the valid ones in your
+              Planguage planning specifications now.
+            </div>
+
+            <!-- ── Balance score snapshot ────────────────────────────────────── -->
+            <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div class="text-2xl font-black"
+                :class="lockSummary.balanceAfter >= 70 ? 'text-emerald-600'
+                       : lockSummary.balanceAfter >= 40 ? 'text-amber-600'
+                       : 'text-red-500'"
+              >
+                {{ lockSummary.balanceAfter }}%
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-slate-700">Vision Balance Score</div>
+                <div class="text-[11px] text-slate-400">
+                  {{ lockSummary.balanceAfter >= 70 ? 'Healthy — Values well-funded relative to ambitions'
+                   : lockSummary.balanceAfter >= 40 ? 'Moderate — some Values under-funded'
+                   : 'Constrained — budget covers limited ambitions' }}
+                </div>
+              </div>
+              <!-- Budget snapshot -->
+              <div class="ml-auto text-right">
+                <div class="text-xs font-semibold text-slate-700">
+                  Budget: {{ lockSummary.budgetAfter }}%
+                  <span class="font-mono text-slate-400">({{ lockSummary.budgetCostAfter > 0 ? '$' + lockSummary.budgetCostAfter + 'k' : 'n/a' }})</span>
+                </div>
+                <div
+                  v-if="lockSummary.budgetAfter !== lockSummary.budgetBefore"
+                  class="text-[11px]"
+                  :class="lockSummary.budgetAfter > lockSummary.budgetBefore ? 'text-emerald-600' : 'text-red-500'"
+                >
+                  was {{ lockSummary.budgetBefore }}%
+                  ({{ lockSummary.budgetAfter > lockSummary.budgetBefore ? '+' : '' }}{{ lockSummary.budgetAfter - lockSummary.budgetBefore }}pp)
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Changes table ─────────────────────────────────────────────── -->
+            <div>
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+                {{ lockSummary.anyChanged ? 'Summary of Adjusted Commitments' : 'No commitments were adjusted this session' }}
+              </div>
+
+              <!-- No-changes state -->
+              <div
+                v-if="!lockSummary.anyChanged"
+                class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-400 italic"
+              >
+                All slider positions match session start. The Vision is confirmed as-is.
+              </div>
+
+              <!-- Changes table (Tom 2026-06-10: fix collision + faint After values + add scroll) -->
+              <div
+                v-else
+                class="rounded-xl border border-slate-200 overflow-hidden"
+              >
+                <!-- Sticky table header — keyed icons only to avoid text collision in narrow columns -->
+                <div
+                  class="grid text-[10px] font-bold uppercase tracking-wide text-slate-500 px-3 py-2 border-b border-slate-200 bg-slate-50 sticky top-0 z-10"
+                  style="grid-template-columns: 1fr 80px 80px 76px 76px;"
+                >
+                  <span>Value</span>
+                  <span
+                    class="text-amber-700 text-center leading-tight"
+                    title=">> Tolerable (minimum non-failure threshold) — before Vision Lock"
+                  ><span class="text-[13px] font-black block" :title="keyedLevelHoverHint('tolerable')">&gt;&gt;</span><span class="font-normal normal-case text-[9px]">Tol. Before</span></span>
+                  <span
+                    class="text-amber-700 text-center leading-tight"
+                    title=">> Tolerable (minimum non-failure threshold) — after Vision Lock"
+                  ><span class="text-[13px] font-black block" :title="keyedLevelHoverHint('tolerable')">&gt;&gt;</span><span class="font-normal normal-case text-[9px]">Tol. After</span></span>
+                  <span
+                    class="text-violet-700 text-center leading-tight"
+                    title=">? Wish (aspirational target, uncommitted) — before Vision Lock"
+                  ><span class="text-[13px] font-black block" :title="keyedLevelHoverHint('wish')">&gt;?</span><span class="font-normal normal-case text-[9px]">Wish Before</span></span>
+                  <span
+                    class="text-violet-700 text-center leading-tight"
+                    title=">? Wish (aspirational target, uncommitted) — after Vision Lock"
+                  ><span class="text-[13px] font-black block" :title="keyedLevelHoverHint('wish')">&gt;?</span><span class="font-normal normal-case text-[9px]">Wish After</span></span>
+                </div>
+
+                <!-- Scrollable rows — ScrollContainer ensures rule compliance; max-h gives a
+                     viewport with enough rows visible while still being scrollable -->
+                <ScrollContainer class="max-h-[320px]">
+                  <div
+                    v-for="(row, i) in lockSummary.rows"
+                    :key="i"
+                    class="grid items-center px-3 py-2 text-xs border-b border-slate-100 last:border-0"
+                    :class="(row.tolerChanged || row.wishChanged) ? 'bg-indigo-50/60' : 'bg-white'"
+                    style="grid-template-columns: 1fr 80px 80px 76px 76px;"
+                  >
+                    <!-- Value label -->
+                    <span class="font-medium text-slate-800 truncate pr-2" :title="row.label">
+                      {{ row.label }}
+                      <span v-if="row.scale" class="ml-1 font-normal text-slate-400 text-[10px]">[{{ row.scale }}]</span>
+                    </span>
+
+                    <!-- Tolerable Before -->
+                    <span
+                      class="text-center font-mono text-amber-700"
+                      :class="row.tolerChanged ? 'opacity-40 line-through' : ''"
+                    >{{ row.tolerBefore }}</span>
+
+                    <!-- Tolerable After — was text-slate-300 (invisible); now slate-500 when unchanged -->
+                    <span
+                      class="text-center font-mono font-bold"
+                      :class="row.tolerChanged ? 'text-amber-700' : 'text-slate-500'"
+                    >
+                      {{ row.tolerAfter }}
+                      <span v-if="row.tolerChanged" class="text-[9px] font-normal text-indigo-500 ml-0.5">✓</span>
+                    </span>
+
+                    <!-- Wish Before -->
+                    <span
+                      class="text-center font-mono text-violet-600"
+                      :class="row.wishChanged ? 'opacity-40 line-through' : ''"
+                    >{{ row.wishBefore }}</span>
+
+                    <!-- Wish After — was text-slate-300 (invisible); now slate-500 when unchanged -->
+                    <span
+                      class="text-center font-mono font-bold"
+                      :class="row.wishChanged ? 'text-violet-700' : 'text-slate-500'"
+                    >
+                      {{ row.wishAfter }}
+                      <span v-if="row.wishChanged" class="text-[9px] font-normal text-indigo-500 ml-0.5">✓</span>
+                    </span>
+                  </div>
+                </ScrollContainer>
+              </div>
+            </div>
+
+            <!-- ── Action buttons ─────────────────────────────────────────────── -->
+            <div class="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                class="text-sm font-semibold text-emerald-800 bg-emerald-50 border-2 border-emerald-400
+                       hover:bg-emerald-100 hover:border-emerald-600 rounded-lg px-4 py-2
+                       transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                title="⬇ Export this locked Vision — full model + confirmation summary to Mail"
+                @click="exportMultiVision()"
+              >
+                ⬇ Export · Locked Vision
+              </button>
               <button
                 type="button"
                 class="ml-auto text-sm font-semibold text-white rounded-lg px-5 py-2
                        transition-all hover:scale-[1.02] active:scale-[0.98]
                        focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                 style="background: linear-gradient(135deg, #4f46e5, #7c3aed)"
-                title="Lock this Vision configuration and close the panel"
-                @click="emit('close')"
+                title="Close this confirmation and dismiss the MultiVision panel"
+                @click="closeLockConfirm()"
               >
-                Lock this Vision ✓
+                Close ✓
               </button>
             </div>
-
           </ScrollContainer>
+          <!-- ── End Lock confirmation overlay ──────────────────────────────── -->
+
         </div>
       </div>
     </Transition>

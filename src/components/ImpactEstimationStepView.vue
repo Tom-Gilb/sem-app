@@ -143,7 +143,7 @@ function cellValue(valueId: string, step: EvoStep): number {
 //   "where are the estimates for the steps?"  Bitten 3× — the UI must self-
 //   explain so the user does not need to open DevTools to understand a "–". )
 //
-// Tooltip shown on every cell.  When the cell has a value, just shows the
+// HoverHint shown on every cell.  When the cell has a value, just shows the
 // value.  When empty, names the specific reason:
 //   (a) V × S matrix entirely empty → suggest filling it
 //   (b) This Value row missing from matrix → suggest adding the V. estimate

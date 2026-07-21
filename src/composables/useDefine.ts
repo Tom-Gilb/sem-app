@@ -10,9 +10,16 @@
 // Module-level shared state so SelectionDefiner.vue (the floating pill +
 // result panel) and App.vue (keyboard / voice) share the same session.
 
-import Anthropic from '@anthropic-ai/sdk'
+// r93uuu — Anthropic SDK fallback REMOVED 2026-06-13 per Tom Gilb's greenlight
+// "go item 1". Replaced by Tom Gilb's Twin Consultant /api/chat (by Kai Gilb)
+// via `useTwinCitation`. This kills the long-standing Claude-Code-as-AI-Layer
+// SUPREME rule violation: no more in-app Anthropic API call, no more reliance
+// on `VITE_ANTHROPIC_API_KEY`, no more in-browser `dangerouslyAllowBrowser`.
+// The Twin is publicly hosted by Kai (CORS-open, no-auth) — SEM App is a
+// CONSUMER of a public service, not an embedded API client. Composes with
+// r93ooo Twin Integration + r93ppp Twin-as-Destination funding-loop.
 import { ref, readonly } from 'vue'
-import { MODEL_ID } from '../config/llm'
+import { useTwinCitation } from './useTwinCitation'
 import type { SpecBlock } from '../types/spec'
 
 // ── Type badge colours ─────────────────────────────────────────────────────
@@ -118,13 +125,8 @@ function _clearWatchdog(): void {
 const _defineSearchOpen = ref(false)
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-
-function _getClient(): Anthropic {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
-  const isLocal = !!(import.meta.env.VITE_OLLAMA_MODEL || import.meta.env.VITE_OLLAMA_BASE_URL)
-  if (!apiKey && !isLocal) throw new Error('VITE_ANTHROPIC_API_KEY not set')
-  return new Anthropic({ apiKey: apiKey ?? 'local', dangerouslyAllowBrowser: true, timeout: 30_000 })
-}
+// r93uuu — `_getClient()` (Anthropic SDK constructor) deleted. The Twin
+// citation composable is the new fallback path; no in-app SDK instantiation.
 
 function _specContext(spec: SpecBlock | null): string {
   if (!spec) return ''
@@ -141,11 +143,197 @@ function _stripFences(text: string): string {
   return text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim()
 }
 
+// ── Private helpers: two AI back-ends ────────────────────────────────────
+//
+// Tom Gilb, 2026-06-06: "assume I am using ollama for all SEM execution
+// until further notice."
+//
+// Ollama is the PRIMARY path. Tom Gilb's Twin Consultant (by Kai Gilb) is
+// the SECONDARY fallback — r93uuu migration (2026-06-13). The caller
+// (defineTerm) tries Ollama first; only on failure does it call the Twin.
+// This keeps the hot path local + offline-capable; the Twin provides the
+// canonical Glossary entry + concept number when Ollama is unavailable.
+//
+// Architectural note: the Twin's /api/chat is a public CORS-open service
+// hosted by Kai Gilb. SEM App is a CONSUMER, not an embedded API client.
+// This composes with Claude-Code-as-AI-Layer SUPREME (no in-app SDK) and
+// r93ppp Twin-as-Destination (every Twin call is a funding-loop touch).
+
+const OLLAMA_TIMEOUT_MS = 45_000   // local inference can take 6-12 s on CPU
+
+function _buildPrompt(cleaned: string, context: string): string {
+  return `You are a Competitive Engineering (CE) and Planguage methodology expert, trained on Tom Gilb's work.
+
+The user has selected the following term or phrase from a planning document and wants a precise definition:
+
+Term: "${cleaned}"
+${context ? `\nProject context (the spec this term appears in):\n"${context}"` : ''}
+
+Provide:
+1. A clear 1–2 sentence definition of the term, tailored to this project's domain and to Planguage/CE methodology where relevant.
+2. The most specific source you can cite — prefer named works: Tom Gilb's "Competitive Engineering" (2005), ISO standards, IEEE standards, TOGAF, etc. If it is a general business or domain term, say so plainly.
+3. Classify the term type.
+
+Output ONLY a valid JSON object — no prose, no code fences:
+{"definition": "...", "source": "...", "type": "planguage-term|CE-concept|domain-term|technical-standard|general-business"}`
+}
+
+async function _ollamaDefine(
+  cleaned: string,
+  context: string,
+): Promise<DefineResult & { via: 'ollama' }> {
+  const ollamaBase  = (import.meta.env.VITE_OLLAMA_BASE_URL as string | undefined) ?? 'http://localhost:11434'
+  const ollamaModel = (import.meta.env.VITE_OLLAMA_MODEL as string | undefined) ?? 'llama3.2'
+  const prompt      = _buildPrompt(cleaned, context)
+
+  const ctl     = new AbortController()
+  const timeout = setTimeout(() => ctl.abort(), OLLAMA_TIMEOUT_MS)
+  let resp: Response
+  try {
+    resp = await fetch(`${ollamaBase}/api/generate`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal:  ctl.signal,
+      body:    JSON.stringify({ model: ollamaModel, prompt, stream: false, format: 'json' }),
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
+  if (!resp.ok) throw new Error(`Ollama HTTP ${resp.status}`)
+  const ollamaJson = await resp.json() as { response?: string }
+  const raw = (ollamaJson.response ?? '').trim()
+  if (!raw) throw new Error('Empty Ollama response')
+  const parsed = JSON.parse(_stripFences(raw)) as { definition: string; source: string; type: string }
+  return {
+    term:       cleaned,
+    definition: parsed.definition,
+    source:     `${parsed.source} · 🦙 Ollama ${ollamaModel}`,
+    type:       (parsed.type as DefineType) ?? 'domain-term',
+    via:        'ollama',
+  }
+}
+
+/**
+ * r93uuu — Tom Gilb's Twin Consultant fallback (by Kai Gilb).
+ *
+ * Replaces the pre-r93uuu Anthropic SDK fallback. Calls the Twin's public
+ * CORS-open `/api/chat` via `useTwinCitation().citeTerm()`, returns the
+ * canonical Glossary entry, parses concept numbers (*NNN), and maps the
+ * answer back into the `DefineResult` shape the SelectionDefiner UI expects.
+ *
+ * Type detection: if any `*NNN` concept number was found in the response, the
+ * term is treated as a Planguage / CE concept; otherwise `domain-term` is the
+ * default. Source attribution includes the concept number(s), the canonical
+ * Twin concept URL (so the user can deep-link to the Glossary page), and the
+ * "Tom Gilb Consultant Twin — by Kai Gilb" attribution per r93ppp.
+ */
+/**
+ * r32 (Tom Gilb 2026-06-13: "Priority: Use the internal vault glossary. Then
+ * the twin search is extra bonus for special users.") — Tier 1 local vault
+ * Glossary at `/api/glossary?term=X` (served by `glossaryPlugin()` in
+ * `vite.config.ts`, sourced from `10.Standard/2.Glossary/PlanguageGlossary/`).
+ * Resolution pipeline already supports synonym / article / singular / derived
+ * forms (handled server-side), so this client just calls the endpoint once.
+ *
+ * Returns a `DefineResult` typed `planguage-term` (the local Glossary is
+ * authoritative for Planguage / CE concepts).  Source attribution names the
+ * canonical concept + the X-Synonym-Of header when the input was a synonym.
+ *
+ * Throws if the endpoint returns 404 / 503 / network error → caller falls
+ * through to Twin tier 2.
+ */
+async function _localGlossaryDefine(
+  cleaned: string,
+  _context: string,
+): Promise<DefineResult & { via: 'local-glossary' }> {
+  const res = await fetch(`/api/glossary?term=${encodeURIComponent(cleaned)}`)
+  if (res.status === 404) throw new Error(`Local Glossary: term not found (${cleaned})`)
+  if (res.status === 503) throw new Error('Local Glossary: vault not accessible')
+  if (!res.ok)            throw new Error(`Local Glossary: HTTP ${res.status}`)
+
+  const markdown = await res.text()
+  const synonymOf = res.headers.get('x-synonym-of') ?? null
+
+  // Pull the canonical name + concept number out of the frontmatter / heading.
+  const nameMatch    = markdown.match(/^english_name:\s*["']?([^"'\n]+)["']?/m)
+  const numberMatch  = markdown.match(/^concept_number:\s*["']?\*?(\d{2,4}[a-z]?)["']?/m)
+  const canonicalName = (nameMatch?.[1] ?? cleaned).trim()
+  const conceptNumber = numberMatch?.[1] ?? ''
+
+  // Extract the [!example] Definition block as the short answer.
+  const exMatch = markdown.match(/^>\s*\[!example\][^\n]*\n((?:>\s*[^\n]*\n?)+)/m)
+  const defLines = exMatch ? exMatch[1].split('\n').map(l => l.replace(/^>\s?/, '')) : []
+  const definition = defLines.join('\n').trim() || `${canonicalName} — see full Glossary entry below.`
+
+  // Build the source line — local vault is tier 1, optional synonym attribution.
+  const sourceParts = [
+    'Planguage Glossary (Tom Gilb)',
+    conceptNumber ? `*${conceptNumber}` : '',
+    'vault tier 1 · /10.Standard/2.Glossary/PlanguageGlossary/',
+    synonymOf && synonymOf.toLowerCase() !== cleaned.toLowerCase() ? `Matched as: ${synonymOf}` : '',
+  ].filter(Boolean)
+
+  return {
+    term:       canonicalName,
+    definition,
+    source:     sourceParts.join(' · '),
+    type:       'planguage-term',
+    via:        'local-glossary',
+  }
+}
+
+async function _twinDefine(
+  cleaned: string,
+  _context: string,   // currently unused; the Twin uses its own loaded context
+): Promise<DefineResult & { via: 'twin' }> {
+  const { citeTerm } = useTwinCitation()
+  const twinResult = await citeTerm(cleaned)
+
+  // Type classification — concept numbers in the response signal a Planguage
+  // or CE concept. Heuristic: 1-3 digit concept numbers are usually CE / Planguage.
+  const hasConceptNumber = twinResult.conceptNumbers.length > 0
+  const type: DefineType = hasConceptNumber
+    ? (twinResult.text.toLowerCase().includes('planguage') ? 'planguage-term' : 'CE-concept')
+    : 'domain-term'
+
+  // Source attribution — primary concept URL if available, else generic Twin link.
+  const conceptCite = twinResult.conceptNumbers.length > 0
+    ? `*${twinResult.conceptNumbers.join(' · *')}`
+    : ''
+  const urlCite = twinResult.primaryConceptUrl ?? 'https://www.gilb.com/tomtwin/login'
+  const source = [
+    'Tom Gilb Consultant Twin (by Kai Gilb)',
+    conceptCite,
+    urlCite,
+  ].filter(Boolean).join(' · ')
+
+  return {
+    term:       cleaned,
+    definition: twinResult.text,
+    source,
+    type,
+    via:        'twin',
+  }
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /**
  * Look up an AI-generated definition + source for any term.
  * Opens the result panel immediately (loading state), fills in when done.
+ *
+ * Execution order (Tom Gilb 2026-06-13 r32 — replaces r93uuu Ollama-first):
+ *   1. **Local vault Glossary** at `/api/glossary?term=X` — PRIMARY.  Tom verbatim:
+ *      "Priority: Use the internal vault glossary. Then the twin search is extra
+ *      bonus for special users."  Sourced from 10.Standard/2.Glossary/
+ *      PlanguageGlossary/ — 663 concept entries with full resolution pipeline.
+ *   2. Tom Gilb's Twin Consultant (fallback for non-Planguage terms or vault miss)
+ *      — public CORS-open `/api/chat`, returns canonical concept entries with
+ *      concept numbers; every call composes with r93ppp Twin-as-Destination
+ *      funding-loop.
+ *   3. Ollama — REMOVED.  CLAUDE.md commented out Ollama 2026-06-02 ("hijacking
+ *      ALL @anthropic-ai/sdk calls"); the previous defineTerm still tried it
+ *      first → 404 → unnecessary failure layer.  Gone.
  */
 export async function defineTerm(term: string, spec: SpecBlock | null): Promise<void> {
   const cleaned = term.trim().slice(0, 120)    // cap at reasonable length
@@ -160,12 +348,13 @@ export async function defineTerm(term: string, spec: SpecBlock | null): Promise<
   _error.value   = ''
   _loading.value = true
   _open.value    = true
-  _startWatchdog()   // absolute backstop — resets spinner after 25 s no matter what
+  _startWatchdog()   // absolute backstop — resets spinner no matter what
 
   try {
+    // ── Mock mode ────────────────────────────────────────────────────────
     if (import.meta.env.VITE_MOCK_MODE === 'true') {
       await new Promise((r) => setTimeout(r, 700))
-      if (myCallId !== _currentCallId) return   // stale — a newer call started
+      if (myCallId !== _currentCallId) return
       _result.value = {
         term: cleaned,
         definition: `${cleaned} — a concept used within this specification context. In Competitive Engineering, it relates to measurable outcomes tied to stakeholder value.`,
@@ -175,137 +364,33 @@ export async function defineTerm(term: string, spec: SpecBlock | null): Promise<
       return
     }
 
-    const client  = _getClient()
     const context = _specContext(spec)
 
-    const prompt = `You are a Competitive Engineering (CE) and Planguage methodology expert, trained on Tom Gilb's work.
-
-The user has selected the following term or phrase from a planning document and wants a precise definition:
-
-Term: "${cleaned}"
-${context ? `\nProject context (the spec this term appears in):\n"${context}"` : ''}
-
-Provide:
-1. A clear 1–2 sentence definition of the term, tailored to this project's domain and to Planguage/CE methodology where relevant.
-2. The most specific source you can cite — prefer named works: Tom Gilb's "Competitive Engineering" (2005), ISO standards, IEEE standards, TOGAF, etc. If it is a general business or domain term, say so plainly.
-3. Classify the term type.
-
-Output ONLY a valid JSON object — no prose, no code fences:
-{
-  "definition": "...",
-  "source": "...",
-  "type": "planguage-term|CE-concept|domain-term|technical-standard|general-business"
-}`
-
-    // Promise.race: hard timeout backstop.
-    // 45 s in local-Ollama mode (inference can take 6–12 s under load),
-    // 15 s for cloud API (responses are typically 2–4 s; fail fast is good UX).
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error('Illuminate timed out — check your connection and try again')),
-        ILLUMINATE_TIMEOUT_MS,
-      ),
-    )
-
-    const response = await Promise.race([
-      client.messages.create({
-        model: MODEL_ID,
-        max_tokens: 512,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      timeoutPromise,
-    ])
-
-    // Stale-result guard: discard if a newer call has already started.
-    if (myCallId !== _currentCallId) return
-
-    const textBlock = response.content.find((b) => b.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') throw new Error('No response from AI')
-
-    const parsed = JSON.parse(_stripFences(textBlock.text)) as {
-      definition: string
-      source: string
-      type: string
-    }
-
-    _result.value = {
-      term: cleaned,
-      definition: parsed.definition,
-      source: parsed.source,
-      type: (parsed.type as DefineType) ?? 'domain-term',
-    }
-  } catch (err) {
-    if (myCallId !== _currentCallId) return   // stale error — discard silently
-    // Tom Gilb 2026-06-06 r98 — direct Ollama fallback.
-    // Primary path (Anthropic SDK / claude CLI) failed; try local Ollama
-    // /api/generate before giving up.  Ollama's HTTP API is much simpler than
-    // the Anthropic SDK quirks and works reliably when the user has the
-    // daemon running locally.
+    // ── PRIMARY (r32): Local vault Glossary ──────────────────────────────
+    let localError = ''
     try {
-      const ollamaBase  = (import.meta.env.VITE_OLLAMA_BASE_URL as string | undefined) ?? 'http://localhost:11434'
-      const ollamaModel = (import.meta.env.VITE_OLLAMA_MODEL as string | undefined) ?? 'llama3.2'
-      const cleaned     = term.trim().slice(0, 120)
-      const context     = _specContext(spec)
-      const prompt = `You are a Competitive Engineering (CE) and Planguage methodology expert, trained on Tom Gilb's work.
+      const result = await _localGlossaryDefine(cleaned, context)
+      if (myCallId !== _currentCallId) return   // stale — discard
+      _result.value = result
+      return                                    // SUCCESS — done.  No Twin fallback needed.
+    } catch (localErr) {
+      localError = localErr instanceof Error ? localErr.message : String(localErr)
+      // Fall through to Twin (tier 2) for non-Planguage terms or vault miss.
+    }
 
-The user has selected the following term or phrase and wants a precise definition:
-
-Term: "${cleaned}"
-${context ? `\nProject context:\n"${context}"` : ''}
-
-Output ONLY a valid JSON object — no prose, no code fences:
-{"definition": "1-2 sentence definition tailored to Planguage/CE if relevant", "source": "most specific named source you can cite (Gilb CE 2005, ISO, IEEE, TOGAF, or 'general business' if no specific source)", "type": "planguage-term|CE-concept|domain-term|technical-standard|general-business"}`
-      const ollamaCtl = new AbortController()
-      const ollamaTimeout = setTimeout(() => ollamaCtl.abort(), 30_000)
-      const ollamaResp = await fetch(`${ollamaBase}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal:  ollamaCtl.signal,
-        body:    JSON.stringify({
-          model:  ollamaModel,
-          prompt,
-          stream: false,
-          format: 'json',
-        }),
-      })
-      clearTimeout(ollamaTimeout)
-      if (!ollamaResp.ok) throw new Error(`Ollama HTTP ${ollamaResp.status}`)
-      const ollamaJson = await ollamaResp.json() as { response?: string }
-      const raw = (ollamaJson.response ?? '').trim()
-      if (!raw) throw new Error('Empty Ollama response')
-      const parsed = JSON.parse(_stripFences(raw)) as {
-        definition: string
-        source:     string
-        type:       string
-      }
-      if (myCallId !== _currentCallId) return   // stale on fallback success — discard
-      _result.value = {
-        term:       cleaned,
-        definition: parsed.definition,
-        source:     `${parsed.source} · (via local Ollama ${ollamaModel})`,
-        type:       (parsed.type as DefineType) ?? 'domain-term',
-      }
-      _error.value = ''   // clear primary-path error since fallback succeeded
-      return              // skip the error message
-    } catch (ollamaErr) {
-      // Both paths failed — surface a single helpful error.
-      const primaryMsg = err instanceof Error ? err.message : String(err)
-      const fallbackMsg = ollamaErr instanceof Error ? ollamaErr.message : String(ollamaErr)
-      _error.value = `Illuminate failed (primary: ${primaryMsg.slice(0, 60)} · Ollama fallback: ${fallbackMsg.slice(0, 60)})`
+    // ── SECONDARY: Tom Gilb's Twin Consultant ────────────────────────────
+    try {
+      const result = await _twinDefine(cleaned, context)
+      if (myCallId !== _currentCallId) return   // stale — discard
+      _result.value = result
+    } catch (twinErr) {
+      if (myCallId !== _currentCallId) return   // stale error — discard
+      const twinMsg = twinErr instanceof Error ? twinErr.message : String(twinErr)
+      _error.value = `Illuminate failed — Vault Glossary: ${localError.slice(0, 80)} · Twin: ${twinMsg.slice(0, 80)}. Open https://www.gilb.com/tomtwin/login to search directly.`
     }
   } finally {
     _clearWatchdog()
     // UNCONDITIONAL: always clear loading when this call's async work ends.
-    //
-    // The conditional guard (myCallId === _currentCallId) was a premature
-    // optimisation that caused an eternal spinner: any double-trigger that
-    // increments _currentCallId before the first call completes leaves
-    // _loading permanently true — the "last" call may also be stale.
-    //
-    // The brief flash (loading=false, result=null) while a concurrent call
-    // is still running is imperceptible in practice and infinitely better
-    // than an eternal spinner.  The stale-result guards on _result and
-    // _error (above) are kept — they prevent overwriting a newer result.
     _loading.value = false
   }
 }

@@ -24,7 +24,7 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
 import {
@@ -42,6 +42,7 @@ import {
   nextStepText,
   stagesUntilSharing,
   pictureUrl,
+  GLOSSARY_JOKES,  // r41 v51 — fallback jokes when picture service fails
   type PictureTheme,
 } from '../composables/useAmuseMe'
 import type { SpecBlock } from '../types/spec'
@@ -88,6 +89,15 @@ const previewItems    = computed(() => AMUSE_ITEMS.slice(0, 3))
 const activeTheme    = ref<PictureTheme>(PICTURE_THEMES[0])
 const pictureSeed    = ref(Math.floor(Math.random() * 99999))
 const pictureLoading = ref(false)
+// r41 v51 — picture-failed fallback state.  When loremflickr returns 4xx/5xx
+// or the network is unreachable, swap in a glossary joke card instead of a
+// blank placeholder (Tom Gilb 2026-06-16: "there is no point in blank at all").
+const pictureFailed  = ref(false)
+const fallbackJoke   = computed<string>(() => {
+  // Pull a stable joke per seed so the same picture-attempt doesn't flicker
+  // between jokes if Vue re-renders the slot.
+  return GLOSSARY_JOKES[pictureSeed.value % GLOSSARY_JOKES.length]
+})
 
 const currentPictureUrl = computed(() =>
   pictureUrl(activeTheme.value.keyword, pictureSeed.value)
@@ -97,12 +107,39 @@ function selectTheme(theme: PictureTheme): void {
   activeTheme.value    = theme
   pictureSeed.value    = Math.floor(Math.random() * 99999)
   pictureLoading.value = true
+  pictureFailed.value  = false  // r41 v51 — give the new theme a fresh try
 }
 
 function refreshPicture(): void {
   pictureSeed.value    = Math.floor(Math.random() * 99999)
   pictureLoading.value = true
+  pictureFailed.value  = false  // r41 v51 — fresh fetch attempt
 }
+
+// ─── Auto-advance picture every 10 s (Tom 2026-06-10 — "amuse photos do not change every 10 seconds") ──
+// Runs only while isLoading=true AND the showPictures item is active.
+let _pictureAutoTimer: ReturnType<typeof setInterval> | null = null
+
+function _startPictureTimer(): void {
+  if (_pictureAutoTimer) return
+  _pictureAutoTimer = setInterval(() => {
+    if (activeItemId.value === 'showPictures') refreshPicture()
+  }, 10_000)
+}
+
+function _stopPictureTimer(): void {
+  if (_pictureAutoTimer) {
+    clearInterval(_pictureAutoTimer)
+    _pictureAutoTimer = null
+  }
+}
+
+watch(() => props.isLoading, (loading) => {
+  if (loading) _startPictureTimer()
+  else _stopPictureTimer()
+}, { immediate: true })
+
+onUnmounted(_stopPictureTimer)
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -183,7 +220,7 @@ const activeItemLabel = computed((): string => {
             🎉 Fun while waiting?
           </button>
 
-          <!-- Hover preview tooltip — 3 top items -->
+          <!-- Hover preview HoverHint — 3 top items -->
           <Transition name="preview-fade">
             <div
               v-if="showHoverPreview && !isOpen"
@@ -266,15 +303,30 @@ const activeItemLabel = computed((): string => {
               <div :key="activeItemId" class="p-4 pb-3">
 
                 <!-- glossaryJoke ─────────────────────────────────────── -->
+                <!-- r41 v70 (Tom Gilb 2026-06-16 "clicking on icons does not
+                     work here and in other parts of the fun") — the whole
+                     card is now a clickable button: tapping anywhere on the
+                     joke card (icon, blockquote, white space) rotates to a
+                     new joke.  Previously the only way to refresh was the
+                     button-strip below the card, which Tom missed; the
+                     surrounded icon looks clickable so it should BE. -->
                 <div v-if="activeItemId === 'glossaryJoke'">
-                  <div class="flex items-start gap-3 bg-violet-50 border border-violet-200 rounded-xl p-4">
+                  <button
+                    type="button"
+                    class="w-full text-left flex items-start gap-3 bg-violet-50 border border-violet-200 rounded-xl p-4
+                           hover:bg-violet-100 hover:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-400
+                           transition-colors duration-150 cursor-pointer"
+                    title="Click anywhere on this card for a new Glossary Joke"
+                    aria-label="Show a new Glossary Joke"
+                    @click="handleItemClick('glossaryJoke')"
+                  >
                     <span class="text-4xl leading-none shrink-0" aria-hidden="true">🎭</span>
                     <blockquote class="text-sm text-violet-800 leading-relaxed italic">
                       "{{ currentJoke }}"
                     </blockquote>
-                  </div>
+                  </button>
                   <p class="text-xs text-slate-400 mt-2 text-right">
-                    Click the '🎭 Glossary Joke' button below for a new joke
+                    Tap the card 🎭 or the button below for a new joke
                   </p>
                 </div>
 
@@ -305,8 +357,18 @@ const activeItemLabel = computed((): string => {
                 </div>
 
                 <!-- niceThings ────────────────────────────────────────── -->
+                <!-- r41 v70 — same clickable-card pattern: tapping the card
+                     itself rotates to a new suggestion. -->
                 <div v-else-if="activeItemId === 'niceThings'">
-                  <div class="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-xl p-4">
+                  <button
+                    type="button"
+                    class="w-full text-left flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-xl p-4
+                           hover:bg-rose-100 hover:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-400
+                           transition-colors duration-150 cursor-pointer"
+                    title="Click anywhere on this card for another nice-thing suggestion"
+                    aria-label="Show another nice-thing suggestion"
+                    @click="handleItemClick('niceThings')"
+                  >
                     <span class="text-3xl leading-none shrink-0" aria-hidden="true">❤️</span>
                     <div class="min-w-0">
                       <p class="text-xs font-semibold text-rose-700 uppercase tracking-wide mb-1">
@@ -314,9 +376,9 @@ const activeItemLabel = computed((): string => {
                       </p>
                       <p class="text-sm text-rose-900 leading-relaxed">{{ currentNiceThing }}</p>
                     </div>
-                  </div>
+                  </button>
                   <p class="text-xs text-slate-400 mt-2 text-right">
-                    Click the '💝 Do Something Nice' button below for another suggestion
+                    Tap the card ❤️ or the button below for another suggestion
                   </p>
                 </div>
 
@@ -396,7 +458,7 @@ const activeItemLabel = computed((): string => {
                         Explain Any Element
                       </p>
                       <ul class="text-sm text-slate-700 leading-relaxed space-y-2">
-                        <li><strong>Hover</strong> any button — its tooltip will explain what it does.</li>
+                        <li><strong>Hover</strong> any button — its HoverHint will explain what it does.</li>
                         <li>
                           <strong>Double-click</strong> any Planguage glyph (→O→, O--*-->, →●→, etc.)
                           to open its reference card with a full Planguage definition.
@@ -430,20 +492,49 @@ const activeItemLabel = computed((): string => {
                     </button>
                   </div>
 
-                  <!-- Full-bleed photo — aspect-video, NO max-height clip -->
-                  <div class="relative rounded-xl overflow-hidden bg-slate-100 aspect-video">
+                  <!-- Full-bleed photo — aspect-video, NO max-height clip.
+                       r41 v51 (Tom Gilb 2026-06-16 "the pictures in fun while
+                       waiting are mostly blank, there is no point in blank at
+                       all") — when loremflickr fails to load (CORS / network
+                       / rate-limit), fall back to a glossary joke card so the
+                       slot is NEVER blank.  Picture and joke are mutually
+                       exclusive — picture wins when it loads, joke fills in
+                       when it doesn't.
+                       r41 v70 (Tom Gilb 2026-06-16 "clicking on icons does
+                       not work here") — whole picture container now click-
+                       to-refresh so tapping anywhere on the picture loads
+                       a new one (same theme).  Cursor-pointer + accessible
+                       button semantics. -->
+                  <div class="relative rounded-xl overflow-hidden bg-slate-100 aspect-video cursor-pointer"
+                       role="button"
+                       tabindex="0"
+                       title="Click anywhere on the picture for a new photo"
+                       aria-label="Show another picture"
+                       @click="refreshPicture"
+                       @keydown.enter="refreshPicture"
+                       @keydown.space.prevent="refreshPicture">
                     <div
-                      v-if="pictureLoading"
+                      v-if="pictureLoading && !pictureFailed"
                       class="absolute inset-0 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 animate-pulse"
                     />
+                    <!-- Joke-fallback card (when picture failed to load) -->
+                    <div
+                      v-if="pictureFailed"
+                      class="absolute inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 text-center"
+                    >
+                      <div class="text-3xl mb-3">🎭</div>
+                      <p class="text-sm font-semibold text-slate-800 mb-2 leading-snug max-w-sm">{{ fallbackJoke }}</p>
+                      <p class="text-[10px] text-slate-500 italic mt-2">Picture service unavailable — Planguage joke instead.</p>
+                    </div>
                     <img
+                      v-if="!pictureFailed"
                       :key="currentPictureUrl"
                       :src="currentPictureUrl"
                       :alt="`${activeTheme.label} photo — via loremflickr`"
                       class="w-full h-full object-cover transition-opacity duration-500"
                       :class="pictureLoading ? 'opacity-0' : 'opacity-100'"
-                      @load="pictureLoading = false"
-                      @error="pictureLoading = false"
+                      @load="pictureLoading = false; pictureFailed = false"
+                      @error="pictureLoading = false; pictureFailed = true"
                     />
                   </div>
 
@@ -514,7 +605,7 @@ const activeItemLabel = computed((): string => {
   transform: translateY(-6px);
 }
 
-/* Hover preview tooltip */
+/* Hover preview HoverHint */
 .preview-fade-enter-active,
 .preview-fade-leave-active {
   transition: opacity 0.15s ease;

@@ -20,7 +20,7 @@
 
 export type AISource = 'plan' | 'gilb' | 'standards' | 'internet' | 'llm' | 'template'
 
-/** Display metadata for each source — drives badge label + colour + tooltip. */
+/** Display metadata for each source — drives badge label + colour + HoverHint. */
 export const AI_SOURCE_META: Record<AISource, {
   label: string
   shortLabel: string

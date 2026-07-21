@@ -194,7 +194,7 @@ function categoryBadge(idea: ImprovementIdea): { label: string; classes: string 
               <button
                 type="button"
                 class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white text-sm font-bold hover:bg-fuchsia-700 transition-colors"
-                :title="`Copies a structured Evo Planner prompt for &quot;${selectedStep.name}&quot; to the clipboard. Paste it into Claudian; paste the JSON result back here.`"
+                :title="`Copies a structured Evo Planner prompt for &quot;${selectedStep.name}&quot; to the clipboard. Paste it into Claudian; paste the Planguage Representation result back here.`"
                 @click="onGenerateViaClaudian"
               >
                 {{ copyFlash ? '✓ Prompt copied to clipboard' : 'Generate via Claudian' }}
@@ -342,7 +342,7 @@ function categoryBadge(idea: ImprovementIdea): { label: string; classes: string 
                   <button
                     type="button"
                     class="px-3 py-1.5 rounded-lg bg-white/15 text-white text-[11px] font-semibold hover:bg-white/25 border border-white/30 transition-colors"
-                    title="Iterate the Skunkworks set — copy a fresh Evo Planner prompt to clipboard. Paste new JSON when ready; the panel will overwrite the current ideas with the new batch."
+                    title="Iterate the Skunkworks set — copy a fresh Evo Planner prompt to clipboard. Paste new Planguage Representation when ready; the panel will overwrite the current ideas with the new batch."
                     @click="onGenerateViaClaudian"
                   >Iterate ↻</button>
                 </div>
@@ -408,7 +408,7 @@ function categoryBadge(idea: ImprovementIdea): { label: string; classes: string 
           <!-- Paste area — visible after Generate-via-Claudian or always when populated -->
           <section v-if="selectedStep && (showPaste || ideas)" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <h4 class="text-xs font-bold text-slate-700 mb-1">Paste ideas from Claudian</h4>
-            <p class="text-[11px] text-slate-500 mb-2">Paste the JSON output from Claudian below.  The structure is validated minimally before saving.</p>
+            <p class="text-[11px] text-slate-500 mb-2">Paste the Planguage Representation output from Claudian below.  The structure is validated minimally before saving.</p>
             <textarea
               v-model="pasteText"
               rows="4"
@@ -420,7 +420,7 @@ function categoryBadge(idea: ImprovementIdea): { label: string; classes: string 
               <button
                 type="button"
                 class="px-3 py-1.5 rounded-lg bg-fuchsia-600 text-white text-xs font-bold hover:bg-fuchsia-700 transition-colors"
-                title="Validate and store the pasted JSON as the current step's improvement set"
+                title="Validate and store the pasted Planguage Representation as the current step's improvement set"
                 @click="onPaste"
               >Paste &amp; Save</button>
               <button

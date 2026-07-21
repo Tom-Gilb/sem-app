@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ref } from 'vue'
 import { MODEL_ID } from '../config/llm'
+import { CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT } from '../config/planguagePrompt'
 import type { SpecBlock } from '../types/spec'
 
 /**
@@ -65,9 +66,23 @@ export function useLeanPlan(apiKey?: string) {
       }
 
       const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
-      const prompt = `You are a Planguage spec strategist. Given this spec, identify the SINGLE highest-impact F./V./S. triplet that would deliver 80% of the stated Goal with minimum effort.
-Return a valid SpecBlock JSON with exactly 1 F entry, 1 V entry, 1 S entry — same schema as input.
-Preserve all measurement fields on V. entries. Spec: ${JSON.stringify(spec)}
+      // r41 v271 (Tom Gilb 2026-06-21 "sweep the rest"): canonical primer imported.
+      // Lean-plan extraction returns a Planguage SpecBlock — full F/V/S parameter
+      // discipline applies even though the output is just one of each.
+      const prompt = `You are a Planguage spec strategist.
+
+== LEAN-PLAN INPUT FORMAT (input shape for this caller) ==
+Given an existing Planguage SPEC, identify the SINGLE highest-impact F./V./S.
+triplet that would deliver ~80% of the stated Goal with minimum effort.
+Return a SpecBlock JSON with exactly 1 F. entry, 1 V. entry, 1 S. entry —
+same schema as input. Preserve all measurement fields on the V. entry per
+the canonical V. parameter-rich discipline below.
+
+${CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT}
+
+== LEAN-PLAN OUTPUT ==
+Spec to reduce: ${JSON.stringify(spec)}
+
 Return ONLY valid JSON — no prose, no markdown fences.`
 
       const response = await client.messages.create({

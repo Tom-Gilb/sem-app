@@ -32,6 +32,9 @@
 import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { useImpactSuggestions } from '../composables/useImpactSuggestions'
 import { useExpectedValue } from '../composables/useExpectedValue'
+// v507 — ESTIMATION 6: IET/VDT bound to the 3 central resource estimations +
+// stipulated levels.  A snapshot records with every IET/VDT change.
+import { useIetResourceSnapshot } from '../composables/useIetResourceSnapshot'
 import { getImpactColour, getVCColour, interpretImpact } from '../utils/impactColour'
 import { extractAllStakeholders, impactLevel } from '../utils/stakeholderExtract'
 import {
@@ -43,13 +46,15 @@ import {
 } from '../composables/useExportShared'
 import type { VEntry, SEntry } from '../types/spec'
 import type { ImpactMatrix } from '../types/impact'
-import LoadingProgress from './LoadingProgress.vue'
+import LoadingProgress, { type LoadingPhase } from './LoadingProgress.vue'
 import AmuseMeButton from './AmuseMeButton.vue'
 
 const props = defineProps<{
   values: VEntry[]
   solutions: SEntry[]
   resourceClaims: Record<string, number>
+  /** v507 — plan id for the resource-snapshot composable (defaults to 'default'). */
+  planId?: string
 }>()
 
 const emit = defineEmits<{
@@ -61,6 +66,16 @@ const emit = defineEmits<{
     capitalCosts: Record<string, number>,
   ]
 }>()
+
+// ── Running-commentary phases (Tom Gilb 2026-06-16 "all stages") ─────────────
+const IMPACT_PHASES: LoadingPhase[] = [
+  { atSecond: 0,  message: '📥 Reading Solutions + Values from the spec.' },
+  { atSecond: 4,  message: '🎯 Computing Status → Goal gap for each Value — the impact baseline.' },
+  { atSecond: 9,  message: '🧮 Estimating each Solution → Value contribution as % of the gap.' },
+  { atSecond: 15, message: '💰 Estimating cost per Solution (calendar + capital + effort).' },
+  { atSecond: 21, message: '🔗 Computing per-Solution efficiency = Σ impact / Σ cost.' },
+  { atSecond: 30, message: '⏱ Still working — long Solution × Value matrices take longer.' },
+]
 
 // ── Composable ────────────────────────────────────────────────────────────────
 
@@ -75,6 +90,33 @@ const {
   updateCell,
   loadSuggestions,
 } = useImpactSuggestions(props.values, props.solutions, props.resourceClaims)
+
+// v507 — ESTIMATION 6: IET-resource-snapshot composable.  Provides
+// `estimatedSnapshot` (most-recent per-resource Estimation) + `stipulatedSnapshot`
+// (Plan Scope Framework budgets) + `recordSnapshot(reason)` which appends a
+// timestamped snapshot on any IET/VDT change.
+const ietPlanIdRef = computed(() => props.planId ?? 'default')
+const {
+  estimatedSnapshot,
+  stipulatedSnapshot,
+  history: ietSnapshotHistory,
+  recordSnapshot: recordIetResourceSnapshot,
+} = useIetResourceSnapshot(ietPlanIdRef)
+
+// Watch the impactMatrix + cost rows and snapshot on any mutation.  Debounce
+// via a rAF so multiple rapid changes coalesce into a single snapshot.
+let _ietSnapshotPending = false
+function _scheduleIetSnapshot(reason: string): void {
+  if (_ietSnapshotPending) return
+  _ietSnapshotPending = true
+  requestAnimationFrame(() => {
+    _ietSnapshotPending = false
+    recordIetResourceSnapshot(reason)
+  })
+}
+watch(impactMatrix, () => _scheduleIetSnapshot('IET impact cell changed'), { deep: true })
+watch(calendarCosts, () => _scheduleIetSnapshot('IET Calendar Time cost changed'), { deep: true })
+watch(capitalCosts, () => _scheduleIetSnapshot('IET Capital cost changed'), { deep: true })
 
 // ── Efficiency calculation ────────────────────────────────────────────────────
 
@@ -376,7 +418,7 @@ function dataCellStyle(valueId: string, solutionId: string): string {
 }
 
 /**
- * Confidence tooltip text for a cell (used in confidence mode).
+ * Confidence HoverHint text for a cell (used in confidence mode).
  */
 function confidenceTooltipText(solutionId: string): string {
   const vc = vcRatios.value[solutionId]
@@ -386,7 +428,7 @@ function confidenceTooltipText(solutionId: string): string {
   return `Confidence: ${levelLabel} — V/C ratio: ${vcStr}`
 }
 
-// ── Tooltip state ─────────────────────────────────────────────────────────────
+// ── HoverHint state ─────────────────────────────────────────────────────────────
 
 const tooltipVisible = ref(false)
 const tooltipText    = ref('')
@@ -686,11 +728,14 @@ function _renderIETPlainText(): string {
 }
 
 async function exportIET(): Promise<void> {
+  // Mailto-No-Self-To SUPREME (Tom Gilb 2026-06-16): Tom is the SENDER when he
+  // clicks Export — recipient is someone else he chooses. To: must be EMPTY.
   await exportArtefact({
     htmlText:     _renderIETHtml(),
     plainText:    _renderIETPlainText(),
     subject:      `Impact Estimation Table · ${new Date().toLocaleDateString('en-AU')}`,
     artefactName: 'Impact Estimation Table',
+    to: '',
   })
 }
 
@@ -859,7 +904,7 @@ defineExpose({
 <template>
   <section class="w-full px-4 py-6" aria-label="Impact estimation VDT">
 
-    <!-- Tooltip — absolutely positioned floating label -->
+    <!-- HoverHint — absolutely positioned floating label -->
     <div
       v-if="tooltipVisible"
       role="tooltip"
@@ -873,8 +918,9 @@ defineExpose({
         :loading="loading"
         label="Loading AI impact suggestions…"
         :baseline="25"
-        hint="can take up to 45s on slow networks"
+        hint="typically 20-45s; larger Solution × Value matrices take longer (AI model processing, not network)"
         color="indigo"
+        :phases="IMPACT_PHASES"
       />
       <!-- AmuseMeButton: impact estimation can take 20-45s; entertain the user -->
       <AmuseMeButton
@@ -1406,6 +1452,73 @@ defineExpose({
               </td>
             </tr>
 
+            <!-- v507 — ESTIMATION 6: Central Resource ESTIMATED row.
+                 Tom Gilb 2026-07-21: "IET/VDT The 3 (Capital, Time, Human
+                 Resource) will (most recent state based on any change in the
+                 VDT/IET be recorded and updated along with the IET data.  In
+                 addition the stipulated levels of the same 3 resource can be
+                 kept in the same IET".  Most-recent estimation for each of
+                 the 3 central resources (from useResourceEstimations), pulled
+                 live and snapshotted on every IET/VDT change.  Composes with
+                 v504 estimation subsystem + v506 IBM Cleanroom auto-trigger. -->
+            <tr role="row" class="border-t-2 border-indigo-300 bg-indigo-50">
+              <th
+                scope="row"
+                class="sticky left-0 z-10 bg-indigo-50 text-left font-bold text-indigo-900 whitespace-nowrap border-r border-indigo-200"
+                :class="density === 'compact' ? 'px-3 py-1 text-[11px]' : 'px-4 py-2 text-xs'"
+                role="rowheader"
+                title="Most recent Estimated amount for the 3 central resources — auto-updates on any Evo Step actuals, spec change, or manual estimation. Snapshotted with every IET/VDT change."
+              >
+                🎯 Estimated
+                <div class="font-normal text-indigo-500/70 mt-0.5" style="font-size:10px">central resources (live)</div>
+              </th>
+              <td
+                :colspan="solutions.length"
+                class="text-left align-middle px-3 py-2"
+                role="cell"
+              >
+                <div class="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-indigo-900">
+                  <span :title="estimatedSnapshot.capitalCost.label"><span class="font-semibold">Capital:</span> {{ estimatedSnapshot.capitalCost.amount != null ? `${estimatedSnapshot.capitalCost.amount.toLocaleString()} ${estimatedSnapshot.capitalCost.unit}` : '— (no estimation yet)' }}</span>
+                  <span :title="estimatedSnapshot.calendarTime.label"><span class="font-semibold">Calendar Time:</span> {{ estimatedSnapshot.calendarTime.amount != null ? `${estimatedSnapshot.calendarTime.amount.toLocaleString()} ${estimatedSnapshot.calendarTime.unit}` : '— (no estimation yet)' }}</span>
+                  <span :title="estimatedSnapshot.specialistStaff.label"><span class="font-semibold">Specialist Staff:</span> {{ estimatedSnapshot.specialistStaff.amount != null ? `${estimatedSnapshot.specialistStaff.amount.toLocaleString()} ${estimatedSnapshot.specialistStaff.unit}` : '— (no estimation yet)' }}</span>
+                  <!-- v508 — ESTIMATION 7 OPEX chips (Annual Overhead + Technical Debt) -->
+                  <span :title="estimatedSnapshot.annualOverhead.label"><span class="font-semibold">🏭 Annual Overhead:</span> {{ estimatedSnapshot.annualOverhead.amount != null ? `${estimatedSnapshot.annualOverhead.amount.toLocaleString()} ${estimatedSnapshot.annualOverhead.unit}/yr` : '— (no estimation yet)' }}</span>
+                  <span :title="estimatedSnapshot.technicalDebt.label"><span class="font-semibold">⚠️ Technical Debt:</span> {{ estimatedSnapshot.technicalDebt.amount != null ? `${estimatedSnapshot.technicalDebt.amount.toLocaleString()} ${estimatedSnapshot.technicalDebt.unit}` : '— (no estimation yet)' }}</span>
+                </div>
+              </td>
+            </tr>
+
+            <!-- v507 — Central Resource STIPULATED row. -->
+            <tr role="row" class="border-t border-indigo-200 bg-indigo-50/60">
+              <th
+                scope="row"
+                class="sticky left-0 z-10 bg-indigo-50/60 text-left font-bold text-indigo-900 whitespace-nowrap border-r border-indigo-200"
+                :class="density === 'compact' ? 'px-3 py-1 text-[11px]' : 'px-4 py-2 text-xs'"
+                role="rowheader"
+                title="Stipulated (official / contractual) budgets from the Plan Scope Framework — Capital budget + deadline + planned FTE. Edit in Stage 1 (Stakes) or Stage 10 (Resources) → Plan Scope Framework."
+              >
+                📋 Stipulated
+                <div class="font-normal text-indigo-500/70 mt-0.5" style="font-size:10px">from Plan Scope Framework</div>
+              </th>
+              <td
+                :colspan="solutions.length"
+                class="text-left align-middle px-3 py-2"
+                role="cell"
+              >
+                <div class="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-indigo-900">
+                  <span :title="stipulatedSnapshot.capitalCost.label"><span class="font-semibold">Capital:</span> {{ stipulatedSnapshot.capitalCost.amount != null ? `${stipulatedSnapshot.capitalCost.amount.toLocaleString()} ${stipulatedSnapshot.capitalCost.unit}` : '— (not yet determined)' }}</span>
+                  <span :title="stipulatedSnapshot.calendarTime.label"><span class="font-semibold">Calendar Time:</span> {{ stipulatedSnapshot.calendarTime.label.split(': ')[1] || '—' }}</span>
+                  <span :title="stipulatedSnapshot.specialistStaff.label"><span class="font-semibold">Specialist Staff:</span> — (add to Plan Scope Framework)</span>
+                  <!-- v508 — OPEX stipulated chips -->
+                  <span :title="stipulatedSnapshot.annualOverhead.label"><span class="font-semibold">🏭 Annual Overhead:</span> {{ stipulatedSnapshot.annualOverhead.amount != null ? `${stipulatedSnapshot.annualOverhead.amount.toLocaleString()} ${stipulatedSnapshot.annualOverhead.unit}/yr` : '— (add annual budget)' }}</span>
+                  <span :title="stipulatedSnapshot.technicalDebt.label"><span class="font-semibold">⚠️ Technical Debt:</span> — (future — add ceiling to Plan Scope Framework)</span>
+                </div>
+                <div v-if="ietSnapshotHistory.length > 0" class="text-[10px] text-indigo-700/60 italic mt-1">
+                  {{ ietSnapshotHistory.length }} snapshot{{ ietSnapshotHistory.length === 1 ? '' : 's' }} recorded · latest: {{ ietSnapshotHistory[ietSnapshotHistory.length - 1].timestamp.slice(11, 19) }}
+                </div>
+              </td>
+            </tr>
+
             <!-- Value Impact Sum row — bigger, bolder -->
             <tr role="row" class="border-t-2 border-slate-300">
               <th
@@ -1437,7 +1550,7 @@ defineExpose({
                 aria-label="Value to cost ratio row"
               >
                 V/C
-                <div class="font-normal text-slate-400 mt-0.5" style="font-size:10px">val ÷ claim</div>
+                <div class="font-normal text-slate-400 mt-0.5" style="font-size:10px">val / claim</div>
               </th>
               <td
                 v-for="sol in solutions"
@@ -1479,7 +1592,7 @@ defineExpose({
                 aria-label="Means efficiency row"
               >
                 Efficiency
-                <div class="font-normal text-slate-500 mt-0.5" style="font-size:10px">Σ ÷ (wks + $k)</div>
+                <div class="font-normal text-slate-500 mt-0.5" style="font-size:10px">Σ / (wks + $k)</div>
               </th>
               <td
                 v-for="sol in solutions"

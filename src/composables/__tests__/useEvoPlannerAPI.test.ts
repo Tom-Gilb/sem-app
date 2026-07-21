@@ -301,8 +301,12 @@ describe('useEvoPlannerAPI', () => {
     expect(error.value).toMatch(/linkedValues/)
   })
 
-  it('sets error and returns null when a step has no linkedSolutions', async () => {
-    // Spec: S.Evo6.EvoStepPlannerTests — step missing linkedSolutions → error
+  it('auto-repairs a step with empty linkedSolutions using all spec S. IDs', async () => {
+    // Spec: S.Evo6.EvoStepPlannerTests — Tom 2026-05-15: "that must be your job"
+    // When the LLM returns linkedSolutions: [] but the spec has solutions, the
+    // composable silently falls back to ALL S. IDs in the spec rather than
+    // surfacing a raw validation error. Error path only fires when the spec itself
+    // has zero solutions (covered by the "no S entries" test above).
     const missingLinkedSolutions = JSON.stringify({
       steps: [
         {
@@ -319,8 +323,10 @@ describe('useEvoPlannerAPI', () => {
 
     const result = await planSteps(VALID_SPEC_BLOCK)
 
-    expect(result).toBeNull()
-    expect(error.value).toMatch(/linkedSolutions/)
+    // Auto-repaired: spec has S.EvoStepPlannerModule → that becomes the fallback
+    expect(result).not.toBeNull()
+    expect(result!.steps[0].linkedSolutions).toEqual(['S.EvoStepPlannerModule'])
+    expect(error.value).toBe('')
   })
 
   it('sets error and returns null on authentication failure', async () => {

@@ -8,51 +8,208 @@
     aria-label="Generated Planguage Specification"
     class="w-full mt-6"
   >
-    <!-- Loading state -->
+    <!-- Loading state — r41 v86 (Tom Gilb 2026-06-16 verbatim "generating
+         spec: you delete the bar, seconds and &% I di dnot ask for that").
+         Was: bar + seconds + % gated behind `v-else` of `streamingText` so
+         when the stream-back path fired (which CAN happen partway through
+         generation), the whole status block disappeared — leaving Tom with
+         only a streamed `<pre>` and no progress indicators.  That's a
+         Loading-State Rule 8 SUPREME violation (Tom 2026-06-01: ALL FOUR of
+         spinner + elapsed seconds + % bar + amuse content must be present,
+         NO EXCEPTIONS).  Fix: spinner + phase narrative + progress bar +
+         elapsed seconds + amuse ALWAYS render during loading; the streaming
+         `<pre>` is now an ADDITIVE block above them, not a v-if/v-else swap. -->
+    <!-- r41 v87 (Tom Gilb 2026-06-16 verbatim "apologies, it is still there,
+         but I did not see it, the print is not good contrast.  This is the
+         main event, no need to be subtle abnout the size or color of the
+         whole activity") — Generation loading UI bumped from subtle/slate
+         to BIG + COLOURFUL.  Title text-xl extrabold violet-900; detail
+         text-base slate-800; elapsed text-base font-bold slate-700;
+         progress bar h-4 with vibrant gradient (violet→indigo→amber);
+         spinner h-8 violet-600; outer card bg gradient + 2 px violet border
+         + ring-2 ring-violet-400/40.  This now READS as "the main event"
+         of the screen during generation, not a quiet sidebar. -->
     <div
       v-if="loading"
       role="status"
       aria-live="polite"
       aria-label="Generating specification"
-      class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+      class="flex flex-col gap-4 rounded-2xl border-2 border-violet-300 bg-gradient-to-br from-violet-50 via-indigo-50 to-white pt-10 px-6 pb-6 shadow-lg ring-2 ring-violet-400/30 scroll-mt-32 mt-4"
     >
-      <!-- Feature #1 — Streaming text display -->
-      <template v-if="streamingText">
-        <pre class="font-mono text-xs text-slate-700 bg-slate-50 rounded-lg p-4 overflow-auto max-h-64 whitespace-pre-wrap">{{ streamingText }}<span class="animate-pulse">▋</span></pre>
-      </template>
-      <template v-else>
-        <div class="space-y-3">
-          <div class="flex items-center gap-3">
-            <span
-              class="inline-block h-5 w-5 flex-shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
-              aria-hidden="true"
-            />
-            <span class="text-sm text-slate-600">Generating specification…</span>
-          </div>
-          <div class="space-y-1.5">
-            <div class="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-              <div
-                class="h-full rounded-full bg-slate-600 transition-[width] duration-1000 ease-linear"
-                :style="{ width: loadingEstPct + '%' }"
-                role="progressbar"
-                :aria-valuenow="loadingEstPct"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                :aria-label="`Building spec — approximately ${loadingEstPct}% complete`"
-              />
-            </div>
-            <p class="text-[11px] text-slate-400">
-              ~{{ loadingEstPct }}% · {{ loadingElapsed }}s elapsed
-              <span v-if="loadingElapsed > 20"> — can take up to 90s on slow networks</span>
-            </p>
-          </div>
+      <!-- Feature #1 — Streaming text display (additive — renders alongside
+           the standard 4 loading indicators, not instead of them). -->
+      <pre
+        v-if="streamingText"
+        class="font-mono text-xs text-slate-700 bg-white border border-violet-200 rounded-lg p-4 overflow-auto max-h-64 whitespace-pre-wrap"
+      >{{ streamingText }}<span class="animate-pulse">▋</span></pre>
+
+      <!-- Loading-State Rule 8 SUPREME — ALL 4 elements ALWAYS visible while
+           loading: (1) spinner, (2) elapsed seconds, (3) % progress bar,
+           (4) amuse content.  Plus phase narrative (r41 v52). -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-4">
+          <span
+            class="inline-block h-8 w-8 flex-shrink-0 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600"
+            aria-hidden="true"
+          />
+          <span class="text-lg font-extrabold text-violet-900">Generating Planguage Specification…</span>
         </div>
-      </template>
-      <!-- Rule 8 (4): Amuse Me — generation takes 20–90 s; AmuseMeButton covers
-           the full 4-element requirement (spinner✓ elapsed✓ progress✓ amuse below).
-           lingerVisible ensures the button stays for 10 s after generation finishes
-           with the blinking "Click to Continue Amuse Me" countdown (Tom 2026-06-02). -->
-      <AmuseMeButton :is-loading="loading" :planning-stage="planningStage" class="w-full mt-3" />
+        <!-- r41 2026-06-20 (Tom Gilb verbatim "this, and all such phases is
+             a place to have a real time activity window display, to
+             dramatize the activity") — upgraded from single-phase narrative
+             card to full DRAMATIC ACTIVITY TIMELINE.  Shows every phase
+             with its status (✅ done · 🟡 current · ⚪ upcoming), the
+             current phase highlighted + pulsing, the current detail
+             surfaced beneath the current phase row.  Planner sees the
+             JOURNEY through the AI's work, not just the current step.
+             Composes with: Conjunction-of-Technologies SUPREME (visibly
+             shows the AI's pipeline doing its work), MOVE Principle
+             (every phase visible at-a-glance, no menu-dive), Honest
+             Loading Hint Copy SUPREME (real progress through real phases
+             beats a fake spinner), DD-009 Zero-Training UI (the planner
+             learns the SEM extraction pipeline shape just by watching),
+             accessibility_tom.md (Tom 85 — bigger text, high-contrast
+             phase status icons), Icon-Plus-Text SUPREME (every phase
+             row has glyph + name + detail).  This pattern is also banked
+             for sweep across the other long-running phases in the app
+             (Sharpening, Standards Audit, Resources Sharpen, etc.). -->
+        <!-- r41 v343 (Tom Gilb 2026-06-25 *"on the right hand side of this
+             generating thing"*): two-panel grid — LEFT = Live Activity
+             timeline (narrative: which phase is running) · RIGHT = Live
+             Spec Build Counter (quantitative: how many of each entry-type
+             so far).  Pairs the two complementary views Tom has been
+             asking for "several times today".  Composes with: Conjunction-
+             of-Technologies SUPREME (narrative + quantitative channels
+             together), MOVE Principle (every type's count visible at-a-
+             glance), Honest Loading Hint Copy (Phase 1 is phase-keyed;
+             Phase 2 will be true streaming counts — banked in pending-
+             requests.md), SEM-teaches-Planguage-incrementally (planner
+             sees the six entry types being built, learns the model),
+             DD-011 Planguage-Glyph-First + DD-016 Color Keyed Icons. -->
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3">
+        <div class="rounded-xl border-2 border-violet-400 bg-white shadow-sm overflow-hidden">
+          <div class="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-100 via-indigo-100 to-violet-100 border-b border-violet-200">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+            <p class="text-[11px] font-extrabold uppercase tracking-[0.14em] text-violet-900">
+              Live Activity — AI Pipeline
+            </p>
+            <span class="ml-auto text-[10px] text-violet-700 font-bold tabular-nums">
+              Phase {{ generationPhase.title.match(/Phase (\d+)/)?.[1] || '?' }} of {{ GENERATION_PHASES.filter(p => p.title.startsWith('Phase')).length }}
+            </span>
+          </div>
+          <ul class="divide-y divide-violet-100">
+            <li
+              v-for="(p, i) in GENERATION_PHASES"
+              :key="i"
+              class="flex items-start gap-3 px-4 py-2.5 transition-colors"
+              :class="p === generationPhase
+                ? 'bg-violet-50/70'
+                : (p.atSecond < generationPhase.atSecond
+                    ? 'bg-white opacity-70'
+                    : 'bg-white opacity-50')"
+            >
+              <!-- Status indicator (left) -->
+              <span class="shrink-0 mt-0.5" aria-hidden="true">
+                <template v-if="p.atSecond < generationPhase.atSecond">
+                  <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold">✓</span>
+                </template>
+                <template v-else-if="p === generationPhase">
+                  <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold animate-pulse">●</span>
+                </template>
+                <template v-else>
+                  <span class="inline-block w-5 h-5 rounded-full border-2 border-slate-300" />
+                </template>
+              </span>
+              <!-- Phase content -->
+              <div class="flex-1 min-w-0">
+                <p
+                  class="text-sm font-bold leading-tight"
+                  :class="p === generationPhase
+                    ? 'text-violet-900'
+                    : (p.atSecond < generationPhase.atSecond ? 'text-slate-600' : 'text-slate-400')"
+                >
+                  <span class="mr-1.5" aria-hidden="true">{{ p.emoji }}</span>
+                  {{ p.title }}
+                </p>
+                <!-- Detail surfaces ONLY for the current phase (saves space) -->
+                <p
+                  v-if="p === generationPhase"
+                  class="text-[13px] text-slate-700 leading-relaxed mt-1"
+                >
+                  {{ p.detail }}
+                </p>
+              </div>
+              <!-- Timing column -->
+              <span
+                class="shrink-0 text-[10px] tabular-nums mt-1"
+                :class="p === generationPhase
+                  ? 'text-amber-700 font-bold'
+                  : 'text-slate-400'"
+              >
+                <template v-if="p.atSecond < generationPhase.atSecond">~{{ p.atSecond }}s</template>
+                <template v-else-if="p === generationPhase">{{ loadingElapsed }}s →</template>
+                <template v-else>~{{ p.atSecond }}s</template>
+              </span>
+            </li>
+          </ul>
+        </div>
+        <!-- ── RIGHT: Planguage Progress Window — v351 component extraction ──
+             Tom Gilb 2026-06-25 verbatim: *"Name = Planguage Progress
+             window"*.  The 150-line inline tile-grid implementation
+             (v343→v348) lifted into reusable `<PlanguageProgressWindow>`
+             so the same visual surface can mount at every long-running AI
+             generation point: Stage 1 spec gen (here), Stage 2.2 solution
+             auto-gen, Sharpen rounds, Maria reports.  Data wiring lives in
+             `usePlanguageProgress(spec, loading, loadingElapsed)`.  ALL
+             prior visual semantics preserved verbatim: 2×3 colorful tiles,
+             custom dual-number ←§→ for Stakeholder, rectangle for Solution
+             (per Tom's glossary directive), canonical Pl*Icons for V/F/C/R,
+             HoverHints, "…" instead of ✓, no emojis. -->
+        <PlanguageProgressWindow
+          :spec="props.spec"
+          :loading="!!props.loading"
+          :loading-elapsed="loadingElapsed"
+          :streaming-text="props.streamingText"
+          schedule="full"
+        />
+        </div>
+        <!-- Progress bar + % + elapsed seconds (bumped to thick + colourful). -->
+        <div class="space-y-2">
+          <div class="h-4 w-full rounded-full bg-white border-2 border-violet-200 overflow-hidden shadow-inner">
+            <div
+              class="h-full rounded-full bg-gradient-to-r from-violet-500 via-indigo-500 to-amber-400 transition-[width] duration-1000 ease-linear shadow-sm"
+              :style="{ width: loadingEstPct + '%' }"
+              role="progressbar"
+              :aria-valuenow="loadingEstPct"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-label="`Building spec — approximately ${loadingEstPct}% complete`"
+            />
+          </div>
+          <p class="text-base font-bold text-slate-800">
+            ~{{ loadingEstPct }}% · {{ loadingElapsed }}s elapsed
+            <span v-if="loadingElapsed > 20" class="font-normal text-slate-600"> — typically 60-180s; large or complex inputs can take 3-5 minutes (AI model processing, not network)</span>
+          </p>
+        </div>
+      </div>
+      <!-- r41 v375 (Tom Gilb 2026-06-25 "the generation loop went on and on
+           so i went away from it") — VISIBLE Cancel button surfaced during
+           loading so the planner can abort without waiting for the 5-min
+           HangWatchdog or hunting for the SOS pin.  Composes with MOVE
+           Principle SUPREME (escape affordance visible at the point of
+           need) + Honest-Loading-Hint-Copy SUPREME (one-click escape). -->
+      <button
+        v-if="loadingElapsed > 30"
+        type="button"
+        class="w-full mt-2 px-4 py-2 rounded-lg bg-red-50 border border-red-300 text-red-700 text-sm font-semibold hover:bg-red-100 hover:border-red-400 transition-colors flex items-center justify-center gap-2"
+        title="Cancel this generation now.  Use when the AI is taking too long (large input → 5+ minutes typical).  Your typed text is preserved — you can edit and retry."
+        @click="emit('cancel-generation')"
+      >
+        ❌ Cancel generation
+        <span class="text-[11px] font-normal opacity-75">(input preserved — edit and retry)</span>
+      </button>
+      <!-- Rule 8 (4): Amuse Me — generation takes 60-180s; AmuseMeButton -->
+      <AmuseMeButton :is-loading="loading" :planning-stage="planningStage" class="w-full mt-2" />
     </div>
 
     <!-- Error state -->
@@ -103,8 +260,22 @@
         </span>
       </div>
 
-      <!-- Header bar with toggle + action buttons -->
-      <div class="flex items-center justify-between px-1">
+      <!-- Header bar with toggle + action buttons — SOFT-DROPPED 2026-06-19.
+           Tom Gilb verbatim: "this is all unintelligible old junk, we can
+           start by dropping it all I think" + "i commented this junk, but
+           it is stillthere" (he tried to comment it locally; this rev
+           commits the drop to the source so it actually persists).  The
+           "junk" includes the Generated-Spec banner, Plan Advisor button,
+           Raw input toggle, Speaker, Copy/Email/Download glyphs, Profile
+           picker, Glossary pill, and Find ⌘F shortcut.  Export
+           functionality is NOT lost — `ExportSpecPin` at the TOP and
+           (when spec has entries) BOTTOM handle Copy/Email/Download
+           channels.  Soft-drop via `v-if="false"` so the block can be
+           revived in one keystroke if Tom wants any subset back.
+           Composes with No-Silent-Removal SUPREME (user-greenlit + this
+           audit-trail comment + design-history log row r41 v214) and
+           the parallel verb-dropdowns soft-drop banked 2026-06-19 v208. -->
+      <div v-if="false" class="flex items-center justify-between px-1">
         <div class="flex items-center gap-2 flex-wrap">
           <div class="flex flex-col gap-0.5">
             <h2 class="text-sm font-semibold text-slate-700">Generated Spec</h2>
@@ -259,20 +430,19 @@
                 <span v-if="emailed" class="text-lg font-bold text-emerald-600">✓</span>
                 <EmailGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
               </button>
-              <a
-                :href="downloadHref"
-                download="spec.md"
-                aria-label="Download spec as Markdown file"
-                title="Download spec as Markdown"
-                class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400
+              <!-- [*]→* Download HTML — GetGlyph (DD-011/DD-012 compliant; Tom 2026-06-06 universal export rule) -->
+              <button
+                type="button"
+                aria-label="Download Spec as colourful HTML file"
+                title="[*]→* Download Spec HTML&#10;Saves the colourful Planguage Spec as a standalone .html file."
+                class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500
                        hover:bg-slate-100 hover:text-slate-700
                        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
-                       focus-visible:outline-blue-600 transition-colors"
+                       focus-visible:outline-slate-500 transition-colors"
+                @click="downloadSpec"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-              </a>
+                <GetGlyph size="compact" class="h-4 w-auto" aria-hidden="true" />
+              </button>
             </template>
 
             <!-- Feature #49 — Merge button (shown when fork is open) -->
@@ -385,8 +555,22 @@
           </div>
 
 
-          <!-- ── Feature Dropdown Menu Bar — only when spec exists ── -->
-          <template v-if="spec">
+          <!-- ── Feature Dropdown Menu Bar (Analyse · Visualize · Predict ·
+                  Present · Simplify · Optimise) — SOFT-DROPPED 2026-06-19.
+               Tom Gilb verbatim: "this is all unintelligible old junk, we
+               can start by dropping it all I think."  The six verb-dropdowns
+               surfaced ~80 numbered features each (Feature #13, #43, #48
+               etc.) behind cryptic labels; over time the categorisation
+               drifted from the planner's mental model and the row read as
+               ghost-grey clutter rather than discoverable actions.  Switched
+               the template gate from `v-if="spec"` to `v-if="false"` — soft
+               drop, easy to revive if Tom wants to bring it back; the
+               MENU_GROUPS registry stays intact below for any future
+               re-promotion (e.g. behind a single "More tools" pin) so the
+               surface isn't lost permanently.  No-Silent-Removal SUPREME
+               honoured by this audit-trail comment + the explicit user
+               greenlight + design-history log row r41 v208. -->
+          <template v-if="false">
             <!-- Backdrop: dismisses any open dropdown on outside click -->
             <div
               v-if="activeMenu !== null"
@@ -1250,7 +1434,7 @@
           <p class="text-[10px] text-slate-400 leading-tight max-w-[200px]">
             <span v-if="simplifyScope === 'preview'">Preview only — spec unchanged</span>
             <span v-else-if="simplifyScope === 'copy'">Saves rewrite as a new version you can restore</span>
-            <span v-else>Replaces master; original saved to history first</span>
+            <span v-else>Replaces master; original saved to past versions first</span>
           </p>
           <button
             type="button"
@@ -1477,10 +1661,13 @@
           </div>
         </div>
 
-        <!-- Type filter tabs -->
-        <div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter glossary by type">
+        <!-- Type filter tabs (r41 v393 — "Planguage Tags" tab added,
+             visible only when the optional category is included). -->
+        <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter glossary by type">
           <button
-            v-for="tab in (['All', 'Acronyms', 'Domain Terms', 'Metrics'] as const)"
+            v-for="tab in (includePlanguageTags
+              ? (['All', 'Acronyms', 'Domain Terms', 'Metrics', 'Planguage Tags'] as const)
+              : (['All', 'Acronyms', 'Domain Terms', 'Metrics'] as const))"
             :key="tab"
             type="button"
             :aria-pressed="glossaryTypeFilter === tab"
@@ -1491,6 +1678,26 @@
             @click="glossaryTypeFilter = tab"
           >
             {{ tab }}
+          </button>
+          <!-- Optional-category toggle (r41 v393 Tom Gilb 2026-07-01) — pin
+               labelled with glyph + text per Icon-Plus-Text SUPREME.  Composes
+               with Universal Undo SUPREME (toggle is reversible), MOVE
+               Principle (option visible in the same strip as the filters).
+               Preference persists via localStorage. -->
+          <button
+            type="button"
+            :aria-pressed="includePlanguageTags"
+            class="min-h-[44px] ml-auto inline-flex items-center gap-1.5 px-3 text-xs font-semibold rounded-full transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600"
+            :class="includePlanguageTags
+              ? 'bg-slate-800 text-white border-slate-800 hover:bg-slate-700'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'"
+            :title="includePlanguageTags
+              ? 'Planguage Tags category is currently INCLUDED in this glossary — every F./V./S./C./R. spec entry appears as an alphabetised row with its brief description and canonical type colour on export. Click to exclude.'
+              : 'Include an OPTIONAL Planguage Tags category — surfaces every spec entry\'s 1-3 word mnemonic tag (per Planguage Mnemonic ID Standard) with its brief description, alphabetised alongside the other categories and colour-coded by type on export. Click to include.'"
+            @click="toggleIncludePlanguageTags()"
+          >
+            <span aria-hidden="true">{{ includePlanguageTags ? '☑' : '☐' }}</span>
+            <span>Include Planguage Tags</span>
           </button>
         </div>
 
@@ -1509,8 +1716,13 @@
                   'bg-blue-100 text-blue-700': entry.type === 'acronym',
                   'bg-purple-100 text-purple-700': entry.type === 'domain-term',
                   'bg-green-100 text-green-700': entry.type === 'metric',
+                  'bg-emerald-100 text-emerald-800': entry.type === 'planguage-tag' && entry.planguageType === 'Function',
+                  'bg-violet-100 text-violet-800':  entry.type === 'planguage-tag' && entry.planguageType === 'Value',
+                  'bg-red-100 text-red-800':        entry.type === 'planguage-tag' && entry.planguageType === 'Constraint',
+                  'bg-teal-100 text-teal-800':      entry.type === 'planguage-tag' && entry.planguageType === 'Resource',
+                  'bg-orange-100 text-orange-800':  entry.type === 'planguage-tag' && entry.planguageType === 'Solution',
                 }"
-              >{{ entry.type }}</span>
+              >{{ entry.type === 'planguage-tag' ? `Planguage Tag · ${entry.planguageType ?? ''}` : entry.type }}</span>
               <span class="text-[10px] text-slate-400">used in: {{ entry.usedIn.join(', ') }}</span>
             </div>
             <p class="text-xs text-slate-700">{{ entry.definition }}</p>
@@ -2942,10 +3154,30 @@
       >
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold text-amber-800">🪜 Goal Ladder</p>
-          <CloseDot
-        aria-label="Close goal ladder panel"
-        @click="ladderOpen = false"
-      />
+          <div class="flex items-center gap-2">
+            <!-- 📤 Export pin — Export-Button-on-All-Windows SUPREME sweep target.
+                 Tom Gilb 2026-06-22 verbatim "always continue · research and
+                 innovation project".  Goal Ladder was on the pending sweep list.
+                 Click → useGoalLadderExport renders colourful HTML + plain text
+                 with per-Value rung cards (amber=Tolerable, emerald=Goal,
+                 violet=Wish) + Glossary footer + Velocity-of-Learning footer.
+                 Passes to:'' per Mailto-No-Self-To SUPREME (Tom is the sender). -->
+            <button
+              type="button"
+              class="flex items-center gap-1 text-[11px] font-semibold text-amber-900
+                     bg-white hover:bg-amber-100 border border-amber-300
+                     rounded-md px-2 py-1 transition-colors shadow-sm"
+              title="📤 Export · open preview + copy colourful HTML to clipboard + auto-open Mail (Copy / Mail / Preview in one action)"
+              aria-label="Export Goal Ladder — colourful HTML to clipboard, preview window, and Mail"
+              @click="exportGoalLadder"
+            >
+              <span>📤</span><span>Export</span>
+            </button>
+            <CloseDot
+          aria-label="Close goal ladder panel"
+          @click="ladderOpen = false"
+        />
+          </div>
         </div>
 
         <!-- Empty state -->
@@ -3335,7 +3567,7 @@
             <table class="w-full text-xs text-left border-collapse">
               <thead>
                 <tr class="border-b border-gray-200">
-                  <th class="px-2 py-1.5 font-semibold text-gray-600">V. Entry</th>
+                  <th class="px-2 py-1.5 font-semibold text-gray-600">Value Entry</th>
                   <th class="px-2 py-1.5 font-semibold text-gray-600">EV ($)</th>
                   <th class="px-2 py-1.5 font-semibold text-gray-600">Cost ($)</th>
                   <th class="px-2 py-1.5 font-semibold text-gray-600">ROI</th>
@@ -3375,7 +3607,7 @@
                 <thead>
                   <tr class="border-b border-gray-200">
                     <th class="px-2 py-1.5 font-semibold text-gray-500">#</th>
-                    <th class="px-2 py-1.5 font-semibold text-gray-500">V. Entry</th>
+                    <th class="px-2 py-1.5 font-semibold text-gray-500">Value Entry</th>
                     <th class="px-2 py-1.5 font-semibold text-gray-500">ROI</th>
                     <th class="px-2 py-1.5 font-semibold text-gray-500">Breakeven</th>
                   </tr>
@@ -3464,10 +3696,10 @@
           >{{ velocityCopied ? '✅ Copied!' : '📋 Copy' }}</button>
           <button
             type="button"
-            aria-label="Clear velocity history"
+            aria-label="Clear velocity trend"
             class="h-11 px-3 text-sm rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
             @click="velocityClearHistory()"
-          >🗑️ Clear History</button>
+          >🗑️ Clear Past Versions</button>
         </div>
       </div>
 
@@ -3507,7 +3739,7 @@
             <table class="w-full text-xs text-left border-collapse">
               <thead>
                 <tr class="border-b border-gray-200">
-                  <th class="px-2 py-1.5 font-semibold text-gray-600">V. Entry</th>
+                  <th class="px-2 py-1.5 font-semibold text-gray-600">Value Entry</th>
                   <th class="px-2 py-1.5 font-semibold text-gray-600">Prevention $</th>
                   <th class="px-2 py-1.5 font-semibold text-gray-600">Appraisal $</th>
                   <th class="px-2 py-1.5 font-semibold text-gray-600">Failure $ (auto)</th>
@@ -4580,7 +4812,7 @@
             <table class="w-full text-xs text-slate-700">
               <thead>
                 <tr class="border-b text-left">
-                  <th class="py-1 pr-2 font-semibold">V. Entry</th>
+                  <th class="py-1 pr-2 font-semibold">Value Entry</th>
                   <th class="py-1 pr-2 font-semibold text-emerald-700">Promoters</th>
                   <th class="py-1 pr-2 font-semibold text-slate-500">Passives</th>
                   <th class="py-1 pr-2 font-semibold text-red-600">Detractors</th>
@@ -5065,11 +5297,12 @@
               >Markdown</button>
               <button
                 type="button"
-                aria-label="Backlog JSON"
+                aria-label="Backlog as Planguage Representation"
                 class="px-2 py-1 transition-colors"
                 :class="backlogCopyMode === 'json' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'"
+                title="Emit the backlog in Planguage Representation form (structured data for tools)"
                 @click="backlogCopyMode = 'json'"
-              >JSON</button>
+              >Planguage</button>
             </div>
             <button type="button" aria-label="Copy Backlog" class="h-11 px-3 text-sm rounded bg-indigo-100 hover:bg-indigo-200 text-indigo-800 transition-colors" @click="copyBacklog()">{{ backlogCopied ? '✅ Copied!' : '📋 Copy' }}</button>
           </div>
@@ -5173,7 +5406,7 @@
           <table class="w-full text-xs border-collapse">
             <thead>
               <tr class="bg-slate-50">
-                <th class="border px-2 py-1 text-left text-slate-700">V. Entry</th>
+                <th class="border px-2 py-1 text-left text-slate-700">Value Entry</th>
                 <th class="border px-2 py-1 text-left text-slate-700">Service Name</th>
                 <th class="border px-2 py-1 text-left text-slate-700">Metric</th>
                 <th class="border px-2 py-1 text-left text-slate-700">Target</th>
@@ -5671,6 +5904,20 @@
                 {{ rawInput?.means || '—' }}
               </p>
             </div>
+
+            <!-- Re-parse button — allows planner to edit genesis and regenerate -->
+            <div v-if="rawInput" class="pt-2 flex justify-end">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5
+                       text-xs font-medium text-slate-600 shadow-sm hover:bg-slate-50 hover:border-slate-400
+                       transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400"
+                title="Edit the original Stakes / Ends / Means text and re-parse into a new spec"
+                @click="emit('reparse', { stakes: rawInput.stakes, ends: rawInput.ends, means: rawInput.means })"
+              >
+                <span class="text-[11px]">[*]→[**]</span> Edit &amp; Re-parse
+              </button>
+            </div>
           </div>
 
           <!-- ── AFTER view — generated spec cards ── -->
@@ -5763,34 +6010,16 @@
             <!-- Subtle label -->
             <p class="px-1 text-xs text-slate-400">What Planguage gives you</p>
 
-            <!-- Copy+Email — whole spec — TOP (Tom: "at both top and bottom of the listing") -->
-            <div class="flex items-center gap-1.5 px-1">
-              <span class="text-[10px] text-slate-400 font-medium mr-1">Copy whole spec:</span>
-              <button
-                type="button"
-                :title="copied ? 'Copied!' : 'Copy whole spec as colored HTML table'"
-                :aria-label="copied ? 'Copied!' : 'Copy whole spec'"
-                class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
-                       border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300"
-                :class="copied ? 'text-emerald-600' : 'text-teal-600/70 hover:text-teal-700'"
-                @click="copyToClipboard"
-              >
-                <span v-if="copied" class="font-bold text-xs">✓</span>
-                <CopyGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
-              </button>
-              <button
-                type="button"
-                :title="emailed ? 'Opening Mail…' : 'Email whole spec — opens Mail.app with spec pre-filled'"
-                :aria-label="emailed ? 'Opening Mail…' : 'Email whole spec'"
-                class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
-                       border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300"
-                :class="emailed ? 'text-emerald-600' : 'text-indigo-600/70 hover:text-indigo-700'"
-                @click="emailSpec"
-              >
-                <span v-if="emailed" class="font-bold text-xs">✓</span>
-                <EmailGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
-              </button>
-            </div>
+            <!-- Export — whole spec — TOP (Tom 2026-06-06: "one button EXPORT, auto-copies, exposes email/download/messages") -->
+            <ExportSpecPin
+              :has-spec="!!props.spec"
+              :spec-name="props.spec ? `${props.spec.functions.length}F · ${props.spec.values.length}V · ${props.spec.solutions.length}S` : 'Spec'"
+              @copy="copyToClipboard"
+              @email="emailSpec"
+              @download="downloadSpec"
+              @message="messageSpec"
+              @copy-for-chat="copySpecForChat"
+            />
 
             <!-- Feature #178 (enhanced) — Stakeholders Section Card
                  Tom 2026-05-15 SUPREME: "THE SPECS DO NOT SHOW STAKEHOLDERS (AND
@@ -5833,54 +6062,217 @@
                 </button>
               </div>
               <div class="px-4 py-3 space-y-2.5">
-                <!-- Raw stakes text for context -->
+                <!-- Raw stakes text for context.
+                     r41 v409 (Tom Gilb 2026-06-28 verbatim "this again",
+                     screenshot showing a giant orange paragraph above 225
+                     parsed Stakeholder cards) — when the raw stakes string
+                     is chip-dense (≥6 commas OR >280 chars) it's a parse
+                     blob from a long contract paste, NOT a meaningful
+                     "Stakes:" sentence.  Render a compact summary line +
+                     "Show raw text" toggle instead; the 225 actual
+                     Stakeholder cards become the dominant surface.
+                     Composes with Done/You-Can/Continue SUPREME (clear
+                     state at a glance) + MOVE Principle (the raw text is
+                     reachable in one click, not buried behind a menu) +
+                     accessibility universal-baseline (any reader can
+                     parse a chip + a count without scanning 12k chars). -->
+                <div
+                  v-if="rawInput?.stakes && rawStakesIsBlob"
+                  class="flex flex-wrap items-center gap-2 text-xs text-amber-700 border-b border-amber-100 pb-2"
+                >
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 font-semibold">
+                    <span>📦</span>
+                    <span>Parsed input</span>
+                    <span class="tabular-nums">·</span>
+                    <span class="tabular-nums">{{ rawStakesChipCount }} candidates</span>
+                  </span>
+                  <span class="italic text-amber-600">
+                    {{ rawInput.stakes.length.toLocaleString() }} characters of raw text — collapsed to keep the {{ specStakeholderCards.length }} parsed Stakeholder cards in focus
+                  </span>
+                  <button
+                    type="button"
+                    class="ml-auto inline-flex items-center gap-1 h-6 px-2 rounded-full border border-amber-400 bg-white text-amber-800 hover:bg-amber-100 font-semibold transition-colors"
+                    :title="showRawStakesText ? 'Collapse the raw input text' : 'Show the full raw input text Tom pasted'"
+                    @click="showRawStakesText = !showRawStakesText"
+                  >
+                    {{ showRawStakesText ? '▲ Hide raw text' : '▼ Show raw text' }}
+                  </button>
+                </div>
                 <p
-                  v-if="rawInput?.stakes"
+                  v-if="rawInput?.stakes && (!rawStakesIsBlob || showRawStakesText)"
                   class="text-xs text-amber-700 italic border-b border-amber-100 pb-2"
+                  :class="{ 'max-h-64 overflow-y-auto': showRawStakesText }"
                 >
                   Stakes: "{{ rawInput.stakes }}"
                 </p>
-                <!-- Per-stakeholder rows -->
+                <!-- Per-stakeholder compact Planguage cards (2026-06-09 redesign).
+                     r41 v68 (Tom Gilb 2026-06-16 verbatim "no ! tag and separation") —
+                     Stakeholder Tag bumped to spec-Tag-level prominence (text-2xl
+                     extrabold underlined per the r41 v62 "old tradition") + .spec-
+                     entry-card class added so the card inherits the dark slate-800
+                     box-shadow bottom border applied universally to F./V./S./C./R.
+                     in r41 v63.  Composes with the BOTH-surfaces rule (r41 v63). -->
                 <div
                   v-for="sh in specStakeholderCards"
                   :key="sh.name"
-                  class="flex flex-col gap-1"
+                  class="spec-entry-card rounded-lg border border-amber-200 border-l-4 border-l-amber-400 bg-white overflow-hidden shadow-sm"
                 >
-                  <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Card header: Tag: Type: Stakeholder.  stakeholderType chip  source →
+                       r41 v88 (Tom Gilb 2026-06-16 "the blank space seems in
+                       stakeholders, not values") — Tag chip framing dropped:
+                       was `inline-flex border-2 px-3 py-1 bg-white/90` which
+                       made the chip ~38 px tall and created visual whitespace
+                       around it in the header.  Now matches F/V/S/C/R Tag
+                       styling: plain text span with underline, no border, no
+                       padding, no own bg.  Header `py-2.5` → `py-1.5`. -->
+                  <div class="flex items-center gap-2 px-3 py-1.5 border-b border-amber-100"
+                       :class="sh.palette.bg">
                     <span
-                      class="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                      :class="[sh.palette.bg, sh.palette.text, sh.palette.border]"
-                    >{{ sh.name }}</span>
-                    <!-- Linked value descriptions (their needs) -->
+                      class="shrink-0 text-2xl font-extrabold underline underline-offset-4 decoration-2 leading-tight"
+                      :class="sh.palette.text"
+                    >{{ sh.name }}:</span>
+                    <span class="shrink-0 text-[10px] text-amber-700 font-mono">Type: Stakeholder.</span>
                     <span
-                      v-if="sh.linkedValues.length > 0"
-                      class="text-xs text-amber-800"
+                      v-if="sh.stakeholderType"
+                      class="shrink-0 text-[10px] bg-white/80 border border-amber-200 text-amber-700 rounded px-1.5 py-px font-mono"
+                    >{{ sh.stakeholderType }}</span>
+                    <!-- r41 v337 — glyph + text per Icon-Plus-Text SUPREME (Stakeholder Edit pin deferred — Spec Editor has no Stakeholders tab yet) -->
+                    <button
+                      type="button"
+                      :title="copiedEntryId === sh.name ? 'Copied!' : 'Copy this Stakeholder as colourful HTML'"
+                      class="ml-auto flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100"
+                      @click.stop="copyEntry('Sh', sh.name)"
                     >
-                      needs: <span class="font-medium">{{ sh.linkedValues.map(v => v.description).join(' · ') }}</span>
-                    </span>
-                    <!-- Wish text -->
-                    <span
-                      v-if="sh.wish"
-                      class="text-xs text-amber-600 italic"
-                    >wishes: "{{ sh.wish }}"</span>
-                    <!-- No linked values fallback -->
-                    <span
-                      v-else-if="sh.linkedValues.length === 0 && !sh.wish"
-                      class="text-xs text-amber-500 italic"
-                    >needs defined in Ends</span>
+                      <span v-if="copiedEntryId === sh.name" class="text-xs leading-none" aria-hidden="true">✓</span>
+                      <CopyGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                      <span>{{ copiedEntryId === sh.name ? 'Copied' : 'Copy' }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      :title="emailedEntryId === sh.name ? 'Opening Mail…' : 'Email this Stakeholder — opens Mail.app pre-filled'"
+                      class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100"
+                      @click.stop="emailEntry('Sh', sh.name)"
+                    >
+                      <span v-if="emailedEntryId === sh.name" class="text-xs leading-none" aria-hidden="true">✓</span>
+                      <EmailGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                      <span>{{ emailedEntryId === sh.name ? 'Sent' : 'Email' }}</span>
+                    </button>
+                    <!-- r41 v89 root-cause (Tom Gilb 2026-06-16 screenshot 19:45) —
+                         the `Source:` chip was previously here with `ml-auto min-w-0
+                         break-words` which, in a flex header constrained by
+                         `ml-auto`, wrapped at EVERY CHARACTER for any long source
+                         text like "Stakes field; signatories to the 7 April 1635
+                         dimensions schedule" — producing a tall vertical column
+                         of single letters that stretched the header row to
+                         ~600 px tall and floated the centered Tag in a sea of
+                         blank space.  Fix: removed `Source:` from the header; it
+                         now renders as its own full-width row BELOW the header
+                         (see footer block after the body), where word-wrap
+                         works normally.  Composes with r41 v72's "no truncate"
+                         intent (full source still readable) without the
+                         column-of-letters side effect. -->
                   </div>
-                  <!-- Applicable constraints -->
-                  <div
-                    v-if="sh.linkedConstraints.length > 0"
-                    class="flex flex-wrap gap-1 ml-2"
-                  >
-                    <span
-                      v-for="c in sh.linkedConstraints"
-                      :key="c.id"
-                      class="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-px font-mono"
-                      :title="c.description"
-                    >{{ c.id }}</span>
+
+                  <!-- Card body — r41 v89 (Tom Gilb 2026-06-16 verbatim
+                       "I complained about white space inside the stakeholder
+                       cards") — v88 had tightened to `py-1.5 space-y-1` but
+                       Tom still sees blank inside cards.  v89 cuts further:
+                       padding `py-1.5 → py-0.5` (2 px top/bot — just enough
+                       to keep text off the borders), gap `space-y-1 → space-y-0`
+                       (zero — the rows use their own `leading-snug` for
+                       readability; no extra inter-row air), removed `pt-0.5`
+                       from Needs + Contact rows (was double-counting on top
+                       of space-y), Description `leading-relaxed` (1.625) →
+                       `leading-snug` (1.375) so text-xs description doesn't
+                       balloon vertically.  Net: ~16 px less vertical air per
+                       Stakeholder card body; reads as dense as F/V/S/C/R. -->
+                  <div class="px-3 py-0.5 space-y-0">
+                    <!-- Def: one-sentence formal definition -->
+                    <p
+                      v-if="sh.definition"
+                      class="text-xs text-slate-700 leading-snug"
+                    >
+                      <span class="font-semibold text-amber-700">Def:</span> {{ sh.definition }}
+                    </p>
+
+                    <!-- Description — max 3 lines, clipped -->
+                    <p
+                      v-if="sh.detailDescription"
+                      class="text-xs text-slate-500 leading-snug line-clamp-3"
+                    >{{ sh.detailDescription }}</p>
+
+                    <!-- Needs: mnemonic ID badges -->
+                    <div class="flex flex-wrap items-center gap-1">
+                      <span class="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mr-0.5">Needs:</span>
+                      <!-- Primary: explicit needs[] from StakeholderEntry -->
+                      <template v-if="sh.needs && sh.needs.length > 0">
+                        <span
+                          v-for="need in sh.needs"
+                          :key="need"
+                          class="text-[10px] bg-amber-50 border border-amber-300 text-amber-800 rounded px-1.5 py-px font-mono"
+                        >{{ need }}</span>
+                      </template>
+                      <!-- Fallback: linked Value/Constraint IDs (pre-2026-06-09 specs) -->
+                      <template v-else-if="sh.linkedValues.length > 0 || sh.linkedConstraints.length > 0">
+                        <span
+                          v-for="v in sh.linkedValues"
+                          :key="v.id"
+                          class="text-[10px] bg-violet-50 border border-violet-200 text-violet-700 rounded px-1.5 py-px font-mono"
+                          :title="v.description"
+                        >{{ mnemonicLabel(v.id, v.description) }}</span>
+                        <span
+                          v-for="c in sh.linkedConstraints"
+                          :key="c.id"
+                          class="text-[10px] bg-red-50 border border-red-200 text-red-700 rounded px-1.5 py-px font-mono"
+                          :title="c.description"
+                        >{{ mnemonicLabel(c.id, c.description) }}</span>
+                      </template>
+                      <span v-else class="text-[10px] text-amber-400 italic">none linked yet</span>
+                    </div>
+
+                    <!-- Maintenance Contact — r41 v89: dropped `pt-0.5` -->
+                    <div
+                      v-if="sh.maintContact && (sh.maintContact.name || sh.maintContact.email || sh.maintContact.url)"
+                      class="flex flex-wrap items-center gap-1 text-[10px] text-slate-500"
+                    >
+                      <span class="font-semibold text-amber-700 uppercase tracking-wide mr-0.5">Contact:</span>
+                      <span v-if="sh.maintContact.name" class="font-medium text-slate-700">{{ sh.maintContact.name }}</span>
+                      <span v-if="sh.maintContact.position" class="text-slate-500">· {{ sh.maintContact.position }}</span>
+                      <a
+                        v-if="sh.maintContact.email"
+                        :href="`mailto:${sh.maintContact.email}`"
+                        class="text-blue-600 hover:underline"
+                      >· {{ sh.maintContact.email }}</a>
+                      <a
+                        v-if="sh.maintContact.url"
+                        :href="sh.maintContact.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-blue-600 hover:underline"
+                      >· {{ sh.maintContact.url }}</a>
+                    </div>
                   </div>
+                  <!-- Source footer row — r41 v89 (moved here from header).
+                       Full-width below the body so long source text like
+                       "Stakes field; signatories to the 7 April 1635 dimensions
+                       schedule" word-wraps NORMALLY across one or two lines
+                       instead of vertically as one letter per line.  No
+                       width constraints; relies on the card width for natural
+                       word-wrap.  text-[10px] italic amber-600 keeps the
+                       provenance distinct from primary content. -->
+                  <!-- r41 v90 (Tom Gilb 2026-06-16 "src: ???") — LLM was
+                       emitting literal placeholders like "???" / "?" /
+                       "unknown" / "n/a" / "tbd" instead of omitting the
+                       `source` field when it had no real provenance.
+                       `isMeaningfulSource()` filters those out so the
+                       footer ONLY shows when source carries actual info.
+                       Composed with a SYSTEM_PROMPT amendment that tells
+                       the LLM to omit the field rather than emit "???". -->
+                  <p
+                    v-if="isMeaningfulSource(sh.source)"
+                    class="px-3 py-1 text-[10px] italic text-amber-600 border-t border-amber-100 bg-amber-50/50 break-words"
+                    :title="'Source: ' + sh.source"
+                  >Source: {{ sh.source }}</p>
                 </div>
                 <!-- Empty: just show stakes text hint -->
                 <p
@@ -5900,7 +6292,7 @@
                 v-if="displaySpec!.functions.length > 0"
                 class="flex items-center gap-2 rounded-t-xl bg-blue-600 px-4 py-2 -mb-3"
               >
-                <span class="text-[11px] font-bold text-white uppercase tracking-wide">F. Functions</span>
+                <span class="text-[11px] font-bold text-white uppercase tracking-wide">Functions</span>
                 <span class="text-[10px] text-blue-200 ml-auto">{{ displaySpec!.functions.length }} entries</span>
                 <button type="button"
                   :title="copiedSection === 'functions' ? 'Copied!' : 'Copy Functions section as colored HTML table'"
@@ -5923,57 +6315,94 @@
                   <EmailGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
                 </button>
               </div>
+              <!-- Function compact Planguage card (Tom 2026-06-09 redesign) -->
               <article
                 v-for="(f, index) in displaySpec!.functions"
                 :key="f.id"
-                class="spec-entry-card rounded-xl border border-blue-100 bg-white shadow-sm overflow-hidden"
+                class="spec-entry-card rounded-xl border border-l-4 border-blue-100 border-l-blue-400 bg-white shadow-sm overflow-hidden"
                 :style="{ animationDelay: `${index * 80}ms` }"
                 :aria-label="`Function: ${f.id}`"
               >
+                <!-- Card header: Tag: Type: Function. · sharpened · rewrite pin -->
                 <div class="flex items-center gap-2 bg-blue-50 px-4 py-2.5 border-b border-blue-100">
-                  <!-- Feature #11: PlanguageTerm tooltip for section header -->
-                  <PlanguageTerm term="Function" class="text-xs font-bold tracking-wide text-blue-600 uppercase" />
-                  <span class="text-xs text-blue-400">·</span>
-                  <span class="text-xs font-mono text-blue-700">{{ f.id }}</span>
-                  <!-- Sharpening badge — entry was added/refined by a sharpening round -->
+                  <!-- r41 v62 (Tom Gilb 2026-06-16) — Tag bigger + underlined ("my old tradition") -->
+                  <span class="shrink-0 text-2xl font-extrabold text-blue-900 underline underline-offset-4 decoration-2 leading-tight">{{ mnemonicLabel(f.id, f.description) }}:</span>
+                  <span class="shrink-0 text-[10px] text-blue-600 font-mono">Type: Function.</span>
+                  <span
+                    v-if="f.currentStatus"
+                    class="text-[10px] rounded px-1.5 py-px font-mono"
+                    :class="{
+                      'bg-emerald-50 border border-emerald-200 text-emerald-700': f.currentStatus === 'present',
+                      'bg-red-50 border border-red-200 text-red-700':            f.currentStatus === 'absent',
+                      'bg-amber-50 border border-amber-200 text-amber-700':      f.currentStatus === 'partial',
+                    }"
+                  >{{ f.currentStatus }}</span>
                   <span
                     v-if="sharpenedEntryIds.includes(f.id)"
                     class="text-xs leading-none"
                     aria-label="Sharpened entry"
                     title="This entry was added or refined by a sharpening round"
                   >🔪</span>
-                  <!-- Feature #57b — per-entry rewrite pin -->
+                  <!-- r41 v337 — glyph + text per Icon-Plus-Text SUPREME · single Edit consolidated -->
                   <button
                     type="button"
-                    :aria-label="entryState(f.id).open ? 'Close rewrite panel' : 'Rewrite this entry'"
-                    title="Rewrite this entry"
-                    class="ml-auto h-7 w-7 flex items-center justify-center rounded-full text-sm transition-colors hover:bg-blue-100"
-                    :class="entryState(f.id).open ? 'text-blue-500 bg-blue-100' : 'text-slate-300 hover:text-blue-400'"
-                    @click.stop="toggleEntryPin(f.id)"
-                  ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit this entry" /></button>
+                    title="Open this Function in the Spec Editor (full edit · trace · Universal Undo · commit-to-master)"
+                    class="ml-auto flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100"
+                    @click.stop="emit('open-editor', { tab: 'functions', entryId: f.id })"
+                  >
+                    <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    :title="copiedEntryId === f.id ? 'Copied! — paste into Mail / Notes / Keynote' : 'Copy this Function as colourful HTML'"
+                    class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100"
+                    @click.stop="copyEntry('F', f.id)"
+                  >
+                    <span v-if="copiedEntryId === f.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                    <CopyGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>{{ copiedEntryId === f.id ? 'Copied' : 'Copy' }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    :title="emailedEntryId === f.id ? 'Opening Mail…' : 'Email this Function — opens Mail.app pre-filled with colourful HTML on clipboard'"
+                    class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100"
+                    @click.stop="emailEntry('F', f.id)"
+                  >
+                    <span v-if="emailedEntryId === f.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                    <EmailGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>{{ emailedEntryId === f.id ? 'Sent' : 'Email' }}</span>
+                  </button>
                 </div>
-                <div class="px-4 py-4 space-y-3">
-                  <!-- Inline description: click to edit directly (Tom 2026-05-18) -->
-                  <div v-if="entryState(f.id).editingDesc" class="space-y-1.5">
-                    <textarea
-                      :id="`desc-edit-${f.id}`"
-                      v-model="entryState(f.id).editDescText"
-                      rows="3"
-                      class="w-full rounded-md border border-blue-300 bg-white px-3 py-2 text-sm text-slate-800 leading-relaxed
-                             focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
-                      @keydown="onDescEditKeydown($event, f.id, 'F')"
-                      @blur="saveDescEdit(f.id, 'F')"
-                    />
-                    <p class="text-[10px] text-slate-400">⌘↵ save · Esc cancel · click outside to save</p>
+
+                <!-- Card body -->
+                <div class="px-4 py-3 space-y-2">
+
+                  <!-- Function: capability statement (click to edit) -->
+                  <div class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Function:</span>
+                    <div v-if="entryState(f.id).editingDesc" class="flex-1 space-y-1">
+                      <textarea
+                        :id="`desc-edit-${f.id}`"
+                        v-model="entryState(f.id).editDescText"
+                        rows="3"
+                        class="w-full rounded-md border border-blue-300 bg-white px-3 py-2 text-sm text-slate-800 leading-relaxed
+                               focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                        @keydown="onDescEditKeydown($event, f.id, 'F')"
+                        @blur="saveDescEdit(f.id, 'F')"
+                      />
+                      <p class="text-[10px] text-slate-400">⌘↵ save · Esc cancel</p>
+                    </div>
+                    <p
+                      v-else
+                      class="flex-1 text-sm text-slate-800 leading-relaxed cursor-text hover:bg-blue-50/60 rounded px-1 -mx-1 transition-colors"
+                      title="Click to edit"
+                      @click="startDescEdit(f.id, f.description)"
+                    >{{ f.description }}</p>
                   </div>
-                  <p
-                    v-else
-                    class="text-sm text-slate-800 leading-relaxed cursor-text hover:bg-blue-50/60 rounded px-1 -mx-1 transition-colors"
-                    title="Click to edit"
-                    @click="startDescEdit(f.id, f.description)"
-                  >{{ f.description }}</p>
-                  <!-- Feature #57b — inline entry rewrite panel -->
-                  <div v-if="entryState(f.id).open" class="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+
+                  <!-- Rewrite panel (feature #57b) -->
+                  <div v-if="entryState(f.id).open" class="ml-[96px] rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
                     <div class="flex flex-wrap gap-1" role="group" aria-label="Rewrite style for this entry">
                       <button
                         v-for="m in SIMPLIFY_MODES"
@@ -5998,51 +6427,118 @@
                     <div v-else-if="entryState(f.id).result" class="space-y-2">
                       <p class="text-xs text-slate-700 italic bg-white border border-blue-100 rounded-md px-3 py-2 leading-relaxed">{{ entryState(f.id).result }}</p>
                       <div class="flex gap-2">
-                        <button
-                          type="button"
-                          class="min-h-[32px] px-3 text-[10px] font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                          @click="acceptEntryRewrite(f.id, 'F')"
-                        >✅ Accept</button>
-                        <button
-                          type="button"
-                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
-                          @click="entryState(f.id).result = ''; entryState(f.id).accepted = false"
-                        >↩ Change Back</button>
-                        <button
-                          v-if="entryState(f.id).accepted"
-                          type="button"
+                        <button type="button" class="min-h-[32px] px-3 text-[10px] font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                          @click="acceptEntryRewrite(f.id, 'F')">✅ Accept</button>
+                        <button type="button" class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+                          @click="entryState(f.id).result = ''; entryState(f.id).accepted = false">↩ Change Back</button>
+                        <button v-if="entryState(f.id).accepted" type="button"
                           class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors"
-                          @click="emit('rewrite-entry-fix', { id: f.id, type: 'F', description: entryState(f.id).result })"
-                        >🔧 Fix in Spec</button>
+                          @click="emit('rewrite-entry-fix', { id: f.id, type: 'F', description: entryState(f.id).result })">🔧 Fix in Spec</button>
                       </div>
                     </div>
                   </div>
-                  <!-- Feature #65 — Complexity bar -->
-                  <div
-                    class="mt-1.5 h-1 rounded-full bg-slate-100 overflow-hidden"
-                    :title="`Complexity: ${scoreSentenceComplexity(f.description)}/100`"
-                    aria-hidden="true"
-                  >
+
+                  <!-- Divider -->
+                  <div class="border-t border-blue-50 pt-1.5 space-y-1.5">
+
+                    <!-- Function Test (DD-004 Presence Test) -->
+                    <div v-if="f.presenceTest || f.successCriteria" class="flex gap-2 items-start">
+                      <span class="shrink-0 text-[10px] font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Function Test:</span>
+                      <p class="flex-1 text-xs text-slate-700 leading-relaxed">{{ f.presenceTest || f.successCriteria }}</p>
+                    </div>
+
+                    <!-- Function Values: derived from spec.values where valueOfFunction === f.id -->
+                    <div class="flex gap-2 items-start">
+                      <span class="shrink-0 text-[10px] font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Values:</span>
+                      <div class="flex flex-wrap gap-1">
+                        <template v-if="displaySpec!.values.filter(v => v.valueOfFunction === f.id).length > 0">
+                          <span
+                            v-for="v in displaySpec!.values.filter(v2 => v2.valueOfFunction === f.id)"
+                            :key="v.id"
+                            class="text-[10px] bg-violet-50 border border-violet-200 text-violet-700 rounded px-1.5 py-px font-mono"
+                            :title="v.description"
+                          >{{ mnemonicLabel(v.id, v.description) }}</span>
+                        </template>
+                        <span v-else class="text-[10px] text-slate-400 italic">none linked</span>
+                      </div>
+                    </div>
+
+                    <!-- Function Constraints: derived from spec.constraints whose scope mentions this function -->
                     <div
-                      class="h-full rounded-full transition-all duration-300"
-                      :style="{
-                        width: complexityBarWidth(scoreSentenceComplexity(f.description)),
-                        backgroundColor: complexityColour(scoreSentenceComplexity(f.description)),
-                      }"
-                    />
-                  </div>
-                  <!--
-                    DD-004 (Tom 2026-05-14): "REPURPOSE: NOT AS SUCCESS. AS PRESENCE OR
-                    ABSENCE OF THE DEFINED FUNCTION." Field renamed successCriteria →
-                    presenceTest. We read presenceTest first, fall back to legacy
-                    successCriteria so old saved specs still render until they are
-                    migrated.
-                  -->
-                  <div v-if="f.presenceTest || f.successCriteria" class="rounded-lg bg-slate-50 px-3 py-2.5">
-                    <p class="text-xs font-semibold text-slate-500 mb-1">Presence Test</p>
-                    <p class="text-sm text-slate-700 leading-relaxed">{{ f.presenceTest || f.successCriteria }}</p>
-                  </div>
-                </div>
+                      v-if="(displaySpec!.constraints ?? []).filter(c => !c.scope || c.scope.toLowerCase().includes(f.id.toLowerCase())).length > 0"
+                      class="flex gap-2 items-start"
+                    >
+                      <span class="shrink-0 text-[10px] font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Constraints:</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-for="c in (displaySpec!.constraints ?? []).filter(c2 => !c2.scope || c2.scope.toLowerCase().includes(f.id.toLowerCase()))"
+                          :key="c.id"
+                          class="text-[10px] bg-red-50 border border-red-200 text-red-700 rounded px-1.5 py-px font-mono"
+                          :title="c.description"
+                        >{{ mnemonicLabel(c.id, c.description) }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Function Stakeholders: unique wishStakeholders from linked values -->
+                    <div class="flex gap-2 items-start">
+                      <span class="shrink-0 text-[10px] font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Stakeholders:</span>
+                      <div class="flex flex-wrap gap-1">
+                        <template v-if="[...new Set(displaySpec!.values.filter(v => v.valueOfFunction === f.id).map(v => v.wishStakeholder).filter(Boolean))].length > 0">
+                          <span
+                            v-for="sh in [...new Set(displaySpec!.values.filter(v2 => v2.valueOfFunction === f.id).map(v2 => v2.wishStakeholder).filter(Boolean))]"
+                            :key="sh"
+                            class="text-[10px] bg-amber-50 border border-amber-200 text-amber-700 rounded px-1.5 py-px font-mono"
+                          >{{ sh }}</span>
+                        </template>
+                        <template v-else-if="f.stakeholders">
+                          <span class="text-[10px] bg-amber-50 border border-amber-200 text-amber-700 rounded px-1.5 py-px font-mono">{{ f.stakeholders }}</span>
+                        </template>
+                        <span v-else class="text-[10px] text-slate-400 italic">none named</span>
+                      </div>
+                    </div>
+
+                    <!-- Function Costs: explicit costs[] field or resource tags -->
+                    <div v-if="f.costs && f.costs.length > 0" class="flex gap-2 items-start">
+                      <span class="shrink-0 text-[10px] font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Costs:</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-for="cost in f.costs"
+                          :key="cost"
+                          class="text-[10px] bg-orange-50 border border-orange-200 text-orange-700 rounded px-1.5 py-px font-mono"
+                        >{{ cost }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Sub-functions -->
+                    <div v-if="f.subFunctions && f.subFunctions.length > 0" class="flex gap-2 items-start">
+                      <span class="shrink-0 text-[10px] font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Sub-functions:</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-for="sub in f.subFunctions"
+                          :key="sub"
+                          class="text-[10px] bg-blue-50 border border-blue-300 text-blue-700 rounded px-1.5 py-px font-mono"
+                        >{{ sub }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Mother Function -->
+                    <div v-if="f.motherFunction" class="flex gap-2 items-start">
+                      <span class="shrink-0 text-[10px] font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Mother Function:</span>
+                      <span class="text-[10px] bg-blue-50 border border-blue-300 text-blue-700 rounded px-1.5 py-px font-mono">{{ f.motherFunction }}</span>
+                    </div>
+
+                    <!-- Justification / Owner / Risks — compact supplemental row -->
+                    <div
+                      v-if="f.justification || f.specOwner || f.risks"
+                      class="flex flex-wrap gap-x-3 gap-y-0.5 pt-0.5 border-t border-blue-50"
+                    >
+                      <span v-if="f.specOwner" class="text-[10px] text-orange-700"><span class="font-semibold">Owner:</span> {{ f.specOwner }}</span>
+                      <span v-if="f.justification" class="text-[10px] text-slate-500 italic">{{ f.justification }}</span>
+                      <span v-if="f.risks" class="text-[10px] text-amber-700"><span class="font-semibold">⚠</span> {{ f.risks }}</span>
+                    </div>
+
+                  </div><!-- end divider block -->
+                </div><!-- end card body -->
               </article>
 
               <!-- Value cards — group header with copy+email -->
@@ -6050,7 +6546,7 @@
                 v-if="displaySpec!.values.length > 0"
                 class="flex items-center gap-2 rounded-t-xl bg-violet-700 px-4 py-2 -mb-3 mt-1"
               >
-                <span class="text-[11px] font-bold text-white uppercase tracking-wide">V. Values</span>
+                <span class="text-[11px] font-bold text-white uppercase tracking-wide">Values</span>
                 <span class="text-[10px] text-violet-200 ml-auto">{{ displaySpec!.values.length }} entries</span>
                 <button type="button"
                   :title="copiedSection === 'values' ? 'Copied!' : 'Copy Values section as colored HTML table'"
@@ -6073,273 +6569,387 @@
                   <EmailGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
                 </button>
               </div>
-              <!-- Value cards — Change 1: modular blocks + icons + progress bar -->
-              <!-- Change 2: Ambition Level chips; Change 3: Wish field -->
+              <!-- Value compact Planguage card (Tom 2026-06-09 redesign) -->
               <article
                 v-for="(v, index) in displaySpec!.values"
                 :key="v.id"
-                class="spec-entry-card rounded-xl border bg-white shadow-sm overflow-hidden"
-                :class="pinnedId === v.id ? 'border-amber-400 ring-2 ring-amber-400' : 'border-emerald-100'"
+                class="spec-entry-card rounded-xl border border-l-4 bg-white shadow-sm overflow-hidden"
+                :class="pinnedId === v.id ? 'border-amber-400 border-l-amber-400 ring-2 ring-amber-400' : 'border-violet-100 border-l-violet-400'"
                 :style="{ animationDelay: `${(displaySpec!.functions.length + index) * 80}ms` }"
                 :aria-label="`Value: ${v.id}`"
               >
-                <!-- Card header — Feature #84: pin button + relevance badge -->
-                <div class="flex items-center gap-2 bg-emerald-50 px-4 py-2.5 border-b border-emerald-100">
-                  <!-- Feature #11: PlanguageTerm tooltip for section header -->
-                  <PlanguageTerm term="Value" class="text-xs font-bold tracking-wide text-emerald-600 uppercase" />
-                  <span class="text-xs text-emerald-400">·</span>
-                  <span class="text-xs font-mono text-emerald-700">{{ v.id }}</span>
-                  <!-- Sharpening badge -->
+                <!-- Card header: Tag: Type: Value. · relevance · pin · rewrite -->
+                <div class="flex items-center gap-2 bg-violet-50 px-4 py-2.5 border-b border-violet-100 flex-wrap">
+                  <!-- r41 v62 (Tom Gilb 2026-06-16) — Tag bigger + underlined ("my old tradition") -->
+                  <span class="shrink-0 text-2xl font-extrabold text-violet-900 underline underline-offset-4 decoration-2 leading-tight">{{ mnemonicLabel(v.id, v.description) }}:</span>
+                  <span class="shrink-0 text-[10px] text-violet-600 font-mono">Type: Value.</span>
                   <span
                     v-if="sharpenedEntryIds.includes(v.id)"
                     class="text-xs leading-none"
                     aria-label="Sharpened entry"
                     title="This entry was added or refined by a sharpening round"
                   >🔪</span>
-                  <!-- Feature #178 — Stakeholder chip -->
-                  <span
-                    v-if="v.wishStakeholder"
-                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none"
-                    :class="[stakeholderPalette(v.wishStakeholder).bg, stakeholderPalette(v.wishStakeholder).text, stakeholderPalette(v.wishStakeholder).border]"
-                    :aria-label="`Stakeholder: ${v.wishStakeholder}`"
-                    :title="`Stakeholder: ${v.wishStakeholder}`"
-                  >
-                    <span aria-hidden="true" class="text-[8px]">●</span>
-                    {{ v.wishStakeholder }}
-                  </span>
-                  <!-- Feature #84 — Relevance badge (shown when another entry is pinned) -->
                   <span
                     v-if="pinnedId && pinnedId !== v.id && relevanceMap[v.id] !== undefined"
                     class="ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                     :class="{
-                      'bg-emerald-100 text-emerald-700': relevanceMap[v.id] >= 60,
-                      'bg-amber-100 text-amber-700': relevanceMap[v.id] >= 30 && relevanceMap[v.id] < 60,
-                      'bg-slate-100 text-slate-500': relevanceMap[v.id] < 30,
+                      'bg-violet-100 text-violet-700': relevanceMap[v.id] >= 60,
+                      'bg-amber-100 text-amber-700':   relevanceMap[v.id] >= 30 && relevanceMap[v.id] < 60,
+                      'bg-slate-100 text-slate-500':   relevanceMap[v.id] < 30,
                     }"
                     :aria-label="`Relevance to pinned entry: ${relevanceMap[v.id]}%`"
                   >{{ relevanceMap[v.id] }}%</span>
-                  <!-- Feature #84 — Pin button -->
+                  <!-- r41 v337 (Tom Gilb 2026-06-24 "why are you reverting, against
+                       all earlier work and agreement to these old illegible emojs?
+                       2 of them are in the line above / put the edit up there too,
+                       and of course as agreed a text") — converted per-entry pin
+                       trio from icon-only emoji (✏️ 📋 📧 ⭐) to Planguage-family
+                       glyph + plain-English text labels per Icon-Plus-Text SUPREME +
+                       DD-011 Planguage-Glyph-First + DD-012 No-Generic-Icon-Libraries
+                       + DD-015 International Icons. The dual-Edit confusion (inline
+                       Rewrite + Spec Editor) consolidated to ONE Edit affordance
+                       opening the Spec Editor (canonical full-fidelity edit). -->
                   <button
                     v-show="activeProfile === 'All'"
                     type="button"
                     :aria-label="pinnedId === v.id ? 'Unpin this entry' : 'Pin as north star metric'"
-                    class="ml-auto h-8 w-8 flex items-center justify-center rounded-full text-sm transition-colors hover:bg-amber-100"
-                    :class="pinnedId === v.id ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'"
+                    title="Pin as north star metric to see relevance scores on other entries"
+                    class="ml-auto flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors border"
+                    :class="pinnedId === v.id ? 'text-amber-700 bg-amber-50 border-amber-300 hover:bg-amber-100' : 'text-slate-500 bg-white border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'"
                     @click.stop="pinEntry(v.id)"
                   >
-                    <span aria-hidden="true">{{ pinnedId === v.id ? '⭐' : '☆' }}</span>
+                    <span aria-hidden="true">{{ pinnedId === v.id ? '★' : '☆' }}</span>
+                    <span>{{ pinnedId === v.id ? 'Pinned' : 'Pin' }}</span>
                   </button>
-                  <!-- Feature #57b — per-entry rewrite pin -->
                   <button
                     type="button"
-                    :aria-label="entryState(v.id).open ? 'Close rewrite panel' : 'Rewrite this entry'"
-                    title="Rewrite this entry"
-                    class="h-7 w-7 flex items-center justify-center rounded-full text-sm transition-colors hover:bg-emerald-100"
-                    :class="entryState(v.id).open ? 'text-emerald-500 bg-emerald-100' : 'text-slate-300 hover:text-emerald-400'"
-                    @click.stop="toggleEntryPin(v.id)"
-                  ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit this entry" /></button>
-                </div>
-                <div class="px-4 py-4 space-y-3">
-
-                  <!-- Description — click to edit inline (Tom 2026-05-18) -->
-                  <div v-if="entryState(v.id).editingDesc" class="space-y-1.5">
-                    <textarea
-                      :id="`desc-edit-${v.id}`"
-                      v-model="entryState(v.id).editDescText"
-                      rows="3"
-                      class="w-full rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm text-slate-800 leading-relaxed
-                             focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none"
-                      @keydown="onDescEditKeydown($event, v.id, 'V')"
-                      @blur="saveDescEdit(v.id, 'V')"
-                    />
-                    <p class="text-[10px] text-slate-400">⌘↵ save · Esc cancel · click outside to save</p>
-                  </div>
-                  <p
-                    v-else-if="v.description"
-                    class="text-sm text-slate-800 leading-relaxed cursor-text hover:bg-emerald-50/60 rounded px-1 -mx-1 transition-colors"
-                    title="Click to edit"
-                    @click="startDescEdit(v.id, v.description)"
-                  >{{ v.description }}</p>
-                  <!-- Feature #57b — inline entry rewrite panel -->
-                  <div v-if="entryState(v.id).open" class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
-                    <div class="flex flex-wrap gap-1" role="group" aria-label="Rewrite style for this entry">
-                      <button
-                        v-for="m in SIMPLIFY_MODES"
-                        :key="m.key"
-                        type="button"
-                        :title="m.hint"
-                        :disabled="entryState(v.id).loading"
-                        :class="[
-                          'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all',
-                          entryState(v.id).mode === m.key
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : 'bg-white border border-emerald-200 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100',
-                          entryState(v.id).loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-                        ]"
-                        @click="handleEntrySimplify(v.id, v.description ?? '', m.key)"
-                      ><span>{{ m.emoji }}</span>{{ m.label }}</button>
-                    </div>
-                    <div v-if="entryState(v.id).loading" class="flex items-center gap-1.5">
-                      <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-600"/>
-                      <span class="text-[10px] text-emerald-600">Rewriting…</span>
-                    </div>
-                    <div v-else-if="entryState(v.id).result" class="space-y-2">
-                      <p class="text-xs text-slate-700 italic bg-white border border-emerald-100 rounded-md px-3 py-2 leading-relaxed">{{ entryState(v.id).result }}</p>
-                      <div class="flex gap-2">
-                        <button
-                          type="button"
-                          class="min-h-[32px] px-3 text-[10px] font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                          @click="acceptEntryRewrite(v.id, 'V')"
-                        >✅ Accept</button>
-                        <button
-                          type="button"
-                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
-                          @click="entryState(v.id).result = ''; entryState(v.id).accepted = false"
-                        >↩ Change Back</button>
-                        <button
-                          v-if="entryState(v.id).accepted"
-                          type="button"
-                          class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors"
-                          @click="emit('rewrite-entry-fix', { id: v.id, type: 'V', description: entryState(v.id).result })"
-                        >🔧 Fix in Spec</button>
-                      </div>
-                    </div>
-                  </div>
-                  <!-- Feature #65 — Complexity bar -->
-                  <div
-                    v-if="v.description"
-                    class="mt-1.5 h-1 rounded-full bg-slate-100 overflow-hidden"
-                    :title="`Complexity: ${scoreSentenceComplexity(v.description)}/100`"
-                    aria-hidden="true"
+                    title="Open this Value in the Spec Editor (full edit · trace · Universal Undo · commit-to-master)"
+                    class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100"
+                    :class="{ 'ml-auto': activeProfile !== 'All' }"
+                    @click.stop="emit('open-editor', { tab: 'values', entryId: v.id })"
                   >
-                    <div
-                      class="h-full rounded-full transition-all duration-300"
-                      :style="{
-                        width: complexityBarWidth(scoreSentenceComplexity(v.description)),
-                        backgroundColor: complexityColour(scoreSentenceComplexity(v.description)),
-                      }"
-                    />
-                  </div>
+                    <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    :title="copiedEntryId === v.id ? 'Copied!' : 'Copy this Value as colourful HTML'"
+                    class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100"
+                    @click.stop="copyEntry('V', v.id)"
+                  >
+                    <span v-if="copiedEntryId === v.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                    <CopyGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>{{ copiedEntryId === v.id ? 'Copied' : 'Copy' }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    :title="emailedEntryId === v.id ? 'Opening Mail…' : 'Email this Value — opens Mail.app pre-filled'"
+                    class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100"
+                    @click.stop="emailEntry('V', v.id)"
+                  >
+                    <span v-if="emailedEntryId === v.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                    <EmailGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>{{ emailedEntryId === v.id ? 'Sent' : 'Email' }}</span>
+                  </button>
+                </div>
 
-                  <!-- Change 2 — Ambition Level chips (after description, before Scale) -->
+                <!-- Card body — compact Planguage labeled fields -->
+                <div class="px-4 py-3 space-y-1.5">
+
+                  <!-- Ambition Level: natural-language vision statement motivating the quantification -->
                   <div
                     v-if="v.ambitionLevel && v.ambitionLevel.length > 0"
-                    class="space-y-1"
+                    class="flex gap-2 items-start"
                     aria-label="Ambition Level"
                   >
-                    <p class="text-xs font-semibold text-slate-500">Ambition Level</p>
-                    <div class="flex flex-wrap gap-1.5">
-                      <span
+                    <span class="shrink-0 text-[10px] font-semibold text-violet-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Ambition Level:</span>
+                    <div class="flex-1 space-y-0.5">
+                      <div
                         v-for="(al, ai) in v.ambitionLevel"
                         :key="ai"
-                        class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-                        :class="al.source === 'app'
-                          ? 'bg-pink-100 text-pink-800 border border-pink-200'
-                          : 'bg-violet-100 text-violet-800 border border-violet-200'"
+                        class="text-xs text-indigo-800 leading-snug"
                       >
-                        <template v-if="al.source === 'app'">
-                          <span aria-hidden="true">🚀</span>
-                          {{ al.label }}
-                        </template>
-                        <template v-else>
-                          <span aria-hidden="true">💬</span>
-                          <span class="italic">"{{ al.text }}"</span>
-                          <a
-                            v-if="al.url"
-                            :href="al.url"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="ml-1 underline text-violet-600 hover:text-violet-800"
-                            :aria-label="`Source document for ambition level`"
-                          >🔗</a>
-                        </template>
+                        <span class="italic">"{{ al.statement }}"</span>
+                        <span v-if="al.sourcePerson || al.sourceRef" class="not-italic text-[10px] text-slate-500 ml-1">
+                          ← {{ [al.sourcePerson, al.sourceRef].filter(Boolean).join(', ') }}
+                        </span>
+                        <a
+                          v-if="al.sourceUrl"
+                          :href="al.sourceUrl"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="ml-0.5 underline text-violet-500 text-[10px]"
+                          title="Ambition Level source URL"
+                        >🔗</a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Scale: what is measured + unit -->
+                  <div v-if="v.scale" class="flex gap-2 items-start" :class="pulseStructured ? 'animate-pulse-once' : ''">
+                    <span class="shrink-0 text-[10px] font-semibold text-violet-700 uppercase tracking-wide whitespace-nowrap pt-0.5">
+                      <PlanguageTerm term="Scale" class="text-[10px] font-semibold text-violet-700 uppercase tracking-wide" />:
+                    </span>
+                    <div class="flex-1">
+                      <p class="text-sm text-slate-800 leading-snug">{{ v.scale }}</p>
+                      <span v-if="v.fieldSources?.['scale']" class="text-[10px] text-slate-400 italic">← {{ v.fieldSources['scale'].source }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Qualifier Conditions: When / Where / What / How / Why -->
+                  <div
+                    v-if="v.conditions && (v.conditions.when || v.conditions.where || v.conditions.what || v.conditions.how || v.conditions.why)"
+                    class="ml-[108px] space-y-0.5 border-l-2 border-violet-100 pl-2 pb-0.5"
+                    aria-label="Scale qualifier conditions"
+                  >
+                    <div v-if="v.conditions.when" class="flex gap-1 items-baseline">
+                      <span class="shrink-0 text-[11px] font-extrabold uppercase tracking-wide text-violet-700 w-[52px]">When:</span>
+                      <span class="text-xs text-slate-700">{{ v.conditions.when }}</span>
+                    </div>
+                    <div v-if="v.conditions.where" class="flex gap-1 items-baseline">
+                      <span class="shrink-0 text-[11px] font-extrabold uppercase tracking-wide text-violet-700 w-[52px]">Where:</span>
+                      <span class="text-xs text-slate-700">{{ v.conditions.where }}</span>
+                    </div>
+                    <div v-if="v.conditions.what" class="flex gap-1 items-baseline">
+                      <span class="shrink-0 text-[11px] font-extrabold uppercase tracking-wide text-violet-700 w-[52px]">What:</span>
+                      <span class="text-xs text-slate-700">{{ v.conditions.what }}</span>
+                    </div>
+                    <div v-if="v.conditions.how" class="flex gap-1 items-baseline">
+                      <span class="shrink-0 text-[11px] font-extrabold uppercase tracking-wide text-violet-700 w-[52px]">How:</span>
+                      <span class="text-xs text-slate-700">{{ v.conditions.how }}</span>
+                    </div>
+                    <div v-if="v.conditions.why" class="flex gap-1 items-baseline">
+                      <span class="shrink-0 text-[11px] font-extrabold uppercase tracking-wide text-violet-700 w-[52px]">Why:</span>
+                      <span class="text-xs text-slate-700">{{ v.conditions.why }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Meter: how measured -->
+                  <div v-if="v.meter" class="flex gap-2 items-start" :class="pulseStructured ? 'animate-pulse-once' : ''">
+                    <span class="shrink-0 text-[10px] font-semibold text-violet-700 uppercase tracking-wide whitespace-nowrap pt-0.5">
+                      <PlanguageTerm term="Meter" class="text-[10px] font-semibold text-violet-700 uppercase tracking-wide" />:
+                    </span>
+                    <div class="flex-1">
+                      <p class="text-xs text-slate-600 leading-snug">{{ v.meter }}</p>
+                      <span v-if="v.fieldSources?.['meter']" class="text-[10px] text-slate-400 italic">← {{ v.fieldSources['meter'].source }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Commitment ladder: Past → Status → Tolerable >> → Wish >? → Goal > → Stretch -->
+                  <div class="border-t border-violet-50 pt-1.5 space-y-1">
+
+                    <!-- Past (historical status — trajectory record) -->
+                    <div v-if="v.past" class="flex gap-2 items-center">
+                      <span class="shrink-0 text-[10px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">Past:</span>
+                      <span class="text-xs font-mono text-slate-500 bg-slate-50 border border-slate-200 rounded px-2 py-0.5">{{ v.past }}</span>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono transition-colors focus:outline-none"
+                        :class="v.pastWhen && v.pastWhen !== '?' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'"
+                        :title="`[When] Scale Parameter — when this historical measurement was taken.\nCurrent: ${v.pastWhen || '?'}\nClick to edit.`"
+                        @click="setEntryWhen(v.id, 'value', 'past', window.prompt('[When] for Past of ' + v.id, v.pastWhen || '?') ?? (v.pastWhen || '?'))"
+                      >⏱ {{ v.pastWhen || '?' }}</button>
+                      <span v-if="v.fieldSources?.['past']" class="text-[10px] text-slate-400 italic">← {{ v.fieldSources['past'].source }}</span>
+                    </div>
+
+                    <!-- Status: current measurement -->
+                    <div v-if="v.status" class="flex gap-2 items-center" :class="pulseStructured ? 'animate-pulse-once' : ''">
+                      <span class="shrink-0 text-[10px] font-semibold text-violet-700 uppercase tracking-wide whitespace-nowrap">
+                        <PlanguageTerm term="Status" class="text-[10px] font-semibold text-violet-700 uppercase tracking-wide" />:
                       </span>
+                      <span class="text-xs font-mono text-slate-700 bg-white border border-slate-200 rounded px-2 py-0.5">{{ v.status }}</span>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono transition-colors focus:outline-none"
+                        :class="v.statusWhen && v.statusWhen !== '?' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'"
+                        :title="`[When] Scale Parameter — date or event this Status was measured.\nCurrent: ${v.statusWhen || '?'}\nClick to edit.`"
+                        @click="setEntryWhen(v.id, 'value', 'status', window.prompt('[When] for Status of ' + v.id, v.statusWhen || '?') ?? (v.statusWhen || '?'))"
+                      >⏱ {{ v.statusWhen || '?' }}</button>
+                      <span v-if="v.fieldSources?.['status']" class="text-[10px] text-slate-400 italic">← {{ v.fieldSources['status'].source }}</span>
                     </div>
-                  </div>
 
-                  <!-- Scale block — icon: PlSpecFieldIcon field="scale" -->
-                  <div
-                    v-if="v.scale"
-                    class="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5"
-                    :class="pulseStructured ? 'animate-pulse-once' : ''"
-                  >
-                    <div class="flex items-center gap-1.5 mb-1">
-                      <PlSpecFieldIcon field="scale" size="xs" />
-                      <!-- Feature #11: tooltip on Scale label -->
-                      <PlanguageTerm term="Scale" class="text-xs font-semibold text-slate-600" />
-                    </div>
-                    <p class="text-sm text-slate-700">{{ v.scale }}</p>
-                  </div>
-
-                  <!-- Meter block — icon: PlSpecFieldIcon field="meter" -->
-                  <div
-                    v-if="v.meter"
-                    class="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5"
-                    :class="pulseStructured ? 'animate-pulse-once' : ''"
-                  >
-                    <div class="flex items-center gap-1.5 mb-1">
-                      <PlSpecFieldIcon field="meter" size="xs" />
-                      <!-- Feature #11: tooltip on Meter label -->
-                      <PlanguageTerm term="Meter" class="text-xs font-semibold text-slate-600" />
-                    </div>
-                    <p class="text-sm text-slate-700">{{ v.meter }}</p>
-                  </div>
-
-                  <!-- Benchmark levels: Status 📍 / Tolerable 🟡 / Wish ⭐ -->
-                  <!-- Wish = stakeholder's unconstrained aspiration (Planguage *244).       -->
-                  <!-- It becomes a committed Goal only after feasibility/budget approval.   -->
-                  <div
-                    class="grid gap-2"
-                    :class="[v.status && v.tolerable && v.goal ? 'grid-cols-3' : (v.status && v.goal ? 'grid-cols-2' : 'grid-cols-1')]"
-                  >
-                    <div
-                      v-if="v.status"
-                      class="rounded-lg bg-red-50 border border-red-100 px-3 py-2.5"
-                      :class="pulseStructured ? 'animate-pulse-once' : ''"
-                    >
-                      <div class="flex items-center gap-1.5 mb-1">
-                        <PlSpecFieldIcon field="status" size="xs" />
-                        <PlanguageTerm term="Status" class="text-xs font-semibold text-red-700" />
-                      </div>
-                      <p class="text-sm text-red-800">{{ v.status }}</p>
-                    </div>
-                    <div
-                      v-if="v.tolerable"
-                      class="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5"
-                      :class="pulseStructured ? 'animate-pulse-once' : ''"
-                    >
-                      <div class="flex items-center gap-1.5 mb-1">
-                        <PlSpecFieldIcon field="tolerable" size="xs" />
-                        <PlanguageTerm term="Tolerable" class="text-xs font-semibold text-amber-700" />
-                      </div>
-                      <p class="text-sm text-amber-800">{{ v.tolerable }}</p>
-                    </div>
-                    <div
-                      v-if="v.goal"
-                      class="rounded-lg bg-violet-50 border border-violet-100 px-3 py-2.5"
-                      :class="pulseStructured ? 'animate-pulse-once' : ''"
-                    >
-                      <div class="flex items-center gap-1.5 mb-1">
-                        <PlSpecFieldIcon field="wish" size="xs" />
-                        <PlanguageTerm term="Wish" class="text-xs font-semibold text-violet-700" />
-                      </div>
-                      <p class="text-sm text-violet-800">{{ v.goal }}</p>
-                      <span class="inline-block mt-1 rounded-full bg-violet-100 text-violet-500 text-xs px-2 py-0.5">
-                        not yet a committed Goal
+                    <!-- Tolerable >> (minimum non-failure / project-viability threshold) -->
+                    <div v-if="v.tolerable" class="flex gap-2 items-center" :class="pulseStructured ? 'animate-pulse-once' : ''">
+                      <span class="shrink-0 text-[10px] font-semibold text-amber-700 uppercase tracking-wide whitespace-nowrap">
+                        <PlanguageTerm term="Tolerable" class="text-[10px] font-semibold text-amber-700 uppercase tracking-wide" />:
                       </span>
+                      <span
+                        class="text-xs font-mono text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-0.5"
+                        :title="keyedLevelHoverHint('tolerable')"
+                      ><span class="font-bold" :title="keyedLevelHoverHint('tolerable')">&gt;&gt;</span> {{ v.tolerable }}</span>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono transition-colors focus:outline-none"
+                        :class="v.tolerableWhen && v.tolerableWhen !== '?' ? 'bg-amber-50 text-amber-600 hover:bg-amber-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'"
+                        :title="`[When] Scale Parameter — date or event this Tolerable level applies.\nCurrent: ${v.tolerableWhen || '?'}\nClick to edit.`"
+                        @click="setEntryWhen(v.id, 'value', 'tolerable', window.prompt('[When] for Tolerable of ' + v.id, v.tolerableWhen || '?') ?? (v.tolerableWhen || '?'))"
+                      >⏱ {{ v.tolerableWhen || '?' }}</button>
+                      <span v-if="v.fieldSources?.['tolerable']" class="text-[10px] text-slate-400 italic">← {{ v.fieldSources['tolerable'].source }}</span>
                     </div>
-                  </div>
 
-                  <!-- Inline progress bar: Status → Tolerable → Wish -->
-                  <ValueProgressBar
-                    v-if="v.status && v.goal"
-                    :status="v.status"
-                    :tolerable="v.tolerable || ''"
-                    :goal="v.goal"
-                    class="mt-1"
-                  />
+                    <!-- Wish >? (uncommitted stakeholder aspiration — independent of cost and physics) -->
+                    <div v-if="v.wish" class="flex gap-2 items-center">
+                      <span class="shrink-0 text-[10px] font-semibold text-violet-600 uppercase tracking-wide whitespace-nowrap">
+                        <PlanguageTerm term="Wish" class="text-[10px] font-semibold text-violet-600 uppercase tracking-wide" />:
+                      </span>
+                      <span
+                        class="text-xs font-mono text-violet-700 bg-violet-50 border border-violet-200 rounded px-2 py-0.5"
+                        :title="keyedLevelHoverHint('wish')"
+                      ><span class="font-bold">&gt;?</span> {{ v.wish }}</span>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono transition-colors focus:outline-none"
+                        :class="v.wishWhen && v.wishWhen !== '?' ? 'bg-violet-50 text-violet-600 hover:bg-violet-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'"
+                        :title="`[When] Scale Parameter — date or event this Wish applies.\nCurrent: ${v.wishWhen || '?'}\nClick to edit.`"
+                        @click="setEntryWhen(v.id, 'value', 'wish', window.prompt('[When] for Wish of ' + v.id, v.wishWhen || '?') ?? (v.wishWhen || '?'))"
+                      >⏱ {{ v.wishWhen || '?' }}</button>
+                      <span v-if="v.fieldSources?.['wish']" class="text-[10px] text-slate-400 italic">← {{ v.fieldSources['wish'].source }}</span>
+                    </div>
 
-                </div>
+                    <!-- Goal > (committed promise — negotiated trade-off) -->
+                    <div v-if="v.goal" class="flex gap-2 items-center" :class="pulseStructured ? 'animate-pulse-once' : ''">
+                      <span class="shrink-0 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide whitespace-nowrap">Goal:</span>
+                      <span
+                        class="text-xs font-mono text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5"
+                        :title="keyedLevelHoverHint('goal')"
+                      ><span class="font-bold">&gt;</span> {{ v.goal }}</span>
+                      <span class="text-[9px] text-emerald-500 italic">committed</span>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono transition-colors focus:outline-none"
+                        :class="v.goalWhen && v.goalWhen !== '?' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'"
+                        :title="`[When] Scale Parameter — date or event this Goal applies.\nCurrent: ${v.goalWhen || '?'}\nClick to edit.`"
+                        @click="setEntryWhen(v.id, 'value', 'goal', window.prompt('[When] for Goal of ' + v.id, v.goalWhen || '?') ?? (v.goalWhen || '?'))"
+                      >⏱ {{ v.goalWhen || '?' }}</button>
+                      <span v-if="v.fieldSources?.['goal']" class="text-[10px] text-slate-400 italic">← {{ v.fieldSources['goal'].source }}</span>
+                    </div>
+
+                    <!-- Stretch (most ambitious target — beyond Goal, seriously-intended exceptional aspiration) -->
+                    <div v-if="v.stretch" class="flex gap-2 items-center">
+                      <span class="shrink-0 text-[10px] font-semibold text-indigo-700 uppercase tracking-wide whitespace-nowrap">Stretch:</span>
+                      <span
+                        class="text-xs font-mono text-indigo-800 bg-indigo-50 border border-indigo-200 rounded px-2 py-0.5"
+                        :title="keyedLevelHoverHint('stretch')"
+                      ><span class="font-bold">&gt;&gt;&gt;</span> {{ v.stretch }}</span>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono transition-colors focus:outline-none"
+                        :class="v.stretchWhen && v.stretchWhen !== '?' ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'"
+                        :title="`[When] Scale Parameter — date or event this Stretch target applies.\nCurrent: ${v.stretchWhen || '?'}\nClick to edit.`"
+                        @click="setEntryWhen(v.id, 'value', 'stretch', window.prompt('[When] for Stretch of ' + v.id, v.stretchWhen || '?') ?? (v.stretchWhen || '?'))"
+                      >⏱ {{ v.stretchWhen || '?' }}</button>
+                      <span v-if="v.fieldSources?.['stretch']" class="text-[10px] text-slate-400 italic">← {{ v.fieldSources['stretch'].source }}</span>
+                    </div>
+
+                    <!-- Progress bar: Status → Tolerable → Goal -->
+                    <ValueProgressBar
+                      v-if="v.status && v.goal"
+                      :status="v.status"
+                      :tolerable="v.tolerable || ''"
+                      :goal="v.goal"
+                      class="mt-1"
+                    />
+
+                    <!-- Function: linked tag badge -->
+                    <div v-if="v.valueOfFunction" class="flex gap-2 items-center pt-0.5">
+                      <span class="shrink-0 text-[10px] font-semibold text-violet-700 uppercase tracking-wide whitespace-nowrap">Function:</span>
+                      <span class="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 rounded px-1.5 py-px font-mono">{{ v.valueOfFunction }}</span>
+                    </div>
+
+                    <!-- Stakeholders: wishStakeholder + v.stakeholders comma-list -->
+                    <div v-if="v.wishStakeholder || v.stakeholders" class="flex gap-2 items-start pt-0.5">
+                      <span class="shrink-0 text-[10px] font-semibold text-amber-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Stakeholders:</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-if="v.wishStakeholder"
+                          class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none"
+                          :class="[stakeholderPalette(v.wishStakeholder).bg, stakeholderPalette(v.wishStakeholder).text, stakeholderPalette(v.wishStakeholder).border]"
+                          :title="`Primary stakeholder: ${v.wishStakeholder}`"
+                        >{{ v.wishStakeholder }}</span>
+                        <template v-if="v.stakeholders">
+                          <span
+                            v-for="sh in v.stakeholders.split(',').map((s: string) => s.trim()).filter(Boolean)"
+                            :key="sh"
+                            class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none"
+                            :class="[stakeholderPalette(sh).bg, stakeholderPalette(sh).text, stakeholderPalette(sh).border]"
+                            :title="`Stakeholder: ${sh}`"
+                          >{{ sh }}</span>
+                        </template>
+                      </div>
+                    </div>
+
+                    <!-- Context: optional description note (secondary — click to edit) -->
+                    <div v-if="v.description || entryState(v.id).editingDesc" class="flex gap-2 items-start pt-0.5">
+                      <span class="shrink-0 text-[10px] font-semibold text-violet-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Context:</span>
+                      <div v-if="entryState(v.id).editingDesc" class="flex-1 space-y-1">
+                        <textarea
+                          :id="`desc-edit-${v.id}`"
+                          v-model="entryState(v.id).editDescText"
+                          rows="3"
+                          class="w-full rounded-md border border-violet-300 bg-white px-3 py-2 text-sm text-slate-800 leading-relaxed
+                                 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                          @keydown="onDescEditKeydown($event, v.id, 'V')"
+                          @blur="saveDescEdit(v.id, 'V')"
+                        />
+                        <p class="text-[10px] text-slate-400">⌘↵ save · Esc cancel</p>
+                      </div>
+                      <p
+                        v-else
+                        class="flex-1 text-xs text-slate-500 leading-relaxed line-clamp-3 cursor-text hover:bg-violet-50/60 rounded px-1 -mx-1 transition-colors"
+                        title="Click to edit context note"
+                        @click="startDescEdit(v.id, v.description ?? '')"
+                      >{{ v.description }}</p>
+                    </div>
+
+                    <!-- Rewrite panel (feature #57b) -->
+                    <div v-if="entryState(v.id).open" class="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-2">
+                      <div class="flex flex-wrap gap-1" role="group" aria-label="Rewrite style for this entry">
+                        <button
+                          v-for="m in SIMPLIFY_MODES"
+                          :key="m.key"
+                          type="button"
+                          :title="m.hint"
+                          :disabled="entryState(v.id).loading"
+                          :class="[
+                            'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all',
+                            entryState(v.id).mode === m.key
+                              ? 'bg-violet-600 text-white shadow-sm'
+                              : 'bg-white border border-violet-200 text-violet-700 hover:border-violet-400 hover:bg-violet-100',
+                            entryState(v.id).loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+                          ]"
+                          @click="handleEntrySimplify(v.id, v.description ?? '', m.key)"
+                        ><span>{{ m.emoji }}</span>{{ m.label }}</button>
+                      </div>
+                      <div v-if="entryState(v.id).loading" class="flex items-center gap-1.5">
+                        <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-violet-300 border-t-violet-600"/>
+                        <span class="text-[10px] text-violet-600">Rewriting…</span>
+                      </div>
+                      <div v-else-if="entryState(v.id).result" class="space-y-2">
+                        <p class="text-xs text-slate-700 italic bg-white border border-violet-100 rounded-md px-3 py-2 leading-relaxed">{{ entryState(v.id).result }}</p>
+                        <div class="flex gap-2">
+                          <button type="button" class="min-h-[32px] px-3 text-[10px] font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+                            @click="acceptEntryRewrite(v.id, 'V')">✅ Accept</button>
+                          <button type="button" class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-violet-200 text-violet-700 hover:bg-violet-50 transition-colors"
+                            @click="entryState(v.id).result = ''; entryState(v.id).accepted = false">↩ Change Back</button>
+                          <button v-if="entryState(v.id).accepted" type="button"
+                            class="min-h-[32px] px-3 text-[10px] font-medium rounded-lg bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors"
+                            @click="emit('rewrite-entry-fix', { id: v.id, type: 'V', description: entryState(v.id).result })">🔧 Fix in Spec</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Owner / Justification / Risks supplemental row -->
+                    <div
+                      v-if="v.justification || v.specOwner || v.risks"
+                      class="flex flex-wrap gap-x-3 gap-y-0.5 pt-0.5 border-t border-violet-50"
+                    >
+                      <span v-if="v.specOwner" class="text-[10px] text-orange-700"><span class="font-semibold">Owner:</span> {{ v.specOwner }}</span>
+                      <span v-if="v.justification" class="text-[10px] text-slate-500 italic">{{ v.justification }}</span>
+                      <span v-if="v.risks" class="text-[10px] text-amber-700"><span class="font-semibold">⚠</span> {{ v.risks }}</span>
+                    </div>
+
+                  </div><!-- end commitment ladder -->
+                </div><!-- end card body -->
               </article>
 
               <!-- Solution cards — group header with copy+email -->
@@ -6347,7 +6957,7 @@
                 v-if="displaySpec!.solutions.length > 0"
                 class="flex items-center gap-2 rounded-t-xl bg-orange-600 px-4 py-2 -mb-3 mt-1"
               >
-                <span class="text-[11px] font-bold text-white uppercase tracking-wide">S. Solutions</span>
+                <span class="text-[11px] font-bold text-white uppercase tracking-wide">Solutions</span>
                 <span class="text-[10px] text-orange-200 ml-auto">{{ displaySpec!.solutions.length }} entries</span>
                 <button type="button"
                   :title="copiedSection === 'solutions' ? 'Copied!' : 'Copy Solutions section as colored HTML table'"
@@ -6379,10 +6989,10 @@
                 :aria-label="`Solution: ${s.id}`"
               >
                 <div class="flex items-center gap-2 bg-violet-50 px-4 py-2.5 border-b border-violet-100">
-                  <!-- Feature #11: PlanguageTerm tooltip for section header -->
-                  <PlanguageTerm term="Solution" class="text-xs font-bold tracking-wide text-violet-600 uppercase" />
-                  <span class="text-xs text-violet-400">·</span>
-                  <span class="text-xs font-mono text-violet-700">{{ s.id }}</span>
+                  <!-- Feature #11: PlanguageTerm HoverHint for section header -->
+                  <PlanguageTerm term="Solution" class="text-[10px] font-bold tracking-wide text-violet-500 uppercase" />
+                  <!-- r41 v62 (Tom Gilb 2026-06-16) — Tag bigger + underlined ("my old tradition") -->
+                  <span class="shrink-0 text-2xl font-extrabold text-violet-900 underline underline-offset-4 decoration-2 leading-tight">{{ mnemonicLabel(s.id, s.description) }}:</span>
                   <!-- Sharpening badge -->
                   <span
                     v-if="sharpenedEntryIds.includes(s.id)"
@@ -6390,15 +7000,36 @@
                     aria-label="Sharpened entry"
                     title="This entry was added or refined by a sharpening round"
                   >🔪</span>
-                  <!-- Feature #57b — per-entry rewrite pin -->
+                  <!-- r41 v337 — glyph + text per Icon-Plus-Text SUPREME · single Edit consolidated -->
                   <button
                     type="button"
-                    :aria-label="entryState(s.id).open ? 'Close rewrite panel' : 'Rewrite this entry'"
-                    title="Rewrite this entry"
-                    class="ml-auto h-7 w-7 flex items-center justify-center rounded-full text-sm transition-colors hover:bg-violet-100"
-                    :class="entryState(s.id).open ? 'text-violet-500 bg-violet-100' : 'text-slate-300 hover:text-violet-400'"
-                    @click.stop="toggleEntryPin(s.id)"
-                  ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit this entry" /></button>
+                    title="Open this Solution in the Spec Editor (full edit · trace · Universal Undo · commit-to-master)"
+                    class="ml-auto flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100"
+                    @click.stop="emit('open-editor', { tab: 'solutions', entryId: s.id })"
+                  >
+                    <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    :title="copiedEntryId === s.id ? 'Copied!' : 'Copy this Solution as colourful HTML'"
+                    class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100"
+                    @click.stop="copyEntry('S', s.id)"
+                  >
+                    <span v-if="copiedEntryId === s.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                    <CopyGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>{{ copiedEntryId === s.id ? 'Copied' : 'Copy' }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    :title="emailedEntryId === s.id ? 'Opening Mail…' : 'Email this Solution — opens Mail.app pre-filled'"
+                    class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100"
+                    @click.stop="emailEntry('S', s.id)"
+                  >
+                    <span v-if="emailedEntryId === s.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                    <EmailGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                    <span>{{ emailedEntryId === s.id ? 'Sent' : 'Email' }}</span>
+                  </button>
                 </div>
                 <div class="px-4 py-4 space-y-3">
                   <!-- Description — click to edit inline (Tom 2026-05-18) -->
@@ -6479,10 +7110,69 @@
                       }"
                     />
                   </div>
-                  <div v-if="s.impact" class="rounded-lg bg-slate-50 px-3 py-2.5">
-                    <p class="text-xs font-semibold text-slate-500 mb-1">Impact</p>
-                    <p class="text-sm text-slate-700">{{ s.impact }}</p>
+                  <!-- r41 v236 (Tom Gilb 2026-06-21 SUPREME — Solution Parameters pinned 26-parameter canonical inventory).
+                       Renders all populated Tier-1/2/3 fields. Legacy fields fall back to canonical names:
+                       mainImpacts ← impact / impactsValues  ·  costAspects ← impactsCosts  ·  relatedTo ← stakeholders. -->
+                  <div v-if="s.status" class="rounded-lg bg-violet-50 px-3 py-2 border border-violet-100">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-violet-600 mb-0.5">Status</p>
+                    <p class="text-sm text-slate-800">{{ s.status }}</p>
                   </div>
+                  <div v-if="s.derivedFrom" class="rounded-lg bg-violet-50 px-3 py-2 border border-violet-100">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-violet-600 mb-0.5">Derived From</p>
+                    <p class="text-sm text-slate-800 leading-relaxed">{{ s.derivedFrom }}</p>
+                  </div>
+                  <div v-if="(s.mainImpacts || s.impact || s.impactsValues)" class="rounded-lg bg-slate-50 px-3 py-2.5">
+                    <p class="text-xs font-semibold text-slate-500 mb-1">Main Impacts</p>
+                    <p class="text-sm text-slate-700">{{ s.mainImpacts || s.impact || s.impactsValues }}</p>
+                  </div>
+                  <!-- Tier 2 — RECOMMENDED -->
+                  <div v-if="(s.relatedTo || s.stakeholders)" class="rounded-lg bg-blue-50 px-3 py-2 border border-blue-100">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-blue-600 mb-0.5">Related To</p>
+                    <p class="text-sm text-slate-800">{{ s.relatedTo || s.stakeholders }}</p>
+                  </div>
+                  <div v-if="s.specOwner" class="text-xs text-slate-600">
+                    <span class="font-semibold text-slate-500">Spec Owner:</span> {{ s.specOwner }}
+                  </div>
+                  <div v-if="s.implementationResponsible" class="text-xs text-slate-600">
+                    <span class="font-semibold text-slate-500">Implementation Responsible:</span> {{ s.implementationResponsible }}
+                  </div>
+                  <div v-if="s.risks" class="rounded-lg bg-rose-50 px-3 py-2 border border-rose-100">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-rose-600 mb-0.5">Risks</p>
+                    <p class="text-sm text-slate-800 leading-relaxed">{{ s.risks }}</p>
+                  </div>
+                  <div v-if="s.sideEffects" class="rounded-lg bg-amber-50 px-3 py-2 border border-amber-100">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-amber-700 mb-0.5">Side Effects</p>
+                    <p class="text-sm text-slate-800 leading-relaxed">{{ s.sideEffects }}</p>
+                  </div>
+                  <div v-if="(s.costAspects || s.impactsCosts)" class="rounded-lg bg-emerald-50 px-3 py-2 border border-emerald-100">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-emerald-700 mb-0.5">Cost Aspects</p>
+                    <p class="text-sm text-slate-800">{{ s.costAspects || s.impactsCosts }}</p>
+                  </div>
+                  <div v-if="s.longTermCosts" class="rounded-lg bg-emerald-50 px-3 py-2 border border-emerald-100">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-emerald-700 mb-0.5">Long Term Costs</p>
+                    <p class="text-sm text-slate-800">{{ s.longTermCosts }}</p>
+                  </div>
+                  <div v-if="s.qualifiers" class="rounded-lg bg-indigo-50 px-3 py-2 border border-indigo-100">
+                    <p class="text-[11px] font-bold uppercase tracking-wide text-indigo-700 mb-0.5">Qualifiers</p>
+                    <p class="text-sm text-slate-800 font-mono">{{ s.qualifiers }}</p>
+                  </div>
+                  <!-- Tier 3 — OPTIONAL (collapsed-section style; populated rows only) -->
+                  <details v-if="s.alternativeSolutions || s.rejectedSolutions || s.urlsCaseStudies || s.prerequisites || s.assumptions || s.constraints || s.structural || s.authority || s.priority || s.note"
+                           class="rounded-lg bg-slate-50 px-3 py-2 border border-slate-200">
+                    <summary class="text-[11px] font-bold uppercase tracking-wide text-slate-600 cursor-pointer">More Parameters</summary>
+                    <div class="mt-2 space-y-2 text-xs text-slate-700">
+                      <div v-if="s.alternativeSolutions"><span class="font-semibold text-slate-500">Alternative Solutions:</span> {{ s.alternativeSolutions }}</div>
+                      <div v-if="s.rejectedSolutions"><span class="font-semibold text-slate-500">Rejected Solutions:</span> {{ s.rejectedSolutions }}</div>
+                      <div v-if="s.urlsCaseStudies"><span class="font-semibold text-slate-500">URLs / Case Studies:</span> {{ s.urlsCaseStudies }}</div>
+                      <div v-if="s.prerequisites"><span class="font-semibold text-slate-500">Prerequisites:</span> {{ s.prerequisites }}</div>
+                      <div v-if="s.assumptions"><span class="font-semibold text-slate-500">Assumptions:</span> {{ s.assumptions }}</div>
+                      <div v-if="s.constraints"><span class="font-semibold text-slate-500">Constraints:</span> {{ s.constraints }}</div>
+                      <div v-if="s.structural"><span class="font-semibold text-slate-500">Structural:</span> {{ s.structural }}</div>
+                      <div v-if="s.authority"><span class="font-semibold text-slate-500">Authority:</span> {{ s.authority }}</div>
+                      <div v-if="s.priority"><span class="font-semibold text-slate-500">Priority:</span> {{ s.priority }}</div>
+                      <div v-if="s.note"><span class="font-semibold text-slate-500">Note:</span> {{ s.note }}</div>
+                    </div>
+                  </details>
                 </div>
               </article>
 
@@ -6491,7 +7181,7 @@
               v-if="(displaySpec!.constraints ?? []).length > 0"
               class="flex items-center gap-2 rounded-t-xl bg-red-700 px-4 py-2 -mb-3 mt-1"
             >
-              <span class="text-[11px] font-bold text-white uppercase tracking-wide">C. Constraints</span>
+              <span class="text-[11px] font-bold text-white uppercase tracking-wide">Constraints</span>
               <span class="text-[10px] text-red-200 ml-auto">{{ (displaySpec!.constraints ?? []).length }} entries</span>
               <button type="button"
                 :title="copiedSection === 'constraints' ? 'Copied!' : 'Copy Constraints section as colored HTML table'"
@@ -6523,15 +7213,39 @@
               :aria-label="`Constraint: ${c.id}`"
             >
               <div class="flex items-center gap-2 bg-red-50 px-4 py-2.5 border-b border-red-100">
-                <PlanguageTerm term="Constraint" class="text-xs font-bold tracking-wide text-red-700 uppercase" />
-                <span class="text-xs text-red-300">·</span>
-                <span class="text-xs font-mono text-red-700">{{ c.id }}</span>
+                <PlanguageTerm term="Constraint" class="text-[10px] font-bold tracking-wide text-red-500 uppercase" />
+                <!-- r41 v62 (Tom Gilb 2026-06-16) — Tag bigger + underlined ("my old tradition") -->
+                <span class="shrink-0 text-2xl font-extrabold text-red-900 underline underline-offset-4 decoration-2 leading-tight">{{ mnemonicLabel(c.id, c.description) }}:</span>
+                <!-- r41 v337 — glyph + text per Icon-Plus-Text SUPREME -->
                 <button
                   type="button"
-                  title="Edit this constraint"
-                  class="ml-auto h-7 w-7 flex items-center justify-center rounded-full text-sm transition-colors text-red-200 hover:text-red-500 hover:bg-red-100"
+                  title="Open this Constraint in the Spec Editor (full edit · trace · Universal Undo · commit-to-master)"
+                  class="ml-auto flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-red-700 bg-red-50 border border-red-200 hover:bg-red-100"
                   @click.stop="emit('open-editor', { tab: 'constraints', entryId: c.id })"
-                ><EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="Edit this entry" /></button>
+                >
+                  <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  :title="copiedEntryId === c.id ? 'Copied!' : 'Copy this Constraint as colourful HTML'"
+                  class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-red-700 bg-red-50 border border-red-200 hover:bg-red-100"
+                  @click.stop="copyEntry('C', c.id)"
+                >
+                  <span v-if="copiedEntryId === c.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                  <CopyGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                  <span>{{ copiedEntryId === c.id ? 'Copied' : 'Copy' }}</span>
+                </button>
+                <button
+                  type="button"
+                  :title="emailedEntryId === c.id ? 'Opening Mail…' : 'Email this Constraint — opens Mail.app pre-filled'"
+                  class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-red-700 bg-red-50 border border-red-200 hover:bg-red-100"
+                  @click.stop="emailEntry('C', c.id)"
+                >
+                  <span v-if="emailedEntryId === c.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                  <EmailGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                  <span>{{ emailedEntryId === c.id ? 'Sent' : 'Email' }}</span>
+                </button>
               </div>
               <div class="px-4 py-4 space-y-3">
                 <!-- Description IS the binary rule (Template_Write_Constraint.md standard) -->
@@ -6555,36 +7269,164 @@
               </div>
             </article>
 
-            </div><!-- end animationKey wrapper -->
-
-            <!-- Copy+Email — whole spec — BOTTOM (Tom: "at both top and bottom of the listing") -->
-            <div class="flex items-center gap-1.5 px-1 pt-1">
-              <span class="text-[10px] text-slate-400 font-medium mr-1">Copy whole spec:</span>
-              <button
-                type="button"
-                :title="copied ? 'Copied!' : 'Copy whole spec as colored HTML table'"
-                :aria-label="copied ? 'Copied!' : 'Copy whole spec'"
-                class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
-                       border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300"
-                :class="copied ? 'text-emerald-600' : 'text-teal-600/70 hover:text-teal-700'"
-                @click="copyToClipboard"
+            <!-- r41 v99 (Tom Gilb 2026-06-16 verbatim "We cannot have resources
+                 missing!!!!!!") — Resources section RESTORED to the display.
+                 Exhaustive Sonnet-grade audit (v98) caught that Resources were
+                 in the export but ENTIRELY missing from the in-app display.
+                 Pattern matches Constraint section above: teal palette per
+                 TYPE_COLOURS.resource, group header with Copy/Email pins,
+                 per-Resource card with id + description + Scale/Meter/
+                 Tolerable/Budget/Wish/Status/Enables fields, source footer.
+                 Composes with BOTH-surfaces rule SUPREME — what the planner
+                 sees on screen MUST match what they paste from Mail. -->
+            <div
+              v-if="(displaySpec!.resources ?? []).length > 0"
+              class="flex items-center gap-2 rounded-t-xl bg-teal-700 px-4 py-2 -mb-3 mt-1"
+            >
+              <span class="text-[11px] font-bold text-white uppercase tracking-wide">Resources</span>
+              <span class="text-[10px] text-teal-200 ml-auto">{{ (displaySpec!.resources ?? []).length }} {{ (displaySpec!.resources ?? []).length === 1 ? 'entry' : 'entries' }}</span>
+              <button type="button"
+                :title="copiedSection === 'resources' ? 'Copied!' : 'Copy Resources section as colored HTML table'"
+                :aria-label="copiedSection === 'resources' ? 'Copied!' : 'Copy Resources'"
+                class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                       border border-teal-400 bg-white/20 text-white hover:bg-white/40"
+                @click="copySection('resources')"
               >
-                <span v-if="copied" class="font-bold text-xs">✓</span>
-                <CopyGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
+                <span v-if="copiedSection === 'resources'" class="font-bold text-xs">✓</span>
+                <CopyGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
               </button>
-              <button
-                type="button"
-                :title="emailed ? 'Opening Mail…' : 'Email whole spec — opens Mail.app with spec pre-filled'"
-                :aria-label="emailed ? 'Opening Mail…' : 'Email whole spec'"
-                class="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-colors
-                       border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300"
-                :class="emailed ? 'text-emerald-600' : 'text-indigo-600/70 hover:text-indigo-700'"
-                @click="emailSpec"
+              <button type="button"
+                :title="emailedSection === 'resources' ? 'Opening Mail…' : 'Email Resources section — opens Mail.app pre-filled'"
+                :aria-label="emailedSection === 'resources' ? 'Opening Mail…' : 'Email Resources'"
+                class="flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-semibold transition-colors
+                       border border-teal-400 bg-white/20 text-white hover:bg-white/40"
+                @click="emailSection('resources')"
               >
-                <span v-if="emailed" class="font-bold text-xs">✓</span>
-                <EmailGlyph v-else size="compact" class="h-4 w-auto" aria-label="" />
+                <span v-if="emailedSection === 'resources'" class="font-bold text-xs">✓</span>
+                <EmailGlyph v-else size="compact" class="h-3.5 w-auto" aria-label="" />
               </button>
             </div>
+            <article
+              v-for="(r, index) in (displaySpec!.resources ?? [])"
+              :key="r.id"
+              class="spec-entry-card rounded-xl border border-teal-200 bg-white shadow-sm overflow-hidden"
+              :style="{ animationDelay: `${(displaySpec!.functions.length + displaySpec!.values.length + displaySpec!.solutions.length + (displaySpec!.constraints ?? []).length + index) * 80}ms` }"
+              :aria-label="`Resource: ${r.id}`"
+            >
+              <!-- Card header: Tag + Type chip + Edit pin -->
+              <div class="flex items-center gap-2 bg-teal-50 px-4 py-2.5 border-b border-teal-100">
+                <PlanguageTerm term="Resource" class="text-[10px] font-bold tracking-wide text-teal-600 uppercase" />
+                <!-- Tag bigger + underlined per r41 v62 "old tradition" -->
+                <span class="shrink-0 text-2xl font-extrabold text-teal-900 underline underline-offset-4 decoration-2 leading-tight">{{ mnemonicLabel(r.id, r.description) }}:</span>
+                <!-- r41 v337 — glyph + text per Icon-Plus-Text SUPREME -->
+                <button
+                  type="button"
+                  title="Open this Resource in the Spec Editor (full edit · trace · Universal Undo · commit-to-master)"
+                  class="ml-auto flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100"
+                  @click.stop="emit('open-editor', { tab: 'resources', entryId: r.id })"
+                >
+                  <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  :title="copiedEntryId === r.id ? 'Copied!' : 'Copy this Resource as colourful HTML'"
+                  class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100"
+                  @click.stop="copyEntry('R', r.id)"
+                >
+                  <span v-if="copiedEntryId === r.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                  <CopyGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                  <span>{{ copiedEntryId === r.id ? 'Copied' : 'Copy' }}</span>
+                </button>
+                <button
+                  type="button"
+                  :title="emailedEntryId === r.id ? 'Opening Mail…' : 'Email this Resource — opens Mail.app pre-filled'"
+                  class="flex items-center gap-1 h-7 px-2 rounded-md text-[10px] font-semibold transition-colors text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100"
+                  @click.stop="emailEntry('R', r.id)"
+                >
+                  <span v-if="emailedEntryId === r.id" class="text-xs leading-none" aria-hidden="true">✓</span>
+                  <EmailGlyph v-else size="compact" class="h-3 w-auto shrink-0" aria-label="" />
+                  <span>{{ emailedEntryId === r.id ? 'Sent' : 'Email' }}</span>
+                </button>
+              </div>
+              <!-- Card body -->
+              <div class="px-4 py-3 space-y-2">
+                <!-- Description -->
+                <div class="flex gap-2 items-start">
+                  <span class="shrink-0 text-[10px] font-semibold text-teal-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Resource:</span>
+                  <p class="flex-1 text-sm text-slate-800 leading-relaxed">{{ r.description }}</p>
+                </div>
+                <!-- Scale / Meter / Tolerable / Budget / Wish / Status / Enables grid -->
+                <div class="border-t border-teal-50 pt-1.5 space-y-1.5">
+                  <div v-if="r.scale" class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-teal-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Scale:</span>
+                    <p class="flex-1 text-xs text-slate-700 leading-relaxed">{{ r.scale }}</p>
+                  </div>
+                  <div v-if="r.meter" class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-teal-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Meter:</span>
+                    <p class="flex-1 text-xs text-slate-700 leading-relaxed">{{ r.meter }}</p>
+                  </div>
+                  <div v-if="r.tolerable" class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-amber-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Tolerable:</span>
+                    <p class="flex-1 text-xs text-slate-700 leading-relaxed">{{ r.tolerable }}</p>
+                  </div>
+                  <!-- Budget — primary commitment level for Resource (Tom 2026-06-07) -->
+                  <div v-if="r.budget || r.goal" class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Budget:</span>
+                    <p class="flex-1 text-xs text-slate-700 leading-relaxed">{{ r.budget || r.goal }}</p>
+                  </div>
+                  <div v-if="r.wish" class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-teal-700 uppercase tracking-wide whitespace-nowrap pt-0.5">Wish:</span>
+                    <p class="flex-1 text-xs text-slate-700 leading-relaxed">{{ r.wish }}</p>
+                  </div>
+                  <div v-if="r.status" class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap pt-0.5">Now:</span>
+                    <p class="flex-1 text-xs text-slate-700 leading-relaxed">{{ r.status }}</p>
+                  </div>
+                  <div v-if="r.resourceForValue" class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap pt-0.5">Enables:</span>
+                    <span class="text-[10px] bg-violet-50 border border-violet-200 text-violet-700 rounded px-1.5 py-px font-mono">{{ r.resourceForValue }}</span>
+                  </div>
+                  <div v-if="(r as { consumedBy?: string }).consumedBy" class="flex gap-2 items-start">
+                    <span class="shrink-0 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap pt-0.5">Consumed by:</span>
+                    <p class="flex-1 text-xs text-slate-700 leading-relaxed">{{ (r as { consumedBy?: string }).consumedBy }}</p>
+                  </div>
+                </div>
+                <!-- Source footer (entry-level) -->
+                <div v-if="(r as { source?: string }).source" class="border-t border-teal-50 pt-1.5">
+                  <p class="text-[10px] text-teal-600 italic"><span class="font-semibold">Source:</span> {{ (r as { source?: string }).source }}</p>
+                </div>
+              </div>
+            </article>
+
+            </div><!-- end animationKey wrapper -->
+
+            <!-- Export — whole spec — BOTTOM mirror (DD-014 Top-and-Bottom rule).
+                 r41 v207 (Tom Gilb 2026-06-19) — the mirror is conditional on
+                 the spec having ≥1 real entry.  With an empty spec the top
+                 Export pin and this mirror collapse adjacent (no body content
+                 between them) and read as a duplicated button.  DD-014's
+                 intent is "user finishing scroll past one viewport finds Next
+                 here too" — when there is nothing to scroll past, the mirror
+                 violates its own justification and creates the duplication
+                 Tom flagged.  Gate fixes that without breaking DD-014 for
+                 real-content cases. -->
+            <ExportSpecPin
+              v-if="props.spec && (
+                props.spec.functions.length +
+                props.spec.values.length +
+                props.spec.solutions.length +
+                (props.spec.constraints?.length ?? 0) +
+                (props.spec.resources?.length ?? 0)
+              ) > 0"
+              :has-spec="!!props.spec"
+              :spec-name="props.spec ? `${props.spec.functions.length}F · ${props.spec.values.length}V · ${props.spec.solutions.length}S` : 'Spec'"
+              @copy="copyToClipboard"
+              @email="emailSpec"
+              @download="downloadSpec"
+              @message="messageSpec"
+              @copy-for-chat="copySpecForChat"
+            />
 
             <!-- Feature #41 / #45 — Spec Quality Footer (redesigned)
                  Flesch Readability dropped — that metric was designed for journalism/fiction
@@ -6596,13 +7438,30 @@
                      bg-gray-50 border-t border-gray-100 rounded-b-xl text-xs text-gray-500"
               aria-label="Spec quality stats"
             >
-              <!-- F / V / S / C entry breakdown — replaces meaningless "N entries" -->
+              <!-- F / V / S / C entry breakdown — replaces meaningless "N entries".
+                   r41 v60 (Tom Gilb 2026-06-16 verbatim "use plural for all terms
+                   except for 1 (plural for zero)"): standard-English plurals on
+                   every count word.  0 Functions, 1 Function, 2 Functions, 12
+                   Values, etc.  Inline ternary keeps the template readable. -->
               <span class="font-medium text-gray-600 shrink-0">
-                {{ specStats.fCount }} Function · {{ specStats.vCount }} Value · {{ specStats.sCount }} Solution<template v-if="(displaySpec?.constraints ?? []).length > 0"> · <span class="text-red-600">{{ (displaySpec?.constraints ?? []).length }} Constraint</span></template>
+                {{ specStats.fCount }} {{ specStats.fCount === 1 ? 'Function' : 'Functions' }} ·
+                {{ specStats.vCount }} {{ specStats.vCount === 1 ? 'Value' : 'Values' }} ·
+                {{ specStats.sCount }} {{ specStats.sCount === 1 ? 'Solution' : 'Solutions' }}<template v-if="(displaySpec?.constraints ?? []).length > 0"> · <span class="text-red-600">{{ (displaySpec?.constraints ?? []).length }} {{ (displaySpec?.constraints ?? []).length === 1 ? 'Constraint' : 'Constraints' }}</span></template>
               </span>
 
-              <!-- Completeness % — fields filled vs expected -->
+              <!-- Completeness % — fields filled vs expected.
+                   r41 v207 (Tom Gilb 2026-06-19 screenshot: "0 Functions · 0
+                   Values · 0 Solutions · 100% complete") — when the spec has
+                   ZERO entries the underlying `computeStats` returns 100 (the
+                   maths is "no fields to fill = nothing missing"), but that
+                   reads to the planner as "you have finished" when really
+                   they have not begun.  Hide the chip entirely when the spec
+                   has no entries; surfacing the misleading 100% reading is
+                   worse than surfacing nothing.  The stats composable's
+                   100-for-empty contract is preserved (test still passes;
+                   other surfaces that need an absolute number get one). -->
               <span
+                v-if="specStats.fCount + specStats.vCount + specStats.sCount > 0"
                 class="shrink-0"
                 :class="{
                   'text-emerald-600': specStats.completenessPercent >= 80,
@@ -6611,9 +7470,13 @@
                 }"
               >· {{ specStats.completenessPercent }}% complete</span>
 
-              <!-- Measurability — V. entries with Scale + Meter + Goal all set.
-                   This is the core Planguage quality signal: without all three
-                   fields a Value cannot drive acceptance testing. -->
+              <!-- r41 v73 (Tom Gilb 2026-06-16 verbatim "🎯 0/8 measurable
+                   (NOT measurable, Meter can come later)") — relabelled from
+                   "measurable" to "Values Quantified" per the Value Definition
+                   Identity SUPREME r07: Meter is DELIVERY-time, not planning-
+                   time.  Now counts V. with Scale + Tolerable + (Wish OR Goal)
+                   — the planning-required identity set.  HoverHint explains
+                   the test + lifecycle distinction. -->
               <span
                 v-if="specStats.vCount > 0"
                 class="shrink-0"
@@ -6622,13 +7485,18 @@
                   'text-amber-600':   specStats.measurableValues > 0 && specStats.measurableValues < specStats.vCount,
                   'text-red-600':     specStats.measurableValues === 0,
                 }"
-                :title="`${specStats.measurableValues} of ${specStats.vCount} Value entries have Scale, Meter and Goal defined — these are testable`"
-              >· 🎯 {{ specStats.measurableValues }}/{{ specStats.vCount }} measurable</span>
+                :title="`${specStats.measurableValues} of ${specStats.vCount} Values are QUANTIFIED — each has Scale + Tolerable + at least one Target (Wish or Goal).  Meter is NOT required here — it belongs to the delivery lifecycle (Evo steps 6-9), not planning.  Tom Gilb SUPREME r07: a Wish satisfies the at-least-one-Target rule until commitment graduates it to a Goal.`"
+              >· 🎯 {{ specStats.measurableValues }}/{{ specStats.vCount }} Values Quantified</span>
 
-              <!-- Total word count -->
-              <span class="shrink-0">· {{ totalWordCount }} words</span>
+              <!-- r41 v73 — clarified "words" → "spec words" + HoverHint -->
+              <span
+                class="shrink-0"
+                :title="`Total words across all Function / Value / Solution / Constraint / Resource entry descriptions + Scale + Meter + Goal + Wish + Tolerable + other text fields.  A rough density indicator — high-density specs tend to have rich qualifying detail; sparse specs may need Sharpening.`"
+              >· {{ totalWordCount }} spec words</span>
 
-              <!-- Level badge — simplified: just badge + name, no XP bar or numbers -->
+              <!-- r41 v73 — "Expert" badge was unlabelled.  Now reads
+                   "Skill: Expert" so the meaning is clear, plus a HoverHint
+                   explaining the XP gamification. -->
               <span
                 class="rounded-full px-2 py-0.5 text-xs font-semibold shrink-0 ml-1"
                 :class="{
@@ -6636,10 +7504,11 @@
                   'bg-amber-200 text-amber-800':   level.colour === 'amber',
                   'bg-emerald-200 text-emerald-800': level.colour === 'emerald',
                 }"
-                :title="`XP: ${xp} / ${maxXp}`"
-              >{{ level.badge }} {{ level.name }}</span>
+                :title="`Planner skill level — XP: ${xp} / ${maxXp}.  XP accrues from quality actions: complete entry fields, add Qualifiers, set Targets, run Sharpening rounds.  Higher levels unlock advanced SEM features.  Cosmetic — doesn't affect plan content.`"
+              >{{ level.badge }} Skill: {{ level.name }}</span>
 
-              <!-- Feature #92 — Anti-pattern violation badge -->
+              <!-- r41 v73 — Anti-pattern badge given an explicit label ("Issues")
+                   + HoverHint so Tom can tell what the ⚠️ count actually means. -->
               <button
                 v-show="fp('92')"
                 type="button"
@@ -6648,9 +7517,10 @@
                 :class="violationCount > 0
                   ? 'bg-red-100 text-red-700 hover:bg-red-200'
                   : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'"
+                :title="`${violationCount} anti-pattern${violationCount === 1 ? '' : 's'} detected in the spec.  Anti-patterns are common Planguage mistakes (e.g. story-style descriptions, missing Qualifiers, V1/F1-style Tags, vague Targets).  Click to open the Anti-Pattern Detector and review.`"
                 @click="antiPatternsOpen = true; scanAntiPatterns()"
               >
-                ⚠️ {{ violationCount }}
+                ⚠ {{ violationCount }} {{ violationCount === 1 ? 'Issue' : 'Issues' }}
               </button>
             </div>
 
@@ -7742,6 +8612,19 @@
                 @keydown="palette.handleKey"
               />
               <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-400">Esc</kbd>
+              <!-- r41 v259 (Tom Gilb 2026-06-21 verbatim "no close button here" + "cannot get rid
+                   of the window") — explicit CloseDot per CloseDot SUPREME rule.  Backdrop +
+                   Esc were the only dismiss paths; both invisible to Tom.  Composes with
+                   CloseDot SUPREME + DD-009 Zero-Training UI + Tom-Repeats-Himself. -->
+              <button
+                type="button"
+                class="shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-full bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-700 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-300"
+                title="Close — dismiss the search palette (Esc also works)"
+                aria-label="Close search palette"
+                @click="palette.close()"
+              >
+                <span class="text-base leading-none" aria-hidden="true">×</span>
+              </button>
             </div>
 
             <!-- Results -->
@@ -7806,6 +8689,74 @@
       aria-live="polite"
     >{{ specToast.message }}</div>
   </Transition>
+  <!-- r41 v236 (Tom Gilb 2026-06-21 verbatim with explicit "Quote me!" permission) — canonical
+       Planguage definition footer. Marketing-grade single-sentence answer to "what is Planguage?";
+       composes with r93ppp Twin promotional discipline. -->
+  <footer
+    v-if="displaySpec && (displaySpec.functions.length || displaySpec.values.length || displaySpec.solutions.length)"
+    aria-label="What is Planguage?"
+    class="mt-8 px-4 py-4 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs leading-relaxed"
+  >
+    <p class="italic">
+      <span class="font-semibold not-italic text-slate-800">Planguage</span> is a rich well-defined language
+      for specifying the interesting attributes of solutions (aka designs, architecture, strategies, means),
+      so that we can relate them to Values, stakeholders, resources and constraints; in intelligent logical
+      engineering processes.
+    </p>
+    <p class="mt-1.5 text-[10px] text-slate-500">
+      — Tom Gilb, 2026-06-21.
+      Full Planguage corpus searchable via the
+      <a href="https://www.gilb.com/tomtwin" target="_blank" rel="noopener" class="text-violet-700 underline hover:text-violet-900">Tom Gilb Consultant Twin</a>
+      (by Kai Gilb).
+    </p>
+  </footer>
+  <!-- r41 v244 (Tom Gilb 2026-06-21 verbatim with explicit "permission to ally whole or part in
+       the app") — Velocity of Learning + Reasonable Balance + Lifetime of the System of Concern.
+       Surfaces alongside the Planguage definition quote so readers learn BOTH the language (what
+       Planguage is) AND the operating principle (how stages cycle) at first contact.
+       Composes with Stage-Has-A-Purpose SUPREME · DD-007 stages never locked · r93ppp Twin
+       promotional discipline. -->
+  <footer
+    v-if="displaySpec && (displaySpec.functions.length || displaySpec.values.length || displaySpec.solutions.length)"
+    aria-label="High Level View of the Stages — Velocity of Learning"
+    class="mt-3 px-4 py-5 rounded-xl border border-indigo-200 bg-indigo-50/40 text-slate-700 text-xs leading-relaxed"
+  >
+    <p class="font-semibold text-indigo-900 text-[11px] uppercase tracking-wider mb-2">
+      High Level View of the Stages
+    </p>
+    <!-- r41 v245 (Tom Gilb 2026-06-21 — canonical paragraph layout + TsG attribution.
+         Tom corrected his own "States"→"Stages" typo + asked for paragraph breaks per his
+         "EdiT" message.  Preserving Tom's verbatim word "ally" in the permission note.) -->
+    <p class="italic">The Stages are by no means a strict straight line, with no going back.</p>
+    <p class="italic mt-2">
+      The dominant idea in Planguage is the ability to go through any useful number of improvement
+      cycles, supported by Analysis Cycles, and to be able to jump back to any stage and redo it
+      on the current basis.
+    </p>
+    <p class="italic mt-2">
+      Even the seemingly final Export of the specs is simply an entry into the Evo process, of
+      doing Tasks and Evo steps, and updating the real Values and costs.
+    </p>
+    <p class="italic mt-2">
+      And then modifying the specs, at any level of architecture or detailed parameters and specs.
+    </p>
+    <p class="italic mt-2">
+      The purpose is not to achieve the initial Value requirements, but to learn quickly and often
+      <span class="not-italic font-semibold text-indigo-800">(Musk's Velocity of Learning)</span>,
+      so that the specifications are the best current set of ideas for the realities we encounter,
+      from our Evo process, and from changes in our real world system of stakeholders and their
+      values.
+    </p>
+    <p class="italic mt-2">
+      We are seeking a current
+      <span class="not-italic font-semibold text-indigo-800">'reasonable balance'</span>, and the
+      ability to maintain that reasonable balance in the future, for the
+      <span class="not-italic font-semibold text-indigo-800">lifetime of the System of Concern</span>.
+    </p>
+    <p class="mt-3 text-[10px] text-slate-500">
+      (TsG 21 June 2026) — permission to ally whole or part in the app.
+    </p>
+  </footer>
   </section>
 </template>
 
@@ -7837,17 +8788,43 @@
  */
 import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick, reactive } from 'vue'
 import AmuseMeButton from './AmuseMeButton.vue'
-import { openEml } from '../composables/useEmlExport'
+import { exportCopy, exportEmail, exportDownload, exportArtefact } from '../composables/useExportShared'
+import { renderGoalLadderHtml, renderGoalLadderPlain } from '../composables/useGoalLadderExport'
+// r41 v119 — canonical HoverHint source for Planguage keyed-level chars
+// (Tom Gilb 2026-06-17: "in keyed icons in values there is no info").
+import { keyedLevelHoverHint } from '../composables/useKeyedLevelInfo'
+// r41 v78 (Tom Gilb 2026-06-16 "why cant chat be color and detail????") —
+// chat-copy now uses the same colourful HTML renderer + dual-MIME clipboard
+// pattern as email-copy.  Chat apps that support rich paste get colour;
+// plain-text-only targets fall back to markdown via ClipboardItem.
+import { renderColorfulSpecHtml } from '../composables/useColorfulSpecHtml'
+// r41 (Tom Gilb screenshot 2026-06-19/20: "F:", "F2:", "V" bare-letter tags
+// visible) — Both-Surfaces SUPREME + Mnemonic-ID SUPREME + Spell-out-Type-
+// Names SUPREME.  In-app tag headers and cross-reference chips now route
+// every raw `id` through `mnemonicLabel()` so legacy/AI-generated sequential
+// IDs (F1/V2/F/V) and bare type letters fall back to the first significant
+// words of the entry's description.  Mirrors the same fix in
+// `useColorfulSpecHtml.ts` shipped in the same change.
+import { mnemonicLabel } from '../composables/usePenta'
+import ExportSpecPin from './ExportSpecPin.vue'
 import CopyGlyph    from './icons/CopyGlyph.vue'
+import GetGlyph     from './icons/GetGlyph.vue'
 import PlSpecFieldIcon from './icons/PlSpecFieldIcon.vue'
 import PlTypeBadge  from './icons/PlTypeBadge.vue'
+// r41 v343 — Live Spec Build Counter uses the canonical Pl*Icon family per
+// DD-011 Planguage-Glyph-First + DD-016 Color Keyed Icons.
+// r41 v352 — Pl*Icon imports removed: the inline counter that used them
+// (v343→v348) moved to `PlanguageProgressWindow.vue`.  This file no longer
+// references the Pl*Icon components directly.  If a future surface in
+// SpecOutput.vue needs canonical glyphs, re-add the relevant import.
+import PlanguageProgressWindow from './PlanguageProgressWindow.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
 // DD-001 (2026-05-13) — SaveGlyph (`*→[*]`) replaces 💾 for save-to-copy
 // and save-to-file actions; GetGlyph (`[*]→*`) replaces 📥/📂 for input-side
 // affordances (export-to-PDF is treated as save-out — outbound to user disk).
 import SaveGlyph from './icons/SaveGlyph.vue'
 import EditGlyph from './icons/EditGlyph.vue'
-import type { SpecBlock } from '../types/spec'
+import type { SpecBlock, StakeholderEntry } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import { useSpecExport } from '../composables/useSpecExport'
 import { useVoice } from '../composables/useVoice'
@@ -8016,6 +8993,11 @@ import { usePersonasGallery } from '../composables/usePersonasGallery'
 // ── Feature #167 — Sprint Backlog ─────────────────────────────────────────────
 import { useSprintBacklog } from '../composables/useSprintBacklog'
 
+// ── r99 — [When] Scale Parameter annotation on benchmark levels ───────────────
+// Tom Gilb, 2026-06-06: "Benchmarks cannot hang in unknown past."
+// SEA book: [When] = time-dimension Scale Parameter.
+import { setEntryWhen } from '../composables/useSpecModel'
+
 // ── Feature #169 — MLP Identifier ─────────────────────────────────────────────
 import { useMinLovable } from '../composables/useMinLovable'
 
@@ -8059,6 +9041,9 @@ import { useFeatureSuggestions } from '../composables/useFeatureSuggestions'
 import { useCommandPalette } from '../composables/useCommandPalette'
 
 const emit = defineEmits<{
+  /** r41 v375 (Tom Gilb 2026-06-25) — emitted when planner clicks the
+   *  visible Cancel button during generation (loadingElapsed > 30s). */
+  (e: 'cancel-generation'): void
   /** Feature #28 — emitted when the user clicks "Use Lean Plan" */
   (e: 'lean-spec-selected', spec: SpecBlock): void
   /** Evo Step 13 — emitted when the user clicks the 🤝 Collaborator button */
@@ -8072,9 +9057,11 @@ const emit = defineEmits<{
   /** Feature #57b — single entry accepted, user wants to also fix it in the underlying spec */
   (e: 'rewrite-entry-fix', payload: { id: string; type: 'F' | 'V' | 'S'; description: string }): void
   /** Feature #198 — open the Spec Editor at a given tab / entry */
-  (e: 'open-editor', payload: { tab?: 'functions' | 'values' | 'solutions' | 'constraints'; entryId?: string }): void
+  (e: 'open-editor', payload: { tab?: 'functions' | 'values' | 'solutions' | 'constraints' | 'resources'; entryId?: string }): void
   /** Open the "About the Edit Glyph" info modal */
   (e: 'open-edit-info'): void
+  /** Genesis re-parse — user wants to edit original stakes/ends/means and regenerate the spec */
+  (e: 'reparse', genesis: { stakes: string; ends: string; means: string }): void
 }>()
 
 const props = withDefaults(defineProps<{
@@ -8110,6 +9097,12 @@ const props = withDefaults(defineProps<{
    *  during spec generation (was defaulting to 6 inside AmuseMeButton because
    *  this prop was never forwarded). */
   planningStage?: number
+  /** Tom Gilb 2026-06-23 r41 v300 — forwarded from App.vue so Goal Ladder
+   *  (and any other in-component export here) can stamp the actual plan name
+   *  into the exported document instead of the literal "Current Spec". */
+  planName?: string
+  /** Tom Gilb 2026-06-23 r41 v300 — forwarded plan version label e.g. "v0.1". */
+  planVersion?: string
 }>(), {
   loading: false,
   error: '',
@@ -8140,6 +9133,36 @@ const emailed = ref(false)   // Universal copy/email rule — 2026-05-29
 
 // Per-section copy/email state — tracks which section was most recently copied/emailed
 const copiedSection  = ref<string | null>(null)
+
+// r41 v409 (Tom Gilb 2026-06-28 verbatim "this again", screenshot showing a
+// giant orange paragraph above the 225 Stakeholder cards) — Trace-Before-Patch
+// SUPREME diagnosis: the orange paragraph is `rawInput.stakes`, which comes
+// from `SEMEntryForm.vue:2771` `parsedStakeholders.value.join(', ')` — when
+// Tom pastes a 12000-char contract the 225 parsed chip candidates are
+// `.join(', ')`d into a single comma-blob string, then doTranslate stashes
+// that blob in `originalInput.stakes`, and SpecOutput renders it as ONE
+// giant italic paragraph BEFORE the actual 225 structured cards — so Tom
+// sees a wall of orange text and concludes "retrograde" even though the
+// 225 cards exist below.  Fix: when the raw stakes string is chip-dense
+// (≥6 commas OR >280 chars), suppress the giant paragraph by default
+// and surface a compact summary chip with a "Show raw text" toggle.
+// The 225 actual Stakeholder cards become the dominant surface —
+// matching what Tom expects to see.  Threshold tuned: a normal sentence
+// like "the team, customers, partners" (3 chips, ~30 chars) stays inline;
+// a contract paste (225 chips, 12000 chars) collapses behind the toggle.
+const showRawStakesText = ref(false)
+const rawStakesIsBlob = computed<boolean>(() => {
+  const s = props.rawInput?.stakes ?? ''
+  if (!s) return false
+  const commaCount = (s.match(/,/g) ?? []).length
+  return commaCount >= 6 || s.length > 280
+})
+const rawStakesChipCount = computed<number>(() => {
+  const s = props.rawInput?.stakes ?? ''
+  if (!s) return 0
+  // Each comma-separated fragment is one chip candidate; +1 for the last.
+  return s.split(',').map(x => x.trim()).filter(Boolean).length
+})
 const emailedSection = ref<string | null>(null)
 
 // ── Error display helpers ─────────────────────────────────────────────────────
@@ -8155,18 +9178,65 @@ const errorLink    = computed(() => props.error.includes(BILLING_URL) ? BILLING_
 
 // ── Loading elapsed timer + estimated progress ────────────────────────────────
 // Spec generation baseline: ~45s. Bar caps at 88% until the call resolves.
+// r41 v352 (Tom Gilb 2026-06-25 "the seconds do not increase") — added
+// `immediate: true` so the timer starts when `props.loading` is ALREADY true
+// at mount (the planner clicks Generate before SpecOutput is rendered with
+// loading=true; without immediate, the watcher only fires on later mutations
+// and the timer never starts).  Same pattern as v338 fix for the Stage 1
+// yellow-marker watcher.  Composes with Tom-Repeats-Himself SUPREME.
 const loadingElapsed = ref(0)
 let _loadingTimer: ReturnType<typeof setInterval> | null = null
 watch(() => props.loading, (isLoading) => {
   if (isLoading) {
+    if (_loadingTimer !== null) { clearInterval(_loadingTimer); _loadingTimer = null }
     loadingElapsed.value = 0
     _loadingTimer = setInterval(() => { loadingElapsed.value++ }, 1000)
   } else {
     if (_loadingTimer !== null) { clearInterval(_loadingTimer); _loadingTimer = null }
     loadingElapsed.value = 0
   }
-})
+}, { immediate: true })
 const loadingEstPct = computed(() => Math.min(88, Math.round((loadingElapsed.value / 45) * 88)))
+
+// r41 v52 — Phase narrative (Tom Gilb 2026-06-16 "Generating specs is a
+// black box: can we give a narrative about which phase it is in").  Time-
+// based rotation through 7 phases — the LLM returns JSON as one block so
+// we can't observe true per-type progress, but the narrative tells the
+// user what the AI is conceptually working on at each moment.  Per-type
+// counts surface in a post-generation summary toast (App.vue r41 v52).
+interface GenerationPhase { emoji: string; title: string; detail: string; atSecond: number }
+// r41 v100 (Tom Gilb 2026-06-16 verbatim "gotcha ⚙ Phase 5 · Drafting Functions +
+// Solutions / AI is drafting F. binary-capability entries + S. design alternatives.")
+// — Spell-out-Type-Names SUPREME applies inside the loading phase narratives too.
+// Every "F." / "V." / "S." / "C." / "R." abbreviation EXPANDED to the full word.
+const GENERATION_PHASES: GenerationPhase[] = [
+  { atSecond: 0,  emoji: '📥', title: 'Phase 1 · Reading your input',                 detail: 'AI is parsing your Stakes, Ends, Means + the plan title.' },
+  { atSecond: 5,  emoji: '🧠', title: 'Phase 2 · Understanding the intent',           detail: 'AI is grouping ideas + identifying the system\'s primary objectives.' },
+  { atSecond: 12, emoji: '👥', title: 'Phase 3 · Identifying Stakeholders',           detail: 'AI is naming stakeholders + their needs (Tom Gilb canon: animate AND inanimate — data, regulators, systems).' },
+  { atSecond: 22, emoji: '🎯', title: 'Phase 4 · Drafting Values',                    detail: 'AI is drafting Value entries with Scale + Meter + Tolerable + Goal + Wish.  The hardest phase — measurable targets.' },
+  { atSecond: 35, emoji: '⚙',  title: 'Phase 5 · Drafting Functions + Solutions',     detail: 'AI is drafting Function binary-capability entries + Solution design alternatives.' },
+  { atSecond: 50, emoji: '🔒', title: 'Phase 6 · Drafting Constraints + Cross-links', detail: 'AI is drafting Constraint binary rules + cross-linking Value ↔ Function ↔ Solution via functionOfValue / valueOfFunction.' },
+  { atSecond: 70, emoji: '🔗', title: 'Phase 7 · Final assembly + Planguage Representation check', detail: 'AI is validating the Planguage Representation — every entry has its required fields, all cross-links resolve.  Almost there.' },
+  { atSecond: 90, emoji: '⏱',  title: 'Still working',                                 detail: 'Long input takes longer.  Sit tight — the watchdog will keep us safe if anything stalls.' },
+]
+const generationPhase = computed<GenerationPhase>(() => {
+  // Pick the LAST phase whose `atSecond` boundary has been crossed.
+  let pick: GenerationPhase = GENERATION_PHASES[0]
+  for (const p of GENERATION_PHASES) {
+    if (p.atSecond <= loadingElapsed.value) pick = p
+    else break
+  }
+  return pick
+})
+
+// r41 v352 — Live Spec Build Counter data wiring extracted to
+// `src/composables/usePlanguageProgress.ts` (shared) + UI extracted to
+// `src/components/PlanguageProgressWindow.vue` (reusable).  Tom Gilb
+// 2026-06-25 verbatim: *"Name = Planguage Progress window"*.  The 150-line
+// inline tile-grid + 180-line inline data layer were lifted verbatim to
+// the new composable + component so the same surface mounts at every long-
+// running AI generation point (Stage 1 here, Stage 2.2 solution auto-gen,
+// Sharpen rounds, Maria reports).
 
 onUnmounted(() => {
   if (_loadingTimer !== null) clearInterval(_loadingTimer)
@@ -8755,7 +9825,7 @@ const readabilityResult = computed(() => {
   return scoreReadability(props.spec)
 })
 
-/** Feature #41 — 3 lowest-scoring entries for the tooltip */
+/** Feature #41 — 3 lowest-scoring entries for the HoverHint */
 const readabilityLowest3 = computed(() => {
   if (!readabilityResult.value) return []
   return [...readabilityResult.value.perEntryScores]
@@ -8763,7 +9833,7 @@ const readabilityLowest3 = computed(() => {
     .slice(0, 3)
 })
 
-/** Tooltip text fallback for title attribute (accessibility) */
+/** HoverHint text fallback for title attribute (accessibility) */
 const readabilityLowestTooltip = computed(() => {
   if (readabilityLowest3.value.length === 0) return ''
   return 'Lowest readability:\n' + readabilityLowest3.value
@@ -8807,8 +9877,73 @@ const STAKEHOLDER_PALETTES = [
 /** Parse stakeholder-looking names from a stakes free-text string.
  *  Splits on commas, semicolons, "and", "or". Keeps fragments ≤5 words and
  *  not obviously a verb clause. Returns lowercased–then-title-cased names. */
+/**
+ * r41 v74 (Tom Gilb 2026-06-16 verbatim "IF YOU IS NOT A STAKEHOLDER, MAYBE
+ * YOU IS BUT WHO IS YOU, CAN WE GET SMARTER ANALYSIS OF THIS AS A STAKEHOLDER?").
+ *
+ * Smart cleanup for stakeholder-name strings.  Three transformations applied
+ * in order:
+ *   1. Strip clause-starter prefixes — "If you" → "you", "When the customer"
+ *      → "the customer", "Because they" → "they".  Captures the noun phrase
+ *      that ACTUALLY names the stakeholder.
+ *   2. Strip leading articles — "the team" → "team", "an admin" → "admin".
+ *   3. Map bare pronouns to canonical identities — "you/your" → "Plan Owner";
+ *      "I/me/my" → "Plan Owner" (per Tom's memory rule, first-person is the
+ *      planner themselves); "we/us/our" → "The Team"; unknown referents
+ *      (they/he/she/it without antecedent) → null (reject).
+ *
+ * Returns null when the input cannot be salvaged into a real stakeholder name.
+ */
+/**
+ * r41 v90 (Tom Gilb 2026-06-16 "src: ???") — filter out LLM placeholder
+ * source strings so the provenance footer ONLY renders when source
+ * carries real information.  The LLM sometimes emits "???" / "?" /
+ * "unknown" / "n/a" / "tbd" / "-" instead of omitting the `source`
+ * field — these read as broken UI to the planner.  Returns true when
+ * the source is a non-empty, non-placeholder string.
+ */
+function isMeaningfulSource(src: string | undefined | null): boolean {
+  if (!src || typeof src !== 'string') return false
+  const trimmed = src.trim()
+  if (!trimmed) return false
+  // Lower-case, strip all punctuation + whitespace, then match against
+  // the placeholder set.  Catches "???", " ? ", "?!", "N/A", "n.a.",
+  // "tbd.", "-", "—", "unknown", "none", "null", "undefined".
+  const stripped = trimmed.toLowerCase().replace(/[\s\p{P}]/gu, '')
+  if (!stripped) return false  // pure punctuation/whitespace
+  const placeholders = new Set(['unknown', 'none', 'null', 'undefined', 'na', 'tbd', 'tba', 'pending', 'placeholder'])
+  return !placeholders.has(stripped)
+}
+
+function _cleanStakeholderName(raw: string | undefined | null): string | null {
+  if (!raw || typeof raw !== 'string') return null
+  let s = raw.trim()
+  if (!s) return null
+
+  // Strip leading clause-starter conjunctions (case-insensitive, one pass)
+  s = s.replace(/^(?:if|when|while|because|although|since|though|unless|until|after|before|whenever|wherever)\s+/i, '').trim()
+  if (!s) return null
+
+  // Strip leading "the" / "a" / "an" so palette-keyed dedupe works
+  s = s.replace(/^(?:the|a|an)\s+/i, '').trim()
+  if (!s) return null
+
+  // Bare-pronoun canonical mapping
+  if (/^(?:you|your|yours|yourself)$/i.test(s))                return 'Plan Owner'
+  if (/^(?:i|me|my|mine|myself)$/i.test(s))                    return 'Plan Owner'
+  if (/^(?:we|us|our|ours|ourselves)$/i.test(s))               return 'The Team'
+  // Unknown referent pronouns — cannot be salvaged into a real identity
+  if (/^(?:they|them|their|theirs|themselves|he|him|his|she|her|hers|it|its)$/i.test(s)) return null
+
+  // Reject obvious sentence fragments
+  if (/^(?:and|or|but|so|yet|for|nor)\s+/i.test(s)) return null
+  if (s.length < 2) return null
+
+  return s
+}
+
 function _parseStakesNames(stakes: string): string[] {
-  return stakes
+  const raw = stakes
     .split(/[,;]|\band\b|\bor\b/i)
     .map(s => s.trim())
     .filter(s => {
@@ -8826,16 +9961,27 @@ function _parseStakesNames(stakes: string): string[] {
         ? s.replace(/\b\w/g, c => c.toUpperCase())
         : s
     })
+  // r41 v74 — pass each through the smart cleanup helper.  Drop any names
+  // it rejects as unsalvageable (e.g. bare "they" without antecedent).
+  const cleaned: string[] = []
+  for (const r of raw) {
+    const c = _cleanStakeholderName(r)
+    if (c) cleaned.push(c)
+  }
+  return cleaned
 }
 
 const uniqueStakeholders = computed<{ name: string; palette: typeof STAKEHOLDER_PALETTES[0] }[]>(() => {
   const spec = displaySpec.value
   if (!spec) return []
   const seen = new Map<string, number>()
-  // Primary source: V.wishStakeholder
+  // Primary source: V.wishStakeholder.  r41 v74 — run each through the smart
+  // cleanup helper so "If you" / "When the customer" / etc. are normalised
+  // to their canonical stakeholder identity ("Plan Owner" / "Customer") or
+  // dropped if irrecoverable (bare "they" without antecedent).
   for (const v of spec.values) {
-    const s = v.wishStakeholder?.trim()
-    if (s && !seen.has(s)) seen.set(s, seen.size)
+    const cleaned = _cleanStakeholderName(v.wishStakeholder)
+    if (cleaned && !seen.has(cleaned)) seen.set(cleaned, seen.size)
   }
   // Secondary source: rawInput.stakes text
   if (props.rawInput?.stakes) {
@@ -8853,6 +9999,11 @@ const uniqueStakeholders = computed<{ name: string; palette: typeof STAKEHOLDER_
  * Full stakeholder records for the section card — each stakeholder enriched
  * with their linked Values (via wishStakeholder) and applied Constraints
  * (via c.scope containing their name, or all C. entries when scope is blank).
+ *
+ * 2026-06-09: Extended with structured Planguage fields from StakeholderEntry
+ * (definition, stakeholderType, needs[], source, maintContact).
+ * When spec.stakeholderEntries is populated (new specs), those fields drive
+ * the compact card display. Older specs fall back to the derived-from-V path.
  */
 interface StakeholderCard {
   name: string
@@ -8863,11 +10014,71 @@ interface StakeholderCard {
   linkedConstraints: { id: string; description: string }[]
   /** The Wish text, if any */
   wish: string
+  // ── Structured Planguage fields (from StakeholderEntry — 2026-06-09+) ──────
+  /** Direct | Indirect | Regulatory | System | Inanimate */
+  stakeholderType?: string
+  /** One-sentence formal definition of who/what this stakeholder IS */
+  definition?: string
+  /** Context description — max 2–3 sentences */
+  detailDescription?: string
+  /** Mnemonic IDs of V./C./R. entries this stakeholder needs satisfied */
+  needs?: string[]
+  /** Where/how this stakeholder was identified */
+  source?: string
+  /** Who to contact when this stakeholder entry needs updating */
+  maintContact?: { name?: string; position?: string; email?: string; url?: string }
 }
 
 const specStakeholderCards = computed<StakeholderCard[]>(() => {
   const spec = displaySpec.value
   if (!spec) return []
+
+  // ── Primary path: structured StakeholderEntry array (specs generated 2026-06-09+) ──
+  // r41 v74 — apply _cleanStakeholderName to the StakeholderEntry id so even
+  // the structured path normalises clause-starter and pronoun names.  Drop
+  // entries whose name is unsalvageable.
+  if (spec.stakeholderEntries && spec.stakeholderEntries.length > 0) {
+    const cleaned = spec.stakeholderEntries
+      .map(se => ({ se, name: _cleanStakeholderName(se.id) }))
+      .filter((x): x is { se: typeof spec.stakeholderEntries[number]; name: string } => x.name !== null)
+    return cleaned.map(({ se, name }, idx) => {
+      const palette = STAKEHOLDER_PALETTES[idx % STAKEHOLDER_PALETTES.length]
+      const nameLower = name.toLowerCase()
+      // Cross-link via both the cleaned name AND the original raw id (so V.
+      // entries whose wishStakeholder is the raw "If you" still link to the
+      // cleaned "Plan Owner" card).
+      const rawLower = se.id.toLowerCase()
+      const linkedValues = spec.values
+        .filter(v => {
+          const w = v.wishStakeholder?.trim().toLowerCase()
+          return w === nameLower || w === rawLower
+        })
+        .map(v => ({ id: v.id, description: v.description, goal: v.goal }))
+      const wish = spec.values.find(v => {
+        const w = v.wishStakeholder?.trim().toLowerCase()
+        return w === nameLower || w === rawLower
+      })?.wish ?? ''
+      const linkedConstraints = (spec.constraints ?? [])
+        .filter(c => !c.scope || c.scope.toLowerCase().includes(nameLower) || c.scope.toLowerCase().includes(rawLower))
+        .map(c => ({ id: c.id, description: c.description }))
+      return {
+        name,                                  // cleaned canonical name
+        palette,
+        linkedValues,
+        linkedConstraints,
+        wish,
+        stakeholderType: se.stakeholderType,
+        definition: se.definition,
+        detailDescription: se.description,
+        needs: se.needs,
+        source: se.source,
+        maintContact: se.maintContact,
+      }
+    })
+  }
+
+  // ── Fallback path: derive from V.wishStakeholder (pre-2026-06-09 specs) ──
+  // Enrich with derived Planguage fields so old specs show a full card, not just header+needs.
   return uniqueStakeholders.value.map(sh => {
     const nameLower = sh.name.toLowerCase()
     const linkedValues = spec.values
@@ -8877,7 +10088,33 @@ const specStakeholderCards = computed<StakeholderCard[]>(() => {
     const linkedConstraints = (spec.constraints ?? [])
       .filter(c => !c.scope || c.scope.toLowerCase().includes(nameLower))
       .map(c => ({ id: c.id, description: c.description }))
-    return { ...sh, linkedValues, linkedConstraints, wish }
+
+    // ── Derive richer Planguage fields from available old-spec data ───────────
+    // definition: what this stakeholder cares about — first linked Value's description
+    const firstVal = linkedValues[0]
+    const derivedDefinition = firstVal ? firstVal.description : undefined
+    // detailDescription: their uncommitted aspiration, or secondary Value context
+    const derivedDetail: string | undefined = wish
+      ? wish
+      : linkedValues.length > 1
+        ? linkedValues.slice(1).map(v => v.description).join('; ')
+        : undefined
+    // needs: mnemonic IDs of all linked Values + Constraints (honest provenance)
+    const derivedNeeds: string[] = [
+      ...linkedValues.map(v => v.id),
+      ...linkedConstraints.map(c => c.id),
+    ]
+
+    return {
+      ...sh,
+      linkedValues,
+      linkedConstraints,
+      wish,
+      definition: derivedDefinition,
+      detailDescription: derivedDetail,
+      needs: derivedNeeds.length > 0 ? derivedNeeds : undefined,
+      source: 'Derived from Value entries',
+    }
   })
 })
 
@@ -9083,10 +10320,18 @@ const {
   copied: glossaryCopied,
   extractTerms,
   copyGlossary,
+  // r41 v393 (Tom Gilb 2026-07-01 verbatim "add an optional categy of
+  // 'PLanguage Tags' with brief description, in alphabetical order, exportable
+  // of course") — optional Planguage Tags category surfaces every spec entry's
+  // 1-3-word mnemonic tag (per Planguage Mnemonic ID Standard SUPREME) with
+  // its brief description, interleaved alphabetically with the existing
+  // categories and colour-coded by canonical Planguage type on export.
+  includePlanguageTags,
+  setIncludePlanguageTags,
 } = useSpecGlossary()
 
 const glossaryOpen = ref(false)
-const glossaryTypeFilter = ref<'All' | 'Acronyms' | 'Domain Terms' | 'Metrics'>('All')
+const glossaryTypeFilter = ref<'All' | 'Acronyms' | 'Domain Terms' | 'Metrics' | 'Planguage Tags'>('All')
 
 function handleGlossary(): void {
   if (!props.spec) return
@@ -9094,11 +10339,27 @@ function handleGlossary(): void {
   if (glossaryOpen.value && glossary.value.length === 0) extractTerms(props.spec)
 }
 
+/** r41 v393 — toggle Planguage Tags on/off.  Re-extracts so the glossary
+ *  reflects the choice immediately.  Filter tab auto-switches to reveal the
+ *  Tags when the planner opts in for the first time. */
+function toggleIncludePlanguageTags(): void {
+  if (!props.spec) return
+  const next = !includePlanguageTags.value
+  setIncludePlanguageTags(next, props.spec)
+  if (next && glossaryTypeFilter.value !== 'Planguage Tags' && glossaryTypeFilter.value !== 'All') {
+    glossaryTypeFilter.value = 'Planguage Tags'
+  }
+  if (!next && glossaryTypeFilter.value === 'Planguage Tags') {
+    glossaryTypeFilter.value = 'All'
+  }
+}
+
 const filteredGlossary = computed(() => {
   if (glossaryTypeFilter.value === 'All') return glossary.value
   if (glossaryTypeFilter.value === 'Acronyms') return glossary.value.filter(e => e.type === 'acronym')
   if (glossaryTypeFilter.value === 'Domain Terms') return glossary.value.filter(e => e.type === 'domain-term')
   if (glossaryTypeFilter.value === 'Metrics') return glossary.value.filter(e => e.type === 'metric')
+  if (glossaryTypeFilter.value === 'Planguage Tags') return glossary.value.filter(e => e.type === 'planguage-tag')
   return glossary.value
 })
 
@@ -9389,6 +10650,36 @@ const {
   ladderOpen,
   ladderEntries,
 } = useGoalLadder(computed(() => props.spec))
+
+// ── Feature #104 — Goal Ladder export ────────────────────────────────────────
+// Tom Gilb 2026-06-22 verbatim "always continue · research and innovation
+// project".  Goal Ladder was on the Export-Button-on-All-Windows SUPREME
+// pending sweep list — this handler closes that gap.
+async function exportGoalLadder(): Promise<void> {
+  // Tom Gilb 2026-06-23 r41 v300 — planName + planVersion now forwarded from
+  // App.vue via props (was literal "Current Spec" in v297). Falls back to the
+  // literal only when caller didn't pass props (defensive — keeps Storybook /
+  // tests working without the App.vue chain).
+  await exportArtefact({
+    htmlText: renderGoalLadderHtml({
+      planName: props.planName ?? 'Current Spec',
+      versionLabel: props.planVersion ?? '',
+      entries: ladderEntries.value,
+    }),
+    plainText: renderGoalLadderPlain({
+      planName: props.planName ?? 'Current Spec',
+      versionLabel: props.planVersion ?? '',
+      entries: ladderEntries.value,
+    }),
+    subject: `Goal Ladder · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'Goal Ladder',
+    // Mailto-No-Self-To SUPREME (Tom Gilb 2026-06-16 verbatim "EMAIL SHARPENING
+    // YOU PUT THE MAIN IN THE TO SECTION, SILLY BOY"): Tom is the SENDER on a
+    // SEM-App-initiated export; recipient must be empty.  Without this explicit
+    // '', useExportShared.ts defaults to Tom@Gilb.com and Tom would email himself.
+    to: '',
+  })
+}
 
 // ── Feature #105 — Spec Benchmark ────────────────────────────────────────────
 
@@ -10211,43 +11502,125 @@ function _buildSpecHtml(spec: NonNullable<typeof props.spec>): string {
   return html
 }
 
-async function copyToClipboard() {
-  if (!props.spec) return
-  const html  = _buildSpecHtml(props.spec)
-  const plain = props.markdown || serialise(props.spec)
-  try {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        'text/html':  new Blob([html],  { type: 'text/html'  }),
-        'text/plain': new Blob([plain], { type: 'text/plain' }),
-      }),
-    ])
-    copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
-  } catch {
-    // ClipboardItem not available — fall back to plain text
-    try {
-      await navigator.clipboard.writeText(plain)
-      copied.value = true
-      setTimeout(() => { copied.value = false }, 2000)
-    } catch { /* no-op */ }
-  }
+// Copy · Email · Download — shared primitives (Tom 2026-06-06: "applies for all export in sem").
+
+// r41 v104 (Tom Gilb 2026-06-17 verbatim "email paste is not complete, no
+// sources") — ROOT CAUSE of all the "email doesn't match display" complaints
+// across v85 / v93 / v98 / v102 / v103: SpecOutput.vue had its OWN local
+// `_buildSpecHtml()` HTML builder (line 10721) that copyToClipboard +
+// emailSpec + downloadSpec used.  That local builder never had the v98
+// source-rendering / per-field fieldSources / Past / Stretch / when-
+// timestamps / linked-V/C/S / Constraint Source row / r93 inline source
+// chip / v103 src→Source rename.  None of my source fixes for ~30 turns
+// reached this code path.  App.vue's emailPlan() DID use renderColorfulSpecHtml
+// (the canonical renderer that DOES have all the fixes), but the SpecOutput-
+// level Copy / Email / Download buttons were bypassing it.  Fix: route all
+// three through renderColorfulSpecHtml(spec, modelName, version, { mode:'full' }).
+// `_buildSpecHtml` is kept in the file for now in case any other caller
+// references it; will sweep + delete in a follow-up audit.  Composes with
+// BOTH-surfaces rule (display + export agree), No-Silent-Data-Loss SUPREME
+// (sources were data; they were being silently dropped by the wrong builder).
+function _canonicalSpecHtml(spec: NonNullable<typeof props.spec>): string {
+  // SpecOutput doesn't yet receive plan name + version as props — pass sane
+  // defaults; the renderer's header just falls back gracefully.  If/when the
+  // App.vue mount is extended to forward planTitle + planVersion, those
+  // values land here automatically.
+  const modelName = 'Spec'
+  return renderColorfulSpecHtml(spec, modelName, undefined, { mode: 'full' })
 }
 
-// Universal email rule (Tom 2026-05-29): email opens with HTML ALREADY in body —
-// no manual paste required. Downloads a .eml file that Mail.app opens as a
-// compose-draft with the coloured spec table pre-filled.
+async function copyToClipboard() {
+  if (!props.spec) return
+  const html  = _canonicalSpecHtml(props.spec)
+  const plain = props.markdown || serialise(props.spec)
+  const ok = await exportCopy(html, plain)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, ok ? 2000 : 3000)
+}
+
 async function emailSpec(): Promise<void> {
   if (!props.spec) return
-  const now = new Date()
-  const ts  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-  const fC  = props.spec.functions.length
-  const vC  = props.spec.values.length
-  const sC  = props.spec.solutions.length
-  const sub = `SEM Spec — ${fC}F ${vC}V ${sC}S · ${ts}`
-  openEml(_buildSpecHtml(props.spec), sub)
+  const date = new Date().toISOString().slice(0, 10)
+  const fC   = props.spec.functions.length
+  const vC   = props.spec.values.length
+  const sC   = props.spec.solutions.length
+  // r41 v94 — pass the full markdown / serialised plain text so the
+  // clipboard plain-text fallback carries real content, not the bare
+  // placeholder string.
+  // r41 v113 (Tom Gilb 2026-06-17 verbatim "I think the owner email, or
+  // default tom@gilb.com (default scribe) should already be there, others
+  // can be added, but the paste should only end up in the top of the
+  // text") — Mailto-No-Self-To rule SUPERSEDED: pre-fill the To: field so
+  // ⌘V lands in the BODY (not the empty To: slot that Mail.app currently
+  // selects when the field is blank). Pass `undefined` (omitted arg) so
+  // exportEmail's default `to = 'Tom@Gilb.com'` kicks in. When a per-spec
+  // Owner email becomes available in the plan model, that overrides the
+  // default; for now Tom@Gilb.com is the Scribe-default recipient.
+  const plainText = props.markdown || serialise(props.spec)
+  await exportEmail(
+    _canonicalSpecHtml(props.spec),
+    `SEM Spec — ${fC} Function · ${vC} Value · ${sC} Solution · ${date}`,
+    'Planguage Spec HTML',
+    undefined,
+    plainText,
+  )
   emailed.value = true
   setTimeout(() => { emailed.value = false }, 4000)
+}
+
+function downloadSpec(): void {
+  if (!props.spec) return
+  const date = new Date().toISOString().slice(0, 10)
+  const fC   = props.spec.functions.length
+  const vC   = props.spec.values.length
+  const sC   = props.spec.solutions.length
+  exportDownload(_canonicalSpecHtml(props.spec), `sem-spec-${fC}f-${vC}v-${sC}s-${date}`)
+}
+
+function messageSpec(): void {
+  if (!props.spec) return
+  const plain  = props.markdown || serialise(props.spec)
+  const date   = new Date().toISOString().slice(0, 10)
+  const header = `Spec · ${date}\n──────────────────────\n`
+  const body   = header + plain
+  const SMS_CAP = 2000
+  let encoded  = encodeURIComponent(body)
+  if (encoded.length > SMS_CAP) {
+    const truncated = body.slice(0, Math.floor(body.length * (SMS_CAP / encoded.length) * 0.9))
+    encoded = encodeURIComponent(truncated + '\n…[truncated]')
+  }
+  window.location.href = `sms:?body=${encoded}`
+}
+
+async function copySpecForChat(): Promise<void> {
+  if (!props.spec) return
+  // r41 v78 (Tom Gilb 2026-06-16 verbatim "why cant chat be color and
+  // detail????") — chat-copy is no longer plain-only.  Build the SAME
+  // colourful HTML the Email + Copy flows build (full mode, all detail
+  // rows: Ambition Level + Source + Rationale + Justification + Risks +
+  // Assumptions + Stakeholder Source row + fieldSources per-field rows)
+  // and write BOTH text/html AND text/plain to the clipboard via the
+  // shared exportCopy helper.  Chat apps that support rich paste
+  // (Claude.ai, ChatGPT Web, Notion, Obsidian, Linear, …) will use the
+  // colour version; plain-text-only targets (a vintage REPL, a bare
+  // <textarea>, ssh terminal) fall back to markdown automatically — the
+  // dual-MIME ClipboardItem hands both representations to the paste
+  // target which picks the richest it understands.  Composes with: the
+  // BOTH-surfaces rule (r41 v63), Colorful HTML Spec Email Rule SUPREME
+  // (chat surface gets the same colour discipline as email). -->
+  const plain     = props.markdown || serialise(props.spec)
+  const modelName = props.spec ? `Spec · ${props.spec.functions.length}F · ${props.spec.values.length}V · ${props.spec.solutions.length}S` : 'Spec'
+  let html = ''
+  try {
+    html = renderColorfulSpecHtml(props.spec, modelName, undefined, { mode: 'full' })
+  } catch (err) {
+    console.warn('[copySpecForChat] colourful HTML build failed — plain-only', err)
+  }
+  console.info('[copySpecForChat] mode=full · html size:', html.length, 'chars · plain size:', plain.length)
+  // exportCopy writes BOTH text/html AND text/plain via ClipboardItem when
+  // the html is non-empty; falls back to writeText for plain-only when html
+  // is empty or ClipboardItem is unavailable.
+  await exportCopy(html || plain, plain)
 }
 
 // ── Per-section export helpers ────────────────────────────────────────────────
@@ -10347,6 +11720,74 @@ async function emailSection(section: string): Promise<void> {
   openEml(_buildSectionHtml(section as Parameters<typeof _buildSectionHtml>[0]), sub)
   emailedSection.value = section
   setTimeout(() => { emailedSection.value = null }, 4000)
+}
+
+// ── Per-ENTRY export helpers ─────────────────────────────────────────────────
+// r41 v280 (Tom Gilb 2026-06-22 verbatim "we need… to be able to export any one
+// item, all items of a type, and all Planguage specs"): build a single-entry
+// spec view by filtering all other arrays to empty, then call the canonical
+// renderColorfulSpecHtml so the per-entry export carries the FULL 26-parameter
+// inventory + canonical Planguage styling that the group-level + spec-level
+// exports already produce.  Composes with: Canonical Planguage Extractor
+// SUPREME (single renderer path), Colorful HTML Spec Email Rule SUPREME (per-
+// entry email still auto-opens Mail.app per SEM Email Body Standard), Both-
+// Surfaces SUPREME (in-app display + export use the SAME canonical renderer).
+type SpecEntryType = 'F' | 'V' | 'S' | 'C' | 'R' | 'Sh'
+const copiedEntryId  = ref<string | null>(null)
+const emailedEntryId = ref<string | null>(null)
+function _singleEntrySpec(type: SpecEntryType, id: string): SpecBlock | null {
+  const s = props.spec
+  if (!s) return null
+  // Clone all arrays empty, then re-populate the targeted one with just the matching entry.
+  const cloned: SpecBlock = {
+    ...s,
+    functions:   [],
+    values:      [],
+    solutions:   [],
+    constraints: [],
+    resources:   [],
+    // Cast through unknown for stakeholderEntries which may not be on SpecBlock type
+  }
+  ;(cloned as unknown as { stakeholderEntries?: unknown[] }).stakeholderEntries = []
+  if (type === 'F')  cloned.functions   = (s.functions   ?? []).filter(f => f.id === id)
+  if (type === 'V')  cloned.values      = (s.values      ?? []).filter(v => v.id === id)
+  if (type === 'S')  cloned.solutions   = (s.solutions   ?? []).filter(x => x.id === id)
+  if (type === 'C')  cloned.constraints = (s.constraints ?? []).filter(c => c.id === id)
+  if (type === 'R')  cloned.resources   = (s.resources   ?? []).filter(r => r.id === id)
+  if (type === 'Sh') {
+    // Stakeholder cards use `sh.name` as their primary key; the underlying
+    // `stakeholderEntries` use `id`.  Match either to cover both shapes.
+    const she = (s as unknown as { stakeholderEntries?: Array<{ id?: string; name?: string }> }).stakeholderEntries ?? []
+    ;(cloned as unknown as { stakeholderEntries: Array<{ id?: string; name?: string }> }).stakeholderEntries =
+      she.filter(sh => sh.id === id || sh.name === id)
+  }
+  return cloned
+}
+async function copyEntry(type: SpecEntryType, id: string): Promise<void> {
+  const single = _singleEntrySpec(type, id)
+  if (!single) return
+  const html  = renderColorfulSpecHtml(single, (props.spec ? `Spec entry · ${id}` : 'Spec'), undefined, { mode: 'full' })
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html':  new Blob([html],  { type: 'text/html'  }),
+      'text/plain': new Blob([plain], { type: 'text/plain' }),
+    })])
+  } catch {
+    await navigator.clipboard.writeText(plain)
+  }
+  copiedEntryId.value = id
+  setTimeout(() => { copiedEntryId.value = null }, 2000)
+}
+async function emailEntry(type: SpecEntryType, id: string): Promise<void> {
+  const single = _singleEntrySpec(type, id)
+  if (!single) return
+  const html = renderColorfulSpecHtml(single, (props.spec ? `Spec entry · ${id}` : 'Spec'), undefined, { mode: 'full' })
+  const typeName = type === 'F' ? 'Function' : type === 'V' ? 'Value' : type === 'S' ? 'Solution' : type === 'C' ? 'Constraint' : type === 'R' ? 'Resource' : 'Stakeholder'
+  const sub = `SEM Spec — ${typeName} · ${id}`
+  openEml(html, sub)
+  emailedEntryId.value = id
+  setTimeout(() => { emailedEntryId.value = null }, 4000)
 }
 
 // ── Feature Organisation Design — Command Palette Registry ───────────────────
@@ -10562,6 +12003,22 @@ async function emailSection(section: string): Promise<void> {
 .spec-entry-card {
   opacity: 0;
   animation: spec-entry-in 350ms ease-out forwards;
+  /* r41 v62 / v63 (Tom Gilb 2026-06-16 verbatim "The line between spec items
+     needs to be much darker, clear spec item border" + Tom 2026-06-16
+     follow-up "cant yet see line between cards, but you are not done").
+     v87 attempted to tighten this thinking the F/V/S/C/R between-card gaps
+     were the "big blank spaces" complaint — Tom Gilb 2026-06-16 clarified
+     "I did not complain about white space between cards" + "the blank
+     space seems in stakeholders, not values".  v88 reverts the v87
+     tightening; the dark line + 1rem breathing room between F/V/S/C/R
+     cards is what Tom wants.  The blank-space complaint is specific to
+     the Stakeholders section and is addressed there separately. */
+  box-shadow: 0 6px 0 0 rgb(30 41 59), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  margin-bottom: 1rem;
+  position: relative;
+}
+.spec-entry-card:last-child {
+  margin-bottom: 0;  /* no trailing gap at the end of the list */
 }
 
 /*

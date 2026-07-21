@@ -9,7 +9,8 @@
 // This file ships the same content to the bundle so the panel can render
 // offline and so Copy + Email actions work without a fetch.
 
-import { openEml, textToEmailHtml } from './useEmlExport'
+import { textToEmailHtml } from './useEmlExport'
+import { exportEmail } from './useExportShared'
 
 export interface HistorySection {
   /** Short heading shown as a card title in the panel. */
@@ -31,7 +32,7 @@ export const SAVE_GLYPH_SECTIONS: HistorySection[] = [
     heading: 'The glyph',
     paragraphs: [
       'The Save glyph in the SEM App reads `* → [*]`. An asterisk for "any data", an arrow for "into", a bracketed vessel for "the place that holds things like this". Read together: "place this thing into the vault that holds things like this." Get is the inverse: `[*] → *`. Pull this thing out of the vault.',
-      'This page is the why. It is longer than a tooltip; it is the kind of thing you might want to read once, copy once, send to a colleague who asks "why doesn\'t your app use the floppy-disc icon?"',
+      'This page is the why. It is longer than a HoverHint; it is the kind of thing you might want to read once, copy once, send to a colleague who asks "why doesn\'t your app use the floppy-disc icon?"',
     ],
   },
   {
@@ -103,8 +104,8 @@ export function getSaveGlyphHistoryText(): string {
  * Replaces the old `buildSaveGlyphMailto()` + `window.location.href` pattern.
  * Named explicitly (not a URL builder) to signal it has a DOM side-effect.
  */
-export function openSaveGlyphEmail(): void {
+export async function openSaveGlyphEmail(): Promise<void> {
   const subject = SAVE_GLYPH_TITLE
   const text    = getSaveGlyphHistoryText()
-  openEml(textToEmailHtml(text, subject), subject, { plainBody: text })
+  await exportEmail(textToEmailHtml(text, subject), subject, 'Save Glyph history', 'Tom@Gilb.com', text)
 }

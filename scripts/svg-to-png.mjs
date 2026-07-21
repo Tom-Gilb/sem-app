@@ -1,0 +1,18 @@
+import { chromium } from 'playwright';
+import fs from 'fs';
+const svgPath = process.argv[2];
+const outPath = process.argv[3];
+const scale = 2;
+const svg = fs.readFileSync(svgPath, 'utf8');
+const m = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
+const w = parseInt(m[1], 10);
+const h = parseInt(m[2], 10);
+const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>html,body{margin:0;padding:0;background:white;}</style></head><body>${svg.replace(/^<\?xml[^?]*\?>/, '')}</body></html>`;
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: scale });
+await page.setContent(html);
+await page.evaluate(() => document.fonts && document.fonts.ready);
+const buf = await page.screenshot({ omitBackground: false, clip: { x: 0, y: 0, width: w, height: h } });
+fs.writeFileSync(outPath, buf);
+await browser.close();
+console.log(`wrote ${outPath} (${buf.length} bytes)`);

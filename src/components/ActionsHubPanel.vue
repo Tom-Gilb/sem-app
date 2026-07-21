@@ -88,6 +88,20 @@ interface SectionDef {
 
 const allSections = computed<SectionDef[]>(() => [
 
+  // ── 0. SETUP ───────────────────────────────────────────────────────────────
+  // r41 v44 (Tom Gilb 2026-06-16 verbatim "AND SETTINGS NEEDS TO BE IN ACTIONS
+  // TOO" — escalation from r41 v43 where Settings was hidden in the ABOUT
+  // section).  Promoted to a top-level SETUP section so it's the FIRST thing
+  // a planner sees when opening ⚡ Actions.  Also reachable via ⌘, and the
+  // amber ⚙ Settings pin in the title bar (r41 v43 surfaces).
+  {
+    key: 'setup', label: 'SETUP', emoji: '⚙️',
+    blurb: 'SEM Settings — Mode, AI level, Illumination AI defaults, Privacy, Evo, Visual, Workflow, Export, Collab, Diagnostics, Strategy Mode.',
+    tiles: [
+      { id: 'settings', label: 'SEM Settings', emoji: '⚙️', thumb: 'emoji' as const, tip: 'Mode (Ultra Light / Pro SEM) · AI Assistance · Illumination AI defaults · Privacy · Sharpening · Evo · Visual · Workflow · Export · Collaboration · Diagnostics · Strategy Mode.  Also reachable via ⌘, or the amber ⚙ Settings pin in the title bar.' },
+    ],
+  },
+
   // ── 1. QUALITY ─────────────────────────────────────────────────────────────
   {
     key: 'quality', label: 'QUALITY', emoji: '🩺',
@@ -124,8 +138,11 @@ const allSections = computed<SectionDef[]>(() => [
   // ── 3. EXPLORE ─────────────────────────────────────────────────────────────
   {
     key: 'explore', label: 'EXPLORE', emoji: '🔭',
-    blurb: 'Animate cumulative value delivery and step-by-step Evo sequences.',
+    blurb: 'Illuminate concepts across Tom\'s corpus. Animate cumulative value delivery and Evo sequences.',
     tiles: [
+      // r41 v29 (Tom Gilb 2026-06-15 verbatim "To Actions menu: 'Illumination AI'")
+      // — featured tile, no spec required (works pre-plan as a knowledge tool).
+      { id: 'illuminationAI', label: 'Illumination AI', emoji: '💡', thumb: 'emoji' as const, tip: 'Search 4,363 illustrations + 663 Planguage Glossary concepts across 61 Tom Gilb books. Glance-first short definition + 6 deep-dive tabs (📖 Define · 📐 Diagram · 🎨 Pictures · 🌌 Universe · 📚 Books · 🧠 Ask Twin). Same as ⌘I.' },
       { id: 'evoSim',  label: 'Evo Value Animation',  emoji: '📈', thumb: 'evoSim',  tip: 'Animate value accumulation across all Evo steps', disabled: !props.hasConfirmedSteps, disabledTip: 'No Evo Steps yet. Go to Stage 6 (Evo Steps) and confirm at least one delivery step to unlock this.' },
       { id: 'replay',  label: 'Evo Step Sequence',    emoji: '🔁', thumb: 'replay',  tip: 'Step-by-step replay of Evo delivery sequence',   disabled: !props.hasConfirmedSteps, disabledTip: 'No Evo Steps yet. Go to Stage 6 (Evo Steps) and confirm at least one delivery step to unlock this.' },
     ],
@@ -149,9 +166,10 @@ const allSections = computed<SectionDef[]>(() => [
     key: 'edit', label: 'EDIT', emoji: '✏️',
     blurb: 'Refine the specification with the spec editor and AI assistance.',
     tiles: [
-      { id: 'specEditor', label: 'Spec Editor',          emoji: '📝', thumb: 'specEditor', tip: 'Direct spec editing mode — edit any entry manually',   disabled: !props.hasSpec },
-      { id: 'sharpen',    label: 'Sharpen Plan',         emoji: '🔪', thumb: 'sharpen',    tip: 'AI sharpening cycles to improve spec precision',       disabled: !props.hasSpec },
-      { id: 'improve',    label: 'Improve This Version', emoji: '✨', thumb: 'improve',    tip: 'Generate an AI-improved version of the current spec', disabled: !props.hasSpec },
+      { id: 'specEditor', label: 'Spec Editor',          emoji: '📝', thumb: 'specEditor', tip: 'Direct spec editing mode — edit any entry manually',                                                          disabled: !props.hasSpec },
+      { id: 'sharpen',    label: 'Sharpen Plan',         emoji: '🔪', thumb: 'sharpen',    tip: 'AI sharpening cycles to improve spec precision',                                                                 disabled: !props.hasSpec },
+      { id: 'autoDbo',    label: 'Auto-DBO',             emoji: '⚙',   thumb: 'emoji' as const, tip: 'Design By Objectives — explore Solution alternatives as versioned snapshots; sharpen with 9 design dimensions; IET compare; approve to master. Tom Gilb / Lech Krzanik, 1978.' },
+      { id: 'improve',    label: 'Improve This Version', emoji: '✨', thumb: 'improve',    tip: 'Generate an AI-improved version of the current spec',                                                            disabled: !props.hasSpec },
     ],
   },
 
@@ -217,10 +235,10 @@ const allSections = computed<SectionDef[]>(() => [
     key: 'backup', label: 'BACKUP', emoji: '🛡',
     blurb: 'Export, import and protect all your plan data and source code.',
     tiles: [
-      { id: 'savePlan',      label: 'Save Plan',       emoji: '⬇',  thumb: 'savePlan',     tip: 'Download the current spec as a JSON file',              disabled: !props.hasSpec },
+      { id: 'savePlan',      label: 'Save Plan',       emoji: '⬇',  thumb: 'savePlan',     tip: 'Download the current spec as a Planguage Representation file',              disabled: !props.hasSpec },
       { id: 'emailPlan',     label: 'Email Plan',      emoji: '✉',  thumb: 'emailPlan',    tip: 'Send the current spec via email',                       disabled: !props.hasSpec },
-      { id: 'restorePlans',  label: 'Restore Plans',   emoji: '↑',  thumb: 'restorePlans', tip: 'Import a previously saved JSON backup' },
-      { id: 'backup',        label: 'Backup SEM App',  emoji: '🛡',  thumb: 'backup',       tip: 'Backup all plan models to a single JSON file',          disabled: !props.hasMultipleModels },
+      { id: 'restorePlans',  label: 'Restore Plans',   emoji: '↑',  thumb: 'restorePlans', tip: 'Import a previously saved Planguage Representation backup' },
+      { id: 'backup',        label: 'Backup SEM App',  emoji: '🛡',  thumb: 'backup',       tip: 'Backup all plan models to a single Planguage Representation file',          disabled: !props.hasMultipleModels },
       { id: 'codeSnapshot',  label: 'Code Snapshot',   emoji: '💻', thumb: 'backup',       tip: 'Copy the Terminal command to ZIP the full source code to your Desktop' },
     ],
   },
@@ -269,6 +287,8 @@ const allSections = computed<SectionDef[]>(() => [
     key: 'about', label: 'ABOUT', emoji: '📖',
     blurb: 'Plan metadata, app scoreboard, attribution and Planguage glyph essays.',
     tiles: [
+      // r41 v44 — SEM Settings tile moved from here (ABOUT) to the new top-level
+      // SETUP section so it's the very first thing visible.
       { id: 'toolInfo',      label: 'Plan Metadata',      emoji: 'ℹ',  thumb: 'toolInfo',      tip: 'Purposes, originator, tags, URLs for this plan', disabled: !props.hasPlan },
       { id: 'semMetadata',   label: 'SEM Metadata',       emoji: '🧬', thumb: 'semMeta',       tip: 'App build stats, component counts and session counters' },
       { id: 'copyright',     label: 'Copyright',          emoji: '©',  thumb: 'copyright',     tip: 'Open-source attributions and Tom Gilb copyright notices' },
@@ -297,7 +317,7 @@ const filteredSections = computed<SectionDef[]>(() => {
     .filter(s => s.tiles.length > 0)
 })
 
-// ── Tooltip hover ─────────────────────────────────────────────────────────────
+// ── HoverHint hover ─────────────────────────────────────────────────────────────
 
 const hoveredId = ref<string | null>(null)
 
@@ -435,7 +455,7 @@ function handleTile(tile: Tile): void {
                   >{{ tile.label }}</span>
                 </div>
 
-                <!-- Tooltip — appears BELOW tile on hover (top-full avoids scroll-container clip).
+                <!-- HoverHint — appears BELOW tile on hover (top-full avoids scroll-container clip).
                      Enabled tiles: dark slate tip. Disabled tiles with disabledTip: amber warning
                      explaining WHY disabled and how to unlock (DD-009 Zero-Training UI). -->
                 <Transition

@@ -23,3 +23,7 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+
+# Do NOT commit backups of dotenv files (Tom 2026-07-21)
+.env.local.bak*
+.env.*.bak*

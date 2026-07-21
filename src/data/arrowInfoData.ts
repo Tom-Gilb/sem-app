@@ -148,50 +148,53 @@ export const ARROW_INFO_DATA: ArrowInfo[] = [
     ],
   },
 
-  // Arrow 3: Impacts → Refine
+  // Arrow 3: Impacts → Refine Attributes
+  // r41 v379 (Tom Gilb 2026-06-25 "Refine Attributes" generalization) — arrow
+  // info reframed from constraint-only to the four attribute lenses.
   {
     idx: 3,
     fromStage: 4,
     toStage: 5,
     fromLabel: 'Impacts',
-    toLabel: 'Refine',
+    toLabel: 'Refine Attributes',
     fromType: 'value',
     toType: 'constraint',
     sections: [
       {
         emoji: '📜',
         title: 'History',
-        body: 'The Apollo 13 mission (1970) is the most famous example of refinement under hard constraints: oxygen, power, and trajectory were all constrained. The team\'s genius was not adding features but refining the plan within fixed physical limits. "Failure is not an option" was a constraint, not a value.',
+        body: 'Once a first-pass design exists, re-design — change, delete, add — is the central engineering activity. The Wright Brothers iterated through dozens of wing-warping and propeller re-designs before powered flight (1903); each iteration refined a different attribute (lift, drag, control, structural mass). Apollo refined the Lunar Module guidance computer through multiple cycles to balance memory, weight, and reliability. Toyota\'s kaizen institutionalised continuous attribute refinement.',
         links: [
-          { label: 'Apollo 13 (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Apollo_13' },
+          { label: 'Wright Brothers — iterative design (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Wright_brothers' },
+          { label: 'Kaizen (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Kaizen' },
         ],
       },
       {
         emoji: '📐',
         title: 'Planguage',
-        body: 'Refine adds C. (Constraint) entries — binary must/must-not conditions and scalar budget limits — that the plan must satisfy regardless of value optimisation. Constraints are not negotiated; they are hard outer bounds. Resource budgets (time, money, people) are C. entries too. Primary prioritisation = maximise V. wishes within all C. entries.',
+        body: 'Refine Attributes covers re-design across four lenses: 5.1 Reduce Resources · 5.2 More Value Same Cost · 5.3 Reduce Risks · 5.4 Relax Constraints + Qualifiers. Exit gate (5.5) is a Planner-approved Solution Set + a Changes-List of implied edits to Stakeholder / Value / Constraints / Resources specs. Constraints are ONE of the four lenses — not the whole stage.',
         links: [
           { label: 'Tom Gilb: SUCCESS (ResearchGate)', url: 'https://www.researchgate.net/publication/368222785_SUCCESS' },
+          { label: 'Tom Gilb: Planguage glossary (Gilb.com)', url: 'https://www.gilb.com/planguage' },
         ],
       },
       {
         emoji: '💡',
         title: 'Fun Fact',
-        body: 'Constraints are mathematically powerful: Linear Programming (Dantzig, 1947) showed that optimising an objective WITHIN constraints is tractable, while optimising without bounds is undecidable. Planguage\'s Constraints+Values structure is essentially LP applied to product planning.',
+        body: 'The "more value same cost" lens (5.2) is the engineering analogue of the Pareto frontier in economics: at each iteration you find a re-design that dominates the previous one (≥ Value, ≤ Cost) on at least one dimension. A plan that runs through the four lenses repeatedly approaches the Pareto-optimal Solution Set.',
         links: [
-          { label: 'Linear programming (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Linear_programming' },
-          { label: 'George Dantzig (Wikipedia)', url: 'https://en.wikipedia.org/wiki/George_Dantzig' },
+          { label: 'Pareto efficiency (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Pareto_efficiency' },
         ],
       },
     ],
   },
 
-  // Arrow 4: Refine → Evo Steps
+  // Arrow 4: Refine Attributes → Evo Steps
   {
     idx: 4,
     fromStage: 5,
     toStage: 6,
-    fromLabel: 'Refine',
+    fromLabel: 'Refine Attributes',
     toLabel: 'Evo Steps',
     fromType: 'constraint',
     toType: 'evo-step',

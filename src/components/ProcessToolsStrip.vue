@@ -40,6 +40,15 @@ interface Props {
   agentMenuOpen?: boolean
   /** Actions menu open state. */
   menuOpen?: boolean
+  /** r41 2026-06-20 — Export pin enabled state.  Post-spec → always enabled
+   *  (the full Spec is exportable).  Pre-spec → enabled when there's
+   *  something the user has typed/imported on the current window worth
+   *  exporting (form state, imported contract text, etc.).  When disabled,
+   *  the pin shows a HoverHint explaining there's nothing to export yet. */
+  canExport?: boolean
+  /** r41 v228 — true when the Plan Crest is currently collapsed (Focus Mode).
+   *  Drives the Focus pin's icon + label so it self-describes its state. */
+  focusModeActive?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
@@ -54,6 +63,8 @@ withDefaults(defineProps<Props>(), {
   speakerSupported:   true,
   agentMenuOpen:      false,
   menuOpen:           false,
+  canExport:          false,
+  focusModeActive:    false,
 })
 
 const emit = defineEmits<{
@@ -62,54 +73,72 @@ const emit = defineEmits<{
   'redo':            []
   'open-search-term':[]
   'open-settings':   []
+  'refresh':         []
   'open-sos':        []
   'open-mic':        []
   'open-read':       []
   'open-books':      []
   'open-agents':     []
   'open-actions':    []
+  'open-demos':      []
+  /** r41 2026-06-20 (Tom Gilb verbatim "need export on this window, as
+   *  standard for every window, right") — Export pin emit.  Composes with
+   *  the Export-button-on-all-windows rule SUPREME (memory:
+   *  rule_export_button_on_all_windows.md, 2026-06-06): full-model
+   *  colorful HTML preview + clipboard HTML+plain + auto-open Mail to
+   *  Tom@Gilb.com per SEM Email Body Standard.  Handler lives in App.vue
+   *  so it can dispatch to the right exporter (full-spec post-spec; current
+   *  window's draft data pre-spec). */
+  'open-export':     []
+  /** r41 v228 (Tom Gilb 2026-06-20) — explicit "Scroll Away menus" pin.
+   *  Toggles Focus Mode: hides the Plan Crest bands (IdentityStrip +
+   *  StageToolsStrip + AgentsStrip) into a thin restore strip; main
+   *  content broadens.  Bound to App.vue `focusModeToggle()` + ⌘. shortcut. */
+  'toggle-focus':    []
 }>()
 </script>
 
 <template>
-  <div class="absolute top-1.5 right-1 flex items-end justify-end gap-2 pr-0.5 max-w-[calc(100%-260px)]">
-    <!-- Group title — Level 1 identity -->
-    <div
-      class="shrink-0 flex flex-col gap-0.5 mr-1 self-end"
-      :class="variant === 'post-spec' ? '' : ''"
-      aria-hidden="true"
-    >
-      <span
-        class="text-[9px] font-bold uppercase tracking-widest leading-none"
-        :class="variant === 'post-spec' ? 'text-white/40' : 'text-slate-400'"
-      >
-        Always Available
-      </span>
-      <span
-        class="text-[11px] font-extrabold uppercase tracking-wider leading-none whitespace-nowrap"
-        :class="variant === 'post-spec' ? 'text-white/85' : 'text-slate-700'"
-      >
-        Level 1 · Process Tools
-      </span>
-    </div>
+  <!-- r41 v147 — outer container no longer absolute; component is now
+       slotted INTO the IdentityStrip's `end` slot per Tom Gilb 2026-06-17
+       verbatim "inside one of 3 bars top one".  Sits in normal flex flow
+       at the right edge of the Plan Identity bar via the slot wrapper's
+       ml-auto. -->
+  <div class="flex items-end justify-end gap-2">
+    <!-- r41 v221 (Tom Gilb 2026-06-20 verbatim "PROCESS TOOLS overlap"
+         regression) — the aria-hidden "Process Tools" label was bleeding
+         through behind the pin pills at narrow viewports (the IdentityStrip
+         parent uses flex-wrap; the slot wrapper would push the label onto a
+         visual row that overlapped the pills' z-stack).  Label DROPPED — it
+         was aria-hidden so screen readers never used it, and each pin pill
+         already carries its own aria-label ("App controls" / "Tools") plus
+         every button has a visible text label per Icon-Plus-Text SUPREME.
+         No semantic loss; overlap structurally eliminated.  r41 v150
+         framing-drop rationale ("anyone can see the level and the name of
+         the area is more informative") extends here — the area is named by
+         its content, not by a header. -->
 
     <!-- CONTROLS sub-pill — slate background, h-10 buttons -->
     <div
       class="shrink-0 flex items-center gap-1 rounded-2xl bg-slate-700/40 ring-1 ring-white/15 px-1.5 py-1"
       aria-label="App controls"
     >
-      <!-- 🔍 Find — opens command palette -->
+      <!-- 🔍 Find Tool — opens command palette.  r41 v149 (Tom Gilb 2026-06-17
+           "find needs find Tool, since find is very close to ill and search").
+           Renamed Find → Find Tool to disambiguate from the adjacent Search
+           Term button (which looks up Planguage terms / Gilb illustrations).
+           Find Tool = find a TOOL/AFFORDANCE; Search Term = find a TERM. -->
       <button
         type="button"
         class="h-10 flex flex-col items-center justify-center gap-0.5 px-2 rounded-lg
                bg-slate-700/80 text-white hover:bg-slate-600 ring-1 ring-slate-400/60 hover:ring-slate-300
                focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all"
-        aria-label="Find — open command palette (Cmd+F)"
-        title="🔍 Find · ⌘F — open the Actions / command palette.  Type anywhere to filter every reachable affordance in SEM App."
+        aria-label="Find Tool — open command palette (Cmd+F)"
+        title="🔍 Find Tool · ⌘F — open the Actions / command palette.  Type anywhere to filter every reachable affordance / tool / button in SEM App.  Use this when you know a feature exists but cannot remember where it lives."
         @click="emit('open-find')"
       >
         <span class="text-base leading-none" aria-hidden="true">🔍</span>
-        <span class="text-[10px] font-bold leading-none tracking-wide">Find</span>
+        <span class="text-[10px] font-bold leading-none tracking-wide whitespace-nowrap">Find Tool</span>
       </button>
 
       <!-- ↶ Undo — post-spec only -->
@@ -179,6 +208,35 @@ const emit = defineEmits<{
         <span class="text-[10px] font-bold leading-none tracking-wide">Settings</span>
       </button>
 
+      <!-- 🔄 Refresh — Tom Gilb 2026-06-19 verbatim "SOS is emergency drastic,
+           so simple refresh of a plan has to be outside it".  Non-destructive
+           page reload with cache-bust query so no stale Vue HMR state
+           survives.  Equivalent to ⌘R but easier to find than the keyboard
+           shortcut.  Lives BETWEEN Settings and SOS so the destructive SOS
+           pin stays at the far right where the planner expects it. -->
+      <button
+        type="button"
+        class="h-10 flex flex-col items-center justify-center gap-0.5 px-2 rounded-lg
+               bg-sky-500/85 text-white hover:bg-sky-400 ring-1 ring-sky-300/60
+               focus:outline-none focus:ring-2 focus:ring-sky-300 transition-all"
+        aria-label="Refresh — reload the SEM App with a clean cache (Cmd+R equivalent)"
+        title="🔄 Refresh — non-destructive page reload (equivalent to ⌘R).  Bumps a cache-bust query so no stale module state survives.  Use this when the UI feels off and you want a clean refresh.  NOT destructive — your spec data is safe."
+        @click="emit('refresh')"
+      >
+        <span class="text-base leading-none" aria-hidden="true">🔄</span>
+        <span class="text-[10px] font-bold leading-none tracking-wide">Refresh</span>
+      </button>
+
+      <!-- r41 v229 (Tom Gilb 2026-06-20 refinement: "I like the idea that
+           the menus do not disappear, they scroll up, out of the way, but
+           we inituitively know that and can bring them down by a simple
+           scroll") — Focus-Mode toggle pin DROPPED.  The Plan Crest is now
+           in-flow at the top of the page; scrolling up = menus visible,
+           scrolling down = menus go out of view.  No explicit pin needed
+           because the scroll IS the mechanism.  Composes with MOVE
+           (scrolling is the universal "find the menus" gesture) +
+           No-Silent-Removal (menus still always in DOM). -->
+
       <!-- 🆘 SOS -->
       <button
         type="button"
@@ -242,6 +300,58 @@ const emit = defineEmits<{
       >
         <span class="text-base leading-none" aria-hidden="true">🔊</span>
         <span class="text-[10px] font-bold leading-none tracking-wide">{{ speaking ? 'On' : 'Read' }}</span>
+      </button>
+
+      <!-- 🎬 Demos — universally reachable per Tom Gilb 2026-06-18 verbatim
+           "I cannot find any clips or other demo".  Was previously gated to
+           Stage 1 mock-no-spec only; now lives in the Process Tools strip so
+           every stage + every spec state can reach the catalog.  MOVE Principle. -->
+      <button
+        type="button"
+        :class="variant === 'post-spec'
+          ? 'h-10 flex flex-col items-center justify-center gap-0.5 px-2 rounded-lg bg-indigo-500/90 text-white hover:bg-indigo-400 ring-1 ring-indigo-300/60 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all'
+          : 'h-10 flex flex-col items-center justify-center gap-0.5 px-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 ring-1 ring-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all'"
+        aria-label="Demos — catalog of per-stage / per-tool / per-agent recorded replays"
+        title="🎬 Demos — opens the Demos catalog: pick a Stage, a Tool, or an Agent and watch a recorded replay of it in action.  (Demo = PASSIVE replay.  For an interactive learn-by-doing experience use 🧙 Guided.  For a UI walkthrough use ? Tour.)"
+        @click="emit('open-demos')"
+      >
+        <span class="text-base leading-none" aria-hidden="true">🎬</span>
+        <span class="text-[10px] font-bold leading-none tracking-wide">Demos</span>
+      </button>
+
+      <!-- 📤 Export — Tom Gilb 2026-06-20 verbatim "need export on this
+           window, as standard for every window, right".  Composes with the
+           Export-button-on-all-windows rule SUPREME (memory:
+           rule_export_button_on_all_windows.md, 2026-06-06).  Universal,
+           appears on every window because Process Tools is slotted into
+           the top Plan Identity bar.  In post-spec state, fires the
+           full-spec export path (colorful HTML preview + clipboard +
+           Mail.app).  In pre-spec state, fires the draft-export path
+           (whatever the current window has — form state, imported text,
+           etc.) when something is present; otherwise disabled with a
+           HoverHint explaining there's nothing to export yet.  Icon-Plus-
+           Text SUPREME honoured (glyph 📤 + text label "Export"). -->
+      <button
+        type="button"
+        :class="[
+          'h-10 flex flex-col items-center justify-center gap-0.5 px-2 rounded-lg transition-all',
+          'focus:outline-none focus:ring-2 focus:ring-emerald-300',
+          variant === 'post-spec'
+            ? 'bg-emerald-500/90 text-white hover:bg-emerald-400 ring-1 ring-emerald-300/60'
+            : 'bg-emerald-600 text-white hover:bg-emerald-500 ring-1 ring-emerald-400/60',
+          !canExport && 'opacity-40 cursor-not-allowed hover:bg-emerald-500/90',
+        ]"
+        :disabled="!canExport"
+        :aria-label="canExport
+          ? 'Export — full-model colorful HTML preview + clipboard + opens Mail.app to Tom@Gilb.com'
+          : 'Export — nothing to export yet on this window'"
+        :title="canExport
+          ? '📤 Export — opens a 100%-of-the-model colorful HTML preview, copies HTML + plain to the clipboard, and auto-opens Mail.app pre-filled with the SEM Email Body Standard (LOUD ⌘V cue).'
+          : '📤 Export — nothing to export from this window yet.  Type or import some content first.'"
+        @click="canExport && emit('open-export')"
+      >
+        <span class="text-base leading-none" aria-hidden="true">📤</span>
+        <span class="text-[10px] font-bold leading-none tracking-wide">Export</span>
       </button>
 
       <!-- 📚 Books — post-spec only -->

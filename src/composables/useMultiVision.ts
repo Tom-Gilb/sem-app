@@ -421,7 +421,9 @@ const insights = computed<MultiVisionInsight[]>(() => {
   // Wish is the STAKEHOLDER DREAM — uncommitted. Reducing it to Goal (committed
   // promise) is a perfectly Planguage-faithful tradeoff because the project never
   // promised the Wish level in the first place.
-  const aimingHigh = vals.filter(v => (vSliders[v.id] ?? 50) > 67)
+  // BUG FIX 2026-06-06: was vSliders[v.id] (deprecated single-thumb, never updated
+  // by the two-thumb UI). Fixed to vWishSliders which IS the active Wish Target slider.
+  const aimingHigh = vals.filter(v => (vWishSliders[v.id] ?? 75) > 67)
   const shortfallValues = vals.filter(v => vFeasibility.value[v.id] === 'red')
 
   for (const highV of aimingHigh) {
@@ -483,9 +485,11 @@ const insights = computed<MultiVisionInsight[]>(() => {
   // Per Glossary *109: beyond Goal = diminishing returns. If we're over-delivering
   // on a Value sitting at a low commitment level, that's surplus the project could redirect
   // OR re-commit to a higher Goal (i.e., raise the negotiated promise).
+  // BUG FIX 2026-06-06: was vSliders[v.id] (deprecated, never updated by two-thumb UI).
+  // Fixed to vWishSliders — the active Wish Target slider the user is committing to.
   for (const v of vals) {
     const delivery = vDelivery.value[v.id] ?? 0
-    const target = vSliders[v.id] ?? 50
+    const target = vWishSliders[v.id] ?? 75
     if (delivery >= target + 30 && target < 90) {
       result.push({
         id: `over-${v.id}`,
@@ -493,8 +497,8 @@ const insights = computed<MultiVisionInsight[]>(() => {
         severity: 'info',
         icon: '🎯',
         message:
-          `${v.id} delivers ${delivery.toFixed(0)}% IET Achievement against your committed level of ${target}/100. ` +
-          `Beyond Goal = diminishing returns (Glossary *109). Either raise the Goal commitment for this Value, ` +
+          `${v.id} delivers ${delivery.toFixed(0)}% IET Achievement against your Wish Target of ${target}/100. ` +
+          `Beyond Goal = diminishing returns (Glossary *109). Either raise the Wish Target further for this Value, ` +
           `or accept the headroom and redirect budget elsewhere.`,
       })
       if (result.filter(r => r.type === 'over-deliver').length >= 2) break

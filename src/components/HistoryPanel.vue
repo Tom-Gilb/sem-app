@@ -17,6 +17,7 @@ import ScrollContainer from './ScrollContainer.vue'
 import { useSpecImporter } from '../composables/useSpecImporter'
 import { useModelLibrary } from '../composables/useModelLibrary'
 import { useContractStore } from '../composables/useContractStore'
+import { useSpecHistory, type SpecVersion } from '../composables/useSpecHistory'
 import { mariaHistory, lastMariaResult } from '../lib/maria/mariaResultStore'
 import type { ImportedPlan, PlanVersion } from '../composables/useSpecImporter'
 import type { MariaHistoryRecord } from '../lib/maria/mariaResultStore'
@@ -27,6 +28,8 @@ import type { MariaResult } from '../types/maria'
 const emit = defineEmits<{
   close:             []
   'load-plan':       [planId: string, versionId: string]
+  /** Load a full SpecBlock snapshot from the spec version history (sem-spec-history-v1). */
+  'load-spec-version': [version: SpecVersion]
   'restore-model':   [modelId: string, versionId: string]
   'load-contract':   [contractId: string]
   'load-maria':      [result: MariaResult]
@@ -37,6 +40,76 @@ const emit = defineEmits<{
 const { plans, selectPlan, setCurrentVersion } = useSpecImporter()
 const { allEntries: allModels, restoreModelVersion } = useModelLibrary()
 const { contracts, setCurrentContract } = useContractStore()
+const { history: specVersionHistory } = useSpecHistory()
+
+// r41 v109 (Tom Gilb 2026-06-17 verbatim "maybe it saves, but i cannot see
+// it") — diagnostic banner so the planner can SEE the actual storage state
+// at the top of every History panel open.  Surfaces the in-memory ref count
+// AND the localStorage bytes-used so a "where did UK Navy go?" moment is
+// no longer a silent guess.  Composes with Trace-Before-Patch SUPREME
+// (don't ask "why missing" without showing data); No-Silent-Data-Loss
+// SUPREME (the storage state was invisible — now it's not).
+const STORAGE_KEY = 'sem-spec-history-v1'
+function _storageStatus(): { entries: number; bytes: number; ok: boolean; err?: string } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) ?? '[]'
+    const parsed = JSON.parse(raw)
+    return {
+      entries: Array.isArray(parsed) ? parsed.length : 0,
+      bytes:   raw.length,
+      ok:      true,
+    }
+  } catch (err) {
+    return { entries: 0, bytes: 0, ok: false, err: String(err).slice(0, 100) }
+  }
+}
+const storageStatus = computed(() => _storageStatus())
+const storageDiverges = computed(() =>
+  specVersionHistory.value.length !== storageStatus.value.entries
+)
+
+// ── Spec version history (sem-spec-history-v1) ────────────────────────────────
+
+/** r41 v83 (Tom Gilb 2026-06-16 verbatim "the uk navy plan was not restorable
+ *  or even finadable in restore and history really back cockup") — was
+ *  hiding all snapshots beyond #12 behind a "Show all" toggle so Tom's UK
+ *  Navy plan (probably ranked >12 in the chronological list) was invisible
+ *  until the toggle was clicked.  Now: show all by default + filter by
+ *  free-text query so the user can type "navy" or "uk" or owner name and
+ *  find their plan directly. */
+const SPEC_VERSIONS_SHOW = 999  // effectively unlimited
+const showAllSpecVersions = ref(true)
+const historyQuery = ref('')
+
+const specVersionsToShow = computed<SpecVersion[]>(() => {
+  const q = historyQuery.value.trim().toLowerCase()
+  if (!q) {
+    return showAllSpecVersions.value
+      ? specVersionHistory.value
+      : specVersionHistory.value.slice(0, SPEC_VERSIONS_SHOW)
+  }
+  // Filter by spec name, label, summary, plan name in label, owner-names blob, plan-people blob.
+  return specVersionHistory.value.filter(v => {
+    const blob = [
+      v.specName,
+      v.label,
+      v.summary,
+      Array.isArray(v.specOwners) ? v.specOwners.join(' ') : '',
+    ].join(' ').toLowerCase()
+    return blob.includes(q)
+  })
+})
+
+// Diagnostic — log what's in localStorage when the panel mounts so Tom can
+// verify in DevTools that the UK Navy plan IS persisted.
+console.info('[HistoryPanel] mounted · specVersionHistory entries:', specVersionHistory.value.length, '· spec models in localStorage:', (() => {
+  try { return JSON.parse(localStorage.getItem('sem-specs') ?? localStorage.getItem('sem-plan-models') ?? '[]').length } catch { return -1 }
+})())
+
+function loadSpecVersion(version: SpecVersion): void {
+  emit('load-spec-version', version)
+  emit('close')
+}
 
 // ── Tab state ─────────────────────────────────────────────────────────────────
 
@@ -117,16 +190,16 @@ const allUserModels = computed(() =>
     <!-- Panel -->
     <div
       class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-             w-[min(640px,94vw)] max-h-[85vh] z-[511]
+             w-[min(640px,94vw)] h-[85vh] max-h-[85vh] z-[511]
              bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
       role="dialog"
       aria-modal="true"
-      aria-label="Workspace History"
+      aria-label="Workspace Past Versions"
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-5 min-h-[52px] border-b border-gray-100 flex-shrink-0 bg-gray-50">
-        <h2 class="text-sm font-semibold text-gray-900">🕐 Workspace History</h2>
-        <CloseDot aria-label="Close History panel" @click="emit('close')" />
+        <h2 class="text-sm font-semibold text-gray-900">🕐 Workspace Past Versions</h2>
+        <CloseDot aria-label="Close Past Versions panel" @click="emit('close')" />
       </div>
 
       <!-- Tab bar -->
@@ -135,7 +208,7 @@ const allUserModels = computed(() =>
           v-for="tab in TABS"
           :key="tab.id"
           type="button"
-          :title="`${tab.label} history — single-click to view`"
+          :title="` Past Versions — single-click to view`"
           :class="[
             'flex-1 py-2.5 text-xs font-semibold transition-colors',
             activeTab === tab.id
@@ -157,9 +230,115 @@ const allUserModels = computed(() =>
 
         <!-- ── PLANS TAB ──────────────────────────────────────────────── -->
         <template v-if="activeTab === 'plans'">
-          <p v-if="plans.length === 0" class="text-sm text-gray-400 text-center py-6">
-            No specs yet — use the Spec Importer to create one.
-          </p>
+
+          <!-- Storage diagnostic banner (r41 v109) — shows in-memory + on-disk
+               counts so a "where did UK Navy go?" moment has a visible answer. -->
+          <div
+            class="mb-3 px-3 py-2 rounded-lg text-[11px] border"
+            :class="storageDiverges
+              ? 'bg-amber-50 border-amber-300 text-amber-900'
+              : 'bg-slate-50 border-slate-200 text-slate-600'"
+            :title="storageDiverges
+              ? `${specVersionHistory.length} entries in memory but only ${storageStatus.entries} persisted to localStorage — a write failure may have happened. Generate again to re-save (r41 v108 auto-trim makes this safe).`
+              : `${specVersionHistory.length} entries in memory · ${(storageStatus.bytes / 1024).toFixed(1)} KB used in localStorage · storage OK`"
+          >
+            <span class="font-bold">Storage:</span>
+            <span class="ml-1">{{ specVersionHistory.length }} in memory</span>
+            <span class="mx-1">·</span>
+            <span>{{ storageStatus.entries }} on disk</span>
+            <span class="mx-1">·</span>
+            <span>{{ (storageStatus.bytes / 1024).toFixed(1) }} KB used</span>
+            <span v-if="storageDiverges" class="ml-2 font-bold">
+              ⚠ {{ specVersionHistory.length - storageStatus.entries }} entries not yet persisted — re-generate to re-save
+            </span>
+            <span v-else-if="!storageStatus.ok" class="ml-2 font-bold text-red-700">
+              ⚠ localStorage error: {{ storageStatus.err }}
+            </span>
+          </div>
+
+          <!-- ── Session Specs (useSpecHistory) ─────────────────────── -->
+          <div v-if="specVersionHistory.length > 0" class="mb-4">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-indigo-500 mb-2 px-1">
+              Session Specs · {{ specVersionHistory.length }} saved snapshot{{ specVersionHistory.length !== 1 ? 's' : '' }}
+              <span v-if="historyQuery" class="ml-1 text-gray-500 font-normal">· {{ specVersionsToShow.length }} matching "{{ historyQuery }}"</span>
+            </p>
+            <!-- r41 v83 (Tom Gilb 2026-06-16 "the uk navy plan was not
+                 restorable or even finadable in restore and history really
+                 back cockup") — search box.  Filter by Plan/Spec name,
+                 label, summary text, or owner name.  No need to remember
+                 the exact name; partial substring is enough. -->
+            <input
+              v-model="historyQuery"
+              type="search"
+              placeholder="🔍 Filter snapshots — type Plan name (e.g. 'navy'), label, or owner…"
+              class="w-full mb-2 px-3 py-2 text-sm rounded-lg border border-indigo-200 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 placeholder:text-gray-400"
+              aria-label="Search session specs by plan name, label, or owner"
+            />
+            <p v-if="historyQuery && specVersionsToShow.length === 0" class="text-xs text-amber-700 italic px-1 py-2">
+              No snapshots matching "{{ historyQuery }}".  Try a shorter substring, or clear the filter.
+            </p>
+            <div class="space-y-1.5">
+              <div
+                v-for="version in specVersionsToShow"
+                :key="version.id"
+                class="flex items-center justify-between px-4 py-2.5 rounded-xl border border-indigo-100 bg-indigo-50/30 hover:bg-indigo-50/60 transition-colors"
+              >
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-semibold text-gray-900 truncate">
+                    {{ version.specName || version.planName || 'Unnamed Spec' }}
+                    <span class="ml-1.5 font-normal text-gray-500">· {{ version.label }}</span>
+                  </p>
+                  <p class="text-[10px] text-gray-400 mt-0.5 truncate">
+                    {{ version.summary }}
+                    · {{ new Date(version.timestamp).toLocaleDateString() }}
+                    {{ new Date(version.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  :title="`Load '${version.specName || version.planName || 'this spec'}' (${version.label}, ${new Date(version.timestamp).toLocaleDateString()}) — single-click to restore this spec as the current working spec`"
+                  class="ml-3 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors flex-shrink-0"
+                  @click="loadSpecVersion(version)"
+                >Load</button>
+              </div>
+            </div>
+            <!-- Show all toggle -->
+            <button
+              v-if="!showAllSpecVersions && specVersionHistory.length > SPEC_VERSIONS_SHOW"
+              type="button"
+              class="mt-2 w-full text-center text-xs text-indigo-500 hover:text-indigo-700 py-1.5"
+              :title="`Show all  spec snapshots`"
+              @click="showAllSpecVersions = true"
+            >Show all {{ specVersionHistory.length }} snapshots ▼</button>
+            <button
+              v-else-if="showAllSpecVersions && specVersionHistory.length > SPEC_VERSIONS_SHOW"
+              type="button"
+              class="mt-2 w-full text-center text-xs text-indigo-400 hover:text-indigo-600 py-1.5"
+              :title="`Collapse to ${SPEC_VERSIONS_SHOW} most recent snapshots`"
+              @click="showAllSpecVersions = false"
+            >Show less ▲</button>
+          </div>
+
+          <!-- ── Imported Plans (useSpecImporter) ──────────────────── -->
+          <div v-if="plans.length > 0">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-violet-500 mb-2 px-1">
+              Imported Plans · {{ plans.length }} plan{{ plans.length !== 1 ? 's' : '' }}
+            </p>
+          </div>
+          <!-- r41 v109 — diagnostic empty state.  Distinguishes "no specs ever
+               generated" from "specs were generated this session but didn't
+               persist" (the post-quota-trim case).  Tom Gilb 2026-06-17:
+               "maybe it saves, but i cannot see it". -->
+          <div v-if="specVersionHistory.length === 0 && plans.length === 0" class="text-center py-6 space-y-2">
+            <p class="text-sm text-gray-500">No specs in this session.</p>
+            <p v-if="storageStatus.entries > 0" class="text-xs text-amber-700">
+              ⚠ {{ storageStatus.entries }} {{ storageStatus.entries === 1 ? 'snapshot' : 'snapshots' }} exist in localStorage ({{ (storageStatus.bytes / 1024).toFixed(1) }} KB) but failed to hydrate this session — try a hard refresh (⌘⇧R).
+            </p>
+            <p v-else class="text-xs text-gray-400">
+              Use the Spec Importer or generate a spec to create one.<br/>
+              (r41 v108: write failures now auto-trim oldest + log to DevTools.)
+            </p>
+          </div>
           <div
             v-for="plan in plans"
             :key="plan.id"
@@ -168,7 +347,7 @@ const allUserModels = computed(() =>
             <!-- Plan row -->
             <button
               type="button"
-              :title="`${plan.title} — single-click to expand/collapse version history`"
+              :title="`${plan.title} — single-click to expand/collapse Past Versions`"
               class="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-indigo-50/40 transition-colors text-left"
               @click="togglePlanVersions(plan.id)"
             >
@@ -228,7 +407,7 @@ const allUserModels = computed(() =>
             <!-- Model row -->
             <button
               type="button"
-              :title="`${model.title} — single-click to expand/collapse version history`"
+              :title="`${model.title} — single-click to expand/collapse Past Versions`"
               class="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-sky-50/40 transition-colors text-left"
               :disabled="!(model.versions?.length)"
               @click="model.versions?.length ? toggleModelVersions(model.id) : undefined"

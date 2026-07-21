@@ -25,12 +25,20 @@
  * Internal toggles (menus, popovers, inline disclosures) should NOT be
  * registered — they are not full-window surfaces.
  */
-import { watch, type Ref } from 'vue'
+import { watch, type Ref, type WatchStopHandle } from 'vue'
 
 interface RegisteredSurface {
   id: string
   openRef: Ref<boolean>
   exclusive: boolean
+  /** r41 v51 — store the watch stop handle so HMR re-registration can
+   *  tear down the prior watcher.  Without this, stale watchers from
+   *  before each Vite HMR accumulate and each one fires on open → close
+   *  every other surface, causing apparent "auto-close after 10 s"
+   *  behaviour during active hot-editing (Tom Gilb 2026-06-16 bug
+   *  report: "multiforks showed for 10 seconds and disappeared on
+   *  its own"). */
+  stopWatch?: WatchStopHandle
 }
 
 const surfaces = new Map<string, RegisteredSurface>()
@@ -49,12 +57,19 @@ export function registerExclusiveSurface(
   options: { exclusive?: boolean } = {},
 ): void {
   const exclusive = options.exclusive !== false
-  const entry: RegisteredSurface = { id, openRef, exclusive }
 
-  // Re-registration replaces the previous entry (HMR-safe).
-  surfaces.set(id, entry)
+  // r41 v51 — Tear down the prior watcher when re-registering (HMR-safe).
+  // Without this every Vite hot-module-reload spawned a new watch on the
+  // same ref while the previous watch kept running.  After several edits
+  // an open surface's "ON" transition would be observed by 5+ stale
+  // watchers, each closing every other surface — including the surface
+  // the user had just opened a few seconds earlier.
+  const prior = surfaces.get(id)
+  if (prior?.stopWatch) {
+    try { prior.stopWatch() } catch { /* ignore */ }
+  }
 
-  watch(openRef, (isOpen) => {
+  const stopWatch = watch(openRef, (isOpen) => {
     if (!isOpen) return
     if (!exclusive) return
     // Close every OTHER exclusive surface that was previously open.
@@ -64,6 +79,9 @@ export function registerExclusiveSurface(
       if (other.openRef.value) other.openRef.value = false
     }
   })
+
+  const entry: RegisteredSurface = { id, openRef, exclusive, stopWatch }
+  surfaces.set(id, entry)
 }
 
 /**

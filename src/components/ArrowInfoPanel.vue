@@ -21,6 +21,19 @@ import type { PlGlyphType } from './icons/PlTypeIcon.vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import { arrowProgressColors, stageProgressColor, STAGE_COUNT } from '../utils/stageProgressColors'
+// r41 v382 (Tom Gilb 2026-06-25 "we need only one well designed export button
+// and function and icon and this is not it") — REPLACE v381's one-off 📨 pin
+// with the canonical <ExportSpecPin> component (same icon GetGlyph + same
+// channel-menu flow used at Stage 10 + Stage 7 + V×Evo + V×Solution tables).
+// The per-channel functions in useInfoPanelExport fire each side-effect on a
+// FRESH user click — fixes the Safari mailto-after-clipboard kill that made
+// v381's Email channel never open Mail.app.
+import ExportSpecPin from './ExportSpecPin.vue'
+import {
+  copyInfoPanel, emailInfoPanel, downloadInfoPanel,
+  messageInfoPanel, copyForChatInfoPanel,
+  type InfoPanelExportInput,
+} from '../composables/useInfoPanelExport'
 
 const props = defineProps<{
   /** Arrow index to show (0–9), or null to hide. */
@@ -65,6 +78,30 @@ const SECTION_TINTS = [
   'bg-violet-50/80 border-violet-200',
   'bg-emerald-50/80 border-emerald-200',
 ]
+
+/**
+ * r41 v382 — Build the export input from current arrow info.  Computed so
+ * the channel handlers stay reactive to props changes.
+ */
+const exportInput = computed<InfoPanelExportInput | null>(() => {
+  if (!info.value) return null
+  const arrow = info.value
+  return {
+    kind: 'arrow',
+    title: `Stage ${arrow.fromStage} ${arrow.fromLabel} → Stage ${arrow.toStage} ${arrow.toLabel}`,
+    tagline: `Stage transition — what changes as planning moves from ${arrow.fromLabel} to ${arrow.toLabel}`,
+    subjectTail: `${arrow.fromLabel} → ${arrow.toLabel}`,
+    footerId: `Arrow ${arrow.idx + 1} of 10 · ${arrow.fromType} → ${arrow.toType}`,
+    sections: arrow.sections,
+  }
+})
+
+// Channel-event handlers — each fires ONE side-effect on a fresh user click.
+function onCopy()        { if (exportInput.value) copyInfoPanel       (exportInput.value) }
+function onEmail()       { if (exportInput.value) emailInfoPanel      (exportInput.value) }
+function onDownload()    { if (exportInput.value) downloadInfoPanel   (exportInput.value) }
+function onMessage()     { if (exportInput.value) messageInfoPanel    (exportInput.value) }
+function onCopyForChat() { if (exportInput.value) copyForChatInfoPanel(exportInput.value) }
 </script>
 
 <template>
@@ -149,7 +186,11 @@ const SECTION_TINTS = [
               </div>
             </button>
 
-            <!-- Close -->
+            <!-- Close — r41 v382 reverted v381's header 📨 pin per Tom Gilb
+                 2026-06-25 *"we need only one well designed export button and
+                 function and icon"* — canonical <ExportSpecPin> moved to its
+                 own dedicated row below the header (matches Stage 10 / Stage
+                 7 / V×Evo / V×Solution placement pattern). -->
             <div class="ml-auto shrink-0">
               <CloseDot
                 variant="on-dark"
@@ -183,6 +224,28 @@ const SECTION_TINTS = [
             />
           </div>
 
+          <!-- r41 v382 (Tom Gilb 2026-06-25 "we need only one well designed
+               export button and function and icon") — canonical <ExportSpecPin>
+               on its own row, light slate-50 backdrop so the dark pin reads
+               against it.  Auto-copies on first click, then offers Email /
+               Download / Message / Copy-for-Chat with 20s countdown.  Each
+               channel fires on a FRESH user click — fixes v381's Safari kill
+               of the chained mailto:. -->
+          <div class="shrink-0 px-4 py-3 bg-slate-50 border-b border-slate-200">
+            <ExportSpecPin
+              :has-spec="true"
+              :spec-name="`${info.fromLabel} → ${info.toLabel}`"
+              label="Export Arrow Info"
+              subtitle="auto-copies · choose channel"
+              artefact-kind="Arrow Info"
+              @copy="onCopy"
+              @email="onEmail"
+              @download="onDownload"
+              @message="onMessage"
+              @copy-for-chat="onCopyForChat"
+            />
+          </div>
+
           <!-- ── Scrollable body ─────────────────────────────────────── -->
           <!-- max-height on inner-style — the ONLY reliable scroll pattern when the panel
                card uses max-h-[90vh] (not an explicit height).
@@ -195,7 +258,7 @@ const SECTION_TINTS = [
           <ScrollContainer
             outer-class="relative overflow-hidden"
             inner-class="px-4 py-4 space-y-3"
-            inner-style="max-height: calc(90vh - 160px);"
+            inner-style="max-height: calc(90vh - 230px);"
             :no-pill="false"
           >
             <!-- Info sections -->

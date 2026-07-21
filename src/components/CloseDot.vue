@@ -16,7 +16,7 @@
 
      Props:
        ariaLabel — required, screen-reader label (e.g. "Close Settings")
-       title     — tooltip text (default: "Close [->")
+       title     — HoverHint text (default: "Close [->")
        variant   — 'on-light' (default — red dot on light background)
                  | 'on-dark'  (white-tinted dot on dark/coloured header background)
                  | 'subtle'   (gray traffic-light variant for secondary contexts)

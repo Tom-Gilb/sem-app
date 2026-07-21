@@ -22,7 +22,7 @@ import PriorityTripleGlyph from './icons/PriorityTripleGlyph.vue'
 withDefaults(defineProps<{
   /** Right-half label. "Edit Priority" / "Set Priority" / "Apply Priority" / etc. */
   label: string
-  /** Tooltip on the action half (right). */
+  /** HoverHint on the action half (right). */
   actionTitle?: string
   /** aria-label on the action half (right). */
   actionAriaLabel?: string

@@ -150,11 +150,13 @@ describe('ARROW_INFO_DATA', () => {
     expect(first.toLabel).toBe('Solutions')
   })
 
-  it('idx 9 connects stages 10→11 (Plan→Export)', () => {
+  // Stage 10 was relabeled from 'Plan' to 'Resources' when the SVERD model landed.
+  // Updated 2026-06-09 to match current arrowInfoData.ts.
+  it('idx 9 connects stages 10→11 (Resources→Export)', () => {
     const last = ARROW_INFO_DATA[9]
     expect(last.fromStage).toBe(10)
     expect(last.toStage).toBe(11)
-    expect(last.fromLabel).toBe('Plan')
+    expect(last.fromLabel).toBe('Resources')
     expect(last.toLabel).toBe('Export')
   })
 })

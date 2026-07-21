@@ -4,14 +4,15 @@
 // Both panels need the same "share this PHI snapshot with someone" workflow:
 //   • 📋 Copy   — rich-clipboard (HTML + plain-text) so it pastes as a real
 //                 Keynote/Numbers grid AND falls back to clean monospace text
-//   • ✉️ Email  — downloads a .eml file that Mail.app opens as a pre-filled
-//                 compose draft (no paste required — Tom Gilb rule 2026-05-29)
+//   • ✉️ Email  — mailto: + clipboard (Auto-Open Email Rule, CLAUDE.md).
+//                 .eml download retired 2026-06-07: silently fails in Tom's browser.
 //
 // One module so the format stays in sync between panels and a future PDF
 // export can reuse the same renderer.
 
 import type { IndexBreakdown, PlanHealthCustom } from './useSpecHealth'
-import { openEml } from './useEmlExport'
+import { exportCopy } from './useExportShared'
+import { showExportEmailBanner } from './useExportBanner'
 
 export interface PlanHealthExportInput {
   planName: string
@@ -203,14 +204,49 @@ export async function copyPlanHealthReport(input: PlanHealthExportInput): Promis
 }
 
 /**
- * Download a .eml file that Mail.app opens as a pre-filled compose draft.
- * The HTML body from `buildPlanHealthReport()` is already in the email —
- * no manual paste required (Tom Gilb universal email rule 2026-05-29).
+ * Email the PHI report via mailto: + clipboard (Auto-Open Email Rule, SUPREME, CLAUDE.md).
+ * HTML goes to clipboard (⌘V source); Mail.app opens automatically; plain text
+ * is embedded in the mailto: body per the SEM Email Body Standard.
  *
- * `to` and `cc` take address lists (typically the Plan Owner emails
- * from `planModel.owners`).
+ * `to` and `cc` take address lists (typically the Plan Owner emails from `planModel.owners`).
  */
-export function emailPlanHealthReport(input: PlanHealthExportInput, to: string[] = [], cc: string[] = []): void {
+export async function emailPlanHealthReport(
+  input: PlanHealthExportInput,
+  to:    string[] = [],
+  cc:    string[] = [],
+): Promise<void> {
   const { html, text, subject } = buildPlanHealthReport(input)
-  openEml(html, subject, { to, cc, plainBody: text })
+  const toAddr  = to.length ? to.join(',') : 'Tom@Gilb.com'
+  const ccParam = cc.length ? `&cc=${encodeURIComponent(cc.join(','))}` : ''
+
+  // 1. Colourful HTML to clipboard (⌘V source).
+  await exportCopy(html, text)
+
+  // 2. Show unmissable banner.
+  showExportEmailBanner('Plan Health Report')
+
+  // 3. Build body per SEM Email Body Standard.
+  const date   = new Date().toISOString().slice(0, 10)
+  const SEP    = '─'.repeat(56)
+  const HEADER = `PASTE ⌘V (CMD+V) HERE FOR COLOR VERSION\nExported: ${date}\n${SEP}\n\n`
+  const TRUNC  = '\n\n…[truncated — press ⌘V above for the full colour version]'
+  const MAX    = 7000
+  let body = HEADER
+  if (encodeURIComponent(HEADER + text).length <= MAX) {
+    body = HEADER + text
+  } else {
+    let lo = 0, hi = text.length
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1
+      if (encodeURIComponent(HEADER + text.slice(0, mid) + TRUNC).length <= MAX) lo = mid
+      else hi = mid
+    }
+    body = HEADER + text.slice(0, lo) + TRUNC
+  }
+
+  // 4. Open Mail after 400 ms so banner renders first.
+  setTimeout(() => {
+    window.location.href =
+      `mailto:${toAddr}?subject=${encodeURIComponent(subject)}${ccParam}&body=${encodeURIComponent(body)}`
+  }, 400)
 }

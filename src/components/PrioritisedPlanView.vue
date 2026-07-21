@@ -2059,7 +2059,7 @@ onMounted(() => {
         ]"
       >
         <div class="bg-green-600 px-4 py-2.5 flex items-center gap-2 rounded-t-xl">
-          <span class="text-xs font-bold text-green-100 bg-green-700 rounded px-1.5 py-0.5">F.</span>
+          <span class="text-xs font-bold text-green-100 bg-green-700 rounded px-1.5 py-0.5">Function</span>
           <span class="text-sm font-semibold text-white truncate">{{ f.id }}</span>
           <!-- Annotation badge -->
           <span
@@ -2241,7 +2241,7 @@ onMounted(() => {
         ]"
       >
         <div class="bg-violet-600 px-4 py-2.5 flex items-center gap-2 rounded-t-xl">
-          <span class="text-xs font-bold text-violet-100 bg-violet-700 rounded px-1.5 py-0.5">V.</span>
+          <span class="text-xs font-bold text-violet-100 bg-violet-700 rounded px-1.5 py-0.5">Value</span>
           <span class="text-sm font-semibold text-white truncate">{{ v.id }}</span>
           <!-- Annotation badge -->
           <span
@@ -2426,7 +2426,7 @@ onMounted(() => {
         ]"
       >
         <div class="bg-orange-600 px-4 py-2.5 flex items-center gap-2 rounded-t-xl">
-          <span class="text-xs font-bold text-orange-100 bg-orange-700 rounded px-1.5 py-0.5">S.</span>
+          <span class="text-xs font-bold text-orange-100 bg-orange-700 rounded px-1.5 py-0.5">Solution</span>
           <span class="text-sm font-semibold text-white truncate">{{ s.id }}</span>
           <!-- Annotation badge -->
           <span v-if="annOf(s.id)"
@@ -2863,7 +2863,7 @@ onMounted(() => {
       <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 space-y-1.5 text-sm text-emerald-900">
         <p class="font-semibold text-emerald-800">Where is your plan?</p>
         <p>
-          🕐 <strong>Version History</strong> — this plan is saved and can be restored at any time.
+          🕐 <strong>Past Versions</strong> — this plan is saved and can be restored at any time.
           Tap the History button in the navigation bar to browse and restore previous versions.
         </p>
         <p v-if="lastDownloadedFile">

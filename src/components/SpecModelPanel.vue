@@ -164,17 +164,24 @@ function formatDate(iso: string): string {
       aria-modal="true"
       aria-label="Planning Models"
     >
-      <!-- Header -->
-      <div class="flex items-center justify-between px-4 border-b border-gray-100 min-h-[56px] flex-shrink-0">
-        <div>
+      <!-- Header — r41 v174 — Tom Gilb 2026-06-18 "Planning Models does not
+           close" — Trace-Before-Patch: CloseDot wires @click correctly,
+           emits chain to @close → modelsOpen=false.  Root cause: default
+           size="md" (20px) is too small to target reliably (Tom 85,
+           accessibility_tom.md baseline).  Fixed: bump to size="lg" (32px)
+           per CloseDot rule strengthened 2026-06-03 "use size='lg' on any
+           drawer/modal whose header is the user's only escape route". -->
+      <div class="flex items-center justify-between gap-3 px-4 border-b border-gray-100 min-h-[64px] flex-shrink-0">
+        <div class="min-w-0 flex-1">
           <h2 class="text-sm font-semibold text-gray-900">Planning Models</h2>
           <p class="text-[11px] text-gray-400">{{ allModels.length }} saved</p>
         </div>
         <CloseDot
-        title="Close"
-        aria-label="Close planning models panel"
-        @click="emit('close')"
-      />
+          size="lg"
+          title="Close — return to your plan"
+          aria-label="Close planning models panel"
+          @click="emit('close')"
+        />
       </div>
 
       <!-- Body -->

@@ -20,13 +20,13 @@ const props = withDefaults(defineProps<{
   threshold?: number     // default 50
   /** size in px (default 56) */
   size?: number
-  /** Tooltip override */
+  /** HoverHint override */
   title?: string
   /** When true, show a small red notification dot at the top-right of the badge.
    *  Set by App.vue when there are pending Plan Health notifications (e.g. a
    *  significant drop after Replan) — gives the Plan Owner an at-a-glance cue. */
   hasAlert?: boolean
-  /** Count of pending alerts. Drives the tooltip wording; the dot itself
+  /** Count of pending alerts. Drives the HoverHint wording; the dot itself
    *  always shows "!" (a universal alert glyph) so users never have to wonder
    *  what a bare digit means. Tom 2026-05-12: "The meaning of the pulsating
    *  '1' on the plan quality % is not clear". */
@@ -61,7 +61,7 @@ const displayValue = computed(() => `${props.index >= 0 ? '+' : ''}${props.index
 const dim = computed(() => `${props.size}px`)
 const fontSize = computed(() => `${Math.round(props.size * 0.27)}px`)
 
-/** Composite tooltip — Plan Health + optional alert hint. The alert hint
+/** Composite HoverHint — Plan Health + optional alert hint. The alert hint
  *  is what makes the pulsating "!" dot self-explanatory: hovering reveals
  *  "1 Plan Health alert pending — click to review" so the user knows
  *  exactly what the attention signal means. */
@@ -104,7 +104,7 @@ const composedAria = computed<string>(() => {
          2026-05-12: "The meaning of the pulsating '1' on the plan quality
          % is not clear" — the dot now shows the universal "!" alert glyph
          (instead of a bare count digit) so the attention signal is
-         self-explanatory. Count is surfaced via tooltip + aria-label
+         self-explanatory. Count is surfaced via HoverHint + aria-label
          instead. When count > 1, the badge below the dot shows e.g. "!3"
          so multi-alert state is still visible. -->
     <span

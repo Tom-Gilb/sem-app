@@ -103,10 +103,10 @@ export function buildScorecardEntry(
 
 const CRITERION_META: Array<{ key: keyof ScorecardEntry['criteria']; label: string; description: string }> = [
   { key: 'plainLanguage', label: 'Plain Language', description: 'No words longer than 12 characters' },
-  { key: 'numericGoal', label: 'Numeric Goal', description: 'Goal contains a digit (V. entries only)' },
+  { key: 'numericGoal', label: 'Numeric Goal', description: 'Goal contains a digit (Value entries only)' },
   { key: 'stakeholderCoverage', label: 'Stakeholder Coverage', description: 'Linked to a function or value entry' },
   { key: 'noPassiveVoice', label: 'No Passive Voice', description: 'Description avoids passive constructions' },
-  { key: 'unitsPresent', label: 'Units Present', description: 'Scale contains a recognisable unit (V. entries only)' },
+  { key: 'unitsPresent', label: 'Units Present', description: 'Scale contains a recognisable unit (Value entries only)' },
   { key: 'descLength', label: 'Desc Length', description: 'Description is between 20 and 200 characters' },
 ]
 

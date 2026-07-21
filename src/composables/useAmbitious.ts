@@ -5,6 +5,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ref } from 'vue'
 import { MODEL_ID } from '../config/llm'
+import { CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT } from '../config/planguagePrompt'
 import type { SpecBlock, VEntry, AmbitionLevelEntry } from '../types/spec'
 
 /**
@@ -90,11 +91,31 @@ export function useAmbitious(apiKey?: string) {
 
       const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
       const label = makeAmbitiousLabel()
-      const prompt = `You are a Planguage spec writer. Take this spec and rewrite ONLY the Goal levels for each V. entry, making them approximately 2× more ambitious (but still realistic).
-Keep all other fields identical. Return the complete spec as valid JSON in the same format as the input.
-For each V. entry, set "ambitionLevel" to an array with one object: { "source": "app", "label": "${label}" }.
-If the entry already has an ambitionLevel array, append to it rather than replacing.
+      // r41 v271 (Tom Gilb 2026-06-21 "sweep the rest"): canonical primer imported.
+      // This prompt modifies V. Goal levels — the V. parameter-rich + Qualifier
+      // + Infinity-Trap rules from the canonical primer now bind so the rewrite
+      // stays disciplined (e.g. Goal must remain bounded by Qualifiers; can't
+      // silently slip to infinity-trap on 2× bump).
+      const prompt = `You are a Planguage spec writer.
+
+== MAKE-AMBITIOUS INPUT FORMAT (input shape for this caller) ==
+You are given an existing Planguage SPEC. Rewrite ONLY the Goal levels for
+each V. entry, making them approximately 2× more ambitious (but still
+realistic). Keep all other fields identical.
+
+${CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT}
+
+== MAKE-AMBITIOUS SPECIFIC RULES ==
+For each V. entry, set "ambitionLevel" to an array with one object:
+  { "source": "app", "label": "${label}" }
+If the entry already has an ambitionLevel array, APPEND rather than replace.
+The 2× bump must NOT escape the Infinity Trap — if Qualifiers were bounded
+(time/place/event), keep the same bounds. If new bounds become physically
+necessary because of the 2× target, add them per the Qualifier framework
+above.
+
 Input spec: ${JSON.stringify(spec)}
+
 Return ONLY valid JSON — no prose, no markdown fences.`
 
       const response = await client.messages.create({

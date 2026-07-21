@@ -56,7 +56,11 @@ export function useClarifyingQuestions() {
         `Stakes: ${payload.stakes}\nEnds: ${payload.ends}\nMeans: ${payload.means}`
 
       const response = await client.messages.create({
-        model: (import.meta.env.VITE_ANTHROPIC_MODEL as string) ?? 'claude-sonnet-4-5',
+        // r41 2026-06-20 — bumped model from claude-sonnet-4-5 to
+        // claude-sonnet-4-6 for consistency with the contract parser and
+        // the wider app (Model Selection Rule SUPREME — Sonnet for
+        // JSON-array generation).
+        model: (import.meta.env.VITE_ANTHROPIC_MODEL as string) ?? 'claude-sonnet-4-6',
         max_tokens: 512,
         messages: [{ role: 'user', content: userContent }],
       })
@@ -68,10 +72,36 @@ export function useClarifyingQuestions() {
       const parsed: unknown = JSON.parse(raw)
       if (!Array.isArray(parsed)) throw new Error('Expected JSON array')
 
-      questions.value = (parsed as unknown[])
-        .filter((q): q is string => typeof q === 'string')
-        .slice(0, 5)
+      // r41 2026-06-20 (Tom Gilb verbatim "I clicked answer questins and parse,
+      // the scroll button disappeared and no questions appeared") — silent-
+      // empty bug: when the LLM returns the array but EACH element is an
+      // object (e.g. `[{q: "..."}]`) instead of a string, the
+      // `typeof q === 'string'` filter strips every element and
+      // `questions.value` ends up empty — but no exception is thrown, so
+      // the catch block doesn't run, so the MOCK_QUESTIONS fallback
+      // doesn't fire either.  User sees a blank ClarifyView.  Fix: be
+      // tolerant of the common variant shapes (object with `q` / `question`
+      // / `text` field) AND fall back to MOCK if everything still empty.
+      // Composes with: No-Silent-Data-Loss SUPREME (silent empty IS data
+      // loss from the user's perspective), DD-009 Zero-Training UI.
+      const extracted: string[] = (parsed as unknown[]).flatMap((q) => {
+        if (typeof q === 'string') return [q]
+        if (q && typeof q === 'object') {
+          const o = q as Record<string, unknown>
+          const candidate = o.q ?? o.question ?? o.text ?? o.prompt
+          if (typeof candidate === 'string') return [candidate]
+        }
+        return []
+      }).slice(0, 5)
+
+      if (extracted.length === 0) {
+        console.warn('[useClarifyingQuestions] LLM returned an array with no extractable string questions — falling back to MOCK_QUESTIONS.  Raw response:', textBlock.text)
+        questions.value = [...MOCK_QUESTIONS]
+      } else {
+        questions.value = extracted
+      }
     } catch (err) {
+      console.error('[useClarifyingQuestions] error generating questions, falling back to MOCK_QUESTIONS:', err)
       error.value = err instanceof Error ? err.message : 'Could not generate questions'
       questions.value = [...MOCK_QUESTIONS]
     } finally {

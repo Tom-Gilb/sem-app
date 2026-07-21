@@ -46,6 +46,7 @@ import {
 import type { SpecBlock, VEntry } from '../types/spec'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
+import PlanguageTerm from './PlanguageTerm.vue'
 
 const props = defineProps<{
   planModelId: string
@@ -262,9 +263,9 @@ const atWishCount = computed<number>(() => targetRows.value.filter(r => r.state 
                 <tr class="bg-slate-50 text-slate-600 text-[10px] uppercase tracking-wide">
                   <th class="text-left px-3 py-1.5">Value</th>
                   <th class="text-left px-2 py-1.5">Current</th>
-                  <th class="text-left px-2 py-1.5">Tolerable</th>
-                  <th class="text-left px-2 py-1.5">Goal</th>
-                  <th class="text-left px-2 py-1.5">Wish</th>
+                  <th class="text-left px-2 py-1.5"><PlanguageTerm term="Tolerable" class="text-amber-700" :show-icon="false" /></th>
+                  <th class="text-left px-2 py-1.5"><PlanguageTerm term="Goal" class="text-emerald-700" :show-icon="false" /></th>
+                  <th class="text-left px-2 py-1.5"><PlanguageTerm term="Wish" class="text-violet-700" :show-icon="false" /></th>
                   <th class="text-right px-3 py-1.5">State</th>
                 </tr>
               </thead>

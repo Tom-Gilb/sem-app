@@ -11,6 +11,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ref, readonly } from 'vue'
 import { MODEL_ID } from '../config/llm'
+import { CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT } from '../config/planguagePrompt'
 import type { SpecBlock } from '../types/spec'
 
 // ── Category definitions ───────────────────────────────────────────────────
@@ -334,11 +335,28 @@ function _diffToEntries(before: SpecBlock, after: SpecBlock): SharpenChangedEntr
  * dimension.  Sets phase → 'questions' during the call, 'answering' on success.
  */
 export async function startSharpen(spec: SpecBlock, category: SharpenCategory): Promise<void> {
-  // Concurrency guard — if a round is already in flight, ignore the new request.
-  // Checks both _phase (primary) and _loading (belt-and-suspenders: guards the
-  // brief window where _phase may already be 'idle' but the finally block in
-  // submitSharpenAnswers hasn't set _loading=false yet).
-  if (_phase.value !== 'idle' || _loading.value) return
+  // r41 v225 (Tom Gilb 2026-06-19 verbatim "i selected sharp innovative and it
+  // did not do it, bug, it circle back to sharpen, fix bug") — the previous
+  // concurrency guard SILENTLY returned when phase was not 'idle' (e.g. user
+  // was mid-answering from a prior category, or a stuck/orphaned phase from
+  // a previous session).  Click → no-op → user sees nothing change → looks
+  // exactly like "circles back to sharpen".  Fix: HONOR the new click.
+  // Abort whatever is in-flight, reset phase to idle, clear questions, and
+  // proceed with the new category.  The planner's most recent click wins.
+  // Composes with: MOVE Principle (no silent UI), No-Dodging-Ambiguous-Bugs
+  // SUPREME (silent-return = ambiguous bug class — banked under the same rule
+  // that caught the v201 / v213 auto-emit "modal closed before grid rendered"
+  // failure mode), Universal Undo SUPREME (Apply-on-Sharpen is undoable so
+  // aborting a round in progress is safe).
+  if (_phase.value !== 'idle' || _loading.value) {
+    // Cancel previous fetch + reset state so the new round starts clean.
+    _abortController?.abort()
+    _loading.value = false
+    _phase.value = 'idle'
+    _currentQuestions.value = []
+    // Allow Vue a tick to render the reset before continuing.
+    await new Promise<void>((r) => setTimeout(r, 0))
+  }
 
   // Cancel any previous in-flight fetch before starting a new one
   _abortController?.abort()
@@ -465,6 +483,37 @@ export async function submitSharpenAnswers(
   if (!_currentCategory.value) return null
   const category = _currentCategory.value
 
+  // r41 v410 (Tom Gilb 2026-06-28 verbatim "it goes in a loop of risks even
+  // after I say enough" with screenshot of Stage 2 SharpenPanel showing
+  // *"Updating your plan with 1 Risks insight... (step 2 of 2) ~82% · ~4s
+  // remaining"* progress bar that wouldn't stop on either "Sharp Enough"
+  // or "Cancel round" click).  Trace-Before-Patch SUPREME diagnosis: the
+  // refining `client.messages.create()` call was NOT receiving the abort
+  // signal — compare with `startSharpen()` at line 422 which DOES pass
+  // `signal`.  Result: `cancelSharpen()` aborted the controller, but the
+  // refining fetch was completely unbound from it; the fetch ran to
+  // completion (60-180 s on Sonnet), pushed a round into `_rounds`, and
+  // the progress bar kept showing "Updating your plan with N Risks
+  // insights" because nothing changed `phase.value` from 'refining'.
+  // Tom saw a never-stopping bar and called it a "loop of risks" —
+  // because every time the orphaned fetch finally completed, another
+  // round could start (or appear to start) before the panel state
+  // re-synced.  Fix: reuse the SAME `_abortController` that `startSharpen`
+  // already created — bind its signal to this fetch + check
+  // `signal.aborted` after the await + treat AbortError as a silent
+  // bail-out + restore phase to 'idle' on cancellation.  Composes with:
+  // Trace-Before-Patch SUPREME (the single missing `signal` param is the
+  // textbook one-line cause behind a "loop" symptom — patching the loop
+  // itself would have missed it) + Tom-Repeats-Himself SUPREME (v225
+  // banked the "circles back to sharpen" pattern in `startSharpen`; this
+  // is the same shape — cancel that doesn't actually cancel — at the
+  // refining sibling) + No-Silent-Data-Loss SUPREME (the planner's
+  // implicit "stop now" intent must be honoured — silent fetch-keeps-
+  // running is the same trust violation as silent data drop) + MOVE
+  // Principle (Cancel round + Sharp Enough are visible affordances; they
+  // must actually do what they claim).
+  const _signal = _abortController?.signal
+
   _loading.value = true
   _error.value = ''
   _phase.value = 'refining'
@@ -491,7 +540,18 @@ export async function submitSharpenAnswers(
       .join('\n\n')
     const qa = [mainQA, extraQAText].filter(s => s.trim()).join('\n\n')
 
-    const prompt = `You are a Planguage spec sharpener. Update the following Planguage specification by incorporating new information revealed by a ${category.label} sharpening interview.
+    // r41 v271 (Tom Gilb 2026-06-21 "sweep the rest"): canonical primer imported.
+    // This prompt UPDATES Planguage entries based on sharpening Q&A — so the
+    // full Planguage discipline (F-vs-Meter, V-parameter-rich, Solution
+    // 26-parameter, Qualifier framework, Infinity Trap, etc.) flows in
+    // automatically rather than being hand-rolled per prompt.
+    const prompt = `You are a Planguage spec sharpener.
+
+== SPEC-SHARPENING INPUT FORMAT (input shape for this caller) ==
+You are given an existing Planguage SPEC plus the planner's ANSWERS from a
+${category.label} sharpening interview. Update the spec by incorporating the
+new information revealed by those answers — preserving every existing entry,
+sharpening fields with new specifics, and adding any newly-revealed entries.
 
 Current spec:
 ${specText}
@@ -502,33 +562,32 @@ Dimension focus: ${category.hint}
 Planner's answers:
 ${qa}
 
-Rules for the updated spec:
+${CANONICAL_PLANGUAGE_DISCIPLINE_PROMPT}
+
+== SPEC-SHARPENING SPECIFIC RULES ==
 1. Return ONLY a valid JSON object — no markdown code fences, no prose.
-2. Output EXACTLY this JSON shape — three arrays, nothing else:
+2. Output EXACTLY this JSON shape — three arrays:
 {
-  "functions": [ /* FEntry[] — return ALL entries, never drop existing ones */ ],
-  "values":    [ /* VEntry[] — return ALL entries, never drop existing ones */ ],
-  "solutions": [ /* SEntry[] — return ALL entries, never drop existing ones; you MUST return ≥1 solution */ ]
+  "functions": [ /* FEntry[] — return ALL existing entries, never drop one */ ],
+  "values":    [ /* VEntry[] — return ALL existing entries, never drop one */ ],
+  "solutions": [ /* SEntry[] — return ALL existing entries, never drop one; ≥1 required */ ]
 }
-Where:
-FEntry  { id, type, level, description, presenceTest, functionOfValue }
-VEntry  { id, type, level, description, scale, meter, status, tolerable, goal, valueOfFunction }
-SEntry  { id, type, level, description, impact, function }
-NOTE: Do NOT include a "constraints" key — constraints are managed separately and will be preserved automatically.
-3. Sharpen the spec: update, add, or refine entries to incorporate the ${category.label} insights.
-4. CRITICAL — Preserve ALL existing F., V., and S. entries. Only update specific fields that the planner's answers directly improve. Never remove an entry.
-5. All five V. measurement fields (scale, meter, status, tolerable, goal) must remain populated and non-empty.
-6. F.presenceTest must remain a binary capability test — PRESENT or ABSENT, YES or NO. No numbers or percentages in presenceTest.
-7. Keep id values stable unless a rename is clearly warranted by the content change.
-8. If the answers reveal a new F./V./S. entry is needed, add it with a consistent id.
-9. CRITICAL — Constraints are HARD REQUIREMENTS, not suggestions. Every C. entry in the spec above is a non-negotiable boundary. Every S. entry you write MUST comply with ALL C. entries. If a constraint says "no X" or excludes a technology, approach, or resource, do NOT generate any solution that uses, suggests, or depends on X — not even as an option or a note. Violating a C. entry is a disqualifying error.
-10. For the ${category.label} dimension specifically: use the planner's answers to drive SPECIFIC, NAMED solutions. Do not produce generic descriptions. If the planner names a technology, vendor, mechanism, or approach in their answers, incorporate that exact thing — by name — into the relevant S. entry description.`
+3. Do NOT include a "constraints" key — constraints are managed separately and preserved automatically.
+4. CRITICAL — Preserve ALL existing F., V., and S. entries. Only update specific fields the planner's answers directly improve. Never remove an entry.
+5. CRITICAL — Constraints are HARD REQUIREMENTS. Every C. entry in the spec above is a non-negotiable boundary. Every S. entry you write MUST comply with ALL C. entries. Do NOT generate any solution that violates a constraint — even as an option or note.
+6. Keep id values stable unless a rename is clearly warranted by content change (still per canonical id mnemonic discipline above).
+7. For the ${category.label} dimension specifically: drive SPECIFIC, NAMED outputs. If the planner names a technology, vendor, mechanism, or approach, incorporate that exact thing by name into the relevant entry.`
 
     const response = await client.messages.create({
       model: MODEL_ID,
       max_tokens: 8192,
       messages: [{ role: 'user', content: prompt }],
+      signal: _signal,    // r41 v410 — bind to the abort controller startSharpen created
     })
+
+    // r41 v410 — Bail out silently if cancelSharpen() fired while the fetch was
+    // in flight (matches the established startSharpen pattern at line 430).
+    if (_signal?.aborted) return null
 
     const textBlock = response.content.find((b) => b.type === 'text')
     if (!textBlock || textBlock.type !== 'text') throw new Error('No response from AI')
@@ -588,6 +647,16 @@ NOTE: Do NOT include a "constraints" key — constraints are managed separately 
 
     return refined
   } catch (err) {
+    // r41 v410 — AbortError means cancelSharpen() fired mid-flight; silently
+    // release phase to 'idle' (NOT 'answering') so the panel doesn't trap the
+    // planner at the answers form for a retry they didn't ask for.  Matches
+    // the established startSharpen AbortError handling at line 456.
+    if (err instanceof Error && err.name === 'AbortError') {
+      _phase.value = 'idle'
+      _currentCategory.value = null
+      _currentQuestions.value = []
+      return null
+    }
     _error.value = err instanceof Error ? err.message : 'Failed to sharpen spec — please retry'
     _phase.value = 'answering'   // allow retry without losing answers
     return null

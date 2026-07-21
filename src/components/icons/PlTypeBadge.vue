@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<{
   entryType: string
   /** Glyph size. Default 'sm' (20 px) — fits inline in list rows and badges. */
   size?: 'sm' | 'md' | 'lg' | 'xl'
-  /** Optional tooltip override. Defaults to PlTypeIcon canonical label. */
+  /** Optional HoverHint override. Defaults to PlTypeIcon canonical label. */
   title?: string
   /**
    * When true: render the full spelled-out type name after the glyph icon.

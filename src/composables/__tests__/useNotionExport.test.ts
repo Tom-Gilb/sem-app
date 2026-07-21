@@ -13,7 +13,7 @@ const makeSpec = (): SpecBlock => ({
       type: 'Function',
       level: 'Product',
       description: 'Allow new users to complete onboarding',
-      successCriteria: 'User reaches dashboard after sign-up',
+      presenceTest: 'User reaches dashboard after sign-up',
       functionOfValue: 'V.OnboardingSpeed',
     },
   ],
@@ -78,9 +78,10 @@ describe('useNotionExport', () => {
     expect(output).toContain('**F.OnboardUser** Allow new users to complete onboarding')
   })
 
-  it('F. entry includes success criteria as blockquote', () => {
+  it('F. entry includes presence test as blockquote', () => {
+    // Composable renders "Presence:" label since DD-004 rename (successCriteria → presenceTest)
     const output = convertToNotionMarkdown(makeSpec())
-    expect(output).toContain('> Success: User reaches dashboard after sign-up')
+    expect(output).toContain('> Presence: User reaches dashboard after sign-up')
   })
 
   it('V. entry produces a markdown table with Scale and Meter rows', () => {

@@ -35,6 +35,8 @@ export type AspectGroupId =
   | 'unknowns'
   | 'risks'
   | 'coverage'
+  // ── Spec Quality — traceability, source attribution, data provenance ─────────
+  | 'spec-quality'
   // ── AI Expert Reviewers — opt-in personas that contribute -10..+10 scores ──
   | 'ai-experts'
   // ── Reserved for incremental design (not seeded yet) ──
@@ -62,6 +64,7 @@ export const ASPECT_GROUPS: Record<AspectGroupId, AspectGroupMeta> = {
   'unknowns':             { id: 'unknowns',             label: 'Unknowns',             icon: '❓', hint: 'Things deliberately not yet known',                      defaultWeight: 0.14, seeded: true },
   'risks':                { id: 'risks',                label: 'Risks',                icon: '⚠️', hint: 'Things that could blow up',                              defaultWeight: 0.18, seeded: true },
   'coverage':             { id: 'coverage',             label: 'Coverage',             icon: '🗺️', hint: 'Did we plan the whole thing?',                          defaultWeight: 0.18, seeded: true },
+  'spec-quality':         { id: 'spec-quality',         label: 'Spec Quality',         icon: '🏷️', hint: 'Source attribution, traceability',       defaultWeight: 0.00, seeded: true },
   // AI Experts is *seeded:false by default* so it adds nothing to the PHI math
   // until the Owner enables at least one Expert. addExpert() flips the group
   // on automatically + assigns a sensible default weight (0.15).
@@ -181,7 +184,7 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
     defaultWeight: 0.4,
     evaluate: ({ spec }) => {
       const bad = spec.values.filter(v => !v.scale?.trim()).map(v => v.id)
-      return { score: ratioToScore(countBadFraction(bad.length, spec.values.length)), detail: `${bad.length} of ${spec.values.length} V. lack a Scale`, findings: bad }
+      return { score: ratioToScore(countBadFraction(bad.length, spec.values.length)), detail: `${bad.length} of ${spec.values.length} Values lack a Scale`, findings: bad }
     },
     fix: {
       kind: 'ai',
@@ -190,15 +193,123 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
   },
   {
     id: 'sd-missing-goal', group: 'spec-defects', builtin: true,
-    name: 'V. with no Goal', description: 'Every Value should declare a Goal threshold.',
+    name: 'V. with no Goal (and no Wish)', description: 'Every Value should declare at least one Target — Wish (uncommitted) graduates to Goal (committed) once cost/feasibility are negotiated.',
     defaultWeight: 0.35,
+    // r07 — Tom Gilb 2026-06-16 SUPREME (Value Definition Identity, rule
+    // r05 at-least-one-Target): NEVER fire when Wish IS present, because the
+    // Wish→Goal commitment evolution means a Wish satisfies the at-least-one-
+    // Target rule by itself during early planning. The Goal will graduate
+    // from the Wish once cost/feasibility are negotiated. Tom verbatim:
+    // "Required at least one constrain level (Tolerable) and at least one
+    // target (Wish until we commit to Goal)."  Combined Wish-OR-Goal SHIP-
+    // BLOCKING surface lives in sd-no-target below; this kept defect is the
+    // softer "still no Goal even though Wish is gone or never existed" case.
     evaluate: ({ spec }) => {
-      const bad = spec.values.filter(v => !v.goal?.trim()).map(v => v.id)
-      return { score: ratioToScore(countBadFraction(bad.length, spec.values.length)), detail: `${bad.length} of ${spec.values.length} V. lack a Goal`, findings: bad }
+      const bad = spec.values
+        .filter(v => !v.goal?.trim() && !v.wish?.trim())
+        .map(v => v.id)
+      return {
+        score: ratioToScore(countBadFraction(bad.length, spec.values.length)),
+        detail: `${bad.length} of ${spec.values.length} Values lack BOTH a Goal AND a Wish`,
+        findings: bad,
+      }
     },
     fix: {
       kind: 'ai',
-      description: 'Propose a Goal threshold (target value with date) using the existing Scale and Meter.',
+      description: 'Propose either a Wish (uncommitted stakeholder dream) or a Goal (committed target value with date) using the existing Scale and Meter.  A Wish is the natural first Target — it graduates to a Goal once cost + feasibility are negotiated.',
+    },
+  },
+
+  // ── SHIP-BLOCKING (r07 — Tom Gilb 2026-06-16 SUPREME) ────────────────────
+  // SUCCESS book § 2.1 + § 3.3 + Glossary Success Range *548.  A V. entry
+  // with Tolerable (failure-floor) but NO {Wish, Goal} has NO Success Range:
+  // designers cannot aim at a target they cannot see.  Most severe defect
+  // class — surfaces above all other Sharpening targets per Tom verbatim
+  // *"Failure to define Wish means there is no success and completion and
+  // sufficient definition.  Quite important for design and implementation."*
+  {
+    id: 'sd-ship-blocking-no-target', group: 'spec-defects', builtin: true,
+    name: '🚫 SHIP-BLOCKING — V. with Tolerable but NO Wish AND NO Goal',
+    description: 'SUCCESS book § 2.1 + § 3.3: scalar constraints (Tolerable) define Failure; Wish/Goal Targets define Success.  Without a Wish or Goal there is NO Success Range — no completion criterion, no aim point.  Designers cannot aim at a target they cannot see.',
+    defaultWeight: 0.45,
+    evaluate: ({ spec }) => {
+      const bad = spec.values
+        .filter(v =>
+          v.tolerable?.trim() &&
+          !v.goal?.trim() &&
+          !v.wish?.trim()
+        )
+        .map(v => v.id)
+      // Catastrophic: a single ship-blocking defect drives the aspect score
+      // hard negative to surface above other defects in the panel ordering.
+      const score = bad.length === 0 ? 1 : -1
+      return {
+        score,
+        detail: bad.length === 0
+          ? 'All V. with a Tolerable have at least one Wish or Goal — Success Range defined'
+          : `${bad.length} V. have a Tolerable (failure-floor) but no Wish AND no Goal — designers cannot aim`,
+        findings: bad,
+      }
+    },
+    fix: {
+      kind: 'ai',
+      description: 'Propose a Wish OR a Goal so the Success Range is defined.  Per SUCCESS book § 2.1: Wish is the uncommitted stakeholder dream; Goal is the committed promise.  Either satisfies the at-least-one-Target rule.  Without one, there is no completion criterion for designers / implementers.',
+    },
+  },
+
+  // ── CRITICAL (r07 — Tom Gilb 2026-06-16 SUPREME) ────────────────────────
+  // At-least-one-constraint-level rule + SUCCESS book § 3.3.  Tolerable is
+  // the project-viability threshold; without it there is no project-failure
+  // line.  Distinct Glossary concept from Fail *098 (r08 correction): Fail
+  // is the attribute-acceptability boundary, Tolerable is the project-
+  // viability boundary.  Either one would satisfy the at-least-one-
+  // constraint-level rule, but recent books standardise on Tolerable.
+  // SEM App's VEntry.tolerable: string is the canonical field.  A separate
+  // .fail field is not yet defined; when added, this evaluator must accept
+  // either.
+  {
+    id: 'sd-no-tolerable', group: 'spec-defects', builtin: true,
+    name: 'V. with no Tolerable',
+    description: 'Tom Gilb 2026-06-16: "Required at least one constrain level (Tolerable)".  SUCCESS book § 3.3: Tolerable is "not intolerable"; intolerable is a degree of failure.  Without it, the V. has no project-viability floor.',
+    defaultWeight: 0.4,
+    evaluate: ({ spec }) => {
+      const bad = spec.values.filter(v => !v.tolerable?.trim()).map(v => v.id)
+      return {
+        score: ratioToScore(countBadFraction(bad.length, spec.values.length)),
+        detail: `${bad.length} of ${spec.values.length} Values lack a Tolerable (project-viability floor)`,
+        findings: bad,
+      }
+    },
+    fix: {
+      kind: 'ai',
+      description: 'Propose a Tolerable (failure-floor) on the existing Scale.  Below Tolerable, the WHOLE PROJECT fails — not just this attribute.  Per Tom Gilb verbatim 2026-06-16, also: "too hot and too cold are both intolerable" — set lower bound, upper bound, or both as the Scale\'s failure semantics require.',
+    },
+  },
+
+  // ── HIGH (r03 — Tom Gilb 2026-06-16 SUPREME, practice in all books) ─────
+  // Ambition Level sits ABOVE Scale.  Sentence-length vision/ambition that
+  // motivates and precedes quantification.  Tom verbatim: "The Ambition
+  // Level is required with a source above the Scale, see practice in all
+  // my books."  Sourced authority via sourcePerson / sourceRef / sourceUrl
+  // gives the V. real-world standing.
+  {
+    id: 'sd-no-ambition', group: 'spec-defects', builtin: true,
+    name: 'V. with no Ambition Level',
+    description: 'Tom Gilb 2026-06-16: "The Ambition Level is required with a source above the Scale, see practice in all my books."  A sentence-length vision precedes quantification.  Without it, the Value has no motivating ambition.',
+    defaultWeight: 0.2,
+    evaluate: ({ spec }) => {
+      const bad = spec.values
+        .filter(v => !v.ambitionLevel || v.ambitionLevel.length === 0 || !v.ambitionLevel[0].statement?.trim())
+        .map(v => v.id)
+      return {
+        score: ratioToScore(countBadFraction(bad.length, spec.values.length)),
+        detail: `${bad.length} of ${spec.values.length} Values lack an Ambition Level statement`,
+        findings: bad,
+      }
+    },
+    fix: {
+      kind: 'ai',
+      description: 'Propose a sentence-length Ambition Level statement that names the vision for this Value, plus a source (sourcePerson, sourceRef, sourceUrl) when derivable.  Tom Gilb: "When source is power, Planguage clarification has real authority behind it."',
     },
   },
   {
@@ -246,6 +357,46 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
     },
   },
 
+  // ── Spec defect: non-mnemonic Tags (Tom Gilb 2026-06-09) ─────────────────
+  // Catches three categories of bad Tag:
+  //   1. Sequential type-codes (V1, F2, S3, C4, R5) — nobody can discuss "V3"
+  //   2. PascalCase / CamelCase (no spaces, interior uppercase): "CostSave", "WorkBal"
+  //   3. Long stuck-together words (no space, >8 chars, mixed case): "SafeAgg", "UserActivation"
+  // Fix: propose 1–3 normal English words with spaces, Title Case, derived from description.
+  {
+    id: 'sd-non-mnemonic-ids', group: 'spec-defects', builtin: true,
+    name: 'Non-mnemonic Tags', description: 'Tags must be readable human words with spaces — not V1/F1 codes or stuck-together CamelCase.',
+    defaultWeight: 0.3,
+    evaluate: ({ spec }) => {
+      const isNonMnemonic = (id: string): boolean => {
+        const t = id.trim()
+        if (!t) return false
+        // 1. Sequential type-code: V1, F2, S3, C4, R5 (whole-string match)
+        if (/^[VFSCRvfscr]\d+$/.test(t)) return true
+        // 2. CamelCase / PascalCase: no spaces, contains interior uppercase after a lowercase
+        if (!/\s/.test(t) && /[a-z][A-Z]/.test(t)) return true
+        // 3. Stuck-together: no space, >8 chars, not an all-uppercase acronym, has lowercase
+        if (!/\s/.test(t) && t.length > 8 && !/^[A-Z0-9._-]+$/.test(t) && /[a-z]/.test(t)) return true
+        return false
+      }
+      const all = [
+        ...spec.functions.map(f => f.id),
+        ...spec.values.map(v => v.id),
+        ...spec.solutions.map(s => s.id),
+      ]
+      const bad = all.filter(isNonMnemonic)
+      return {
+        score: ratioToScore(countBadFraction(bad.length, all.length || 1)),
+        detail: `${bad.length} Tag${bad.length === 1 ? '' : 's'} use non-mnemonic format (V1-type code / CamelCase / stuck-together words)`,
+        findings: bad,
+      }
+    },
+    fix: {
+      kind: 'ai',
+      description: 'Propose a 1–3 word mnemonic Tag in normal English with spaces and Title Case, derived from the entry description. Examples: "Cost Save" not "CostSave"; "Safety Aggregate" not "SafeAgg"; "Work Balance" not "WorkBal". The Tag must be discussable over coffee — if you cannot say it as natural English, it is wrong.',
+    },
+  },
+
   // ── Inconsistencies (2) ──────────────────────────────────────────────────
   {
     id: 'ic-orphan-solutions', group: 'inconsistencies', builtin: true,
@@ -255,14 +406,53 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
       const valueIds = new Set(spec.values.map(v => v.id))
       const allVIds = [...valueIds]
       const bad = spec.solutions.filter(s => {
-        if (!(s.impact ?? '').trim()) return false
-        return !allVIds.some(vid => (s.impact ?? '').includes(vid))
+        // r41 v236 — also check canonical mainImpacts / derivedFrom + legacy impact
+        const haystack = `${s.mainImpacts ?? ''} ${s.derivedFrom ?? ''} ${s.impact ?? ''}`
+        if (!haystack.trim()) return false
+        return !allVIds.some(vid => haystack.includes(vid))
       }).map(s => s.id)
-      return { score: ratioToScore(countBadFraction(bad.length, spec.solutions.length)), detail: `${bad.length} S. reference no declared V.`, findings: bad }
+      return { score: ratioToScore(countBadFraction(bad.length, spec.solutions.length)), detail: `${bad.length} Solutions reference no declared Value`, findings: bad }
     },
     fix: {
       kind: 'ai',
       description: 'Propose which declared V. this Solution most likely Impacts based on the Solution description and existing V. set.',
+    },
+  },
+  // r41 v236 (Tom Gilb 2026-06-21 SUPREME — Solution Parameters pinned 26-parameter canonical inventory).
+  // Tier 1 REQUIRED fields per memory/rule_solution_parameters.md:
+  //   id (always set) · type (always set) · level (always set) · status · description (always set)
+  //   · derivedFrom · function · mainImpacts (legacy fallback: impact or impactsValues)
+  // Audit fires when ANY of {status, derivedFrom, function, mainImpacts-or-legacy} is missing on
+  // a Solution. Each missing field is a CRITICAL defect (ship-blocker). Composes with the
+  // Planguage Parameter Discipline SUPREME (≤25-word ceiling per param — not audited here;
+  // future Sharpening pass).
+  {
+    id: 'ic-solution-tier1-incomplete', group: 'inconsistencies', builtin: true,
+    name: 'S. missing Tier-1 required parameter(s)',
+    description: 'Every Solution must populate Tier-1 canonical parameters: Status · Description · Derived From · Function · Main Impacts (Tom Gilb 2026-06-21 SUPREME).',
+    defaultWeight: 0.7,
+    evaluate: ({ spec }) => {
+      const bad: string[] = []
+      const reasons: string[] = []
+      for (const s of spec.solutions) {
+        const gaps: string[] = []
+        if (!(s.status ?? '').trim())                                                        gaps.push('Status')
+        if (!(s.derivedFrom ?? '').trim())                                                   gaps.push('Derived From')
+        if (!(s.function ?? '').trim())                                                      gaps.push('Function')
+        if (!(s.mainImpacts ?? '').trim() && !(s.impact ?? '').trim() && !(s.impactsValues ?? '').trim()) gaps.push('Main Impacts')
+        if (gaps.length > 0) {
+          bad.push(s.id)
+          reasons.push(`${s.id}: missing ${gaps.join(', ')}`)
+        }
+      }
+      const detail = bad.length === 0
+        ? 'All Solutions carry the Tier-1 required parameter set'
+        : `${bad.length} of ${spec.solutions.length} Solutions missing Tier-1 fields — ${reasons.slice(0, 3).join(' · ')}${reasons.length > 3 ? ` · …` : ''}`
+      return { score: ratioToScore(countBadFraction(bad.length, spec.solutions.length)), detail, findings: bad }
+    },
+    fix: {
+      kind: 'ai',
+      description: 'For each Solution, populate the missing Tier-1 parameters per the 26-parameter canonical inventory (Tom Gilb 2026-06-21 SUPREME). Status: NotProduction (default). Derived From: wikilink array of V. entries this Solution intends to satisfy. Function: wikilink to F. entry this Solution creates/modifies. Main Impacts: estimated % impact per Derived-From Value (e.g. "[[V.Latency]] +30%, [[V.Cost]] −15%"). ONE sentence per parameter, ≤25-word ceiling per Planguage Parameter Discipline SUPREME — no story-form paragraphs.',
     },
   },
   {
@@ -279,7 +469,7 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
         const cur = num(v.status); const goal = num(v.goal)
         return cur != null && goal != null && cur > goal * 1.05 // 5% tolerance
       }).map(v => v.id)
-      return { score: ratioToScore(countBadFraction(bad.length, spec.values.length)), detail: `${bad.length} V. with status already past Goal`, findings: bad }
+      return { score: ratioToScore(countBadFraction(bad.length, spec.values.length)), detail: `${bad.length} Values with status already past Goal`, findings: bad }
     },
     fix: {
       kind: 'manual',
@@ -335,15 +525,22 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
   },
   {
     id: 'uk-no-meter', group: 'unknowns', builtin: true,
-    name: 'V. with no Meter', description: 'How will we actually measure this Value?',
-    defaultWeight: 0.35,
+    name: 'V. with no Meter (delivery-time gap)',
+    description: 'Tom Gilb 2026-06-16 SUPREME: "Meter is Not required in initial planning, because we do not measure there, only after evo steps are defined… not required for planning until evo steps are going to be delivered (not just evo planned, but really delivered)."  Meter becomes REQUIRED when an Evo step that needs to measure this V. is about to be delivered.',
+    // r07 lifecycle gating: Meter is a delivery-time concern, NOT a planning-time
+    // concern.  Down-weighted from 0.35 → 0.10 so it stays visible as an upcoming
+    // gap but does NOT drag PHI down during planning.  When the Sharpen orchestrator
+    // gains an Evo-step lifecycle signal (steps 1–5 = planning, 6–9 = delivery),
+    // upgrade to lifecycle-gated firing per the rule_value_definition_identity.md
+    // memory rule.
+    defaultWeight: 0.10,
     evaluate: ({ spec }) => {
       const bad = spec.values.filter(v => !v.meter?.trim()).map(v => v.id)
-      return { score: ratioToScore(countBadFraction(bad.length, spec.values.length)), detail: `${bad.length} of ${spec.values.length} V. lack a Meter`, findings: bad }
+      return { score: ratioToScore(countBadFraction(bad.length, spec.values.length)), detail: `${bad.length} of ${spec.values.length} Values lack a Meter (deferred to delivery — set Meter before the Evo step that measures this Value goes into Develop / Deliver / Measure / Learn)`, findings: bad }
     },
     fix: {
       kind: 'ai',
-      description: 'Propose a measurement method (Meter) that pairs with the existing Scale.',
+      description: 'Propose a measurement method (Meter) that pairs with the existing Scale.  Per Tom Gilb SUPREME 2026-06-16: Meter is a delivery-time engineering decision deferred until the engineering context clarifies — carries its own qualities (accuracy, ease of training, tool availability) and costs (financial, duration, effort, training, tools).',
     },
   },
   {
@@ -365,7 +562,9 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
   {
     id: 'rk-single-owner', group: 'risks', builtin: true,
     name: 'Single-owner concentration', description: '1 owner covering everything = bus risk.',
-    defaultWeight: 0.5,
+    // r41 v416 — was 0.5, rebalanced to 0.3 to accommodate Infinity Trap
+    // (0.4).  Group weights: 0.3 + 0.3 + 0.4 = 1.0 ✓.
+    defaultWeight: 0.3,
     evaluate: ({ specOwnerCount }) => ({
       score: specOwnerCount === 0 ? -0.5 : specOwnerCount === 1 ? -1 : specOwnerCount === 2 ? 0 : 1,
       detail: `${specOwnerCount} Spec Owner${specOwnerCount === 1 ? '' : 's'} — concentration risk`,
@@ -378,7 +577,7 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
   {
     id: 'rk-solution-monoculture', group: 'risks', builtin: true,
     name: 'Solution monoculture', description: 'A V. with only one S. has no fallback.',
-    defaultWeight: 0.5,
+    defaultWeight: 0.3,
     evaluate: ({ spec }) => {
       const sByValue = new Map<string, number>()
       const allVIds2 = spec.values.map(v => v.id)
@@ -387,30 +586,186 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
         for (const r of refs) sByValue.set(r, (sByValue.get(r) ?? 0) + 1)
       }
       const monoVs = spec.values.filter(v => (sByValue.get(v.id) ?? 0) <= 1).map(v => v.id)
-      return { score: ratioToScore(countBadFraction(monoVs.length, spec.values.length)), detail: `${monoVs.length} V. covered by 1 or fewer S.`, findings: monoVs }
+      return { score: ratioToScore(countBadFraction(monoVs.length, spec.values.length)), detail: `${monoVs.length} Values covered by 1 or fewer Solutions`, findings: monoVs }
     },
     fix: {
       kind: 'ai',
       description: 'Propose a second Solution that Impacts this V. from a different angle, so the V. has fallback coverage.',
     },
   },
+  {
+    // r41 v416 (Tom Gilb 2026-07-01 "do pending items" — audit-backlog #1) —
+    // INFINITY TRAP DETECTOR.  r93mmm SUPREME rule banked 2026-06-12 in
+    // CLAUDE.md but never wired into PHI.  Tom's verbatim principle:
+    //   "Every scalar level without explicit Qualifiers on every relevant
+    //    dimension is silently committing to infinity. Infinity costs are
+    //    infinite; resources are finite; therefore unqualified levels
+    //    guarantee failure."
+    // The Tolstoy mnemonic (Tom 2026-06-12): a Value without Qualifiers
+    // applies "no matter what — war or peace as Tolstoy said" — the most
+    // extreme polar conditions, both included.  Infinite cost = certain
+    // failure.  See CLAUDE.md r93mmm + memory rule_qualifiers_first_class.md.
+    //
+    // Detection: any V. or R. entry that HAS a scalar level (goal /
+    // tolerable / wish / status / survival / stretch / fail) BUT has NO
+    // conditionSets populated is in the Infinity Trap.
+    //
+    // Weight 0.4 (highest in `risks` group) because r93mmm names Infinity
+    // Trap as SUPREME-tier + Tom banked it as CRITICAL PHI defect.
+    // Composes with:
+    //   - r93jjj Qualifiers-First SUPREME (canonical framework)
+    //   - r93mmm Infinity Trap SUPREME (the WHY)
+    //   - r93kkk Multi-Set + Two-Trigger Progressive Disclosure UX
+    //   - Stage 3.3 Add-Qualifiers flow (existing target for the fix)
+    //   - No-Silent-Data-Loss SUPREME (unqualified level = silent commitment
+    //     to infinity = silent trust violation)
+    //   - Conjunction-of-Technologies SUPREME (Claudian + Gilb-corpus +
+    //     Internet can suggest realistic finite Qualifiers)
+    //   - Twin portability — pure detector; ports verbatim
+    id: 'rk-infinity-trap', group: 'risks', builtin: true,
+    name: 'Infinity Trap — unqualified scalar levels',
+    description:
+      'r93mmm SUPREME: every scalar level (Goal / Tolerable / Wish / Survival / Status / Stretch / Fail) without explicit Qualifiers commits silently to INFINITE time × INFINITE place × INFINITE stakeholder × INFINITE scenario. Infinite cost + finite resources = certain failure. Bind each level to at least one when/where/who Qualifier via Stage 3.3.',
+    defaultWeight: 0.4,
+    evaluate: ({ spec }) => {
+      // A "scalar" entry is one that CARRIES a numeric-flavoured level.
+      // We check every V. and R. entry for either the legacy string fields
+      // OR any conditionSet-carried level.  If it has ANY level but ZERO
+      // populated conditionSets, it's in the trap.
+      type ScalarEntry = { id: string; kind: 'V' | 'R' }
+      const trappedEntries: ScalarEntry[] = []
+
+      // Legacy scalar level keys — presence of any non-empty string here
+      // means the entry expresses a commitment (Goal / Tolerable / Wish /
+      // Survival / Status / Stretch / Fail).  We treat presence as an
+      // Infinity-Trap-eligible commitment even if conditionSets is empty.
+      const scalarKeys = ['goal', 'tolerable', 'wish', 'survival', 'status', 'stretch', 'fail'] as const
+
+      function hasLegacyScalarLevel(entry: Record<string, unknown>): boolean {
+        for (const k of scalarKeys) {
+          const raw = entry[k]
+          if (typeof raw === 'string' && raw.trim()) return true
+        }
+        return false
+      }
+
+      function hasAtLeastOneQualifierBoundLevel(sets: unknown): boolean {
+        if (!Array.isArray(sets) || sets.length === 0) return false
+        // Any set with a non-empty qualifiers array AND at least one level
+        // populated proves the entry is NOT in the trap.
+        for (const set of sets as Array<Record<string, unknown>>) {
+          const qs = (set['qualifiers'] ?? set['conditions']) as unknown
+          const hasQualifier = Array.isArray(qs) && qs.length > 0
+          if (!hasQualifier) continue
+          for (const k of scalarKeys) {
+            const raw = set[k]
+            if (typeof raw === 'string' && raw.trim()) return true
+          }
+        }
+        return false
+      }
+
+      for (const v of spec.values ?? []) {
+        const entry = v as unknown as Record<string, unknown>
+        if (hasLegacyScalarLevel(entry) && !hasAtLeastOneQualifierBoundLevel(entry['conditionSets'])) {
+          trappedEntries.push({ id: v.id, kind: 'V' })
+        }
+      }
+      for (const r of spec.resources ?? []) {
+        const entry = r as unknown as Record<string, unknown>
+        if (hasLegacyScalarLevel(entry) && !hasAtLeastOneQualifierBoundLevel(entry['conditionSets'])) {
+          trappedEntries.push({ id: r.id, kind: 'R' })
+        }
+      }
+
+      const totalScalarEntries =
+        (spec.values ?? []).length + (spec.resources ?? []).length
+      if (totalScalarEntries === 0) {
+        return { score: 0, detail: 'No V./R. scalar entries to assess yet' }
+      }
+
+      if (trappedEntries.length === 0) {
+        return {
+          score: 1,
+          detail: `All ${totalScalarEntries} scalar entries have at least one Qualifier-bound level (no Infinity Trap defects)`,
+        }
+      }
+
+      const findings = trappedEntries.map(e => e.id)
+      const worstScore = ratioToScore(
+        countBadFraction(trappedEntries.length, totalScalarEntries),
+      )
+      // Infinity Trap is CRITICAL — floor the score below 0 even at low
+      // trapped counts (one trapped entry is still one silent commitment
+      // to infinity).  Tom banked "CRITICAL-tier defect" verbatim in
+      // r93mmm — hence the -0.4 minimum penalty regardless of ratio.
+      const cappedScore = Math.min(-0.4, worstScore)
+      return {
+        score: cappedScore,
+        detail:
+          `${trappedEntries.length} of ${totalScalarEntries} scalar entries are in the INFINITY TRAP (${findings.slice(0, 3).join(', ')}${findings.length > 3 ? ', …' : ''}) — no Qualifiers bounding time / place / stakeholder / scenario`,
+        findings,
+      }
+    },
+    fix: {
+      kind: 'manual',
+      description:
+        '🕰️ Open Stage 3.3 Add Qualifiers.  Every trapped V./R. entry needs at least one Qualifier (when / where / who) to escape the Infinity Trap.  Tom mnemonic: "If your spec applies in war AND peace (Tolstoy), you\'re in the trap."',
+    },
+  },
 
   // ── Coverage (3) ─────────────────────────────────────────────────────────
   {
     id: 'cv-stakeholder-coverage', group: 'coverage', builtin: true,
-    name: 'Stakeholders with ≥1 V.', description: 'Every named stakeholder should have at least one Value.',
+    name: 'Stakeholders with ≥1 V.', description: 'Every named stakeholder should have at least one Value. Stakeholder is DEFINED by their stake — no value cared about = not a stakeholder.',
     defaultWeight: 0.4,
     evaluate: ({ spec }) => {
-      const stakeholders = new Set(spec.values.map(v => v.wishStakeholder?.trim()).filter(Boolean) as string[])
-      if (stakeholders.size === 0) return { score: 0, detail: 'No named stakeholders to assess yet' }
-      const covered = new Set<string>()
-      for (const v of spec.values) if (v.wishStakeholder?.trim()) covered.add(v.wishStakeholder.trim())
-      const ratio = covered.size / stakeholders.size
-      return { score: ratioToScore(ratio), detail: `${covered.size} / ${stakeholders.size} stakeholders have ≥1 V.` }
+      // r41 v227 (Tom Gilb 2026-06-19 verbatim "many stakeholders without
+      // values, logic fail bigtime, that is definition of a stakeholder,
+      // cough up values or delete stakehol") — original implementation
+      // derived the stakeholder set FROM the values themselves
+      // (spec.values.map(v => v.wishStakeholder)) then compared that set
+      // against itself for coverage — ratio always 1.0, defect never
+      // fired.  CORRECT logic: read the canonical stakeholder list from
+      // spec.stakeholderEntries (the structured Planguage Stakeholder
+      // section) and check each one has at least one Value with
+      // wishStakeholder matching its id OR name (case-insensitive match
+      // because the AI often writes names instead of ids).  A stakeholder
+      // with zero Values is a definitional violation: "stakeholder" means
+      // someone who has a stake — i.e. cares about at least one Value.
+      const stakeholders = (spec as unknown as {
+        stakeholderEntries?: Array<{ id: string; description?: string; definition?: string }>
+      }).stakeholderEntries ?? []
+      if (stakeholders.length === 0) return { score: 0, detail: 'No structured Stakeholder entries to assess yet' }
+      const wishMap = spec.values
+        .map(v => (v.wishStakeholder ?? '').trim().toLowerCase())
+        .filter(Boolean)
+      const orphans: string[] = []
+      for (const sh of stakeholders) {
+        const idLower = sh.id.toLowerCase()
+        // Match by id OR id without prefix (e.g. "Compliance" matches "Compliance")
+        // OR by description substring (AI sometimes writes name into description).
+        const matched = wishMap.some(w =>
+          w === idLower ||
+          w.includes(idLower) ||
+          idLower.includes(w) ||
+          (sh.description ?? '').toLowerCase().includes(w),
+        )
+        if (!matched) orphans.push(sh.id)
+      }
+      const covered = stakeholders.length - orphans.length
+      if (orphans.length === 0) {
+        return { score: 1, detail: `All ${stakeholders.length} stakeholders have ≥1 Value` }
+      }
+      return {
+        score: ratioToScore(covered / stakeholders.length),
+        detail: `${orphans.length} of ${stakeholders.length} stakeholders have NO Value — definitional violation (a stakeholder by definition has at least one stake)`,
+        findings: orphans,
+      }
     },
     fix: {
       kind: 'manual',
-      description: 'Stakeholder–Value mapping is a human relationship — humans only.',
+      description: 'For each orphan stakeholder: EITHER add at least one V. entry with wishStakeholder set to that stakeholder\'s name (what value do they care about?), OR delete the stakeholder entry (they have no stake → not actually a stakeholder).  Tom Gilb 2026-06-19 verbatim: "cough up values or delete stakeholder".',
     },
   },
   {
@@ -425,7 +780,7 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
         for (const r of refs) vsLinked.add(r)
       }
       const orphans = spec.values.filter(v => !vsLinked.has(v.id)).map(v => v.id)
-      return { score: ratioToScore(countBadFraction(orphans.length, spec.values.length)), detail: `${orphans.length} V. with no Solution`, findings: orphans }
+      return { score: ratioToScore(countBadFraction(orphans.length, spec.values.length)), detail: `${orphans.length} Values with no Solution`, findings: orphans }
     },
     fix: {
       kind: 'ai',
@@ -440,15 +795,112 @@ const DEFAULT_ASPECTS: PlanHealthAspectDef[] = [
       const fIds = new Set(spec.functions.map(f => f.id))
       const fLinked = new Set<string>()
       for (const v of spec.values) {
-        const refs = (v.valueOfFunction ?? '').split(/[,;]+/).map(s => s.trim()).filter(Boolean)
+        // r41 v230 (Tom Gilb 2026-06-20 crash) — defensive: a stored spec may
+        // carry `valueOfFunction` as an array or other non-string due to a
+        // historical writer bug; coerce to string before .split so the whole
+        // app doesn't fail to mount.  Composes with No-Silent-Data-Loss
+        // (we read what's there + degrade gracefully) + Architectural Resilience.
+        const vofRaw = (v as { valueOfFunction?: unknown }).valueOfFunction
+        const vofStr = typeof vofRaw === 'string'
+          ? vofRaw
+          : Array.isArray(vofRaw)
+            ? vofRaw.join(',')
+            : String(vofRaw ?? '')
+        const refs = vofStr.split(/[,;]+/).map(s => s.trim()).filter(Boolean)
         for (const r of refs) fLinked.add(r)
       }
       const orphans = Array.from(fIds).filter(id => !fLinked.has(id))
-      return { score: ratioToScore(countBadFraction(orphans.length, fIds.size)), detail: `${orphans.length} F. without a measurable V.`, findings: orphans }
+      return { score: ratioToScore(countBadFraction(orphans.length, fIds.size)), detail: `${orphans.length} Functions without a measurable Value`, findings: orphans }
     },
     fix: {
       kind: 'ai',
       description: 'Propose a Value (with Scale + Meter) that measures the performance of this orphan F.',
+    },
+  },
+
+  // ── Spec Quality: Source Knowledge (Tom Gilb 2026-06-09 Spec Sources design) ─
+  // Percentage of significant Planguage fields that carry explicit source attribution.
+  // "Source: will always be specified explicitly or implied from editing or AI change activity."
+  // Starts at 0 PHI weight (spec-quality group defaultWeight: 0.00) so it monitors without
+  // penalising existing plans that pre-date the feature. Plan owners can increase the group
+  // weight once they start caring about traceability.
+  {
+    id: 'src-knowledge-score', group: 'spec-quality', builtin: true,
+    name: 'Source Knowledge',
+    description: 'Percentage of spec fields with explicit source attribution. ' +
+      'Planguage rule: "Source: will always be specified explicitly or implied from editing or AI change activity." ' +
+      '(Tom Gilb 2026-06-09)',
+    defaultWeight: 1.0,
+    evaluate: ({ spec }) => {
+      // Count significant Planguage fields per entry type and check fieldSources coverage.
+      // Values: scale, meter, goal, tolerable, status — the 5 primary quantification fields.
+      // Resources: scale, meter, budget — the 3 primary resource fields.
+      // Functions: description, presenceTest — the 2 binary presence fields.
+      // Solutions: description — the primary field.
+      // Constraints: description — the primary field.
+      let total = 0
+      let attributed = 0
+
+      for (const v of spec.values) {
+        const fields = ['scale', 'meter', 'goal', 'tolerable', 'status'] as const
+        for (const f of fields) {
+          if (v[f]?.trim()) {
+            total++
+            if (v.fieldSources?.[f]) attributed++
+          }
+        }
+      }
+      for (const r of (spec.resources ?? [])) {
+        const fields = ['scale', 'meter'] as const
+        for (const f of fields) {
+          if (r[f]?.trim()) {
+            total++
+            if (r.fieldSources?.[f]) attributed++
+          }
+        }
+        // budget (backwards-compat via r.budget ?? r.goal)
+        const bVal = r.budget ?? r.goal
+        if (bVal?.trim()) {
+          total++
+          if (r.fieldSources?.['budget']) attributed++
+        }
+      }
+      for (const fn of spec.functions) {
+        if (fn.description?.trim()) {
+          total++
+          if (fn.fieldSources?.['description']) attributed++
+        }
+        const pt = fn.presenceTest ?? fn.successCriteria ?? ''
+        if (pt.trim()) {
+          total++
+          if (fn.fieldSources?.['presenceTest']) attributed++
+        }
+      }
+      for (const s of spec.solutions) {
+        if (s.description?.trim()) {
+          total++
+          if (s.fieldSources?.['description']) attributed++
+        }
+      }
+      for (const c of (spec.constraints ?? [])) {
+        if (c.description?.trim()) {
+          total++
+          if (c.fieldSources?.['description']) attributed++
+        }
+      }
+
+      if (total === 0) return { score: 0, detail: 'No attributed fields yet — no significant fields found' }
+      const pct = Math.round((attributed / total) * 100)
+      return {
+        score: ratioToScore(attributed / total),
+        detail: `Source Knowledge: ${pct}% (${attributed} of ${total} significant fields attributed)`,
+        findings: total === 0 ? [] : undefined,
+      }
+    },
+    fix: {
+      kind: 'manual',
+      description: 'Open the field in PentaPanel and click Apply Changes to stamp the source. ' +
+        'Source attribution requires human confirmation — it cannot be guessed automatically.',
     },
   },
 ]

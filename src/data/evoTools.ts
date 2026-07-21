@@ -188,6 +188,12 @@ export const EVO_TOOLS: EvoTool[] = [
   },
 
   // ── Evo Editing Tools ──────────────────────────────────────────────────────
+  // NOTE 2026-06-07: Auto-DBO was here but Tom Gilb correctly reclassified it:
+  // "This is all 'Pre-Evo step derivation' — it belongs to the more general class
+  // of Planguage Tools (see Design Chapter in CE book). Sharpening is in that category
+  // because it generates Designs." Removed from EvoTools. Accessible via Actions pin.
+  // Future: dedicated "Planguage Tools" panel/button (alongside EvoTools) will be
+  // the proper home for Auto-DBO, Sharpen, and other pre-derivation design tools.
   {
     id: 'cycle-length',
     name: 'Evo Cycle Length',

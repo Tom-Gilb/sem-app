@@ -188,14 +188,14 @@ export function buildMockEHSet(planId: string, steps: EvoStep[], scope: EHScope 
         },
       })
     }
-    if (s.description.length < 30) {
+    if ((s.description ?? '').length < 30) {
       defects.push({
         id: `def-step-${i}-vague-desc`,
         stepName: s.name,
         category: 'step',
         severity: 'orange',
         title: 'Step description is vague (<30 chars)',
-        description: `"${s.description}" is too short to be actionable.`,
+        description: `"${s.description ?? ''}" is too short to be actionable.`,
         suggestedCure: {
           id: `cure-step-${i}-desc`,
           kind: 'edit-step',

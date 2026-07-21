@@ -18,6 +18,7 @@
 // Returns null (with reason) if the text is not a recognisable spec format.
 
 import type { SpecBlock, FEntry, VEntry, SEntry, CEntry } from '../types/spec'
+import { stampEntries } from '../utils/sourceStamp'
 
 // ── Detection ────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,10 @@ export function looksLikeSpec(text: string): boolean {
  *   Type: Solution
  *   ...
  */
-export function parseMarkdownSpec(text: string): SpecBlock | null {
+export function parseMarkdownSpec(
+  text: string,
+  ctx?: { planTitle?: string; sourceLabel?: string },
+): SpecBlock | null {
   const functions: FEntry[] = []
   const values: VEntry[] = []
   const solutions: SEntry[] = []
@@ -149,5 +153,26 @@ export function parseMarkdownSpec(text: string): SpecBlock | null {
   }
 
   if (!functions.length && !values.length && !solutions.length && !constraints.length) return null
-  return { functions, values, solutions, constraints }
+
+  // r41 v220 (Tom Gilb 2026-06-20 producer-stamp sweep) — stamp every entry
+  // with provenance so the renderer's Source chips light up.  sourceType
+  // 'system' marks the deterministic markdown round-trip; the original
+  // generator of the entries is lost in the round-trip (the .md file
+  // didn't carry it), so the new stamp names the IMPORTER as the proximate
+  // source.  If the caller passes ctx.sourceLabel ('Markdown Round-Trip',
+  // 'File Drop', 'Paste') it shows up in the chip — otherwise default.
+  // r41 v415 (Source Attribution SUPREME sweep) — Class A (raw markdown).
+  const stampOpts = {
+    generator:  ctx?.sourceLabel ?? 'Spec Markdown Importer',
+    planName:   ctx?.planTitle,
+    sourceType: 'system' as const,
+    tool:       'parseMarkdownSpec',
+    stage:      'model-import',
+  }
+  return {
+    functions:   stampEntries(functions,   stampOpts),
+    values:      stampEntries(values,      stampOpts),
+    solutions:   stampEntries(solutions,   stampOpts),
+    constraints: stampEntries(constraints, stampOpts),
+  }
 }

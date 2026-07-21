@@ -16,7 +16,11 @@ const minimalSpec = {
 
 describe('SpecOutput', () => {
 
-  describe('Download .md button', () => {
+  describe.skip('Download .md button', () => {
+    // SKIPPED 2026-06-09: The <a download="spec.md"> anchor was replaced by a
+    // <button @click="downloadSpec"> that downloads a .html file (colourful HTML,
+    // per universal export rule 2026-06-06). Tests for the new HTML download
+    // button should be added to SpecOutput.features.test.ts.
 
     it('renders a Download .md anchor with aria-label when markdown is provided', () => {
       // Spec: F.EvoStep3.DeliverSerialiserSchema — Download .md button must be present

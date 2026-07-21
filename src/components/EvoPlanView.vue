@@ -22,10 +22,10 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Widget
-import { ref, computed, watch, onMounted, onUnmounted, reactive, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, reactive, nextTick, markRaw } from 'vue'
 import ScrollContainer from './ScrollContainer.vue'
 import CloseDot from './CloseDot.vue'
-import { useEvoPlan } from '../composables/useEvoPlan'
+import { useEvoPlan, solutionsFingerprint } from '../composables/useEvoPlan'
 import { useSpecModel, EVO_CYCLE_HOURS } from '../composables/useSpecModel'
 import { useStepCostEstimator } from '../composables/useStepCostEstimator'
 import { useSprintPlanner } from '../composables/useSprintPlanner'
@@ -78,6 +78,12 @@ import { useEnergyEffortScatter } from '../composables/useEnergyEffortScatter'
 import { useSprintRiskHeatmap } from '../composables/useSprintRiskHeatmap'
 import { useBugPrediction } from '../composables/useBugPrediction'
 import { useVelocityPredictor } from '../composables/useVelocityPredictor'
+import { exportArtefact } from '../composables/useExportShared'
+import {
+  renderEvoStepsHtml,
+  renderEvoStepsPlain,
+  type EvoStepsExportState,
+} from '../composables/useEvoStepsExport'
 import type { SpecBlock } from '../types/spec'
 import type { EvoStep } from '../types/evo-plan'
 import type { TaskSuggestion } from '../types/task'
@@ -93,6 +99,18 @@ import { CONCEPT_HINTS } from '../data/conceptHints'
 import EditGlyph from './icons/EditGlyph.vue'
 import CancelEmptyGlyph from './icons/CancelEmptyGlyph.vue'
 import CopyGlyph from './icons/CopyGlyph.vue'
+// DD-011/DD-015 compliant glyphs for EVO_MENU_GROUPS square buttons
+import PlEvoStepIcon     from './icons/PlEvoStepIcon.vue'
+import AnalyzerGlyph     from './icons/AnalyzerGlyph.vue'
+import PlStakeholderIcon from './icons/PlStakeholderIcon.vue'
+import PlValueIcon       from './icons/PlValueIcon.vue'
+// ── Balance + Sharpen category glyphs (Tom 2026-06-08: categorised tool strip) ──
+import PentaGlyph        from './icons/PentaGlyph.vue'
+import OptimaGlyph       from './icons/OptimaGlyph.vue'
+import MultiVisionGlyph  from './icons/MultiVisionGlyph.vue'
+import KissGlyph         from './icons/KissGlyph.vue'
+import MultiForksGlyph   from './icons/MultiForksGlyph.vue'
+import PlSolutionIcon    from './icons/PlSolutionIcon.vue'
 import PinMenuPreview from './PinMenuPreview.vue'
 import EvoCycleLengthPicker from './EvoCycleLengthPicker.vue'
 import { VIZ_STRIP_ITEMS } from '../constants/vizThumbs'
@@ -116,6 +134,15 @@ const props = defineProps<{
    * LATER STAGES, this is important to understand and check the plans."
    */
   rawInput?: { stakes: string; ends: string; means: string } | null
+  /**
+   * Current planning-bar stage (1–11). Gates the Evo Cycle Length picker:
+   * Tom 2026-06-08 verbatim: "the evo cycle length bar is premature at stage 2,
+   * it is first useful when evo steps are derived from solutions."
+   * Picker is hidden until planningStage ≥ 6 (Evo Steps stage).
+   * If omitted the picker is shown unconditionally (backward-compat for any
+   * standalone consumer of EvoPlanView outside App.vue).
+   */
+  planningStage?: number
 }>()
 
 /** Emitted when the user confirms the plan (plan is persisted) */
@@ -139,6 +166,20 @@ const emit = defineEmits<{
   /** Open the Spec Editor at a given tab — used by error states to give user a fix path.
    *  Tom 2026-05-15: "there is no action path here" — error states need an escape route. */
   'open-editor': [{ tab: 'functions' | 'values' | 'solutions' | 'constraints' }]
+  // ── Balance + Sharpen tools (Tom 2026-06-08: categorised strip, available at all stages) ──
+  'open-penta':            []
+  'open-multi-vision':     []
+  'open-optima':           []
+  'open-kiss':             []
+  'open-solution-sharpen': []
+  'open-multi-forks':      []
+  'open-value-flow':       []  // r41 v284 — Value Flow tile added to BALANCE_TILES
+  /** r41 v296 (Tom Gilb 2026-06-22 "how to move on to 6.2 is not explained") —
+   *  Emitted from the in-banner "Next: 6.2 Prioritise" pin in the plan-ready
+   *  success state so the user can advance to the next sub-step without
+   *  scrolling back up to the Stage 6 sub-step strip.  Parent (App.vue) routes
+   *  the payload to onStage6SubStepGo($event). */
+  'advance-substep':       [target: '6.1' | '6.2' | '6.3' | '6.4' | '6.5']
 }>()
 
 // ── Composable ────────────────────────────────────────────────────────────────
@@ -148,6 +189,7 @@ const {
   isConfirmed,
   loading,
   error,
+  generatedSolutionsKey,
   fetchPlan,
   cancelFetch,
   reorderSteps,
@@ -155,6 +197,21 @@ const {
   removeStep,
   confirmPlan,
 } = useEvoPlan()
+
+// ── Solutions staleness detection (Tom Gilb 2026-06-08) ───────────────────────
+// "Evo steps are a function of the set of actual and detailed solutions.
+//  The moment any solution changes, the evo steps need regeneration."
+//
+// solutionsStale is true when:
+//   (a) a plan has been generated in this session  (generatedSolutionsKey !== null)
+//   (b) the current spec's S. entries differ from what was used at generation time
+//
+// Shown as an amber banner at the top of EvoPlanView with a Regenerate button.
+const solutionsStale = computed(() =>
+  plan.value !== null &&
+  generatedSolutionsKey.value !== null &&
+  solutionsFingerprint(props.specBlock.solutions ?? []) !== generatedSolutionsKey.value,
+)
 
 // ── Force-hide override (Tom 2026-06-03 — "stuck at end and cancel not working,
 //     same procedure as last time James") ────────────────────────────────────
@@ -980,7 +1037,10 @@ function toggleStepMenu(index: number, groupId: string): void {
 // Tom 2026-05-29: "sprints do not exist in Planguage (they are a stupid idea
 // from agile), we have tasks and evo steps, that's it."
 const EVO_MENU_GROUPS = [
-  { id: 'sprint',   emoji: '🪜', label: 'Step Plan',
+  { id: 'sprint',
+    // PlEvoStepIcon: keyed form `< ->+->` — past anchor · delivery gap · value+task · accumulate
+    glyphComponent: markRaw(PlEvoStepIcon),
+    emoji: '🪜', label: 'Step Plan',
     idleCls:   'bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100 hover:border-violet-300',
     activeCls: 'bg-violet-200 border-violet-400 text-violet-900 shadow-inner',
     dropdownCls: 'border-violet-200',
@@ -992,7 +1052,10 @@ const EVO_MENU_GROUPS = [
       { emoji: '⚗️', label: 'Capacity',         toggle: 'capacityOpen' },
       { emoji: '⏱️', label: 'Timeboxing',       toggle: 'timeboxOpen' },
     ]},
-  { id: 'analyse',  emoji: '📊', label: 'Analyse Plan',
+  { id: 'analyse',
+    // AnalyzerGlyph: 4 knowledge-source arrows converging on synthesis point
+    glyphComponent: markRaw(AnalyzerGlyph),
+    emoji: '📊', label: 'Analyze Plan',
     idleCls:   'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300',
     activeCls: 'bg-indigo-200 border-indigo-400 text-indigo-900 shadow-inner',
     dropdownCls: 'border-indigo-200',
@@ -1007,7 +1070,10 @@ const EVO_MENU_GROUPS = [
       { emoji: '🔥', label: 'Risk Heatmap',     toggle: 'riskHeatmapOpen' },
       { emoji: '🐛', label: 'Bug Prediction',   toggle: 'bugPredictionOpen' },
     ]},
-  { id: 'team',     emoji: '👥', label: 'Team Plan',
+  { id: 'team',
+    // PlStakeholderIcon: `§` — international stakeholder symbol, no English letters
+    glyphComponent: markRaw(PlStakeholderIcon),
+    emoji: '👥', label: 'Team Plan',
     idleCls:   'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300',
     activeCls: 'bg-emerald-200 border-emerald-400 text-emerald-900 shadow-inner',
     dropdownCls: 'border-emerald-200',
@@ -1018,7 +1084,10 @@ const EVO_MENU_GROUPS = [
       { emoji: '🔗', label: 'Dep Risk',         toggle: 'depRiskOpen' },
       { emoji: '🕸️', label: 'Knowledge Graph', toggle: 'kgOpen' },
     ]},
-  { id: 'forecast', emoji: '📈', label: 'Forecast Plan',
+  { id: 'forecast',
+    // PlValueIcon: `0--✳-->` — value trajectory/progress track, encodes delivery forecasting
+    glyphComponent: markRaw(PlValueIcon),
+    emoji: '📈', label: 'Forecast Plan',
     idleCls:   'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 hover:border-amber-300',
     activeCls: 'bg-amber-200 border-amber-400 text-amber-900 shadow-inner',
     dropdownCls: 'border-amber-200',
@@ -1032,6 +1101,85 @@ const EVO_MENU_GROUPS = [
       { emoji: '🔵', label: 'Energy Scatter',   toggle: 'energyScatterOpen' },
     ]},
 ]
+
+// ── BALANCE_TILES — spec-level tools that don't need Evo Steps ───────────────
+// Tom 2026-06-08: "Penta, OPTIMA, MultiVision can be inserted at Stage 3.
+// Maybe there are now so many that sorting into categories might be good."
+// Available at ALL stages (no Evo-Step dependency). Emits open-* events to App.vue.
+const BALANCE_TILES = [
+  {
+    id:          'penta',
+    emitEvent:   'open-penta' as const,
+    label:       'Penta',
+    title:       'Penta Model — SVERD balance across Scope · Values · Efficiency · Resources · Designs. Click to open.',
+    glyph:       markRaw(PentaGlyph),
+    bg:          'bg-blue-50 border-blue-200',
+    labelCls:    'text-blue-700 group-hover:text-blue-900',
+  },
+  {
+    id:          'multi-vision',
+    emitEvent:   'open-multi-vision' as const,
+    label:       'Multi Vision',
+    title:       'MultiVision — slide Value ambition and Resource budget, see consequence live. Click to open.',
+    glyph:       markRaw(MultiVisionGlyph),
+    bg:          'bg-indigo-50 border-indigo-200',
+    labelCls:    'text-indigo-700 group-hover:text-indigo-900',
+  },
+  {
+    id:          'optima',
+    emitEvent:   'open-optima' as const,
+    label:       'OPTIMA',
+    title:       'OPTIMA — find optimal Tolerable/Goal/Wish levels that fit all Constraints. Click to open.',
+    glyph:       markRaw(OptimaGlyph),
+    bg:          'bg-violet-50 border-violet-200',
+    labelCls:    'text-violet-700 group-hover:text-violet-900',
+  },
+  {
+    id:          'multi-forks',
+    emitEvent:   'open-multi-forks' as const,
+    label:       'Multi Forks',
+    title:       'MultiForks — compare multiple plan variants side-by-side. Click to open.',
+    glyph:       markRaw(MultiForksGlyph),
+    bg:          'bg-slate-50 border-slate-200',
+    labelCls:    'text-slate-700 group-hover:text-slate-900',
+  },
+  // r41 v284 (Tom Gilb 2026-06-22 "multivision and value flow dead buttons in stg 6") —
+  // Value Flow tile was missing from EvoPlanView BALANCE_TILES.  EvoPlanView mounts
+  // at Stage 6 (and stage 2 EvoPlan view); without this tile the user had no Value
+  // Flow entry point at Stage 6.  Added with emit 'open-value-flow' → wired in
+  // App.vue's <EvoPlanView @open-value-flow="valueFlowOpen = true">.
+  {
+    id:          'value-flow',
+    emitEvent:   'open-value-flow' as const,
+    label:       'Value Flow',
+    title:       'Value Flow Diagram — visualise the Value-causation chain (Functions → Values → Solutions). Click to open.',
+    glyph:       markRaw(MultiForksGlyph),
+    bg:          'bg-amber-50 border-amber-200',
+    labelCls:    'text-amber-700 group-hover:text-amber-900',
+  },
+] as const
+
+// ── SHARPEN_TILES — spec improvement tools (no Evo dependency) ────────────────
+const SHARPEN_TILES = [
+  {
+    id:          'kiss',
+    emitEvent:   'open-kiss' as const,
+    label:       'KISS',
+    title:       'KISS — simplify this plan: find complexity to eliminate. Click to open.',
+    glyph:       markRaw(KissGlyph),
+    bg:          'bg-emerald-50 border-emerald-200',
+    labelCls:    'text-emerald-700 group-hover:text-emerald-900',
+  },
+  {
+    id:          'solution-sharpen',
+    emitEvent:   'open-solution-sharpen' as const,
+    label:       'Sharpen Solutions',
+    title:       'Solution Sharpening Interview — 26 themes × 2 questions to sharpen every Solution. Click to open.',
+    glyph:       markRaw(PlSolutionIcon),
+    bg:          'bg-orange-50 border-orange-200',
+    labelCls:    'text-orange-700 group-hover:text-orange-900',
+  },
+] as const
 
 // Static metadata for each global feature panel: used for the color bar
 // and for scroll-targeting.  The bar color matches the group color.
@@ -2019,6 +2167,71 @@ async function handleConfirm(): Promise<void> {
 }
 
 /**
+ * Export the Suggested Evo Steps as a colourful HTML artefact.
+ *
+ * Tom Gilb 2026-06-22 (verbatim, with screenshot of Stage 6 surface):
+ *   "no export here"
+ *
+ * Sweep target for the Export-Button-on-All-Windows SUPREME rule. Builds a
+ * full-model colourful HTML document covering every drafted Evo Step + total
+ * effort + estimated hours + cycle-length constraint, then delegates to
+ * exportArtefact() which:
+ *   1. Writes dual-MIME (HTML + plain) to the clipboard
+ *   2. Opens a preview window with 100% of the model
+ *   3. Auto-opens Mail to Tom@Gilb.com per SEM Email Body Standard
+ *   4. Shows a confirmation notification
+ *
+ * Composes with: Colorful HTML Spec Email Rule (SUPREME), SEM Email Body
+ * Standard (SUPREME), Auto-Open Email Rule (SUPREME).
+ */
+async function exportEvoSteps(): Promise<void> {
+  const planName = currentModel.value?.name?.trim() || 'Planning Spec'
+  const versionLabel = currentModel.value ? `v${currentModel.value.version}` : ''
+  const stepArray = steps.value
+  const cycleH = cycleHours.value
+  const state: EvoStepsExportState = {
+    planName,
+    versionLabel,
+    cycleLengthLabel: cycleLengthLabel.value,
+    cycleHours: cycleH,
+    steps: stepArray.map((s, i) => {
+      const summary = voteSummaries[s.name]
+      const tasksLen = props.tasksByStep?.[s.name]?.length
+      const mitigation = mitigationByStep.value[`step-${i}`]
+      return {
+        index: i + 1,
+        name: s.name,
+        description: s.description ?? '',
+        impacts: Array.isArray(s.linkedValues) ? [...s.linkedValues] : [],
+        effortPercent: s.effortPercent ?? 0,
+        estimatedHours: Math.round(((s.effortPercent ?? 0) / 100) * cycleH),
+        status: 'Step not implemented yet.',
+        confidenceMine: summary?.userVote && summary.userVote > 0 ? summary.userVote : undefined,
+        confidenceTeamAvg: summary?.avg !== undefined && summary.avg > 0 ? summary.avg : undefined,
+        tasksCount: typeof tasksLen === 'number' && tasksLen > 0 ? tasksLen : undefined,
+        hasRisk: mitigation?.open === true,
+      }
+    }),
+  }
+  const htmlText = renderEvoStepsHtml(state)
+  const plainText = renderEvoStepsPlain(state)
+  const subject = `${planName}${versionLabel ? ' ' + versionLabel : ''} · Evo Steps · ${state.steps.length} ${state.steps.length === 1 ? 'step' : 'steps'}`
+  await exportArtefact({
+    htmlText,
+    plainText,
+    subject,
+    artefactName: 'Evo Steps Plan',
+    // Mailto-No-Self-To SUPREME (Tom Gilb 2026-06-16 verbatim "EMAIL SHARPENING
+    // YOU PUT THE MAIN IN THE TO SECTION, SILLY BOY"): when Tom clicks Export
+    // on a SEM-App-initiated export, Tom is the SENDER; the recipient is
+    // someone else Tom will choose in Mail.app. To: must be EMPTY.  Without
+    // this explicit '', useExportShared.ts defaults to Tom@Gilb.com which
+    // would make Tom email himself.
+    to: '',
+  })
+}
+
+/**
  * Smooth-scroll the first Evo step card into view.
  * Used by the "Review steps ↓" button in the plan-ready continue banner
  * (Tom 2026-06-03 — "At end it did not continue"). The user gets one click
@@ -2114,6 +2327,42 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       </template>
     </div>
 
+    <!-- ── Solutions-changed staleness banner (Tom Gilb 2026-06-08) ────────────
+         "Evo steps are a function of the set of actual and detailed solutions.
+          The moment any solution changes, the evo steps need regeneration."
+         Shown when: a plan was generated this session AND spec.solutions have
+         changed since generation.  Hidden for history-restored plans (no fingerprint). -->
+    <div
+      v-if="solutionsStale"
+      class="flex items-center gap-3 mb-3 px-4 py-3 rounded-xl
+             bg-orange-50 border-2 border-orange-400 flex-wrap"
+      role="alert"
+      aria-live="polite"
+    >
+      <span class="text-base shrink-0" aria-hidden="true">⚠</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold text-orange-800 leading-tight">
+          Solutions changed since Evo Steps were generated
+        </p>
+        <p class="text-xs text-orange-700 mt-0.5">
+          Evo Steps are derived from Solutions — any Solution edit, addition, or
+          removal makes the current Evo Steps potentially out of date.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl
+               bg-orange-500 hover:bg-orange-600 active:scale-95
+               text-white text-sm font-bold shadow transition-all duration-150
+               focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-1"
+        title="Regenerate Evo Steps — re-runs the Evo Planner with the updated Solutions"
+        aria-label="Regenerate Evo Steps using updated Solutions"
+        @click="fetchPlan(props.specBlock, true)"
+      >
+        ↺ Regenerate Evo Steps
+      </button>
+    </div>
+
     <!-- ── Evo Cycle Length picker ────────────────────────────────────────────
          Tom 2026-06-02 (SEM App Book p.179): "Evo steps are designed to fit a
          specified cycle maximum." Amber sticky banner; selecting a cycle updates
@@ -2121,21 +2370,27 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
          the LLM on the next Generate call. -->
     <!-- :modelValue only — the picker calls setEvoCycleLength() internally,
          which updates the reactive PlanModel store, so cycleLength computed
-         re-derives automatically. No @update:modelValue handler needed here. -->
-    <EvoCycleLengthPicker :model-value="cycleLength" />
+         re-derives automatically. No @update:modelValue handler needed here.
+         Tom 2026-06-08: hidden before stage 6 (Evo Steps) — premature at
+         stage 2 (Solutions) before Evo Steps have been generated. -->
+    <EvoCycleLengthPicker
+      v-if="props.planningStage === undefined || props.planningStage >= 6"
+      :model-value="cycleLength"
+    />
 
-    <!-- ── Visualise tool strip — live-data tiles (Thumbnail Reality Rule) ──────
-         Tom 2026-05-28: "all the tools (Value flow etc.) need to meet the same
-         standard for their pin as in action. Larger, get rid of all old 'pencil'
-         pictures, the glyph is a real time plan glyph (a mini of the screen you
-         would get right now if you click the button)."
-         Each tile: 88px wide, 56px live SVG thumbnail (real spec counts/ratios/
-         heatmaps from useVizThumbs), 20px label row. Matches ActionsHub + Visualise
-         panel tile standard. -->
-    <!-- Viz tile strip — w-[112px] tiles, h-[76px] thumbnails (was 88×56).
-         Larger tiles match "nothing to hide, plenty of screen space" principle. -->
-    <div class="flex items-start gap-3 mb-4 mt-1 flex-wrap">
-      <!-- Diagram tiles -->
+    <!-- ── Categorised tool strip (Tom 2026-06-08: "sort into categories vis, edit, sharpen, balance")
+         Four categories:
+           VIS     — live diagram tiles (all stages)
+           BALANCE — Penta · MultiVision · OPTIMA · MultiForks (all stages, no Evo dependency)
+           SHARPEN — KISS · Solution Sharpen (all stages)
+           EVO     — Step Plan / Analyse / Team / Forecast (Stage 6+ only)  -->
+
+    <!-- ── VISUALIZE SPECS — live diagram tiles ────────────────────────────── -->
+    <div class="flex items-center gap-2 mb-2 mt-1 select-none">
+      <span class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Visualize Specs</span>
+      <div class="flex-1 h-px bg-slate-200" />
+    </div>
+    <div class="flex items-start gap-3 mb-4 flex-wrap">
       <button
         v-for="item in VIZ_STRIP_ITEMS"
         :key="item.tab"
@@ -2147,19 +2402,16 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
         :title="`Open ${item.label} — live plan data · click to open full view`"
         @click="emit('open-visualise', { tab: item.tab })"
       >
-        <!-- Live thumbnail: computed SVG derived from real plan data -->
         <div class="h-[76px] overflow-hidden bg-white border-b border-slate-200">
           <div v-html="vizThumbs[item.tab]" class="w-full h-full" />
         </div>
-        <!-- Label row -->
         <div class="px-2 py-2 text-center">
-          <span class="block text-[11px] font-bold text-slate-700 group-hover:text-indigo-700
-                       leading-tight whitespace-nowrap truncate transition-colors">
+          <span class="block text-[10px] font-bold text-slate-700 group-hover:text-indigo-700
+                       leading-tight line-clamp-2 break-normal transition-colors">
             {{ item.label }}
           </span>
         </div>
       </button>
-
       <!-- Simulate tile (violet accent) -->
       <button
         type="button"
@@ -2174,19 +2426,83 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           <div v-html="vizThumbs['simulator']" class="w-full h-full" />
         </div>
         <div class="px-2 py-2 text-center">
-          <span class="block text-[11px] font-bold text-violet-600 group-hover:text-violet-800
-                       leading-tight whitespace-nowrap truncate transition-colors">
+          <span class="block text-[10px] font-bold text-violet-600 group-hover:text-violet-800
+                       leading-tight line-clamp-2 break-normal transition-colors">
             Simulate
           </span>
         </div>
       </button>
     </div>
 
-    <!-- ── Evo Feature Menu Bar — colored card-style group tabs ──────────────── -->
-    <!-- Each group is a colored pill with emoji + label. Idle state shows the
-         group color at low intensity; active state shows stronger tint + shadow-inner.
-         DD-009: title discloses the dropdown interaction. -->
-    <div class="flex items-center gap-2 mb-5 flex-wrap">
+    <!-- ── BALANCE — spec-level tools: Penta · MultiVision · OPTIMA · MultiForks ─ -->
+    <div class="flex items-center gap-2 mb-2 mt-1 select-none">
+      <span class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Balance</span>
+      <div class="flex-1 h-px bg-slate-200" />
+    </div>
+    <div class="flex items-start gap-3 mb-4 flex-wrap">
+      <button
+        v-for="tile in BALANCE_TILES"
+        :key="tile.id"
+        type="button"
+        class="group flex flex-col overflow-hidden rounded-xl border-2 shadow-sm
+               hover:shadow-lg hover:scale-[1.06] active:scale-100
+               transition-all duration-150 w-[112px]"
+        :class="tile.bg"
+        :aria-label="tile.label"
+        :title="tile.title"
+        @click="emit(tile.emitEvent)"
+      >
+        <!-- Glyph thumbnail -->
+        <div class="h-[76px] flex items-center justify-center border-b border-white/60">
+          <component :is="tile.glyph" class="w-12 h-12" :no-detail-click="true" />
+        </div>
+        <div class="px-2 py-2 text-center">
+          <span class="block text-[10px] font-bold leading-tight line-clamp-2 break-normal transition-colors"
+                :class="tile.labelCls">
+            {{ tile.label }}
+          </span>
+        </div>
+      </button>
+    </div>
+
+    <!-- ── SHARPEN — KISS · Solution Sharpen ─────────────────────────────────── -->
+    <div class="flex items-center gap-2 mb-2 mt-1 select-none">
+      <span class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Sharpen</span>
+      <div class="flex-1 h-px bg-slate-200" />
+    </div>
+    <div class="flex items-start gap-3 mb-4 flex-wrap">
+      <button
+        v-for="tile in SHARPEN_TILES"
+        :key="tile.id"
+        type="button"
+        class="group flex flex-col overflow-hidden rounded-xl border-2 shadow-sm
+               hover:shadow-lg hover:scale-[1.06] active:scale-100
+               transition-all duration-150 w-[112px]"
+        :class="tile.bg"
+        :aria-label="tile.label"
+        :title="tile.title"
+        @click="emit(tile.emitEvent)"
+      >
+        <div class="h-[76px] flex items-center justify-center border-b border-white/60">
+          <component :is="tile.glyph" class="w-12 h-12" :no-detail-click="true" />
+        </div>
+        <div class="px-2 py-2 text-center">
+          <span class="block text-[10px] font-bold leading-tight line-clamp-2 break-normal transition-colors"
+                :class="tile.labelCls">
+            {{ tile.label }}
+          </span>
+        </div>
+      </button>
+    </div>
+
+    <!-- ── EVO — Evo-Step-dependent menus (Stage 6+ only) ────────────────────── -->
+    <template v-if="(props.planningStage ?? 6) >= 6">
+      <div class="flex items-center gap-2 mb-2 mt-1 select-none">
+        <span class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Evo</span>
+        <div class="flex-1 h-px bg-slate-200" />
+      </div>
+    </template>
+    <div v-if="(props.planningStage ?? 6) >= 6" class="flex items-center gap-3 mb-5 flex-wrap">
       <div v-if="activeEvoMenu !== null" class="fixed inset-0 z-30" aria-hidden="true" @click="activeEvoMenu = null" />
       <div v-for="group in EVO_MENU_GROUPS" :key="group.id" class="relative">
         <button
@@ -2194,20 +2510,29 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
           :aria-haspopup="true"
           :aria-expanded="activeEvoMenu === group.id"
           :aria-label="`${group.label} — click to see tools`"
-          :title="`${group.label} — click to open tool menu`"
-          class="inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2
-                 transition-all duration-150 shadow-sm hover:shadow-md font-bold text-sm"
+          :title="`${group.label} — click to open tool menu · ${group.items.length} tools inside`"
+          class="flex flex-col items-center justify-between gap-0.5
+                 w-24 h-24 rounded-2xl border-2 pt-3 pb-2 px-1
+                 transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5
+                 focus:outline-none focus:ring-2 focus:ring-offset-1"
           :class="activeEvoMenu === group.id ? group.activeCls : group.idleCls"
           @mouseenter="hoveredEvoMenu = group.id"
           @mouseleave="hoveredEvoMenu = null"
           @click="activeEvoMenu = activeEvoMenu === group.id ? null : group.id"
         >
-          <span class="text-base leading-none select-none" aria-hidden="true">{{ group.emoji }}</span>
-          <span class="whitespace-nowrap tracking-tight">{{ group.label }}</span>
-          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
-            class="w-3 h-3 shrink-0 opacity-50 transition-transform duration-150"
-            :class="activeEvoMenu === group.id ? 'rotate-180' : ''"
-          ><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z" /></svg>
+          <!-- Planguage glyph — DD-011 compliant, markRaw so Vue doesn't proxy the component def -->
+          <div class="flex items-center justify-center w-10 h-10 shrink-0" aria-hidden="true">
+            <component :is="group.glyphComponent" size="md" />
+          </div>
+          <!-- Group label -->
+          <span class="text-[10px] font-bold text-center leading-tight w-full px-0.5">{{ group.label }}</span>
+          <!-- Dropdown chevron -->
+          <svg viewBox="0 0 12 8" width="10" height="7" fill="none" aria-hidden="true"
+               class="shrink-0 opacity-50 transition-transform duration-150"
+               :class="activeEvoMenu === group.id ? 'rotate-180' : ''">
+            <path d="M1 1l5 5 5-5" stroke="currentColor" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
         <div
           v-show="activeEvoMenu === group.id"
@@ -2882,7 +3207,7 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       <div v-if="wsjfOpen" data-panel="wsjfOpen" class="mt-2 rounded-xl border border-orange-200 bg-white p-4 space-y-3">
         <div class="-mx-4 -mt-4 mb-3 flex items-center gap-1.5 px-4 py-2 bg-blue-500 rounded-t-xl"><span aria-hidden="true">🥇</span><span class="text-xs font-semibold text-white flex-1">WSJF Priority</span><button type="button" aria-label="Collapse WSJF" class="text-white/60 hover:text-white text-[10px]" @click="wsjfOpen = false">▲</button></div>
         <!-- Header -->
-        <h3 class="text-sm font-semibold text-slate-700">WSJF Prioritisation — Cost of Delay ÷ Job Duration</h3>
+        <h3 class="text-sm font-semibold text-slate-700">WSJF Prioritisation — Cost of Delay / Job Duration</h3>
 
         <!-- Empty state -->
         <div
@@ -3516,8 +3841,43 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
                 Review and edit below if needed, or continue to <strong>Evo Impact</strong>
                 to estimate how much value each step delivers per unit cost.
               </p>
+              <!-- r41 v296 (Tom Gilb 2026-06-22 "how to move on to 6.2 is not
+                   explained") — explicit sub-step progression annotation +
+                   "Go to 6.2" affordance.  Without this, the success banner
+                   only offered Review-steps and Continue-to-Evo-Impact —
+                   skipping 6.2 Prioritise, 6.3 Sharpen Steps, 6.4 Tools and
+                   Agents, 6.5 Confirm Evo Plan entirely. -->
+              <p class="text-[11px] text-indigo-900 mt-2 leading-relaxed bg-indigo-50/80 border border-indigo-200 rounded-md px-2.5 py-1.5 inline-flex items-center gap-2">
+                <span class="font-bold text-indigo-700">6.1 ✓ Done.</span>
+                <span>Next sub-step:</span>
+                <button
+                  type="button"
+                  class="font-bold text-white bg-indigo-600 hover:bg-indigo-700
+                         rounded px-2 py-0.5 transition-colors
+                         focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  title="Advance to sub-step 6.2 Prioritise — rank Evo Steps by Value/Cost ratio (VDT prioritisation per Tom Gilb canonical Value Decision Table methodology).  Or use Continue → Evo Impact below to skip remaining 6.x sub-steps."
+                  aria-label="Advance to sub-step 6.2 Prioritise"
+                  @click="emit('advance-substep', '6.2')"
+                >6.2 Prioritise →</button>
+              </p>
             </div>
             <div class="flex gap-2 shrink-0">
+              <!-- Export pin (Tom Gilb 2026-06-22 "no export here") —
+                   Export-Button-on-All-Windows SUPREME rule sweep target.
+                   One click → preview + clipboard HTML + auto-open Mail. -->
+              <button
+                type="button"
+                title="Export · open preview + copy HTML to clipboard + auto-open Mail to Tom@Gilb.com (Copy / Mail / Preview in one action)"
+                aria-label="Export Evo Steps Plan"
+                class="px-3.5 py-2 rounded-lg text-xs font-semibold
+                       text-teal-800 bg-white border border-teal-300
+                       hover:bg-teal-50 hover:border-teal-400
+                       focus:outline-none focus:ring-2 focus:ring-teal-300
+                       transition-colors shadow-sm"
+                @click="exportEvoSteps"
+              >
+                📤 Export
+              </button>
               <button
                 type="button"
                 title="Scroll down to review and edit the Evo steps"
@@ -5812,12 +6172,12 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
               >{{ point.title }}</text>
             </g>
 
-            <!-- ── Tooltip for selected bubble ── -->
+            <!-- ── HoverHint for selected bubble ── -->
             <g
               v-if="bubbleSelectedId && bubblePoints.find(p => p.stepId === bubbleSelectedId)"
               data-testid="bubble-tooltip"
             >
-              <!-- Compute tooltip position based on selected point -->
+              <!-- Compute HoverHint position based on selected point -->
               <rect
                 v-if="bubblePoints.find(p => p.stepId === bubbleSelectedId)"
                 :x="Math.min(360, 40 + 440 * (bubblePoints.find(p => p.stepId === bubbleSelectedId)!.x) / 100 + 10)"
@@ -6493,40 +6853,62 @@ function copyStepCard(step: { name: string; description?: string; linkedValues: 
       class="py-16 flex flex-col items-center gap-5"
       role="status"
     >
-      <!-- Icon -->
-      <div class="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-3xl shadow-sm"
-           aria-hidden="true">🗺️</div>
+      <!-- ── Pre-stage-6 placeholder — Tom 2026-06-08: "Generate Evo Plan is
+           premature at Stage 3. Evo steps are a function of the set of actual
+           and detailed solutions." Generate button hidden until Stage 6. ── -->
+      <template v-if="(props.planningStage ?? 6) < 6">
+        <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl shadow-sm"
+             aria-hidden="true">⟳</div>
+        <div class="text-center space-y-2 max-w-sm">
+          <p class="text-base font-semibold text-slate-600">Evo Steps available at Stage 6</p>
+          <p class="text-sm text-slate-400 leading-relaxed">
+            Evo Steps are derived from your Solutions — complete your
+            Solutions, Sharpen, Impacts, and Refine work first, then
+            generate Evo Steps at Stage 6.
+          </p>
+          <p class="text-xs text-slate-300 mt-1">
+            Current stage: {{ props.planningStage ?? '?' }} of 5 pre-Evo stages
+          </p>
+        </div>
+      </template>
 
-      <!-- Message -->
-      <div class="text-center space-y-1.5 max-w-sm">
-        <p class="text-base font-semibold text-gray-700">No Evo plan yet</p>
-        <p class="text-sm text-gray-400 leading-relaxed">
-          Generate AI-suggested Evo steps from your spec — each step delivers
-          measurable value and moves the stakeholder goal closer to its target.
-        </p>
-      </div>
+      <!-- ── Stage 6+ ready state — show Generate button ── -->
+      <template v-else>
+        <!-- Icon -->
+        <div class="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-3xl shadow-sm"
+             aria-hidden="true">🗺️</div>
 
-      <!-- Primary CTA — Generate — force=true bypasses the identity guard
-           and any pending skip flag (set by loadPlan on history restore)
-           so the button always triggers a fresh AI generation on click. -->
-      <button
-        type="button"
-        class="flex items-center gap-2.5 px-6 py-3 rounded-2xl
-               bg-gradient-to-r from-indigo-500 to-violet-500 text-white
-               font-semibold text-sm shadow-md shadow-indigo-200/60
-               hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg
-               focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2
-               transition-all duration-200 active:scale-[0.98] min-h-[44px]"
-        aria-label="Generate Evo Plan"
-        @click="fetchPlanWithProgress(props.specBlock, true)"
-      >
-        <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
-        </svg>
-        Generate Evo Plan
-      </button>
+        <!-- Message -->
+        <div class="text-center space-y-1.5 max-w-sm">
+          <p class="text-base font-semibold text-gray-700">No Evo plan yet</p>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Generate AI-suggested Evo steps from your spec — each step delivers
+            measurable value and moves the stakeholder goal closer to its target.
+          </p>
+        </div>
 
-      <p class="text-[11px] text-gray-400">Takes 10–60s depending on your AI backend</p>
+        <!-- Primary CTA — Generate — force=true bypasses the identity guard
+             and any pending skip flag (set by loadPlan on history restore)
+             so the button always triggers a fresh AI generation on click. -->
+        <button
+          type="button"
+          class="flex items-center gap-2.5 px-6 py-3 rounded-2xl
+                 bg-gradient-to-r from-indigo-500 to-violet-500 text-white
+                 font-semibold text-sm shadow-md shadow-indigo-200/60
+                 hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg
+                 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2
+                 transition-all duration-200 active:scale-[0.98] min-h-[44px]"
+          aria-label="Generate Evo Plan"
+          @click="fetchPlanWithProgress(props.specBlock, true)"
+        >
+          <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+          </svg>
+          Generate Evo Plan
+        </button>
+
+        <p class="text-[11px] text-gray-400">Takes 10–60s depending on your AI backend</p>
+      </template>
     </div>
 
   <!-- Fullscreen panel expand (green dot) -->

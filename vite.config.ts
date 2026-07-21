@@ -561,11 +561,44 @@ function claudeCodeProxy(): Plugin {
             }
 
             if (code !== 0) {
+              // r41 v206 (Tom Gilb 2026-06-19 screenshot — "Could not generate
+              // spec, claude CLI exited with code 1, stderr empty") — surface
+              // stdout when CLI exits non-zero.  The CLI emits a structured
+              // JSON error payload to STDOUT (not stderr) when it fails on
+              // a rate-limit, auth, or model error: { type: 'result',
+              // is_error: true, api_error_status: '...', result: '<msg>' }.
+              // Previously the middleware ignored stdout on code != 0 and
+              // surfaced an empty stderr — Tom saw "stderr: ''" with zero
+              // diagnostic value.  Now we attempt to parse stdout and surface
+              // the api_error_status / result fields if present; fall back to
+              // raw stdout + stderr otherwise.
+              let parsedError: string | undefined
+              let parsedResult: string | undefined
+              if (stdout.trim()) {
+                try {
+                  const parsed = JSON.parse(stdout) as {
+                    api_error_status?: unknown
+                    result?: string
+                    subtype?: string
+                    is_error?: boolean
+                  }
+                  if (parsed.api_error_status) {
+                    parsedError = String(parsed.api_error_status)
+                  } else if (parsed.subtype) {
+                    parsedError = `CLI subtype=${parsed.subtype}`
+                  }
+                  if (parsed.result) parsedResult = parsed.result
+                } catch { /* stdout was not JSON — surface raw below */ }
+              }
+              const composedError = parsedError
+                ? `claude CLI ${parsedError}${parsedResult ? ` — ${parsedResult.slice(0, 400)}` : ''}`
+                : `claude CLI exited with code ${code}`
               send(500, {
                 ok: false,
-                error: `claude CLI exited with code ${code}`,
+                error: composedError,
                 exit_code: code,
                 stderr: stderr.slice(0, 4000),
+                stdout: stdout.slice(0, 4000),
               })
               return
             }
@@ -678,6 +711,26 @@ export default defineConfig(({ mode }) => {
   server: {
     port: 5173,
     strictPort: true, // fail rather than silently move to another port
+    // r93j (Tom Gilb 2026-06-11 "to use develop I have to leave the app i bring in with a menu
+    // from below, and go over to safari proper, that has visible develop. quite a bother").
+    // Tom runs SEM App as a Safari Add-to-Dock PWA — the Develop menu is hidden in that mode,
+    // so the "Empty Caches" path he used after the r93h fix required him to leave the PWA,
+    // switch to Safari proper, then come back. Friction-by-design = enemy.
+    //
+    // Fix: send no-store headers on every dev asset so Safari (PWA mode AND proper) never
+    // caches modules. Every reload pulls fresh JS / Vue / CSS. Eliminates the whole
+    // stale-bundle failure class — ⌘R alone now flushes everything Safari has.
+    //
+    // Trade-off: marginally slower repeat-load (zero cache reuse). On localhost this is
+    // imperceptible. The wins are: (a) ⌘R behaves like ⌘⇧R, (b) no more "go to Develop menu"
+    // dance, (c) Dev-Server Caretaker Rule restart path becomes 1-click instead of 3-step.
+    //
+    // Production builds are unaffected — this is `server:` only, applies in `vite` dev mode.
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    },
   },
   test: {
     environment: 'happy-dom',

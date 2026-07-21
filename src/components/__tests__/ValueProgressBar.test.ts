@@ -39,9 +39,10 @@ describe('ValueProgressBar — Change 1', () => {
       props: { status: '35%', tolerable: '15%', goal: '5%' },
     })
     // Marker row should contain all three icons
+    // Status=📍, Tolerable=🟡, Goal=⭐ (Goal marker updated 2026-06-09 from 🟢 → ⭐)
     expect(wrapper.text()).toContain('📍')
     expect(wrapper.text()).toContain('🟡')
-    expect(wrapper.text()).toContain('🟢')
+    expect(wrapper.text()).toContain('⭐')
   })
 
   it('works with no Tolerable provided', () => {

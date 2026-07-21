@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* r93gg layer 2 REMOVED r93hh — Tom Gilb 2026-06-11 "penta budget clicks not working".
+   The body `overflow-x: clip` (added as belt-and-suspenders defence against hover-tooltip
+   horizontal-overflow) was creating a containing block / stacking context that interfered
+   with SVG arc click events in PentaPanel. Reverted — relying SOLELY on the tooltip-position
+   clamp in PentaPanel.vue (clampTooltipPos) to keep hover tooltips inside the viewport.
+   The clamp is the real fix; the overflow-x: clip was redundant insurance that did more harm
+   than good. If hover-tooltip overflow recurs in some future component, fix THAT component's
+   positioning rather than re-introducing a body-level overflow rule. */
+
 /* ── scrollbar-none utility ──────────────────────────────────────────────────
    Used by ValueCounter and other horizontal-scroll containers.
    Tailwind has no built-in scrollbar-hide without a plugin, so we define it here.

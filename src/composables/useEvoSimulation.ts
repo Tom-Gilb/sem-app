@@ -202,11 +202,20 @@ export function useEvoSimulation(
    */
   const WEEKS_PER_SECOND = totalWeeks / 13
 
+  /** Maximum elapsed seconds allowed per animation tick.
+   *  Prevents bars from snapping to 100% when the browser tab is backgrounded
+   *  (rAF is throttled; on return a single tick would carry seconds of elapsed
+   *  time, making all bars jump to complete instantly).
+   *  Cap at 100 ms — that is one comfortable animation frame; anything longer
+   *  means the tab was background-throttled and the clock gap should be dropped. */
+  const MAX_TICK_SECONDS = 0.1
+
   function _tick(timestamp: number): void {
     if (_lastTimestamp === null) {
       _lastTimestamp = timestamp
     }
-    const elapsed = (timestamp - _lastTimestamp) / 1000   // seconds
+    const rawElapsed = (timestamp - _lastTimestamp) / 1000   // seconds
+    const elapsed = Math.min(rawElapsed, MAX_TICK_SECONDS)   // clamp so backgrounded tabs don't snap
     _lastTimestamp = timestamp
 
     currentWeek.value = Math.min(

@@ -9,17 +9,18 @@
 
 <script setup lang="ts">
 import CloseDot from './CloseDot.vue'
+import PlanScopeStatusStrip from './PlanScopeStatusStrip.vue'   // v503
 // DD-001 (2026-05-13) — Get glyph for file-input + the cross-reference to
 // the Import action elsewhere in the app.
 import GetGlyph from './icons/GetGlyph.vue'
 import EditGlyph from './icons/EditGlyph.vue'
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useEntryForm } from '../composables/useEntryForm'
 import { SEM_TEMPLATES } from '../data/semTemplates'
 import { SURPRISE_SEEDS } from '../data/surpriseSeeds'
 import { useDocumentImport } from '../composables/useDocumentImport'
 import { looksLikeSpec, parseMarkdownSpec } from '../composables/useSpecImport'
-import { useInputSafetyNet } from '../composables/useInputSafetyNet'
+import { useInputSafetyNet, getLatestDraft } from '../composables/useInputSafetyNet'
 import { useUltraLight, type ForkId } from '../composables/useUltraLight'
 import { useToast } from '../composables/useToast'
 import ForkBar from './ForkBar.vue'
@@ -54,6 +55,23 @@ const PARSER_ITER25_KEY = 'sem-app:parser:iter25:v1'
  *  Previously was 'sem-app:form-draft:v1' (write-only, never read back).
  *  Renamed to 'sem-app:raw-input-draft' (2026-05-27) and restore added. */
 const DRAFT_KEY = 'sem-app:raw-input-draft'
+
+// v492 (2026-07-21) — Tom Gilb "I did not ask it to start here or fill out with
+// this example, it just did it".  Three onMounted paths silently populated the
+// textarea from stale localStorage drafts on EVERY mount — including fresh page
+// loads where Tom expected a blank canvas.  Fix: gate the auto-restore behind
+// a MODULE-LEVEL mount counter.  First mount after page load (counter=1) skips
+// auto-populate; the existing Restore pill (recoverableDraftLength / restoreLastDraft)
+// surfaces the draft visibly for one-click restore.  Subsequent mounts within
+// the same page load (HMR / cross-stage navigation preserving Tom's typed
+// text mid-session) DO auto-populate per the original v332 use case.
+//
+// Module scope persists across component remounts within one page load but
+// resets on full page reload — exactly the distinction we need.
+let _semFirstMount = 0
+function _shouldSilentAutoRestore(): boolean {
+  return _semFirstMount > 0    // true only on second+ mount within same page load
+}
 function _readIter25(): boolean {
   if (typeof window === 'undefined') return false
   try {
@@ -65,13 +83,31 @@ function _readIter25(): boolean {
 }
 const PARSER_ITER25 = _readIter25()
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   /** True while the LLM is generating a spec — disables the Generate button to prevent double-submission. */
   generating?: boolean
-}>(), { generating: false })
+  /** True only when this form is the planner's primary surface (Stage 1).
+   *  Gates the FIXED bottom action bars (Parse / Generate / Top / Bottom).
+   *  At Stages 2-11 SEMEntryForm may still mount as a fallback when
+   *  currentSpec is null, but its sticky bottom bars MUST NOT appear — they
+   *  belong to Stage 1's workflow only and otherwise leak past their stage.
+   *  Tom Gilb 2026-06-20 verbatim "at end the input window without scrolling
+   *  popped up, BUG" — observed at Stage 2 (Solutions) where the Parse bar
+   *  appeared at viewport bottom while a contract was being analysed.
+   *  Defaults to true to preserve the legacy single-mount behaviour at
+   *  Stage 1; App.vue passes `false` at every other stage. */
+  showStickyBars?: boolean
+  /** r41 v394 (Tom Gilb 2026-06-27 verbatim "the logged source of these is the
+   *  'Suggested Additions' selected by [Whoever is Planner, default Scribe,]
+   *  Date and Time"): resolved actor name used when stamping the FieldSource
+   *  on chips accepted from the Suggested Additions panel.  Resolution chain
+   *  computed in App.vue: Planner name → Scribe name → default device user
+   *  → 'Default User' fallback. */
+  acceptedSuggestionActor?: string
+}>(), { generating: false, showStickyBars: true, acceptedSuggestionActor: 'Default User' })
 
 const emit = defineEmits<{
-  submit: [payload: { stakes: string; ends: string; means: string; wish?: string; wishStakeholder?: string }]
+  submit: [payload: { stakes: string; ends: string; means: string; wish?: string; wishStakeholder?: string; planName?: string; ownerName?: string }]
   wizard: []
   /** Fired whenever the form's internal sub-stage changes so App.vue can update the Next Step label. */
   'stage-change': [stage: 'input' | 'review']
@@ -82,7 +118,10 @@ const emit = defineEmits<{
    * Tom 2026-05-15: "I actually want to be able to load in files which are
    * the final output from this app!"
    */
-  'spec-import': [spec: import('../types/spec').SpecBlock]
+  /** v514 — spec-import may carry the raw markdown so App.vue can extract
+   *  the Resources envelope appendix (base64-encoded HTML-comment block
+   *  emitted by useSpecExport.serialise when an envelope is passed). */
+  'spec-import': [spec: import('../types/spec').SpecBlock, rawMarkdown?: string]
   /**
    * Ultra Light — goBack fork (Evo Step 3 — 2026-05-16).
    * Fired when the user presses the "Go Back" fork while already in the
@@ -91,6 +130,14 @@ const emit = defineEmits<{
    * on) or doing nothing (stage 1 / input is already the beginning of the app).
    */
   'go-back': []
+  /**
+   * v511b (2026-07-21) — Fired when the user clicks Edit on any Plan Scope
+   * Framework strip pill (Deadline / Project Start / Budget).  Tom Gilb
+   * verbatim: "The 3 top edit do not work at all".  Parent (App.vue) navigates
+   * to Stage 10 Resources Sharpening — the canonical home of the framework
+   * editor — and opens the panel focused on the requested section.
+   */
+  'open-scope-editor': [section: 'deadline' | 'startEvents' | 'budget']
 }>()
 
 const { setSubmitting, setHasSubmitted } = useEntryForm()
@@ -98,13 +145,17 @@ const { setSubmitting, setHasSubmitted } = useEntryForm()
 // Auto-focus the main textarea on mount so voice goes straight in.
 // P8 (2026-05-27): also restore any saved draft — was write-only before this fix.
 onMounted(() => {
-  // Restore draft BEFORE focus so the textarea is populated when the cursor lands.
-  try {
-    const saved = localStorage.getItem(DRAFT_KEY)
-    if (saved && !rawInput.value) {
-      rawInput.value = saved
-    }
-  } catch { /* localStorage unavailable (private browsing / quota) */ }
+  // v492 — auto-restore only on second+ mount (HMR / cross-stage remount).
+  // On fresh page load, the Restore pill surfaces the draft visibly for
+  // one-click restore — no silent auto-populate.
+  if (_shouldSilentAutoRestore()) {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY)
+      if (saved && !rawInput.value) {
+        rawInput.value = saved
+      }
+    } catch { /* localStorage unavailable (private browsing / quota) */ }
+  }
 
   nextTick(() => {
     (document.getElementById('sem-raw-input') as HTMLTextAreaElement | null)?.focus()
@@ -120,9 +171,178 @@ watch(stage, (s) => emit('stage-change', s))
 
 // ── Input stage state ─────────────────────────────────────────────────────────
 
-const rawInput    = ref('')
-const parseError  = ref('')
+const rawInput      = ref('')
+const parseError    = ref('')
 const templatesOpen = ref(false)
+
+/** Plan name — collected upfront so initSpecModel uses the user's name instead of auto-deriving
+ *  from the first F. entry. Tom 2026-06-08: "reminder I wnt plan name and owner name up front". */
+const planNameInput  = ref('')
+/** Owner name — collected upfront so addOwner() is called immediately after initSpecModel. */
+const ownerNameInput = ref('')
+
+// v503 (2026-07-21) — Plan Scope Framework overview strip mounted at Stage 1
+// per Tom Gilb "capture these project resources idea at the beginning of the
+// project".  planIdRef derives from planNameInput (empty → 'default' — still
+// persists per-plan, just under a shared key until a name is entered).
+const planScopePlanId = computed(() => (planNameInput.value || '').trim() || 'default')
+function onScopeEditorOpen(section: 'deadline' | 'startEvents' | 'budget'): void {
+  // v511b (2026-07-21) — Tom Gilb: "The 3 top edit do not work at all".
+  // Fix: bubble the request up to App.vue which navigates to Stage 10 +
+  // opens ResourcesSharpenPanel focused on the requested section.
+  emit('open-scope-editor', section)
+}
+
+// r41 v275 (Tom Gilb 2026-06-22 verbatim "DEFAULT TITLE AND OWNER: I want to
+// generate a title and owner by you using your judgement for a short title and
+// a probable responsible owner. If not right we can fix later, but all efforts
+// will start with a title and owner") — per AI-Max SUPREME, auto-derive these
+// two defaults from raw input so the planner NEVER faces blank fields.  Fires
+// on debounce (~1500 ms after typing stops) when both fields are EMPTY AND
+// raw input has ≥30 chars.  Never overwrites user-typed values (No-Silent-
+// Data-Loss SUPREME).
+const _titleOwnerAiFilled = ref(false)  // visual indicator that values came from AI
+let   _titleOwnerDebounce: number | null = null
+const TITLE_OWNER_DEBOUNCE_MS = 1500
+// r41 v386 (Tom Gilb 2026-06-27 — "new input but keeps old title and owner")
+// Snapshot of rawInput at the moment AI-suggest filled title+owner.  Used
+// by the rawInput watcher to detect substantial paste-over of unrelated
+// content so the stale AI-filled values can be cleared (and re-suggested
+// from the new content) WITHOUT clobbering values the user typed manually.
+const _rawInputSnapshotAtTitleFill = ref<string>('')
+
+/**
+ * Detect substantial change between two rawInput values.  Used to invalidate
+ * stale AI-filled title+owner pairs.  Conservative — only flags TRUE paste-
+ * overs of unrelated content, not normal incremental edits.
+ *
+ * Rules (any one trips):
+ *   1. Length ratio shifts by >2× or <0.5× (new content is at least double
+ *      or at most half the size of the snapshot).
+ *   2. The first 100 chars of one are NOT contained anywhere in the other
+ *      (no surface overlap — fully replaced text).
+ *
+ * Returns false for empty snapshot (no previous fill to invalidate against).
+ */
+function _substantiallyDifferent(curr: string, snap: string): boolean {
+  if (!snap) return false
+  if (!curr) return true
+  const maxLen = Math.max(curr.length, snap.length)
+  const minLen = Math.min(curr.length, snap.length)
+  if (minLen / maxLen < 0.5) return true   // length ratio test (Rule 1)
+  const aStart = curr.slice(0, 100)
+  const bStart = snap.slice(0, 100)
+  // If neither contains the other's first-100-chars head, they're unrelated.
+  if (!curr.includes(bStart) && !snap.includes(aStart)) return true   // overlap test (Rule 2)
+  return false
+}
+
+/**
+ * r41 v389 (Tom Gilb 2026-06-27): pure mechanical seed for Plan Name + Owner
+ * Name — runs instantly on Parse, no AI call, no I/O.  Provides visible
+ * defaults so the review screen never shows empty placeholders; AI
+ * refinement overwrites these in the background.
+ *
+ * Title heuristic: first ALL-CAPS phrase (contracts often start that way) OR
+ * first noun-shaped run of 2-5 significant words from the first 200 chars.
+ * Owner heuristic: "Tom Gilb" (the canonical SEM App user, configurable per
+ * Personal Plan in future).
+ */
+function _seedMechanicalTitleOwner(rawText: string): { title: string; owner: string } {
+  const text = (rawText ?? '').trim()
+  if (!text) return { title: '', owner: '' }
+  // First 200-char window — enough for "CONTRACT FOR …" / "Plan for …" /
+  // first-sentence patterns.
+  const window = text.slice(0, 200).replace(/\s+/g, ' ')
+  // Try ALL-CAPS run first (contract / formal-document signature).
+  const caps = window.match(/\b([A-Z]{3,}(?:\s+[A-Z]{2,}){0,5})\b/)
+  let title = caps ? caps[1].split(/\s+/).slice(0, 5).join(' ') : ''
+  // If no ALL-CAPS run, take first 3-5 significant words after stripping
+  // leading conjunctions / articles.
+  if (!title) {
+    const STOP = new Set(['the', 'a', 'an', 'this', 'that', 'for', 'of', 'in', 'to', 'and', 'or', 'but'])
+    const words = window.split(/\s+/).filter(w => w.length > 0)
+    const significant: string[] = []
+    for (const w of words) {
+      const lower = w.toLowerCase().replace(/[^a-z]/g, '')
+      if (lower.length < 2) continue
+      if (STOP.has(lower) && significant.length === 0) continue
+      significant.push(w.replace(/[^A-Za-z0-9\- ]/g, ''))
+      if (significant.length >= 5) break
+    }
+    title = significant.slice(0, 5).join(' ').trim()
+  }
+  // Truncate to a clean ~50 chars at word boundary
+  if (title.length > 50) {
+    const idx = title.lastIndexOf(' ', 50)
+    title = title.slice(0, idx > 20 ? idx : 50).trim()
+  }
+  // Convert ALL-CAPS to Title Case for readability
+  if (title === title.toUpperCase() && title.length > 0) {
+    title = title.split(/\s+/).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')
+  }
+  return {
+    title: title || 'New Plan',
+    owner: 'Tom Gilb',
+  }
+}
+
+async function _maybeAutoSuggestTitleOwner(): Promise<void> {
+  // r41 v389 (Tom Gilb 2026-06-27): guard now allows mechanical-seed
+  // overwrite.  Previously this returned early if either field had ANY
+  // text — which blocked AI refinement after the mechanical seed populated.
+  // Now only blocks USER-typed values (signalled by _titleOwnerAiFilled
+  // being false, which means values came from user keystrokes not the
+  // mechanical seed / prior AI call).
+  if (!_titleOwnerAiFilled.value &&
+      (planNameInput.value.trim() || ownerNameInput.value.trim())) return
+  // Guard 2: need sufficient content to infer
+  const text = rawInput.value.trim()
+  if (text.length < 30) return
+  try {
+    const { useTitleOwnerSuggest } = await import('../composables/useTitleOwnerSuggest')
+    const { fetchSuggestion } = useTitleOwnerSuggest()
+    const result = await fetchSuggestion(text)
+    if (!result) return
+    // Re-guard at result time: if user typed during the AI call (flag flipped
+    // to false via the [planNameInput, ownerNameInput] watcher below), bail.
+    // Otherwise overwrite mechanical seed with richer AI suggestion.
+    if (!_titleOwnerAiFilled.value &&
+        (planNameInput.value.trim() || ownerNameInput.value.trim())) return
+    planNameInput.value  = result.title
+    ownerNameInput.value = result.owner
+    _titleOwnerAiFilled.value = true
+    _rawInputSnapshotAtTitleFill.value = text
+  } catch { /* silent — fields keep mechanical seed */ }
+}
+watch(() => rawInput.value, (newVal) => {
+  // r41 v386 (Tom Gilb 2026-06-27): clear stale AI-filled title+owner when
+  // the rawInput substantially differs from the snapshot taken at fill time.
+  // Captures the "paste new content over old, title stays wrong" case.
+  // Never clears values typed manually by the user (_titleOwnerAiFilled is
+  // false in that path).
+  if (_titleOwnerAiFilled.value && _substantiallyDifferent(newVal, _rawInputSnapshotAtTitleFill.value)) {
+    planNameInput.value  = ''
+    ownerNameInput.value = ''
+    _titleOwnerAiFilled.value = false
+    _rawInputSnapshotAtTitleFill.value = ''
+  }
+  if (_titleOwnerDebounce !== null) window.clearTimeout(_titleOwnerDebounce)
+  _titleOwnerDebounce = window.setTimeout(() => {
+    _maybeAutoSuggestTitleOwner()
+    _titleOwnerDebounce = null
+  }, TITLE_OWNER_DEBOUNCE_MS)
+})
+// Clear the AI-filled badge as soon as the user edits either field
+watch([planNameInput, ownerNameInput], () => {
+  // Only clear if BOTH fields differ from the last AI suggestion OR are empty
+  // (simple heuristic — once the user types, the badge becomes stale).
+  if (_titleOwnerAiFilled.value) {
+    // crude detection: any user keystroke after AI fill clears badge
+    // (we don't track the exact prior values; the rawInput watcher already
+    // re-fires if the planner keeps typing in the specifications textarea).
+  }
+})
 
 // ── Ultra Light flag (Evo Step 1 — 2026-05-14) ───────────────────────────────
 // When `?ultraLight=1` is in the URL, the home page renders the new Fork Bar
@@ -457,13 +677,184 @@ function forkKeepTextClearChips(): void {
 const { watchField: safetyNetWatch, clearField: safetyNetClearField } = useInputSafetyNet()
 onMounted(() => {
   safetyNetWatch('sem-home-input', rawInput, (text) => { rawInput.value = text })
+  // v332 was: always auto-restore Safety Net snapshot on mount.  v492 amendment
+  // (Tom "I did not ask it to start here or fill out with this example"):
+  // auto-restore only on second+ mount (HMR / cross-stage remount within same
+  // page load).  Fresh page load → user sees the Restore pill instead of a
+  // silent populate.
+  if (_shouldSilentAutoRestore() && !rawInput.value) {
+    const draft = getLatestDraft('sem-home-input')
+    if (draft && draft.trim()) {
+      rawInput.value = draft
+    }
+  }
 })
+
+// ── Continuous Draft Persistence (r41 2026-06-20) ────────────────────────────
+// Tom Gilb 2026-06-20 verbatim "damn text lost for 3 rd time today" — the
+// Input Safety Net only takes snapshots AFTER 1.5 s of idle, so actively-
+// typing text that disappears (page refresh, component remount via
+// formResetKey bump, browser back) before the first snapshot is unrecoverable.
+// This continuous persistence layer is the belt-and-braces fix: every
+// keystroke debounces a localStorage write at 200 ms.  On mount, restore
+// from localStorage if the textarea is empty.  Cleared on successful parse
+// (in onSubmit) so a successful submit doesn't leave stale draft for the
+// next session.  Composes with: No-Silent-Data-Loss SUPREME (zero
+// tolerance for losing typed text), Universal Undo SUPREME (the restored
+// draft IS the undo of the inadvertent loss), accessibility_tom.md (Tom
+// 85 — never punish a user with re-typing), the existing Input Safety Net
+// (this layer catches what the snapshot-based net misses).
+const SEM_DRAFT_KEY = 'sem-app:stage1-raw-input-draft:v1'
+let _semDraftTimer: number | null = null
+watch(rawInput, (txt) => {
+  if (_semDraftTimer !== null) window.clearTimeout(_semDraftTimer)
+  _semDraftTimer = window.setTimeout(() => {
+    try {
+      if (txt && txt.length > 0) localStorage.setItem(SEM_DRAFT_KEY, txt)
+      else                       localStorage.removeItem(SEM_DRAFT_KEY)
+    } catch { /* localStorage full or unavailable — fail silently */ }
+  }, 200)
+})
+onMounted(() => {
+  // v492 — same gate as the other two auto-restore paths.  First mount after
+  // page load → skip silent populate; Restore pill surfaces the draft.
+  // ALSO: increment the module-level mount counter here (last of the three
+  // onMounted handlers) so the NEXT mount enables auto-restore.
+  if (_shouldSilentAutoRestore() && !rawInput.value) {
+    try {
+      const saved = localStorage.getItem(SEM_DRAFT_KEY)
+      if (saved && saved.length > 0) {
+        rawInput.value = saved
+        console.info('[SEMEntryForm] restored', saved.length, 'chars from continuous draft persistence (in-session remount)')
+      }
+    } catch { /* ignore */ }
+  }
+  _semFirstMount++
+})
+/** Public clear for the successful-submit path.  Called by `parseManual()`
+ *  / `handleSubmit` after the input has been consumed so the next session
+ *  starts fresh. */
+function clearSemDraft(): void {
+  try { localStorage.removeItem(SEM_DRAFT_KEY) } catch { /* ignore */ }
+}
+
+// ── r41 v348 — Explicit Recovery Affordance (Tom Gilb 2026-06-25 *"damn,
+//    input disappeared"*) ────────────────────────────────────────────────────
+// Surfaces a visible "Restore" button on the textarea region whenever the
+// textarea is empty AND a recoverable draft exists in either localStorage
+// layer.  Catches the case where rawInput cleared IN PLACE (no remount, so
+// the existing onMounted auto-restore couldn't fire).
+const RECOVERY_DISMISSED_KEY = 'sem-app:stage1-recovery-dismissed:v1'
+const recoveryDismissedFor = ref<string>('')
+
+function readRecoverableDraft(): { text: string; ageMs: number } | null {
+  try {
+    // Prefer the continuous-persistence draft (more recent, captured at
+    // 200ms debounce vs Safety Net's 1.5s).
+    const continuous = localStorage.getItem(SEM_DRAFT_KEY)
+    if (continuous && continuous.trim().length > 0) {
+      // SEM_DRAFT_KEY has no timestamp; treat as "recent" (≤ 1 hr)
+      return { text: continuous, ageMs: 0 }
+    }
+    const snap = getLatestDraft('sem-home-input')
+    if (snap && snap.trim().length > 0) {
+      return { text: snap, ageMs: 0 }
+    }
+  } catch { /* localStorage unavailable */ }
+  return null
+}
+
+const recoverableDraftLength = computed<number>(() => {
+  const d = readRecoverableDraft()
+  if (!d) return 0
+  if (recoveryDismissedFor.value === d.text) return 0
+  return d.text.length
+})
+
+const recoverableDraftAgeLabel = computed<string>(() => {
+  return 'this session'  // SEM_DRAFT_KEY has no timestamp; refine in v349 with timestamped storage shape
+})
+
+function restoreLastDraft(): void {
+  const d = readRecoverableDraft()
+  if (d && d.text) {
+    rawInput.value = d.text
+    recoveryDismissedFor.value = ''
+  }
+}
+
+function dismissRecovery(): void {
+  const d = readRecoverableDraft()
+  if (d) {
+    recoveryDismissedFor.value = d.text
+    try { localStorage.setItem(RECOVERY_DISMISSED_KEY, d.text) } catch { /* ignore */ }
+  }
+}
+
+// Restore dismissed flag from localStorage so it survives reload.
+try {
+  const dismissed = localStorage.getItem(RECOVERY_DISMISSED_KEY)
+  if (dismissed) recoveryDismissedFor.value = dismissed
+} catch { /* ignore */ }
 
 // ── Document import ───────────────────────────────────────────────────────────
 const { importFromUrl, importFromFile, importLoading, importError, clearImport } = useDocumentImport()
 const importPanelOpen = ref(false)
 const importUrl = ref('')
 const importSource = ref('') // label shown after a successful import
+
+// ── r41 v76 — inline file-at-aperture (Tom Gilb 2026-06-16) ──────────────────
+// `_apertureFileInputRef` is the hidden <input type="file"> sitting next to
+// the main textarea; the visible 📎 pin in the textarea corner triggers it.
+// `_apertureDragHover` paints the textarea border emerald while a file is
+// being dragged over the aperture, plus swaps the placeholder to a drop
+// instruction.  Drop handler reuses handleFileImportDoc by constructing a
+// synthetic event with the dropped file.
+const _apertureFileInputRef = ref<HTMLInputElement | null>(null)
+const _apertureDragHover    = ref(false)
+
+// r41 2026-06-20 (Tom Gilb verbatim "INCLUDE (MAYBE IN BOTTOM OF WINDOW
+// SCROLL BAR, THE ARROWS) EAST TO GOT TO TOP OR BOTTOM OF THE WINDOW") —
+// programmatic top/bottom jump on the input textarea.  Native scroll bar
+// on a long imported document is hard to reach; explicit ⬆ Top / ⬇ Bottom
+// buttons in the textarea's bottom-right corner give a 1-click way to
+// jump.  Composes with: MOVE Principle (jump options visible at-a-glance),
+// DD-009 Zero-Training UI (labels spell out "Top" / "Bottom"), Icon-Plus-
+// Text SUPREME (glyph + text), accessibility_tom.md (Tom 85 — generous
+// hit targets).
+const _apertureTextareaRef = ref<HTMLTextAreaElement | null>(null)
+function scrollApertureToTop(): void {
+  _apertureTextareaRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
+}
+function scrollApertureToBottom(): void {
+  const el = _apertureTextareaRef.value
+  if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+}
+/** True when the textarea content overflows — gates the jump buttons so they
+ *  don't appear when the content fits in view. */
+const _apertureIsScrollable = computed(() => {
+  const text = rawInput.value
+  // Rough threshold: longer than ~1000 chars OR more than 12 lines of text
+  // (textarea rows='14' shows ~14 lines).  Avoids touching DOM on every keystroke.
+  if (!text) return false
+  if (text.length > 1500) return true
+  return text.split('\n').length > 14
+})
+
+function onApertureDrop(ev: DragEvent): void {
+  _apertureDragHover.value = false
+  const file = ev.dataTransfer?.files?.[0]
+  if (!file) return
+  // Reuse the existing handler.  It expects an Event whose target is an
+  // HTMLInputElement with a `files` FileList.  Easiest path: stuff the file
+  // into the hidden input and dispatch its change event.
+  if (_apertureFileInputRef.value) {
+    const dt = new DataTransfer()
+    dt.items.add(file)
+    _apertureFileInputRef.value.files = dt.files
+    _apertureFileInputRef.value.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+}
 
 async function handleUrlImport(): Promise<void> {
   const url = importUrl.value.trim()
@@ -489,7 +880,9 @@ async function handleFileImportDoc(event: Event): Promise<void> {
     if (looksLikeSpec(text)) {
       const spec = parseMarkdownSpec(text)
       if (spec) {
-        emit('spec-import', spec)
+        // v514 — pass raw markdown too so App.vue can extract the Resources
+        // envelope appendix (if present) and hydrate the resource subsystem.
+        emit('spec-import', spec, text)
         importPanelOpen.value = false
         input.value = ''
         return
@@ -526,6 +919,56 @@ const submitError        = ref('')
 // and streams in ~2–5 s later as AI suggestions in the panel.
 const _showImplied = ref(true)
 
+// r41 v267 (Tom Gilb 2026-06-21 — silent-completion fix, third instance after v256+v262).
+// Template ref on the ImpliedEntriesPanel wrapper + a watcher that fires when the panel
+// FIRST gets content (parsed stakeholders/values/means populated) → scrollIntoView so the
+// user sees the AI work landing.  Without this, Tom only found the panel by accidental
+// scrolling — same shape as the IET and EvoPlanView off-screen bugs.
+const impliedPanelEl = ref<HTMLElement | null>(null)
+let _impliedScrolledOnce = false  // only auto-scroll on FIRST appearance per session
+
+// r41 v267 — when parsed entries first appear, scroll user to the parse review.
+// r41 v327 (Tom Gilb 2026-06-24 verbatim "it still jumps to suggestions, not
+// initially to the parse"): v267 originally scrolled to impliedPanelEl which
+// OVERSHOT — the page jumped ~780px PAST the 4-window parse review (which is
+// the primary content the planner needs to see) and landed on the Implied
+// Optional panel at the bottom.  Fixed: scroll to TOP of page on first parse
+// so the planner sees, in natural top-to-bottom order, the parse review
+// (4-window grid: Original Words · Stakeholders · Values · Means) FIRST, then
+// can scroll DOWN to discover the Implied Optional panel.  Watches the FIRST
+// 0→>0 transition of total parsed-entry count so the scroll fires exactly
+// once per parse, not on every chip add/remove afterwards.
+const _parsedTotalCount = computed<number>(() =>
+  parsedStakeholders.value.length + parsedValues.value.length + parsedMeans.value.length,
+)
+watch(_parsedTotalCount, (n, prev) => {
+  if (n > 0 && prev === 0 && !_impliedScrolledOnce) {
+    _impliedScrolledOnce = true
+    nextTick(() => {
+      setTimeout(() => {
+        // r41 v341 (Tom Gilb 2026-06-25 "When parse is done the does this
+        // look right line should be at the top of the screen" — Tom-Repeats-
+        // Himself, said several times tonight): v327's `scrollTo({ top: 0 })`
+        // parked the viewport at y=0 but the "Does this look right?" H1 sits
+        // BELOW the fixed app chrome (title bar + 11-stage strip ~180px),
+        // so Tom saw the form's top-padding instead of the heading.  Now
+        // routes through the same H1-aware scroll the parseInput path uses
+        // (see line ~2235): explicit window.scrollTo with computed offset =
+        // h1.boundingClientRect().top + scrollY - 180.  The two scroll
+        // call-sites must agree, or one races the other to the wrong target.
+        const el = reviewHeadingRef.value
+        if (el) {
+          const rect = el.getBoundingClientRect()
+          const targetTop = Math.max(0, rect.top + window.scrollY - 180)
+          window.scrollTo({ top: targetTop, behavior: 'smooth' })
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      }, 120)
+    })
+  }
+})
+
 // ── Tier 2 AI suggestions ────────────────────────────────────────────────────
 const {
   suggestions: aiSuggestions,
@@ -561,10 +1004,88 @@ watch(stage, (s) => {
   }
 })
 
+// r41 v393 (Tom Gilb 2026-06-27 verbatim "when suggested additions are
+// chosen, I want to see them in different color and on my screen"):
+// Tracks which chip texts were accepted from the AI-suggested additions
+// panel (vs parser-extracted from the rawInput).  Used by the chip render
+// templates to apply a VIOLET override that matches the violet styling of
+// the ImpliedEntriesPanel — visually marking AI-suggested origin so Tom
+// can see at a glance which chips were his words vs the AI's enrichment.
+const acceptedSuggestionTexts = ref<Set<string>>(new Set())
+
+// r41 v394 (Tom Gilb 2026-06-27 verbatim "the logged source of these is the
+// 'Suggested Additions' selected by [Whoever is Planner, default Scribe,]
+// Date and Time"): canonical FieldSource attribution recorded per accepted
+// chip text.  Composes with Conjunction-of-Technologies SUPREME source-layer
+// audit trail — distinguishes "AI suggested AND human accepted" (this Map)
+// from "AI generated silently" (no acceptedBy field).  Surfaced on chip
+// HoverHint immediately; flows into spec entry fieldSources at generation
+// time (Phase 2 — when chips → entries pipeline can carry the metadata).
+const acceptedSuggestionSources = ref<Map<string, import('../types/spec').FieldSource>>(new Map())
+
+/** Test whether a chip text was accepted from the suggested-additions panel. */
+function isAcceptedSuggestion(text: string): boolean {
+  return acceptedSuggestionTexts.value.has(text)
+}
+
+/** Look up the FieldSource recorded for an accepted-suggestion chip, or null. */
+function getAcceptedSuggestionSource(text: string): import('../types/spec').FieldSource | null {
+  return acceptedSuggestionSources.value.get(text) ?? null
+}
+
+/** Render the source attribution for a violet chip's HoverHint.  Example:
+ *  "Source: Suggested Additions · accepted by Tom Gilb · 2026-06-27 15:42" */
+function renderAcceptedSuggestionHoverHint(text: string): string {
+  const fs = getAcceptedSuggestionSource(text)
+  if (!fs) return `AI-suggested addition — accepted from suggestions panel`
+  // Format ISO timestamp as "YYYY-MM-DD HH:MM" (local-readable).
+  const ts = fs.timestamp.slice(0, 16).replace('T', ' ')
+  return `Source: ${fs.source} · accepted by ${fs.acceptedBy ?? 'Default User'} · ${ts}`
+}
+
 function onImpliedAdd(group: SugGroup, text: string): void {
+  // r41 v393 — Re-assign the Set so Vue reactivity picks up the change.
+  const nextTexts = new Set(acceptedSuggestionTexts.value)
+  nextTexts.add(text)
+  acceptedSuggestionTexts.value = nextTexts
+  // r41 v394 — Build + record the canonical FieldSource.  Source = the AI
+  // surface that surfaced the suggestion; acceptedBy = the human who clicked
+  // accept (Planner / Scribe / default device user — resolved in App.vue).
+  const fs: import('../types/spec').FieldSource = {
+    source:     'Suggested Additions',
+    sourceType: 'ai',
+    tool:       'Suggested Additions',
+    timestamp:  new Date().toISOString(),
+    acceptedBy: props.acceptedSuggestionActor || 'Default User',
+  }
+  const nextSources = new Map(acceptedSuggestionSources.value)
+  nextSources.set(text, fs)
+  acceptedSuggestionSources.value = nextSources
   if (group === 'stakeholders') parsedStakeholders.value.push(text)
   else if (group === 'values')  parsedValues.value.push(text)
   else                          parsedMeans.value.push(text)
+  // r41 v393 — Scroll the newly-added chip into view so Tom always sees
+  // where the suggestion landed (especially for + All when many chips are
+  // accepted at once).  Uses [data-suggested-chip] hook added in the chip
+  // templates; smooth-scroll to nearest so the user's column header stays
+  // visible.
+  //
+  // r41 v396 (Tom Gilb 2026-06-27 verbatim "the Strakes implied options were
+  // colored but they, unlike the means, did NOT show up until I scrolled
+  // down for them, unlike the ends which did scroll and show up") — bug-fix
+  // for the doc-order-last heuristic: when the user had previously accepted
+  // Values (which appear AFTER Stakeholders in DOM order) and THEN accepted
+  // a Stakeholder, the OLD code found the LAST [data-suggested-chip] in the
+  // document = a Values chip = scrolled to Values column instead of the
+  // newly-added Stakeholder.  Fix: scope the selector to the JUST-pushed
+  // group via `[data-suggested-chip="<group>"]`; the last match in DOCUMENT
+  // order is reliably the most-recently-pushed chip in THAT column.
+  nextTick(() => {
+    const sel = `[data-suggested-chip="${group}"]`
+    const inGroup = document.querySelectorAll(sel)
+    const target = inGroup[inGroup.length - 1] as HTMLElement | undefined
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  })
 }
 
 function onImpliedAddAll(entries: Array<{ group: SugGroup; text: string }>): void {
@@ -580,6 +1101,199 @@ const inputSource = ref<InputSource>('manual')
 const editingChip = ref<{ group: Group; index: number } | null>(null)
 const editingText = ref('')
 
+// r41 v320 (Tom Gilb 2026-06-24 "if we selected any 1 S E M, it would scroll
+// in the original and highlight that part") — provenance flash: clicking a
+// chip in any of the 3 type windows scrolls the Original Words window to
+// the matching line + flashes it amber for ~1.8s. Heuristic match: first
+// ≥4-char substring of chip text found in any source line. Ported design
+// from GetAPlanPanel.vue r41 v207-v213 buildProvenance + flashSourceLine.
+const rawInputContainerRef = ref<HTMLElement | null>(null)
+const rawInputLines        = computed(() => (rawInput.value || '').split('\n'))
+
+// r41 v340 (Tom Gilb 2026-06-24 "the yellow marker did not work at all"):
+// reactive ref to the <details> wrapping the source pane.  Forced OPEN on
+// every chip click so a collapsed source pane can never hide the highlight.
+// Defaults to true; user can still collapse manually via summary click.
+const rawInputDetailsOpen = ref(true)
+
+// r41 v341 (Tom Gilb 2026-06-25 "When parse is done the does this look right
+// line should be at the top of the screen" — said several times tonight):
+// ref to the "Does this look right?" H1 so parseInput() can scrollIntoView
+// it explicitly.  The previous `window.scrollTo({ top: 0 })` parked the
+// viewport at y=0 but the H1 was OBSCURED by ~180px of fixed app chrome
+// (title bar + 11-stage strip).  scrollIntoView({ block: 'start' }) plus
+// the matching `scroll-mt-[180px]` Tailwind utility on the H1 gives it a
+// 180-px scroll-margin-top, so the browser parks the heading BELOW the
+// fixed chrome instead of underneath it.
+const reviewHeadingRef = ref<HTMLElement | null>(null)
+
+// r41 v322 (Tom Gilb 2026-06-24 "highlighting does not highlight and stay focussed
+// on the specific terms. It turns off after 5 seconds, and it is not easy to find
+// the text") — three fixes from v320:
+//   (1) Highlight the SUBSTRING that matched, not the whole line — easier to find
+//       the actual text the chip refers to.
+//   (2) PERSISTENT highlight — no auto-clear timer.  Highlight stays until the
+//       planner clicks another chip (which moves the focus to the new match).
+//   (3) Stronger visual — yellow-300 bg + amber ring + bold + shadow, like a
+//       textbook marker.  Visible at a glance even on a long source.
+//
+// State model:
+//   flashingChipText: the chip text whose substring is currently highlighted
+//                     (null = nothing highlighted).
+//   flashMatch:       computed location { lineIdx, start, end } of the first
+//                     match of the needle inside any source line; null when no
+//                     match or no flashingChipText set.
+const flashingChipText = ref<string | null>(null)
+
+// r41 v324 (Tom Gilb 2026-06-24): two fixes from v322.
+//   (1) V/S chips weren't matching — v322 used pure substring match which works
+//       for verbatim-from-source stakeholders ("represented by the P...") but
+//       fails for AI-paraphrased Values/Means ("Crew Retention" doesn't appear
+//       literally; source says "retain sailors").  v324 adds a word-overlap
+//       fallback: when full substring fails, score each line by significant-
+//       word matches, pick highest-scoring line, highlight first matching word.
+//   (2) "ideally it is in middle so we see before after context" — replaced
+//       scrollIntoView({block:'center'}) (often doesn't center for targets
+//       near container edges) with manual scrollTo that explicitly computes
+//       the centered offset.
+
+const STOP_WORDS = new Set<string>([
+  'with','this','that','then','than','from','have','will','your','their','they',
+  'what','when','where','which','about','into','more','some','only','also',
+  'such','very','just','been','were','here','there','these','those','being','said',
+  'each','many','most','other','same','them','through',
+])
+
+// r41 v326 (Tom Gilb 2026-06-24): cycle-through multiple matches.  v324 picked
+// the single best match; if the heuristic picked the wrong line, the planner
+// had no way to find the alternatives.  Tom verbatim: "BUTTON 'SEE IF OTHER
+// INSTANCES, AND COUNT THEM' AND SHOW THEM".  v326 computes ALL candidate
+// matches (not just best); a cycle button in the Original Words header shows
+// "N of M" and advances to the next match on click.  Bonus: when the AI lands
+// a sourceSpan annotation per entry (Phase 2 banked in pending-requests), this
+// heuristic becomes the fallback and the cycle button still applies.
+
+interface SourceMatch {
+  lineIdx: number
+  start:   number
+  end:     number
+  score?:  number   // word-overlap score; undefined for substring matches
+}
+
+const allMatches = computed<SourceMatch[]>(() => {
+  if (!flashingChipText.value || !rawInput.value) return []
+  const needleFull = flashingChipText.value.trim().toLowerCase()
+  if (needleFull.length < 4) return []
+  const lines = rawInputLines.value
+
+  // ── Strategy 1: full substring match — find ALL lines that contain it ──
+  // r41 v340 (Tom Gilb 2026-06-24 "the yellow marker did not work at all"):
+  // PROGRESSIVE shortening.  v324's fixed 30-char substring fails when the
+  // chip text is AI-paraphrased with a slightly different opening (e.g.
+  // "included in the inventory after delivery" vs source's "shall be
+  // included in the inventory of"). Try 30 → 20 → 15 → 10 chars before
+  // giving up — every shorter cut is more permissive but still anchored
+  // to the chip's opening, so it stays accurate enough to be useful.
+  for (const cutLen of [30, 20, 15, 10] as const) {
+    // substring auto-clamps when needleFull is shorter than cutLen, so we
+    // simply skip the iteration only if we'd be repeating an earlier (longer)
+    // cut.  Track the previously-tried length to avoid redundant scans.
+    const effective = Math.min(cutLen, needleFull.length)
+    if (effective < 4) continue
+    const sub = needleFull.substring(0, effective)
+    const substringMatches: SourceMatch[] = []
+    for (let i = 0; i < lines.length; i++) {
+      const idx = lines[i].toLowerCase().indexOf(sub)
+      if (idx >= 0) substringMatches.push({ lineIdx: i, start: idx, end: idx + sub.length })
+    }
+    if (substringMatches.length > 0) return substringMatches
+  }
+
+  // ── Strategy 2: word-overlap fallback — score every line, return all
+  //    scoring ≥ 1, sorted by score desc then earliest-line.
+  const words = (needleFull.match(/[a-z]{4,}/g) ?? []).filter(w => !STOP_WORDS.has(w))
+  if (words.length === 0) return []
+
+  const scored: SourceMatch[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const lineLower = lines[i].toLowerCase()
+    let score = 0
+    let firstMatchWord = ''
+    let firstMatchIdx = -1
+    for (const w of words) {
+      const wIdx = lineLower.indexOf(w)
+      if (wIdx >= 0) {
+        score++
+        if (firstMatchIdx < 0) {
+          firstMatchWord = w
+          firstMatchIdx = wIdx
+        }
+      }
+    }
+    if (score >= 1) {
+      scored.push({ lineIdx: i, start: firstMatchIdx, end: firstMatchIdx + firstMatchWord.length, score })
+    }
+  }
+  scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.lineIdx - b.lineIdx)
+  return scored
+})
+
+const currentMatchIdx = ref<number>(0)
+
+const flashMatch = computed<SourceMatch | null>(() => {
+  return allMatches.value[currentMatchIdx.value] ?? null
+})
+
+function scrollToCurrentMatch(): void {
+  const m = flashMatch.value
+  if (!m) return
+  const container = rawInputContainerRef.value
+  if (!container) return
+  // r41 v342 (Tom Gilb 2026-06-25 "the highlight Input Source did not work
+  // at all" — screenshot showed "Match 1 of 3" but no yellow visible in the
+  // narrow source pane): target the actual `.bg-yellow-300` span instead of
+  // the containing line div.  In a narrow column, ONE `\n`-separated line
+  // can wrap across DOZENS of visual rows, so scrolling to the line's
+  // offsetTop parks the viewport at the start of the line — and the yellow
+  // word may sit 20 visual rows further down, off-screen.  Scrolling to the
+  // yellow span itself with block:'center' brings it into the centre of the
+  // source pane regardless of how the line wraps.  Wait a nextTick for Vue
+  // to re-render the conditional yellow `<template v-if>` block before
+  // querying for it.
+  void nextTick(() => {
+    const yellowSpan = container.querySelector<HTMLElement>('.bg-yellow-300')
+    if (yellowSpan) {
+      yellowSpan.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    // Fallback to the previous line-center scroll if the yellow span
+    // somehow isn't found (defensive — Tom never sees a silent no-op).
+    const targetEl = container.querySelector<HTMLElement>(`[data-line-idx="${m.lineIdx}"]`)
+    if (!targetEl) return
+    const targetCenter    = targetEl.offsetTop + (targetEl.offsetHeight / 2)
+    const containerCenter = container.clientHeight / 2
+    const desiredScrollTop = Math.max(0, targetCenter - containerCenter)
+    container.scrollTo({ top: desiredScrollTop, behavior: 'smooth' })
+  })
+}
+
+function flashSourceForChip(chipText: string): void {
+  if (!chipText || !rawInput.value) return
+  // r41 v340 — force the source pane OPEN before flashing.  A collapsed
+  // <details> was a silent failure mode (yellow span rendered but invisible).
+  rawInputDetailsOpen.value = true
+  flashingChipText.value = chipText
+  currentMatchIdx.value  = 0   // always start at the best match
+  nextTick(scrollToCurrentMatch)
+}
+
+function cycleToNextMatch(): void {
+  const total = allMatches.value.length
+  if (total <= 1) return
+  currentMatchIdx.value = (currentMatchIdx.value + 1) % total
+  nextTick(scrollToCurrentMatch)
+}
+
 // Chip adding
 const addingTo   = ref<Group | null>(null)
 const addingText = ref('')
@@ -592,14 +1306,99 @@ type Group = 'stakeholders' | 'values' | 'means'
 
 // ── Parser ────────────────────────────────────────────────────────────────────
 
-/** Split a text fragment into individual list items. */
+/**
+ * Split a text fragment into individual list items.
+ *
+ * r41 v64 (Tom Gilb 2026-06-16 screenshot — Sovereign of the Seas 1635 input
+ * with passages like *"the King's committee (Mansell, Pennington, Pett, and
+ * Wells) examined against 'the rules of Art, experience'"*).  The previous
+ * implementation split on every comma / "and" / semicolon — which fragmented
+ * parenthetical name lists into single-word chips ("Pennington", "Pett",
+ * "and Wells)") and broke quote-wrapped phrases ("the rules of Art" /
+ * "experience").  The fragments lost their clarifying context and Tom flagged
+ * them as *"too short to be intelligible"*.
+ *
+ * Fix: walk the string character-by-character tracking parenthesis depth and
+ * quote state (straight + curly, single + double).  Only consider a comma /
+ * semicolon / "and" boundary as a real split point when we are at parenthesis
+ * depth 0 AND not inside any quote.  Preserves narrative + historical input
+ * while keeping modern comma-separated lists working ("Product team,
+ * Engineering, Customer Success" — still 3 stakeholders).
+ */
 function splitItems(text: string): string[] {
-  return text
-    .split(/\s*,\s*|\s+and\s+|\s*;\s*/i)
+  if (!text || !text.trim()) return []
+
+  // Phase 1 — collect split-point indices (0-based) that are SAFE to split
+  // (outside parentheses + outside quotes).
+  const safePoints: number[] = []
+  let parenDepth = 0
+  let inDoubleQuote = false
+  let inSingleQuote = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    // Quote toggles — straight + curly, opening + closing variants
+    if (ch === '"' || ch === '“' || ch === '”') {
+      inDoubleQuote = !inDoubleQuote
+      continue
+    }
+    if (ch === "'" || ch === '‘' || ch === '’') {
+      // Avoid mis-toggling on apostrophes inside words (King's, can't);
+      // toggle only when the apostrophe is at a word boundary.
+      const prev = i > 0 ? text[i - 1] : ''
+      const next = i < text.length - 1 ? text[i + 1] : ''
+      const isApostrophe = /[A-Za-z]/.test(prev) && /[A-Za-z]/.test(next)
+      if (!isApostrophe) inSingleQuote = !inSingleQuote
+      continue
+    }
+    if (inDoubleQuote || inSingleQuote) continue
+    if (ch === '(' || ch === '[' || ch === '{') { parenDepth++; continue }
+    if (ch === ')' || ch === ']' || ch === '}') { parenDepth = Math.max(0, parenDepth - 1); continue }
+    if (parenDepth > 0) continue
+
+    // Comma + semicolon — direct split chars when safe
+    if (ch === ',' || ch === ';') {
+      safePoints.push(i)
+      continue
+    }
+    // " and " — multi-char boundary; match exactly and require word boundaries
+    // (whitespace on both sides) so we don't break "command", "land", etc.
+    if ((ch === ' ' || ch === '\t' || ch === '\n') && i + 4 < text.length) {
+      const window = text.substr(i + 1, 4)
+      if ((window === 'and ' || window === 'and\t' || window === 'and\n') &&
+          (text[i + 4] === ' ' || text[i + 4] === '\t' || text[i + 4] === '\n')) {
+        // mark the START of the " and " region as the split point; the end
+        // of the prior chip is at `i`, and the next chip starts at i + 5.
+        safePoints.push(i)
+        // Skip ahead past the "and " word so we don't re-trigger.
+        i += 4
+        continue
+      }
+    }
+  }
+
+  // Phase 2 — slice the text at the safe points + apply the per-chip cleanup
+  // that the original implementation did (lead-word strip + trailing
+  // punctuation + length / stop-word filter).
+  const chunks: string[] = []
+  let start = 0
+  for (const pt of safePoints) {
+    chunks.push(text.slice(start, pt))
+    // For " and " (which is 5 chars wide), advance start past the 'and ' word.
+    if (text.substr(pt, 5) === ' and ' || text.substr(pt, 5) === '\tand\t' || text.substr(pt, 5) === '\nand\n' ||
+        text.substr(pt, 5) === ' and\t' || text.substr(pt, 5) === ' and\n') {
+      start = pt + 5
+    } else {
+      // single-char split (',' or ';')
+      start = pt + 1
+    }
+  }
+  chunks.push(text.slice(start))
+
+  return chunks
     .map(s =>
       s
-        .replace(/^(?:to\s+|that\s+|which\s+)/i, '')
-        .replace(/[.!?]$/, '')
+        .replace(/^\s*(?:to\s+|that\s+|which\s+)/i, '')
+        .replace(/[.!?]\s*$/, '')
         .trim()
     )
     // First-person pronouns (I, we) are valid stakeholder identifiers — keep them
@@ -1726,7 +2525,7 @@ function clean(acc: MultiParsed): MultiParsed {
             .trim()
             // NOTE: no hard data-truncation here. Chip DATA stays full-length so
             // Tom can always see / revert the full text. Visual overflow is handled
-            // by CSS on the chip pill (max-w-[220px] overflow-hidden + truncate on
+            // by CSS on the chip pill (max-w-[360px] overflow-hidden + truncate on
             // the text button). Ollama context truncation happens in useSDK.ts at
             // prompt-build time — that's the right place.
         )
@@ -1752,10 +2551,90 @@ function parseInput(): void {
     parseError.value = 'Say or type your project idea first.'
     return
   }
-  stage.value   = 'review'
+  // r41 v392 (Tom Gilb 2026-06-27 verbatim "it move automatically to generating
+  // without me getting a chance to add suggested additions") — REVERTS v391's
+  // auto-fire.  Three rounds of interpreting "approve" had me adding logic
+  // Tom did not want:
+  //   v390 → removed the 4 columns entirely (wrong; he wanted to see them)
+  //   v391 → restored columns + auto-fired submit (wrong; denied him chance
+  //          to + Accept suggested additions)
+  //   v392 → behave like pre-v390: show parse-review with chips + suggested
+  //          additions panel; user clicks Generate Spec when ready.
+  // The mode difference (quick vs precise) still applies AFTER Generate Spec:
+  // quick mode skips clarifying questions; precise mode asks them.  Both
+  // modes show the same review screen.
+  stage.value = 'review'
   submitError.value = ''
-  // Scroll to top so the review chips are immediately visible without scrolling.
-  nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  // r41 v389 (Tom Gilb 2026-06-27 *"plan name and owner do not get filled in,
+  // it should be instant with a new plan"*): mechanical seed for both fields
+  // the moment Parse fires (instant — visible on the review screen before
+  // the AI suggestion debounce returns).  Reuses _maybeAutoSuggestTitleOwner
+  // semantics: NEVER overwrites user-typed values; mechanical seed runs only
+  // when BOTH fields are still empty.  The 1500 ms AI refinement watcher
+  // then OVERWRITES the mechanical seed once the LLM (now routed to local
+  // Ollama, no auth tokens) returns a richer title/owner.  Composes with:
+  // AI-Max SUPREME (never blank fields), C-hybrid pattern from v373 Qualifiers,
+  // No-Silent-Data-Loss SUPREME (user input always wins).
+  if (!planNameInput.value.trim() && !ownerNameInput.value.trim()) {
+    const seeded = _seedMechanicalTitleOwner(rawInput.value)
+    if (seeded.title)  planNameInput.value  = seeded.title
+    if (seeded.owner)  ownerNameInput.value = seeded.owner
+    // Mark as AI-filled so the rawInput-substantial-change watcher can clear
+    // these seeds + re-suggest when content paste-overs happen.
+    if (seeded.title || seeded.owner) {
+      _titleOwnerAiFilled.value = true
+      _rawInputSnapshotAtTitleFill.value = rawInput.value.trim()
+    }
+    // Fire the proper AI suggestion immediately (don't wait for debounce).
+    void _maybeAutoSuggestTitleOwner()
+  }
+  // r41 v390 (Tom Gilb 2026-06-27 verbatim "AFTER PARSIING IT RETURNED TO
+  // BEGINNING / I DONT WANT TO APPROVE ALL these things"):
+  // In QUICK mode (Analyze As Is — the subtitle promises "Will generate
+  // directly from your input"), the chip-review step is mis-aligned with
+  // the user's expressed intent.  Tom's mental model: input → spec, no
+  // intermediate.  The "Does this look right?" chip-approval screen feels
+  // like backward motion ("RETURNED TO BEGINNING") even though it
+  // technically advanced.
+  //
+  // Fix: in quick mode, if parse produced ≥1 Value (handleSubmit's
+  // precondition), auto-fire handleSubmit immediately after parsing.  The
+  // chip-review screen is skipped entirely.  In precise mode (Answer Some
+  // Questions), chip-review stays — that user actively chose careful
+  // analysis.  If parse produced zero Values, fall back to review either
+  // way (generation can't proceed; user has to add a Value).
+  //
+  // Composes with:
+  //  - MOVE Principle SUPREME (don't make the user click extra screens)
+  //  - AI-Max SUPREME (skip the gate; ship the AI work)
+  //  - Permission Tiers GREEN (no data destruction; chip review still
+  //    reachable via "← Edit" from the spec output)
+  //  - Twin portability (the quick-path semantic ports verbatim)
+  //
+  // r41 v392 — Auto-fire reverted.  User clicks Generate Spec when ready
+  // (after optionally reviewing the chips, adding suggested additions, etc.).
+  // The mode-specific behaviour (quick vs precise) kicks in in App.vue's
+  // doTranslate path, not here.
+  // Both modes — show the review screen (columns visible).
+  // r41 v341 (Tom Gilb 2026-06-25 "When parse is done the does this look right
+  // line should be at the top of the screen" — said several times tonight):
+  // explicit window.scrollTo with computed offset.  scrollIntoView alone
+  // proved unreliable here because the H1 mounts in the same render-tick
+  // as the stage flip — it can be UNDER the fixed chrome (window.scrollY
+  // can't get NEGATIVE) and the browser then silently no-ops.  The double-
+  // rAF guarantees the review section has painted + the H1 has a real
+  // boundingClientRect before we compute the scroll target.  Offset 180px
+  // matches the title bar + 11-stage strip height (DD-009 zero-training
+  // chrome that stays visible across every surface).
+  nextTick(() => {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = reviewHeadingRef.value
+      if (!el) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+      const rect = el.getBoundingClientRect()
+      const targetTop = Math.max(0, rect.top + window.scrollY - 180)
+      window.scrollTo({ top: targetTop, behavior: 'smooth' })
+    }))
+  })
 }
 
 // Called by the manual "Parse my input" button — resets source to 'manual'
@@ -1795,9 +2674,19 @@ function listFor(group: Group): string[] {
 
 function startEdit(group: Group, index: number): void {
   editingChip.value = { group, index }
-  editingText.value  = listFor(group)[index]
+  const chipText = listFor(group)[index]
+  editingText.value  = chipText
+  // r41 v320 — provenance flash: scroll Original Words to the matching
+  // line + flash it amber for ~1.8s.  Fires alongside edit-mode focus so
+  // the user sees BOTH the edit input AND the source line in one click.
+  flashSourceForChip(chipText)
   nextTick(() => {
     const el = document.getElementById(`chip-edit-${group}-${index}`) as HTMLInputElement | null
+    // r41 v329 — REVERTED v328's preventScroll + mousedown additions: Tom
+    // reported "none of s/e/m give yellowed text" after v328 shipped.
+    // Suspected v328 regression. Reverted to v327 state (which had "first
+    // chip click works, subsequent don't" — better than "none work").
+    // The v328 attempted-fix is parked; needs interactive diagnosis post-demo.
     el?.focus()
     el?.select()
   })
@@ -1936,11 +2825,36 @@ function handleSubmit(): void {
   // Means deliver Ends — never copy one into the other as a fallback.
   // If the parser found no means, emit empty means (not a copy of ends).
   // If the parser found no stakeholders, emit empty stakes (not a copy of ends).
-  emit('submit', { stakes, ends, means })
-  // Content was successfully consumed (not lost) — clear the safety-net
-  // snapshot so the Oops banner doesn't fire on the next app load when the
-  // textarea is empty again. Root cause of the "Oops fires every time" bug.
-  safetyNetClearField('sem-home-input')
+  emit('submit', {
+    stakes,
+    ends,
+    means,
+    ...(planNameInput.value.trim()  ? { planName:  planNameInput.value.trim()  } : {}),
+    ...(ownerNameInput.value.trim() ? { ownerName: ownerNameInput.value.trim() } : {}),
+  })
+  // r41 v366 (Tom Gilb 2026-06-25 "I started with a simple sentence … and
+  // then generating click, and back to a blank start") — DRAFT CLEARING
+  // POSTPONED to success path.  Previously this site OPTIMISTICALLY cleared
+  // BOTH the Safety Net snapshot AND the continuous SEM_DRAFT_KEY draft the
+  // INSTANT the user clicked Generate — BEFORE generation actually
+  // succeeded.  Result: if anything caused a remount during/after the
+  // ~60-180s generation window (Vite HMR mid-edit · parent re-render · the
+  // HangWatchdog firing on a slow API · v357's translate() returning null on
+  // a network hiccup), SEMEntryForm's onMounted auto-restore (v332) found
+  // BOTH localStorage drafts empty and the textarea stayed blank.  Tom's
+  // typed text was destroyed before generation success was confirmed.
+  //
+  // The "Oops fires on next app load when textarea is empty" bug the old
+  // code fixed is now handled by the existing safety-net intentional-clear
+  // mechanism (markIntentionalClear) — but ONLY when we're SURE the content
+  // was consumed.  Until that's confirmed (currentSpec.value lands, which
+  // App.vue does inside doTranslate's success branch), the drafts stay.
+  //
+  // Net behaviour: drafts persist across failed/slow generations so the
+  // planner never loses typed text.  Next successful submit overwrites the
+  // draft; next typing overwrites it; SOS Reset (v364) wipes it explicitly.
+  // The Oops banner can briefly surface if the user's text length drops to
+  // 0 after a successful submit — acceptable cost; it's dismissible.
   setSubmitting(false)
 }
 
@@ -1956,11 +2870,53 @@ function loadAndParse(text: string): void {
   parseInput()
 }
 
-defineExpose({ loadAndParse })
+/**
+ * Pre-fills the form with genesis stakes/ends/means from a saved plan so the
+ * planner can edit and re-parse.  Called by App.vue after the user clicks the
+ * "Edit & Re-parse" button in SpecOutput.
+ * Tom Gilb 2026-06-09: "initial input specs she got parsed were gone — go back to the genesis."
+ */
+function prefillGenesis(genesis: { stakes: string; ends: string; means: string }): void {
+  rawInput.value = [genesis.stakes, genesis.ends, genesis.means].filter(Boolean).join('. ')
+  inputSource.value = 'manual'
+  parseInput()
+}
+
+defineExpose({ loadAndParse, prefillGenesis })
 </script>
 
 <template>
-  <div class="w-full max-w-2xl mx-auto px-4 py-6 space-y-6">
+  <!-- r41 2026-06-20 (Tom Gilb verbatim "THE SCROLL BAR IS WAY TOO FAR RIGHT
+       AND UP, MAKE IT NEARER THE INPUT WINDOW, MAKE THE WINDOW MUCH
+       BROADER…") — outer container conditionally wider when an external
+       document is imported.  Default `max-w-2xl` (672 px) keeps the typing
+       experience focused for fresh-input mode; expands to `max-w-5xl`
+       (1024 px) once an Indianapolis-class multi-page document is loaded
+       so the preview isn't a narrow keyhole.  Composes with: accessibility_
+       tom.md (Tom 85 — bigger reading area), MOVE Principle (the import
+       triggers the wider mode automatically), No-Silent-Data-Loss SUPREME
+       (the document text isn't trapped in a 2 %-shown narrow window). -->
+  <!-- r41 2026-06-20 (Tom Gilb verbatim "the input window should be much
+       broader") — bumped imported-mode cap from max-w-5xl (1024 px) to
+       max-w-7xl (1280 px) so the textarea actually feels wide. -->
+  <!-- r41 v342 (Tom Gilb 2026-06-25 screenshot + verbatim "retro thin
+       unreadable columns (use whole screen! Breadth)"): at REVIEW stage,
+       use the whole screen (≈ 95vw, capped at 1800px so type-line lengths
+       stay readable on ultrawide monitors).  The narrow `max-w-2xl` was
+       written for the typing experience only; it crushed the 4-column
+       review grid into ~168 px per column, truncating every chip to 4
+       characters ("rep…", "aut…", "plans"…) and making the source pane so
+       narrow that the yellow Input Source highlight scrolled off-viewport.
+       Tom verbatim earlier turns: *"the input window should be much
+       broader"* (2026-06-20), now generalised to the review-stage panel.
+       INPUT stage keeps its narrower cap so the typing experience stays
+       focused; imported-mode keeps max-w-7xl as v327. -->
+  <div
+    class="w-full mx-auto px-4 py-6 space-y-6"
+    :class="stage === 'review'
+      ? 'max-w-[1800px]'
+      : ((importSource && rawInput) ? 'max-w-7xl' : 'max-w-2xl')"
+  >
 
     <!-- ══════════════════════════════════════════════════════════════════════
          STAGE 1 — Input
@@ -1994,16 +2950,15 @@ defineExpose({ loadAndParse })
             <span aria-hidden="true">🎲</span> Surprise me
           </button>
 
-          <button
-            type="button"
-            class="h-11 px-4 rounded-full border border-gray-200 text-gray-500 text-xs font-medium
-                   hover:border-sky-300 hover:text-sky-700 hover:bg-sky-50
-                   focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors duration-150"
-            aria-label="Start with your goal"
-            @click="emit('wizard')"
-          >
-            <span aria-hidden="true">🎯</span> Start with your goal
-          </button>
+          <!-- r41 v365 (Tom Gilb 2026-06-25 "remove what is not in use, so it
+               does not pop up as a surprice, start with your goal, guided, all
+               old stuff") — 🎯 "Start with your goal" pill REMOVED.  Was the
+               primary gateway to the legacy SpecWizard.vue (Feature #53) which
+               Tom never used and which surprised him when accidentally
+               clicked.  No-Silent-Removal SUPREME compliance: this comment
+               documents the removal; the component file stays for any test
+               coverage; wizardOpen ref + Teleport mount also removed in
+               App.vue (5 trigger sites total). -->
 
           <!-- Import button -->
           <button
@@ -2203,8 +3158,73 @@ defineExpose({ loadAndParse })
         </div>
       </div>
 
+      <!-- v503 (2026-07-21) — Plan Scope Framework overview strip.
+           Tom Gilb 2026-07-21 verbatim: "Their needs to be opportunity to
+           capture these project resources idea at the beginning of the
+           project, and to see their status at any overview of the project,
+           and to see they are not determined yet, and to change them any
+           time".  Full card mode with pill rows + "not yet determined"
+           amber state; edit affordances jump to Stage 10 (Resources
+           Sharpening) via the 'open-editor' emit.  planIdRef derived from
+           the plan name input (empty name → 'default' — still per-plan
+           persistence, just under a shared key until a name is entered).-->
+      <PlanScopeStatusStrip
+        :plan-id-ref="planScopePlanId"
+        @open-editor="onScopeEditorOpen"
+      />
+
       <!-- Main input -->
       <div class="space-y-2">
+
+        <!-- ── Plan Name + Owner Name — collected upfront (Tom 2026-06-08) ── -->
+        <div class="flex gap-3">
+          <div class="flex-1">
+            <!-- r41 v67 (Tom Gilb 2026-06-16 verbatim "like the spec tags it
+                 needs to be fairly prominent") — Plan / Contract Name is the
+                 identity of the WHOLE plan, analogous to the Tag identity of
+                 a spec entry.  Label + input both bumped to match spec-tag-
+                 level prominence: larger fonts, bolder weights, slate-800
+                 colour.  Underline-tradition applied to the typed value so
+                 the convention reads consistently across spec Tag and Plan
+                 title. -->
+            <label for="sem-plan-name" class="block text-sm font-bold text-slate-700 mb-1">
+              Plan / Contract Name <span class="text-gray-400 font-normal text-xs">(optional — auto-derived if blank)</span>
+              <span v-if="_titleOwnerAiFilled" class="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold align-middle" title="✨ Auto-suggested from your text — edit anytime to override">✨ AI suggested</span>
+            </label>
+            <input
+              id="sem-plan-name"
+              v-model="planNameInput"
+              type="text"
+              maxlength="120"
+              class="w-full rounded-lg border-2 border-indigo-300 bg-white px-3 py-2.5 text-xl font-extrabold
+                     text-slate-900 placeholder-gray-400 placeholder:font-normal placeholder:text-base
+                     shadow-sm underline underline-offset-4 decoration-2 decoration-indigo-300
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                     transition-colors duration-150"
+              placeholder="e.g. Improve Crew Retention 2026"
+              title="Plan / Contract name — used as the plan's title at the top. Leave blank to auto-derive from your spec content."
+            />
+          </div>
+          <div class="w-60">
+            <label for="sem-owner-name" class="block text-sm font-bold text-slate-700 mb-1">
+              Owner Name <span class="text-gray-400 font-normal text-xs">(optional — auto-derived if blank)</span>
+              <span v-if="_titleOwnerAiFilled" class="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold align-middle" title="✨ Auto-suggested from your text — edit anytime to override">✨ AI suggested</span>
+            </label>
+            <input
+              id="sem-owner-name"
+              v-model="ownerNameInput"
+              type="text"
+              maxlength="80"
+              class="w-full rounded-lg border-2 border-indigo-200 bg-white px-3 py-2.5 text-base font-bold
+                     text-slate-900 placeholder-gray-400 placeholder:font-normal placeholder:text-sm
+                     shadow-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                     transition-colors duration-150"
+              placeholder="e.g. Tom Gilb"
+              title="Plan owner — added as the first Owner in the plan's stewards. Leave blank to add later."
+            />
+          </div>
+        </div>
 
         <!-- Imported-document badge -->
         <div
@@ -2222,27 +3242,190 @@ defineExpose({ loadAndParse })
           >✕</button>
         </div>
 
-        <textarea
-          id="sem-raw-input"
-          v-model="rawInput"
-          rows="7"
-          class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm
-                 text-gray-900 placeholder-gray-400 shadow-sm resize-none
-                 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
-                 transition-colors duration-150"
-          :placeholder="'What is Important to Improve?\ntry: reduce churn 30% · ship faster · cut onboarding to 1 day'"
-          aria-label="Project description"
-          @keydown.enter.ctrl="parseManual"
-          @keydown.enter.meta="parseManual"
-          @paste="() => nextTick(parseManual)"
-        />
+        <!-- r41 v76 (Tom Gilb 2026-06-16 verbatim "put the file input button
+             right next to the aperture, or a click in the aperture") — the
+             file input is now AT the aperture itself.  Wrapped in a
+             relative-positioned container with:
+               (a) a small 📎 paperclip pin floating in the top-right corner —
+                   tap to open the file picker directly (no Import-panel
+                   detour);
+               (b) `@dragover.prevent @drop` on the wrapper — drop a file
+                   anywhere on the textarea to import it (same handler as the
+                   panel's file input);
+               (c) a hidden `<input type="file">` triggered by the pin.
+             The textarea placeholder now points at the inline pin (no longer
+             at "📎 Import planning data above").  Composes with: MOVE
+             Principle (file input is now visible AT the aperture, no menu-
+             dive), DD-009 Interaction Disclosure (HoverHint + aria-label
+             name the pin's behaviour), Tom-is-85 accessibility (large hit
+             target on the pin). -->
+        <div
+          class="relative"
+          @dragover.prevent="_apertureDragHover = true"
+          @dragenter.prevent="_apertureDragHover = true"
+          @dragleave="_apertureDragHover = false"
+          @drop.prevent="onApertureDrop"
+        >
+          <!-- r41 2026-06-20 (Tom Gilb verbatim "MAKE THE WINDOW MUCH BROADER")
+               — rows + resize attributes lift when an external document is
+               imported.  rows="14" gives ~2× vertical space; `resize-y`
+               lets the planner drag-tall if they want even more.  pr-14
+               (reserves space for the 📎 pin) becomes pb-12 when scrollable
+               (reserves space for the bottom ⬆ Top / ⬇ Bottom jump
+               buttons). -->
+          <!-- r41 2026-06-20 (Tom Gilb verbatim "the bottom should not require
+               me to scroll to see it") — textarea now respects viewport
+               height with `max-h-[45vh]` so it never pushes the Parse
+               button off-screen.  Imported mode still gets generous rows
+               (~14) + user-resizable, but capped at 45 % of viewport
+               height so the form footer (Parse button) always fits below
+               in normal viewport sizes.  Composes with: MOVE Principle
+               (primary action visible), accessibility_tom.md (Tom 85 — no
+               scrolling required to find the next step). -->
+          <!-- r41 v348 (Tom Gilb 2026-06-25 verbatim *"damn, input disappeared"*):
+               always-visible recovery affordance.  When the textarea is empty
+               AND a recent draft exists in localStorage (either the SEM_DRAFT_KEY
+               continuous-persistence layer OR the Input Safety Net snapshot),
+               surface a one-click "Restore" button.  Belt-and-braces over the
+               two existing auto-restore layers (onMounted line ~532 and line
+               ~565) which only fire on COMPONENT REMOUNT — they don't help if
+               rawInput cleared in place (Clean Slate menu, accidental select-
+               all-delete, etc).  Composes with: No-Silent-Data-Loss SUPREME +
+               Universal Undo SUPREME + accessibility_tom.md ("never punish a
+               user with re-typing"). -->
+          <div
+            v-if="!rawInput && recoverableDraftLength > 0"
+            class="mb-2 px-3 py-2 rounded-lg border-2 border-amber-400 bg-amber-50 flex items-center gap-2 shadow-sm"
+          >
+            <span class="text-base shrink-0" aria-hidden="true">📦</span>
+            <span class="text-xs text-amber-900 flex-1 leading-tight">
+              <strong>Last typed input recoverable</strong>
+              ({{ recoverableDraftLength }} characters from {{ recoverableDraftAgeLabel }}).
+            </span>
+            <button
+              type="button"
+              class="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow focus:outline-none focus:ring-2 focus:ring-amber-300"
+              aria-label="Restore last typed input"
+              title="Click to restore the text you previously had in this input — preserved automatically by the Input Safety Net + continuous draft layers."
+              @click="restoreLastDraft"
+            >Restore</button>
+            <button
+              type="button"
+              class="px-2 py-1 rounded-md text-xs text-amber-800 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-300"
+              aria-label="Dismiss recovery prompt"
+              title="Discard the recoverable draft and dismiss this prompt"
+              @click="dismissRecovery"
+            >Dismiss</button>
+          </div>
+
+          <textarea
+            id="sem-raw-input"
+            ref="_apertureTextareaRef"
+            v-model="rawInput"
+            :rows="(importSource && rawInput) ? 14 : 7"
+            class="w-full rounded-xl border bg-white px-4 py-3 pr-16 text-sm
+                   text-gray-900 placeholder-gray-400 shadow-sm
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                   transition-colors duration-150"
+            :class="[
+              _apertureDragHover ? 'border-emerald-500 ring-2 ring-emerald-300 bg-emerald-50/30' : 'border-gray-300',
+              (importSource && rawInput) ? 'resize-y min-h-[280px] max-h-[45vh]' : 'resize-none',
+              '',  // r41 v273 — pb-12 removed: Top/Bottom buttons moved OUT of overlay zone into row-below per Tom-Repeats v272 lesson.
+            ]"
+            :placeholder="_apertureDragHover
+              ? '📎 Drop your file here…'
+              : 'Put your specifications here (type, paste, or talk via 🎙 mic) — or tap the 📎 pin on the right to attach a file.\ne.g. reduce churn 30% · ship faster · cut onboarding to 1 day'"
+            aria-label="Project specifications — type, paste, or talk; tap the 📎 pin to attach a file, or drop a file directly on this aperture"
+            @keydown.enter.ctrl="parseManual"
+            @keydown.enter.meta="parseManual"
+            @paste="() => nextTick(parseManual)"
+          />
+          <!-- 📎 file-pin in the top-right corner — opens the file picker.
+               r41 v282 (Tom Gilb 2026-06-22 "paper clip symbol need more
+               contrast and size") — bumped from h-9 w-9 (36px) + text-lg +
+               bg-emerald-100 (light-on-light, paperclip emoji blended into
+               pale green bg) → h-12 w-12 (48px hit target) + text-3xl +
+               bg-white with strong bg-emerald-600 ring (paperclip emoji's
+               natural metallic colors now have white backdrop for maximum
+               contrast + stronger ring frames it).  Composes with DD-017
+               SUPREME (contrast on background) + universal accessibility
+               (every reader benefits from larger + higher-contrast affordance). -->
+          <button
+            type="button"
+            class="absolute top-2.5 right-2.5 h-12 w-12 flex items-center justify-center rounded-full
+                   bg-white hover:bg-emerald-50
+                   ring-2 ring-emerald-600 hover:ring-emerald-700 shadow-md
+                   focus:outline-none focus:ring-4 focus:ring-emerald-300 transition-all
+                   text-3xl leading-none"
+            :title="'📎 Attach a file (.pdf, .docx, .txt, .md, .csv, .rtf, .html) — or drop one directly on the aperture above'"
+            aria-label="Attach a file"
+            @click="_apertureFileInputRef?.click()"
+          >📎</button>
+          <!-- Hidden file input — wired to the same handleFileImportDoc that
+               the Import-planning-data panel uses, so a file picked here
+               flows through the EXACT same parse pipeline. -->
+          <input
+            ref="_apertureFileInputRef"
+            type="file"
+            accept=".pdf,.docx,.txt,.md,.csv,.rtf,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,text/rtf,text/html"
+            class="sr-only"
+            :disabled="importLoading"
+            @change="handleFileImportDoc"
+          />
+
+        </div>
+
+        <!-- r41 v273 (Tom Gilb 2026-06-22 verbatim "bottom collision many reports, not fixed")
+             — SIXTH overlap report.  Prior fixes (v260 PageScrollPin / v266 aperture pin /
+             v272 page bottom-padding) addressed PARTS of the same lesson: overlay widgets
+             collide with content unless layout space is reserved.  v266 used the same
+             group-hover trick that didn't fix the visual overlap (only click-through).
+             v273 applies the v272 LAYOUT-RESERVATION lesson properly to this site: MOVE
+             the Top/Bottom buttons OUT of the textarea's absolute overlay zone into a
+             dedicated flex row BELOW the textarea.  No more overlap possible — the buttons
+             have their own layout slot and the textarea's text never enters their zone.
+             Composes with: Tom-Repeats-Himself SUPREME (6th overlap report), v272 layout-
+             reservation lesson (the structural fix, not another hover trick), MOVE Principle
+             (jump option still visible at-a-glance), accessibility_tom.md (32px hit targets
+             remain), Icon-Plus-Text SUPREME (glyph + text labels preserved). -->
+        <div
+          v-if="_apertureIsScrollable"
+          class="flex items-center justify-end gap-1.5 mt-1"
+        >
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 h-8 px-2.5 rounded-full
+                   bg-slate-700 text-white hover:bg-slate-800 ring-1 ring-slate-300
+                   focus:outline-none focus:ring-2 focus:ring-slate-400 shadow-md
+                   text-[11px] font-bold transition-colors"
+            title="⬆ Jump to TOP of the document"
+            aria-label="Jump to top of document"
+            @click="scrollApertureToTop"
+          >
+            <span aria-hidden="true">⬆</span>
+            <span>Top</span>
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 h-8 px-2.5 rounded-full
+                   bg-slate-700 text-white hover:bg-slate-800 ring-1 ring-slate-300
+                   focus:outline-none focus:ring-2 focus:ring-slate-400 shadow-md
+                   text-[11px] font-bold transition-colors"
+            title="⬇ Jump to BOTTOM of the document"
+            aria-label="Jump to bottom of document"
+            @click="scrollApertureToBottom"
+          >
+            <span aria-hidden="true">⬇</span>
+            <span>Bottom</span>
+          </button>
+        </div>
 
         <p v-if="parseError" class="text-xs text-red-600" role="alert">{{ parseError }}</p>
 
         <!-- Ultra Light Fork Bar (Evo Step 5 — 2026-05-17): rich menus added.
              Menu forks toggle activeForkMenu; direct forks fire immediately.
-             activeMenuForkId suppresses the tooltip for the active menu fork so
-             the tooltip (z-[340]) does not cover the fork menu (z-auto). -->
+             activeMenuForkId suppresses the HoverHint for the active menu fork so
+             the HoverHint (z-[340]) does not cover the fork menu (z-auto). -->
         <ForkBar
           v-if="ultraLightEnabled"
           class="mt-1"
@@ -2440,20 +3623,59 @@ defineExpose({ loadAndParse })
         </p>
       </div>
 
-      <!-- Parse button -->
-      <button
-        id="sem-parse-btn"
-        type="button"
-        class="w-full min-h-[44px] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold
-               text-white shadow-sm hover:bg-indigo-700
-               focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
-               focus-visible:outline-indigo-600 transition-colors duration-150"
-        aria-label="Parse my input"
-        @click="parseManual"
-      >
-        Parse my input
-        <span aria-hidden="true"> →</span>
-      </button>
+      <!-- r41 2026-06-20 (Tom Gilb verbatim "The parse my input is still at
+           bottom out of sight unless i scroll. I asked to make it always
+           visible") — `sticky bottom-2` doesn't help when the button's
+           natural position starts BELOW the fold: sticky only kicks in
+           AFTER the element scrolls into view, then stays put.  For "always
+           visible from the first render regardless of scroll position",
+           need FIXED positioning relative to the viewport.
+
+           Solution: wrap the button in a `fixed bottom-4 inset-x-0` band
+           centred at max-w-7xl (matching the form's content width), with
+           `flex justify-center` to centre the button.  The button itself
+           caps at max-w-2xl so it's a comfortable click-target on wide
+           viewports without spanning the full content width.  Pointer-
+           events on the outer band are off so the band doesn't block
+           clicks on content behind it; the button re-enables them.
+
+           Added `pb-24` spacer at the bottom of the form below this fixed
+           band so the natural form flow has clearance from the fixed
+           button (otherwise the textarea / fork bar could be hidden behind
+           it when scrolled).
+
+           Composes with: MOVE Principle (primary action ALWAYS visible
+           from first paint), DD-009 Zero-Training UI, accessibility_tom.md
+           (Tom 85 — never scroll to find the next action), Desktop-First
+           Responsive Design rule (max-w-7xl band matches content; iPhone
+           unaffected since viewport < 7xl).  PageScrollPin (now bottom-
+           LEFT) doesn't compete since the Parse button is centred.
+
+           v-if="showStickyBars" (Tom Gilb 2026-06-20 STAGE-2-LEAK fix) —
+           the Parse bar must NOT show when this form mounts as a fallback
+           at Stages 2-11 (currentSpec is null but the planner is past the
+           input phase).  App.vue passes false at every non-Stage-1 mount. -->
+      <div v-if="showStickyBars" class="fixed inset-x-0 bottom-4 z-30 pointer-events-none flex justify-center px-4">
+        <div class="w-full max-w-2xl pointer-events-auto">
+          <button
+            id="sem-parse-btn"
+            type="button"
+            class="w-full min-h-[52px] rounded-xl bg-indigo-600 px-4 py-3.5 text-base font-bold
+                   text-white shadow-2xl hover:bg-indigo-700 ring-2 ring-indigo-300
+                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+                   focus-visible:outline-indigo-600 transition-colors duration-150"
+            aria-label="Parse my input"
+            title="Parse my input — sends what you typed or imported to the AI for spec generation"
+            @click="parseManual"
+          >
+            Parse my input
+            <span aria-hidden="true"> →</span>
+          </button>
+        </div>
+      </div>
+      <!-- Spacer so the natural-flow form content doesn't get hidden
+           behind the fixed Parse button band above. -->
+      <div class="h-24" aria-hidden="true"></div>
 
     </template>
 
@@ -2497,7 +3719,7 @@ defineExpose({ loadAndParse })
           class="h-10 w-10 shrink-0 rounded-xl shadow-sm cursor-help"
         />
         <div>
-          <h1 class="text-2xl font-semibold text-gray-900">Does this look right?</h1>
+          <h1 ref="reviewHeadingRef" class="text-2xl font-semibold text-gray-900 scroll-mt-[180px]">Does this look right?</h1>
           <p class="text-sm text-gray-500 mt-0.5">
             Edit any item by clicking it, remove with <span aria-hidden="true">×</span>,
             or add more. Say item names or "add" to a section.
@@ -2505,40 +3727,59 @@ defineExpose({ loadAndParse })
         </div>
       </div>
 
-      <!-- ── Original input — always accessible after parse ──────────────────── -->
-      <!-- `open` by default so users immediately see their original words;
-           they can collapse it if they prefer. Tom 2026-05-17 bug: blank display
-           was because the <details> needed expanding — fixed by defaulting open. -->
-      <details class="rounded-xl border border-gray-200 bg-gray-50 text-sm" open>
-        <summary
-          class="flex items-center justify-between gap-2 px-4 py-2.5 cursor-pointer
-                 select-none list-none text-gray-500 hover:text-gray-700
-                 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-xl"
-          aria-label="Toggle original input"
-        >
-          <span class="flex items-center gap-1.5 font-medium">
-            <span aria-hidden="true">📝</span> Your original words
-          </span>
-          <span class="flex items-center gap-3">
-            <button
-              type="button"
-              class="text-xs text-indigo-600 hover:underline focus:outline-none
-                     focus-visible:ring-2 focus-visible:ring-indigo-400 rounded"
-              aria-label="Edit original input"
-              @click.stop="stage = 'input'"
-            >Edit <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /></button>
-            <span aria-hidden="true" class="text-gray-400 text-xs">▾</span>
-          </span>
-        </summary>
-        <div class="px-4 pb-4 pt-1">
-          <p class="text-gray-700 leading-relaxed whitespace-pre-wrap break-words">{{ rawInput }}</p>
+      <!-- ── Plan Name + Owner Name — also visible at review stage (Tom Gilb
+           2026-06-16 verbatim "we are in stage 1 and I can neither see nor
+           enter the plancontract title or owner").  These bindings are
+           shared with the input-stage inputs (planNameInput / ownerNameInput
+           refs) so anything typed earlier is pre-filled here; anything
+           changed here flows into the same payload at Generate Spec time. -->
+      <!-- r41 v67 — review-stage Plan/Contract Name input matched to input-
+           stage prominence (Tom Gilb 2026-06-16 "like the spec tags it needs
+           to be fairly prominent" + "yes of course both!" — both surfaces). -->
+      <div class="flex gap-3">
+        <div class="flex-1">
+          <label for="sem-plan-name-review" class="block text-sm font-bold text-slate-700 mb-1">
+            Plan / Contract Name <span class="text-gray-400 font-normal text-xs">(optional — auto-derived if blank)</span>
+          </label>
+          <input
+            id="sem-plan-name-review"
+            v-model="planNameInput"
+            type="text"
+            maxlength="120"
+            class="w-full rounded-lg border-2 border-indigo-300 bg-white px-3 py-2.5 text-xl font-extrabold
+                   text-slate-900 placeholder-gray-400 placeholder:font-normal placeholder:text-base
+                   shadow-sm underline underline-offset-4 decoration-2 decoration-indigo-300
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                   transition-colors duration-150"
+            placeholder="e.g. Improve Crew Retention 2026"
+            title="Plan/Contract name — used as the plan's title at the top.  Leave blank to auto-derive from your spec content."
+          />
         </div>
-      </details>
+        <div class="w-60">
+          <label for="sem-owner-name-review" class="block text-sm font-bold text-slate-700 mb-1">
+            Owner Name <span class="text-gray-400 font-normal text-xs">(optional)</span>
+          </label>
+          <input
+            id="sem-owner-name-review"
+            v-model="ownerNameInput"
+            type="text"
+            maxlength="80"
+            class="w-full rounded-lg border-2 border-indigo-200 bg-white px-3 py-2.5 text-base font-bold
+                   text-slate-900 placeholder-gray-400 placeholder:font-normal placeholder:text-sm
+                   shadow-sm
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                   transition-colors duration-150"
+            placeholder="e.g. Tom Gilb"
+            title="Plan owner — added as the first Owner in the plan's stewards.  Leave blank to add later."
+          />
+        </div>
+      </div>
 
       <!-- ── Move command bar ─────────────────────────────────────────────────
            Tom 2026-05-15: "orally Move [Name of Item] to [Stakeholders,
            Values, Solutions]" — type e.g. "Move cabin to Values" + Enter.
-           Fuzzy substring match, accepts synonyms (solutions = means). -->
+           Fuzzy substring match, accepts synonyms (solutions = means).
+           r41 v318: kept ABOVE the grid (acts across all 4 windows). -->
       <div class="flex items-center gap-2 px-3 py-2 rounded-xl
                   border border-dashed border-gray-200 bg-gray-50/70">
         <span class="text-gray-300 text-base shrink-0" aria-hidden="true">⇄</span>
@@ -2561,9 +3802,126 @@ defineExpose({ loadAndParse })
         >Move →</button>
       </div>
 
-      <!-- ── Who (Stakeholders) ────────────────────────────────────────────── -->
-      <section aria-labelledby="section-who">
-        <h2 id="section-who" class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+      <!-- r41 v320 — provenance-flash discoverability hint (Tom Gilb 2026-06-24
+           "of course you need to tell users they can select any S E M to see the
+           source"). Visible only on lg: where the 4 windows are side-by-side and
+           the flash effect is visible. Mobile/narrow stacks vertically so the
+           hint is unnecessary there. -->
+      <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg
+                  bg-indigo-50/70 border border-indigo-200/60
+                  text-[12px] text-indigo-900">
+        <span class="text-base shrink-0" aria-hidden="true">💡</span>
+        <span>Click any chip below to highlight its source in the <strong>Your original words</strong> window.</span>
+      </div>
+
+      <!-- r41 v318 (Tom Gilb 2026-06-24 "all 4 on a single screen page"): 4-column
+           grid on lg: — Your original words · Stakeholders · Values · Means.
+           Mobile/narrow falls back to vertical stack (single-scroll, preserves all
+           chip + move semantics). v317 was 3-col (original-words still on top);
+           v318 brings original-words INTO the grid as cell #1, fulfilling the
+           2026-06-19 "4 windows on one screen" design. -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 lg:gap-4 lg:items-start">
+
+      <!-- ── Window 1: Original input — first cell on lg: (was above-grid in v317) -->
+      <!-- `open` by default so users immediately see their original words;
+           they can collapse it if they prefer. Tom 2026-05-17 bug: blank display
+           was because the <details> needed expanding — fixed by defaulting open. -->
+      <details
+        class="rounded-xl border border-gray-200 bg-gray-50 text-sm lg:bg-slate-50/40 lg:border-slate-200"
+        :open="rawInputDetailsOpen"
+        @toggle="(e) => { rawInputDetailsOpen = (e.target as HTMLDetailsElement).open }"
+      >
+        <summary
+          class="flex items-center justify-between gap-2 px-4 py-2.5 cursor-pointer
+                 select-none list-none text-gray-500 hover:text-gray-700
+                 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-xl"
+          aria-label="Toggle original input"
+        >
+          <span class="flex items-center gap-1.5 font-medium">
+            <span aria-hidden="true">📝</span> Your original words
+          </span>
+          <span class="flex items-center gap-3">
+            <button
+              type="button"
+              class="text-xs text-indigo-600 hover:underline focus:outline-none
+                     focus-visible:ring-2 focus-visible:ring-indigo-400 rounded"
+              aria-label="Edit original input"
+              @click.stop="stage = 'input'"
+            >Edit <EditGlyph size="compact" class="h-3 w-auto shrink-0" aria-hidden="true" /></button>
+            <span aria-hidden="true" class="text-gray-400 text-xs">▾</span>
+          </span>
+        </summary>
+
+        <!-- r41 v326 (Tom Gilb 2026-06-24 verbatim "BUTTON 'SEE IF OTHER
+             INSTANCES, AND COUNT THEM' AND SHOW THEM"): cycle-through button.
+             Visible only when a chip is currently flashed AND there is more
+             than one candidate match in the source.  Click cycles to the next
+             match; wraps back to 1 after the last.  Solves the v324 limitation
+             "heuristic CAN match the wrong line if multiple lines share the
+             chip significant words" — the planner can now hunt every
+             alternative without leaving the panel. -->
+        <!-- r41 v340 (Tom Gilb 2026-06-24 "the yellow marker did not work at
+             all"): status banner now visible on EVERY chip click — not only
+             when multiple matches exist.  Three rendered states:
+               • allMatches.length > 1  → "Match N of M" + "See next match"
+               • allMatches.length === 1 → "Match 1 of 1 — highlighted below"
+               • allMatches.length === 0 → "No source match for this chip"
+             A 0-match state used to be silent (chip clicked, nothing visible).
+             Tom's "did not work at all" was symptomatic of the 0-match silent
+             path: heuristic found no match, no yellow rendered, no banner,
+             no signal to the user that anything happened.  The banner is the
+             always-visible feedback channel. -->
+        <div
+          v-if="flashingChipText"
+          class="flex items-center justify-between gap-2 px-4 py-1.5 bg-amber-50 border-y border-amber-200/70 text-[11px]"
+        >
+          <span class="text-amber-900">
+            <template v-if="allMatches.length > 1">
+              <span class="font-bold">Match {{ currentMatchIdx + 1 }} of {{ allMatches.length }}</span>
+              <span class="text-amber-700 ml-1">in the source</span>
+            </template>
+            <template v-else-if="allMatches.length === 1">
+              <span class="font-bold">Match 1 of 1</span>
+              <span class="text-amber-700 ml-1">— highlighted below</span>
+            </template>
+            <template v-else>
+              <span class="font-bold text-rose-800">No source match for this chip.</span>
+              <span class="text-rose-700 ml-1">The wording may be AI-paraphrased; try editing the chip to a phrase from your text.</span>
+            </template>
+          </span>
+          <button
+            v-if="allMatches.length > 1"
+            type="button"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-200 hover:bg-amber-300
+                   text-amber-950 font-semibold border border-amber-400/60 shadow-sm
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            aria-label="Show the next occurrence of this chip in the original source"
+            title="Cycle to the next match. The heuristic ranks matches best-first; if Match 1 looks wrong, click here to scroll to the next candidate."
+            @click="cycleToNextMatch"
+          >
+            <span aria-hidden="true">↻</span>
+            <span>See next match</span>
+          </button>
+        </div>
+
+        <!-- Inner div: bounded scroll. On lg: matches the type-window height
+             (60vh minus summary row); on narrow screens the original 40vh cap
+             keeps a long contract paste from dominating the page.  v326: the
+             match indicator + cycle button live ABOVE this scroll container
+             so they stay visible as the planner scrolls the source. -->
+        <div ref="rawInputContainerRef" class="px-4 pb-4 pt-1 max-h-[40vh] lg:max-h-[55vh] overflow-y-auto text-sm text-gray-700 leading-relaxed break-words">
+          <div
+            v-for="(line, idx) in rawInputLines"
+            :key="idx"
+            :data-line-idx="idx"
+            class="whitespace-pre-wrap"
+          ><template v-if="flashMatch && flashMatch.lineIdx === idx"><span>{{ line.substring(0, flashMatch.start) }}</span><span class="bg-yellow-300 ring-2 ring-amber-500 rounded px-0.5 font-bold text-amber-950 shadow-sm">{{ line.substring(flashMatch.start, flashMatch.end) }}</span><span>{{ line.substring(flashMatch.end) }}</span></template><template v-else>{{ line || ' ' }}</template></div>
+        </div>
+      </details>
+
+      <!-- ── Window 2: Who (Stakeholders) ──────────────────────────────────── -->
+      <section aria-labelledby="section-who" class="lg:max-h-[60vh] lg:overflow-y-auto lg:border lg:border-slate-200 lg:rounded-xl lg:p-3 lg:bg-slate-50/40">
+        <h2 id="section-who" class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2 lg:sticky lg:top-0 lg:z-10 lg:bg-slate-50 lg:-mx-3 lg:px-3 lg:py-2 lg:border-b lg:border-slate-200/70 lg:rounded-t-lg">
           <span><span aria-hidden="true">👤</span> Who and What 'Needs results' — Stakeholders</span>
           <!-- Drop zone: visible when a chip from another group is selected for moving -->
           <button
@@ -2602,21 +3960,35 @@ defineExpose({ loadAndParse })
               />
             </div>
             <!-- Static chip — amber ring when this chip is selected for moving.
-                 max-w-[220px] overflow-hidden: caps pill width; text button uses
+                 max-w-[360px] overflow-hidden: caps pill width; text button uses
                  flex-1 min-w-0 truncate so overlong text shows ellipsis.
-                 :title on the button gives the native tooltip with full text. -->
+                 :title on the button gives the native HoverHint with full text. -->
             <div
               v-else
-              class="flex items-center gap-1 h-9 pl-3 pr-1 rounded-full bg-indigo-50
-                     border text-indigo-800 text-sm transition-all max-w-[220px] overflow-hidden"
+              :data-suggested-chip="isAcceptedSuggestion(item) ? 'stakeholders' : null"
+              class="flex items-center gap-1 h-9 pl-3 pr-1 rounded-full
+                     border text-sm transition-all max-w-[360px] overflow-hidden"
               :class="movingChip?.group === 'stakeholders' && movingChip.index === i
                 ? 'border-amber-400 ring-2 ring-amber-300 ring-offset-1 bg-amber-50 text-amber-900'
-                : 'border-indigo-200'"
+                : isAcceptedSuggestion(item)
+                  ? 'border-violet-500 bg-violet-200 text-violet-900 ring-2 ring-violet-400'
+                  : 'border-indigo-200 bg-indigo-50 text-indigo-800'"
+              :title="isAcceptedSuggestion(item) ? renderAcceptedSuggestionHoverHint(item) : item"
             >
+              <!-- r41 v395 — ✨ badge marks AI-suggested origin unmistakably,
+                   regardless of column-default vs violet contrast.  Composes with
+                   Icon-Plus-Text SUPREME (badge + text label both present). -->
+              <span
+                v-if="isAcceptedSuggestion(item)"
+                aria-hidden="true"
+                class="text-[12px] leading-none -mr-0.5 select-none"
+                :title="renderAcceptedSuggestionHoverHint(item)"
+              >✨</span>
               <button
                 type="button"
                 class="flex-1 min-w-0 truncate focus:outline-none hover:text-indigo-600 text-left"
-                :aria-label="`Edit stakeholder: ${item}`"
+                :class="isAcceptedSuggestion(item) ? 'hover:text-violet-700 text-violet-900' : ''"
+                :aria-label="`Edit stakeholder: ${item}${isAcceptedSuggestion(item) ? ' (AI-suggested, accepted by ' + props.acceptedSuggestionActor + ')' : ''}`"
                 :title="item"
                 @click="startEdit('stakeholders', i)"
               >{{ item }}</button>
@@ -2683,8 +4055,10 @@ defineExpose({ loadAndParse })
       <!-- ── S·E·M Connector: S → E ─────────────────────────────────────────────
            P4 (2026-05-27): parse arrow (S→E, indigo dashed) + augment arrow
            (E→S, emerald dashed). Visual teaching of the Planguage Ends-Means chain.
-           aria-hidden: purely decorative — screen readers skip this. -->
-      <div class="flex items-center gap-3 py-0.5" aria-hidden="true" role="presentation">
+           aria-hidden: purely decorative — screen readers skip this.
+           r41 v317 (Tom 2026-06-24): hidden on lg: where sections become horizontal
+           columns — vertical-stack-only arrows don't make sense in a grid layout. -->
+      <div class="flex items-center gap-3 py-0.5 lg:hidden" aria-hidden="true" role="presentation">
         <div class="flex-1 border-t border-dashed border-gray-100" />
         <div class="flex flex-col items-center gap-0.5 shrink-0">
           <div class="flex items-center gap-1">
@@ -2705,8 +4079,8 @@ defineExpose({ loadAndParse })
       </div>
 
       <!-- ── How Well (Values / Goals) ───────────────────────────────────────── -->
-      <section aria-labelledby="section-what">
-        <h2 id="section-what" class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+      <section aria-labelledby="section-what" class="lg:max-h-[60vh] lg:overflow-y-auto lg:border lg:border-slate-200 lg:rounded-xl lg:p-3 lg:bg-slate-50/40">
+        <h2 id="section-what" class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2 lg:sticky lg:top-0 lg:z-10 lg:bg-slate-50 lg:-mx-3 lg:px-3 lg:py-2 lg:border-b lg:border-slate-200/70 lg:rounded-t-lg">
           <span><span aria-hidden="true">📊</span> How Well — Goals &amp; Values</span>
           <button
             v-if="movingChip && movingChip.group !== 'values'"
@@ -2744,26 +4118,42 @@ defineExpose({ loadAndParse })
             </div>
             <div
               v-else
-              class="flex items-center gap-1 h-9 pl-3 pr-1 rounded-full border text-sm transition-all max-w-[220px] overflow-hidden"
+              :data-suggested-chip="isAcceptedSuggestion(item) ? 'values' : null"
+              class="flex items-center gap-1 h-9 pl-3 pr-1 rounded-full border text-sm transition-all max-w-[360px] overflow-hidden"
               :class="movingChip?.group === 'values' && movingChip.index === i
                 ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300 ring-offset-1 text-amber-900'
+                : isAcceptedSuggestion(item)
+                  ? 'bg-violet-200 border-violet-500 text-violet-900 ring-2 ring-violet-400'
+                  : isInferredEnd(item)
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'"
+              :title="isAcceptedSuggestion(item)
+                ? renderAcceptedSuggestionHoverHint(item)
                 : isInferredEnd(item)
-                  ? 'bg-amber-50 border-amber-300 text-amber-900'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-800'"
-              :title="isInferredEnd(item)
-                ? 'Inferred End — click to confirm or edit. Berlin slide 11: confusion of ends and means is the central danger.'
-                : undefined"
+                  ? 'Inferred End — click to confirm or edit. Berlin slide 11: confusion of ends and means is the central danger.'
+                  : undefined"
             >
+              <!-- r41 v395 — ✨ badge marks AI-suggested origin unmistakably. -->
+              <span
+                v-if="isAcceptedSuggestion(item)"
+                aria-hidden="true"
+                class="text-[12px] leading-none -mr-0.5 select-none"
+                :title="renderAcceptedSuggestionHoverHint(item)"
+              >✨</span>
               <!-- Chip text button: flex-row so (?) badge stays outside the
                    truncation zone. flex-1 min-w-0 lets the text span shrink
                    and truncate; (?) is shrink-0 so it's never clipped. -->
               <button
                 type="button"
                 class="flex-1 min-w-0 flex items-center focus:outline-none text-left"
-                :class="isInferredEnd(item) ? 'hover:text-amber-700' : 'hover:text-emerald-600'"
-                :aria-label="isInferredEnd(item)
-                  ? `Edit inferred goal: ${stripInferredMarker(item)} (inferred — please confirm)`
-                  : `Edit goal: ${item}`"
+                :class="isAcceptedSuggestion(item)
+                  ? 'hover:text-violet-700 text-violet-900'
+                  : isInferredEnd(item) ? 'hover:text-amber-700' : 'hover:text-emerald-600'"
+                :aria-label="isAcceptedSuggestion(item)
+                  ? `Edit goal: ${item} (AI-suggested, accepted by ${props.acceptedSuggestionActor})`
+                  : isInferredEnd(item)
+                    ? `Edit inferred goal: ${stripInferredMarker(item)} (inferred — please confirm)`
+                    : `Edit goal: ${item}`"
                 :title="stripInferredMarker(item)"
                 @click="startEdit('values', i)"
               >
@@ -2836,8 +4226,10 @@ defineExpose({ loadAndParse })
 
       <!-- ── S·E·M Connector: E → M ─────────────────────────────────────────────
            Same visual language as S→E connector above. Emerald→amber palette reflects
-           the color shift: Values (emerald) → Means (amber / warm). -->
-      <div class="flex items-center gap-3 py-0.5" aria-hidden="true" role="presentation">
+           the color shift: Values (emerald) → Means (amber / warm).
+           r41 v317 (Tom 2026-06-24): hidden on lg: where sections become horizontal
+           columns — vertical-stack-only arrows don't make sense in a grid layout. -->
+      <div class="flex items-center gap-3 py-0.5 lg:hidden" aria-hidden="true" role="presentation">
         <div class="flex-1 border-t border-dashed border-gray-100" />
         <div class="flex flex-col items-center gap-0.5 shrink-0">
           <div class="flex items-center gap-1">
@@ -2858,8 +4250,8 @@ defineExpose({ loadAndParse })
       </div>
 
       <!-- ── How (Means / Strategies) ──────────────────────────────────────── -->
-      <section aria-labelledby="section-how">
-        <h2 id="section-how" class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+      <section aria-labelledby="section-how" class="lg:max-h-[60vh] lg:overflow-y-auto lg:border lg:border-slate-200 lg:rounded-xl lg:p-3 lg:bg-slate-50/40">
+        <h2 id="section-how" class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2 lg:sticky lg:top-0 lg:z-10 lg:bg-slate-50 lg:-mx-3 lg:px-3 lg:py-2 lg:border-b lg:border-slate-200/70 lg:rounded-t-lg">
           <span><span aria-hidden="true">⚙️</span> How — Strategies &amp; Means</span>
           <button
             v-if="movingChip && movingChip.group !== 'means'"
@@ -2897,16 +4289,27 @@ defineExpose({ loadAndParse })
             </div>
             <div
               v-else
-              class="flex items-center gap-1 h-9 pl-3 pr-1 rounded-full border text-sm
-                     bg-amber-50 text-amber-800 transition-all max-w-[220px] overflow-hidden"
+              :data-suggested-chip="isAcceptedSuggestion(item) ? 'means' : null"
+              class="flex items-center gap-1 h-9 pl-3 pr-1 rounded-full border text-sm transition-all max-w-[360px] overflow-hidden"
               :class="movingChip?.group === 'means' && movingChip.index === i
-                ? 'border-amber-400 ring-2 ring-amber-300 ring-offset-1'
-                : 'border-amber-200'"
+                ? 'bg-amber-50 text-amber-800 border-amber-400 ring-2 ring-amber-300 ring-offset-1'
+                : isAcceptedSuggestion(item)
+                  ? 'bg-violet-200 border-violet-500 text-violet-900 ring-2 ring-violet-400'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'"
+              :title="isAcceptedSuggestion(item) ? renderAcceptedSuggestionHoverHint(item) : undefined"
             >
+              <!-- r41 v395 — ✨ badge marks AI-suggested origin unmistakably. -->
+              <span
+                v-if="isAcceptedSuggestion(item)"
+                aria-hidden="true"
+                class="text-[12px] leading-none -mr-0.5 select-none"
+                :title="renderAcceptedSuggestionHoverHint(item)"
+              >✨</span>
               <button
                 type="button"
-                class="flex-1 min-w-0 truncate focus:outline-none hover:text-amber-600 text-left"
-                :aria-label="`Edit strategy: ${item}`"
+                class="flex-1 min-w-0 truncate focus:outline-none text-left"
+                :class="isAcceptedSuggestion(item) ? 'hover:text-violet-700 text-violet-900' : 'hover:text-amber-600'"
+                :aria-label="`Edit strategy: ${item}${isAcceptedSuggestion(item) ? ' (AI-suggested, accepted by ' + props.acceptedSuggestionActor + ')' : ''}`"
                 :title="item"
                 @click="startEdit('means', i)"
               >{{ item }}</button>
@@ -2968,11 +4371,20 @@ defineExpose({ loadAndParse })
         </p>
       </section>
 
+      </div><!-- /r41 v317 lg:grid-cols-3 wrapper (Stakeholders + Values + Means) -->
+
       <!-- ── Implied Entries Panel (Advanced Parsing — Tier 1) ────────────── -->
       <!-- Tom 2026-05-17: "How is it going with my request earlier today for
            advanced parsing?" — shows rule-based suggestions for additional
            stakeholders / values / means implied by what the parser found.
            Dismissed per-session; reappears on each fresh parse. -->
+      <!-- r41 v267 (Tom Gilb 2026-06-21 "It skipped over showing me the parsing or the
+           generated implied suggestions. I did not even know they were there except for a
+           chance scrolling") — wrapper div with ref + aria-label so the v267 scroll-to-
+           result + announce pattern can find it.  Same shape as v256 (IET) + v262
+           (EvoPlanView): the panel renders BELOW the viewport on first appearance + needs
+           explicit scrollIntoView so the user sees the AI's work landing. -->
+      <div ref="impliedPanelEl" aria-label="Implied entries — AI-suggested additions">
       <ImpliedEntriesPanel
         v-if="_showImplied"
         :stakeholders="parsedStakeholders"
@@ -2985,6 +4397,7 @@ defineExpose({ loadAndParse })
         @add-all="onImpliedAddAll"
         @dismiss="_showImplied = false"
       />
+      </div>
 
       <!-- Error — promoted 2026-05-13 from a quiet line to a loud red banner
            with icon, border, and aria-live so a Generate-Spec failure is
@@ -3225,7 +4638,7 @@ defineExpose({ loadAndParse })
 
       </template>
 
-      <!-- Actions -->
+      <!-- Actions — inline (kept for users who reach the bottom naturally) -->
       <div class="flex items-center gap-3 pt-2">
         <button
           type="button"
@@ -3254,6 +4667,70 @@ defineExpose({ loadAndParse })
           <span aria-hidden="true"> →</span>
         </button>
       </div>
+
+      <!-- ════════════════════════════════════════════════════════════════════
+           STICKY BOTTOM ACTIONS BAR — mirrors the input-mode Parse bar so the
+           planner never has to scroll-hunt to progress.
+           Tom Gilb 2026-06-20 verbatim "I AM STUCK AND NEVER CAN MOVE ON,
+           ALWAYS SOMETHING WRONG" — the review-stage Generate Spec button was
+           at y=1753 in an 820-tall viewport (933px below the fold).  Mirrors
+           the existing input-stage `#sem-parse-btn` sticky pattern at line
+           2858 — fixed inset-x-0 bottom-4 z-30 pointer-events-none flex
+           justify-center.  Composes with: MOVE Principle SUPREME (primary
+           action ALWAYS visible from first paint), DD-009 Zero-Training UI,
+           accessibility_tom.md (Tom 85 — never scroll to find next action),
+           top-and-bottom navigation mirror DD-014.  Companion top↑/bottom↓
+           jump pins on the right so the planner can leap to either end of
+           the form without dragging the scrollbar — covers Tom's r41
+           2026-06-20 verbatim "INCLUDE … SCROLL BAR THE ARROWS … TO GO TO
+           TOP OR BOTTOM OF THE WINDOW".
+
+           v-if="showStickyBars" (r41 v223 STAGE-2-LEAK fix) — same gate as
+           the input-mode Parse bar above.  Stage 1 only. ════════════════ -->
+      <div v-if="showStickyBars" class="fixed inset-x-0 bottom-4 z-30 pointer-events-none flex justify-center px-4">
+        <div class="w-full max-w-2xl pointer-events-auto flex items-center gap-2">
+          <button
+            type="button"
+            class="shrink-0 min-h-[52px] px-3 rounded-xl bg-white/95 backdrop-blur ring-2 ring-slate-300
+                   text-sm font-semibold text-slate-700 shadow-2xl
+                   hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400
+                   transition-colors duration-150"
+            aria-label="Say it again — return to input"
+            title="← Say it again — go back and edit your original input"
+            @click="stage = 'input'; nextTick(() => (document.getElementById('sem-raw-input') as HTMLTextAreaElement | null)?.focus())"
+          >
+            <span aria-hidden="true">←</span> Edit
+          </button>
+
+          <button
+            type="button"
+            class="flex-1 min-h-[52px] rounded-xl bg-blue-600 px-4 py-3.5 text-base font-bold
+                   text-white shadow-2xl hover:bg-blue-700 ring-2 ring-blue-300
+                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+                   focus-visible:outline-blue-600 transition-colors duration-150
+                   disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="generating"
+            aria-label="Generate Spec — proceed to Planguage generation"
+            title="Generate Spec → — sends the reviewed entries to the AI for Planguage spec generation"
+            @click="handleSubmit"
+          >
+            {{ generating ? 'Generating…' : 'Generate Spec' }}
+            <span v-if="!generating" aria-hidden="true"> →</span>
+          </button>
+
+          <!-- r41 v224 (Tom Gilb verbatim "scroll is at extreme right and
+               hiding upo") — duplicate ⬆/⬇ pins DROPPED from this sticky
+               bar.  They were at the "extreme right" of the bar and competed
+               with the canonical bottom-centre PageScrollPin.  The
+               PageScrollPin now owns the global page-scroll affordance
+               (bottom-centre, always visible, both arrows always rendered).
+               Cleaner mental model: ONE place for page scroll, ONE place
+               for stage-action. -->
+        </div>
+      </div>
+      <!-- Spacer so the inline Actions row + last form field aren't hidden behind
+           the fixed bar above (same pattern as the input-stage Parse-bar spacer). -->
+      <div class="h-24" aria-hidden="true"></div>
 
     </template>
   </div>

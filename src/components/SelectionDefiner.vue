@@ -28,15 +28,77 @@ import {
   DEFINE_TYPE_LABELS,
   DEFINE_TYPE_COLOURS,
 } from '../composables/useDefine'
+import { useTwinCitation, twinConceptUrl } from '../composables/useTwinCitation'
+import RenderedMarkdown from './RenderedMarkdown.vue'
 import { useGlossaryEntry } from '../composables/useGlossaryEntry'
 import { parseGlossaryEntry } from '../utils/parseGlossaryEntry'
 import type { SpecBlock } from '../types/spec'
+// r93ll — Export-on-all-windows SUPREME rule: Copy + Email actions
+import { exportCopy, exportEmail } from '../composables/useExportShared'
+import { useToast } from '../composables/useToast'
+const { showToast: _illuminateToast } = useToast()
 
 const props = defineProps<{
   spec: SpecBlock | null
 }>()
 
 const { result, loading, error, open, term, defineSearchOpen } = useDefine()
+
+// ── r93ttt — Tom's Twin tier (Tom Gilb 2026-06-12 "Go for the design for Illum") ──
+const {
+  citeTerm: _twinCiteTerm,
+  isLoading: twinLoading,
+  lastResult: twinResult,
+  lastError: twinError,
+  TWIN_LOGIN_URL,
+} = useTwinCitation()
+
+const twinElapsed = ref(0)
+let _twinElapsedTimer: ReturnType<typeof setInterval> | null = null
+
+// r93zzz — Twin navigation: stack of previously-viewed concept terms so the
+// user can drill into related concepts and back out again.
+const twinHistory = ref<string[]>([])
+const twinEnlarged = ref(false)
+
+async function askTwin(t: string): Promise<void> {
+  twinElapsed.value = 0
+  if (_twinElapsedTimer) { clearInterval(_twinElapsedTimer); _twinElapsedTimer = null }
+  const start = Date.now()
+  _twinElapsedTimer = setInterval(() => {
+    twinElapsed.value = Math.round((Date.now() - start) / 1000)
+  }, 250)
+  try {
+    await _twinCiteTerm(t)
+  } catch { /* twinError is already set by the composable */ }
+  if (_twinElapsedTimer) { clearInterval(_twinElapsedTimer); _twinElapsedTimer = null }
+}
+
+/** r93zzz — drill-into-related-concept handler. Push the current term onto the
+ *  navigation history, then query the Twin for the new term. The user can
+ *  navigate back via the ← arrow that appears next to the From-Twin header. */
+async function onConceptDrilldown(payload: { name: string; number: string }): Promise<void> {
+  const current = (twinResult.value?.term ?? '').trim()
+  if (current) twinHistory.value.push(current)
+  await askTwin(payload.name)
+}
+
+/** r93d7 — 💡 Illuminate (⌘I) on a concept row. Tom Gilb 2026-06-13: "click on
+ *  the glossary diagram elements … look it up in illustrate cmnd i". Routes
+ *  through the CANONICAL Illuminate entry point — `defineTerm()` — exactly
+ *  as the ⌥I keyboard shortcut would. That runs: local Planguage Glossary
+ *  tier 1 (instant) + Twin Consultant fallback (r93uuu chain). Updates the
+ *  Illuminate panel's `result` ref; the user can re-click 🔮 Ask Tom's Twin
+ *  to refresh the rich Twin response for the new concept. */
+function onConceptIlluminate(payload: { name: string; number: string }): void {
+  defineTerm(payload.name, props.spec)
+}
+
+/** r93zzz — pop the last term off the history and re-query Twin for it. */
+async function onTwinBack(): Promise<void> {
+  const prev = twinHistory.value.pop()
+  if (prev) await askTwin(prev)
+}
 const { loading: gLoading, entry: gEntry, error: gError, synonymOf: gSynonymOf, nearMatchOptions: gNearMatchOptions, probeError: gProbeError, fetchEntry, clearEntry } = useGlossaryEntry()
 
 // ── Floating pill state ────────────────────────────────────────────────────
@@ -172,13 +234,30 @@ function _updatePill(): void {
     return
   }
 
-  // Ignore selections inside input/textarea elements
-  if (
-    document.activeElement instanceof HTMLInputElement ||
-    document.activeElement instanceof HTMLTextAreaElement
-  ) {
-    pillVisible.value = false
-    return
+  // r41 v368 (Tom Gilb 2026-06-25 "selecting a word does not any longer open
+  // illumination") — RELAXED the input/textarea suppression.  The old check
+  // queried `document.activeElement` — which returns the LAST-FOCUSED element
+  // even when the user's CURRENT selection is somewhere else entirely.
+  // Scenario: Tom types Plan Name in an <input>, clicks out, then drag-
+  // selects text in a paragraph below.  activeElement is still the input,
+  // pillVisible is suppressed, the floating Illuminate pill never appears.
+  //
+  // Fix: examine the SELECTION's commonAncestorContainer, not the focused
+  // element.  Suppress the pill ONLY when the actual range lives inside an
+  // input/textarea (which is the rare case where we don't want to disrupt
+  // typing).  This restores the Define-by-Selection rule's promise.
+  try {
+    const range = sel.getRangeAt(0)
+    let node: Node | null = range.commonAncestorContainer
+    while (node && node !== document.body) {
+      if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
+        pillVisible.value = false
+        return
+      }
+      node = node.parentNode
+    }
+  } catch {
+    // getRangeAt(0) can throw if selection collapsed mid-flight — fall through
   }
 
   try {
@@ -225,16 +304,26 @@ function _onMouseup(): void {
 }
 
 function _onKeydown(e: KeyboardEvent): void {
-  // Opt+I (Option+I) — illuminate selection (or open term search if nothing selected).
-  // Uses e.code === 'KeyI' (physical key) not e.key because Option+I on Mac produces
-  // a dead key (circumflex), so e.key === 'Dead', not 'i'. e.code is layout-independent.
-  // NOTE: ⌥I is owned by Safari (Email Page Link) and cannot be overridden from JS.
-  // Guard: skip only if result panel is already open (user can see it, no double-trigger).
-  // NOTE: do NOT guard on loading.value — _loading is module-level state that Vite HMR
-  // preserves across hot reloads, so a loading=true from an interrupted call permanently
-  // blocks ⌥I for the rest of the session.  open.value covers the same case because
-  // _open is set true at the same moment _loading is set true inside defineTerm().
-  if (e.altKey && e.code === 'KeyI') {
+  // r93h1 — Illuminate shortcut binding. Tom Gilb 2026-06-13 verbatim:
+  //   "btw 2x using cmnd i it suddenly jumps to email mine"
+  //
+  // Root cause: Tom presses ⌘I (Cmd+I) per his "cmnd i" wording — but Safari's
+  // native binding for ⌘I is "Email Link to This Page", which opens Mail.app
+  // with a share-link composer. The pre-r93h1 handler only bound ⌥I (Option+I),
+  // so ⌘I went straight through to Safari → Mail opened. Twice = TWO emails.
+  //
+  // Fix: bind BOTH ⌘I AND ⌥I, and call preventDefault EARLY so Safari's
+  // native handler doesn't fire. e.preventDefault on keydown reliably
+  // suppresses ⌘I → Email Page Link in current Safari (the pre-r93h1 stale
+  // comment "cannot be overridden from JS" was wrong; current Safari honours
+  // preventDefault from a captured keydown). The legacy comment about ⌥I being
+  // "owned by Safari" was also incorrect — ⌥I produces a dead-key circumflex
+  // in text fields but is otherwise free; Safari's email shortcut is ⌘I.
+  //
+  // Both physical-key codes (`KeyI`) match because ⌥ + I on Mac produces a
+  // dead-key (so e.key === 'Dead', not 'i') — we use e.code for layout-
+  // independent matching.
+  if ((e.altKey || e.metaKey) && e.code === 'KeyI') {
     // Guard: don't intercept when the user is typing in a text field.
     if (
       document.activeElement instanceof HTMLInputElement ||
@@ -326,6 +415,189 @@ onMounted(() => {
   }
 })
 
+// ─── r93ll — Export Illuminate (Copy + Email) ────────────────────────────
+//
+// Tom Gilb 2026-06-11 (SUPREME upgrade to Export-on-all-windows rule):
+//   "The export ideally should be everything the window can offer, not just what
+//    is immediately visible. All choices such as diagrams, and triangle flip down
+//    lines. Assure me you can do this, if not we need a message of what the export
+//    will not contain, and how to get it sent."
+//
+// Captures EVERY tab's content into a single colourful HTML document:
+//   - At a Glance (summary + card markdown)
+//   - Notes (markdown)
+//   - Examples (markdown)
+//   - Diagram (Mermaid SOURCE included verbatim; note that rendered SVG is
+//     environment-dependent and the user views it inside the app for the live render)
+//   - Mistakes (markdown, if present)
+//   - Joke (if present)
+//   - Related concepts list
+// The Completeness Pledge: every section that exists in the entry is INCLUDED.
+// What's NOT included is explicitly NAMED at the bottom of the email so the
+// recipient knows what to view in the app.
+
+function _safeMd(text: string | undefined | null): string {
+  if (!text) return ''
+  // Minimal escaping — preserve the markdown source as a code block.
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+/** r93oo (Tom Gilb 2026-06-11 "I did not get the diagram") — render each Mermaid source
+ *  to inline SVG via the in-app mermaid instance so the email/clipboard contains the
+ *  VISUAL diagram, not just the source code. SVGs land inline so they survive Mail.app
+ *  rendering. Returns parallel array to diagrams[]; SVG string per index, OR null when
+ *  rendering failed (so the caller can fall back to source + explicit note). */
+async function _renderDiagramsToSvg(diagrams: string[]): Promise<(string | null)[]> {
+  if (diagrams.length === 0) return []
+  try {
+    const m = await _loadMermaidScript()
+    // Set theme so SVG colours match the in-app render
+    m.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' })
+    const out: (string | null)[] = []
+    for (let i = 0; i < diagrams.length; i++) {
+      try {
+        // Unique id per render (mermaid requires it)
+        const id = `illum-export-${Date.now()}-${i}`
+        const { svg } = await m.render(id, diagrams[i])
+        out.push(svg)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[illuminate-export] mermaid render failed for diagram', i, err)
+        out.push(null)
+      }
+    }
+    return out
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[illuminate-export] mermaid script load failed', err)
+    return diagrams.map(() => null)
+  }
+}
+
+function renderIlluminateHtml(diagramSvgs: (string | null)[] = []): string {
+  const e = gEntry.value
+  if (!e) return ''
+  const term = e.term ?? result.value?.term ?? '—'
+  const conceptNum = (e as { conceptNumber?: string }).conceptNumber ?? ''
+  const keyedIcon  = (e as { keyedIcon?: string }).keyedIcon ?? ''
+  const atGlance   = (e as { atAGlanceSummary?: string }).atAGlanceSummary ?? ''
+  const atGlanceC  = (e as { atAGlanceCard?: string }).atAGlanceCard ?? ''
+  const notes      = (e as { notes?: string }).notes ?? ''
+  const examples   = (e as { examples?: string }).examples ?? ''
+  const mistakes   = (e as { mistakes?: string }).mistakes ?? ''
+  const joke       = (e as { joke?: string }).joke ?? ''
+  const related    = (e as { relatedConcepts?: string }).relatedConcepts ?? ''
+  const diagrams   = (e as { diagrams?: string[] }).diagrams ?? []
+
+  const section = (title: string, body: string, bg: string, accent: string) =>
+    body ? `
+  <tr><td bgcolor="${bg}" style="background:${bg};padding:14px 20px;border-left:4px solid ${accent};">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:${accent};letter-spacing:1px;">${title}</div>
+    <div style="font-size:13px;color:#1e293b;line-height:1.55;margin-top:6px;font-family:system-ui,-apple-system,sans-serif;white-space:pre-wrap;">${_safeMd(body)}</div>
+  </td></tr>` : ''
+
+  // r93oo — render diagrams as inline SVG when mermaid produced one; fall back to source
+  // code in a <pre> block ONLY when the render failed (with an explanatory note).
+  const diagramsBlock = diagrams.length > 0 ? `
+  <tr><td bgcolor="#f0fdf4" style="background:#f0fdf4;padding:14px 20px;border-left:4px solid #16a34a;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#14532d;letter-spacing:1px;">Diagram${diagrams.length > 1 ? 's' : ''}</div>
+    ${diagrams.map((d, i) => {
+      const svg = diagramSvgs[i]
+      const heading = diagrams.length > 1 ? `<div style="font-size:11px;font-weight:600;color:#14532d;margin-top:10px;">Diagram ${i + 1}</div>` : ''
+      if (svg) {
+        // Inline SVG — render visually in any HTML email/document viewer.
+        // Wrap in a div with max-width so wide diagrams don't blow out the email column.
+        return `${heading}<div style="background:#fff;border:1px solid #d1fae5;border-radius:6px;padding:10px;margin-top:6px;text-align:center;overflow-x:auto;">${svg}</div>`
+      }
+      // Fallback: render failed → embed source + explicit note per Completeness Pledge
+      return `${heading}<div style="font-size:11px;color:#92400e;margin-top:6px;font-style:italic;">Mermaid render failed in this export — Mermaid source below; paste into any Mermaid-aware viewer (mermaid.live) or open the term in the SEM App via ⌘I for the live SVG.</div><pre style="background:#0f172a;color:#e2e8f0;padding:10px 12px;border-radius:6px;margin:6px 0 0 0;font-family:ui-monospace,monospace;font-size:11px;line-height:1.45;overflow-x:auto;white-space:pre-wrap;">${_safeMd(d)}</pre>`
+    }).join('')}
+  </td></tr>` : ''
+
+  return `
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:780px;font-family:system-ui,-apple-system,sans-serif;border-collapse:collapse;">
+  <tr><td bgcolor="#6d28d9" style="background:linear-gradient(90deg,#7c3aed,#4f46e5);color:#fff;padding:18px 24px;border-radius:12px 12px 0 0;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:0.85;">💡 Illuminate · Planguage Term</div>
+    <div style="font-size:22px;font-weight:900;margin-top:6px;">"${_safeMd(term)}"</div>
+    ${conceptNum ? `<div style="font-size:13px;opacity:0.85;margin-top:4px;">Concept ${_safeMd(conceptNum)} · ${_safeMd(keyedIcon)}</div>` : ''}
+  </td></tr>
+  ${result.value?.definition ? section('Definition (in context)', result.value.definition, '#eff6ff', '#2563eb') : ''}
+  ${section('At a Glance', atGlance, '#f5f3ff', '#7c3aed')}
+  ${atGlanceC ? section('At-a-Glance Card (markdown source)', atGlanceC, '#faf5ff', '#9333ea') : ''}
+  ${section('Notes', notes, '#fffbeb', '#d97706')}
+  ${section('Examples', examples, '#ecfeff', '#0891b2')}
+  ${section('Mistakes', mistakes, '#fef2f2', '#dc2626')}
+  ${section('Joke', joke, '#fdf2f8', '#db2777')}
+  ${section('Related Concepts', related, '#f0f9ff', '#0284c7')}
+  ${diagramsBlock}
+  <tr><td bgcolor="#f8fafc" style="background:#f8fafc;padding:12px 20px;border-radius:0 0 12px 12px;font-size:10px;color:#475569;">
+    <strong>Completeness Pledge (r93ll / r93oo):</strong> this export includes every section the Illuminate panel can show for this term — At a Glance, Notes, Examples, Mistakes, Joke, Related — plus the Diagram <em>rendered inline as SVG</em> (not just source). The SEM App's interactive click-to-zoom / pan affordances on the diagram are environment-specific; open the term in the SEM App via ⌘I for the interactive view.
+  </td></tr>
+</table>`
+}
+
+function renderIlluminatePlain(): string {
+  const e = gEntry.value
+  if (!e) return ''
+  const term = e.term ?? result.value?.term ?? '—'
+  const conceptNum = (e as { conceptNumber?: string }).conceptNumber ?? ''
+  const lines: string[] = [
+    `ILLUMINATE · Planguage Term · "${term}"`,
+    conceptNum ? `Concept ${conceptNum}` : '',
+    '',
+  ]
+  const block = (title: string, body: string | undefined | null) => {
+    if (!body) return
+    lines.push(title.toUpperCase(), body.trim(), '')
+  }
+  if (result.value?.definition) block('Definition (in context)', result.value.definition)
+  block('At a Glance',           (e as { atAGlanceSummary?: string }).atAGlanceSummary)
+  block('At-a-Glance Card',      (e as { atAGlanceCard?: string }).atAGlanceCard)
+  block('Notes',                 (e as { notes?: string }).notes)
+  block('Examples',              (e as { examples?: string }).examples)
+  block('Mistakes',              (e as { mistakes?: string }).mistakes)
+  block('Joke',                  (e as { joke?: string }).joke)
+  block('Related Concepts',      (e as { relatedConcepts?: string }).relatedConcepts)
+  const diagrams = (e as { diagrams?: string[] }).diagrams ?? []
+  if (diagrams.length > 0) {
+    lines.push('DIAGRAM SOURCE (Mermaid — view in the app for rendered SVG)')
+    diagrams.forEach((d, i) => {
+      if (diagrams.length > 1) lines.push(`--- Diagram ${i + 1} ---`)
+      lines.push(d, '')
+    })
+  }
+  lines.push('')
+  lines.push('COMPLETENESS PLEDGE (r93ll/r93oo): every section the Illuminate panel can show for')
+  lines.push('this term is included above. The HTML colour version on your clipboard ALSO carries')
+  lines.push('the rendered diagram SVG inline (paste with ⌘V into Mail / Notes / Keynote to see it).')
+  lines.push('Mermaid source above is the canonical text form; the live SEM App (⌘I) renders the')
+  lines.push('diagram interactively with click-to-zoom and pan.')
+  return lines.join('\n')
+}
+
+async function exportIlluminate(mode: 'copy' | 'email'): Promise<void> {
+  if (!gEntry.value) return
+  const term     = gEntry.value.term ?? result.value?.term ?? '—'
+  const diagrams = (gEntry.value as { diagrams?: string[] }).diagrams ?? []
+  // r93oo — render diagrams to SVG via mermaid BEFORE building HTML so the email
+  // carries the visual diagram, not just source.
+  _illuminateToast(diagrams.length > 0
+    ? `💡 Rendering ${diagrams.length} diagram${diagrams.length === 1 ? '' : 's'}…`
+    : `💡 Preparing export…`, 2000)
+  const diagramSvgs = await _renderDiagramsToSvg(diagrams)
+  const html  = renderIlluminateHtml(diagramSvgs)
+  const plain = renderIlluminatePlain()
+  if (mode === 'copy') {
+    await exportCopy(html, plain)
+    _illuminateToast(`💡 Illuminate "${term}" copied as colourful HTML — paste with ⌘V`, 5000)
+  } else {
+    await exportEmail(html, `Illuminate · "${term}"`, `Illuminate "${term}"`, 'Tom@Gilb.com', plain)
+  }
+}
+
 onUnmounted(() => {
   document.removeEventListener('selectionchange', _onSelectionChange)
   document.removeEventListener('mouseup',         _onMouseup)
@@ -352,14 +624,110 @@ const detailOpen    = ref(false)
 type DetailTab = 'card' | 'notes' | 'examples' | 'diagram' | 'mistakes' | 'joke' | 'related'
 const activeDetailTab = ref<DetailTab>('card')
 
-const detailTabs: { key: DetailTab; emoji: string; label: string }[] = [
-  { key: 'card',     emoji: '🃏', label: 'At a Glance' },
-  { key: 'notes',    emoji: '📝', label: 'Notes'        },
-  { key: 'examples', emoji: '💡', label: 'Examples'     },
-  { key: 'diagram',  emoji: '🗂️', label: 'Diagram'      },
-  { key: 'mistakes', emoji: '⚠️', label: 'Mistakes'     },
-  { key: 'joke',     emoji: '😄', label: 'Joke'         },
-  { key: 'related',  emoji: '🔗', label: 'Related'      },
+// r41 v27 (Tom Gilb 2026-06-14 verbatim: "SOMEWHERE I SAID I DID NOT WANT
+// THE OLD ICONS BUT I LIKE THOSE THAT MIMIC A MINI CLIP OF WHAT IS SHOWN IN
+// THE TOOL") — applying the Thumbnail Reality rule (sem-app-ui-rules Rule 5):
+// each tab icon is now a mini-SVG preview of what that tab's content looks
+// like.  Generic emoji replaced.
+//
+// Per-tab mini-clip design:
+//   At a Glance → tiny spec card (heading + 3 horizontal data lines)
+//   Notes       → lined sheet (5 horizontal text lines)
+//   Examples    → numbered list (1. 2. 3. with stub lines)
+//   Diagram     → 3 connected nodes (mini ontology graph)
+//   Mistakes    → checklist with X marks (anti-pattern list)
+//   Joke        → speech bubble (quotation)
+//   Related     → dot-and-link network (cross-reference graph)
+//
+// All SVGs use currentColor so they inherit the tab's theme color.
+const detailTabs: {
+  key: DetailTab
+  label: string
+  /** Inline SVG path content — drawn in a 32×24 viewBox for landscape mini-clip */
+  svg:  string
+  /** Active-state colour family — tailwind class roots */
+  active:  string
+  hover:   string
+  tinted:  string
+}[] = [
+  { key: 'card',     label: 'At a Glance',
+    // Mini spec card: heading bar + 3 short data lines (mimics At-a-Glance card)
+    svg: '<rect x="3" y="3" width="26" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>\
+<rect x="6" y="6"  width="16" height="2" rx="0.6" fill="currentColor"/>\
+<rect x="6" y="11" width="20" height="1.5" rx="0.4" fill="currentColor" opacity="0.55"/>\
+<rect x="6" y="14" width="14" height="1.5" rx="0.4" fill="currentColor" opacity="0.55"/>\
+<rect x="6" y="17" width="18" height="1.5" rx="0.4" fill="currentColor" opacity="0.55"/>',
+    active: 'bg-violet-600 text-white ring-violet-900 shadow-violet-200',
+    hover:  'hover:bg-violet-50 hover:text-violet-700',
+    tinted: 'text-violet-500' },
+  { key: 'notes',    label: 'Notes',
+    // Lined sheet — 5 horizontal lines, like ruled notebook paper
+    svg: '<rect x="4" y="2" width="22" height="20" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/>\
+<line x1="7" y1="6"  x2="23" y2="6"  stroke="currentColor" stroke-width="1.4" opacity="0.7"/>\
+<line x1="7" y1="9.5"  x2="22" y2="9.5"  stroke="currentColor" stroke-width="1.4" opacity="0.7"/>\
+<line x1="7" y1="13" x2="23" y2="13" stroke="currentColor" stroke-width="1.4" opacity="0.7"/>\
+<line x1="7" y1="16.5" x2="20" y2="16.5" stroke="currentColor" stroke-width="1.4" opacity="0.7"/>\
+<line x1="7" y1="20" x2="18" y2="20" stroke="currentColor" stroke-width="1.4" opacity="0.7"/>',
+    active: 'bg-blue-600 text-white ring-blue-900 shadow-blue-200',
+    hover:  'hover:bg-blue-50 hover:text-blue-700',
+    tinted: 'text-blue-500' },
+  { key: 'examples', label: 'Examples',
+    // Numbered list — 1. 2. 3. with stub lines (mimics worked-example list)
+    svg: '<text x="3"  y="9"  font-size="6" font-weight="900" font-family="ui-sans-serif" fill="currentColor">1.</text>\
+<line x1="11" y1="7.5" x2="27" y2="7.5" stroke="currentColor" stroke-width="1.6"/>\
+<text x="3"  y="15" font-size="6" font-weight="900" font-family="ui-sans-serif" fill="currentColor">2.</text>\
+<line x1="11" y1="13.5" x2="25" y2="13.5" stroke="currentColor" stroke-width="1.6"/>\
+<text x="3"  y="21" font-size="6" font-weight="900" font-family="ui-sans-serif" fill="currentColor">3.</text>\
+<line x1="11" y1="19.5" x2="22" y2="19.5" stroke="currentColor" stroke-width="1.6"/>',
+    active: 'bg-amber-500 text-white ring-amber-700 shadow-amber-200',
+    hover:  'hover:bg-amber-50 hover:text-amber-700',
+    tinted: 'text-amber-600' },
+  { key: 'diagram',  label: 'Diagram',
+    // Mini ontology: parent node at top, two children connected by lines
+    svg: '<rect x="11" y="2" width="10" height="6" rx="1" fill="currentColor"/>\
+<line x1="14" y1="9"  x2="9"  y2="14" stroke="currentColor" stroke-width="1.4"/>\
+<line x1="18" y1="9"  x2="23" y2="14" stroke="currentColor" stroke-width="1.4"/>\
+<rect x="3"  y="14" width="11" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>\
+<rect x="18" y="14" width="11" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+    active: 'bg-emerald-600 text-white ring-emerald-900 shadow-emerald-200',
+    hover:  'hover:bg-emerald-50 hover:text-emerald-700',
+    tinted: 'text-emerald-600' },
+  { key: 'mistakes', label: 'Mistakes',
+    // Checklist with three rows, each prefixed with a red × — anti-pattern list
+    svg: '<text x="3"  y="9"  font-size="7" font-weight="900" font-family="ui-sans-serif" fill="currentColor">✕</text>\
+<line x1="11" y1="7.5" x2="27" y2="7.5" stroke="currentColor" stroke-width="1.6" opacity="0.7"/>\
+<text x="3"  y="15" font-size="7" font-weight="900" font-family="ui-sans-serif" fill="currentColor">✕</text>\
+<line x1="11" y1="13.5" x2="25" y2="13.5" stroke="currentColor" stroke-width="1.6" opacity="0.7"/>\
+<text x="3"  y="21" font-size="7" font-weight="900" font-family="ui-sans-serif" fill="currentColor">✕</text>\
+<line x1="11" y1="19.5" x2="22" y2="19.5" stroke="currentColor" stroke-width="1.6" opacity="0.7"/>',
+    active: 'bg-red-600 text-white ring-red-900 shadow-red-200',
+    hover:  'hover:bg-red-50 hover:text-red-700',
+    tinted: 'text-red-500' },
+  { key: 'joke',     label: 'Joke',
+    // Speech bubble with three tiny dots inside (jokes are quoted speech)
+    svg: '<path d="M3 5 Q3 3 5 3 H27 Q29 3 29 5 V14 Q29 16 27 16 H12 L8 21 V16 H5 Q3 16 3 14 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>\
+<circle cx="11" cy="10" r="1.5" fill="currentColor"/>\
+<circle cx="16" cy="10" r="1.5" fill="currentColor"/>\
+<circle cx="21" cy="10" r="1.5" fill="currentColor"/>',
+    active: 'bg-pink-500 text-white ring-pink-700 shadow-pink-200',
+    hover:  'hover:bg-pink-50 hover:text-pink-700',
+    tinted: 'text-pink-500' },
+  { key: 'related',  label: 'Related',
+    // Dot-and-link network — 5 nodes with connecting lines (cross-reference graph)
+    svg: '<circle cx="6"  cy="6"  r="2" fill="currentColor"/>\
+<circle cx="16" cy="3"  r="2" fill="currentColor"/>\
+<circle cx="26" cy="6"  r="2" fill="currentColor"/>\
+<circle cx="8"  cy="18" r="2" fill="currentColor"/>\
+<circle cx="24" cy="20" r="2" fill="currentColor"/>\
+<circle cx="16" cy="13" r="2.5" fill="currentColor"/>\
+<line x1="6"  y1="6"  x2="16" y2="13" stroke="currentColor" stroke-width="1.2" opacity="0.7"/>\
+<line x1="16" y1="3"  x2="16" y2="13" stroke="currentColor" stroke-width="1.2" opacity="0.7"/>\
+<line x1="26" y1="6"  x2="16" y2="13" stroke="currentColor" stroke-width="1.2" opacity="0.7"/>\
+<line x1="8"  y1="18" x2="16" y2="13" stroke="currentColor" stroke-width="1.2" opacity="0.7"/>\
+<line x1="24" y1="20" x2="16" y2="13" stroke="currentColor" stroke-width="1.2" opacity="0.7"/>',
+    active: 'bg-indigo-600 text-white ring-indigo-900 shadow-indigo-200',
+    hover:  'hover:bg-indigo-50 hover:text-indigo-700',
+    tinted: 'text-indigo-500' },
 ]
 
 // ── Related-concept diagram fallback ─────────────────────────────────────
@@ -759,7 +1127,7 @@ function escapeHtml(s: string): string {
         <span aria-hidden="true">💡</span>
         Illuminate
         <!-- Tom 2026-05-17: teach ⌥I at the exact moment of first discovery -->
-        <kbd class="ml-0.5 text-[9px] font-mono bg-violet-500/60 rounded px-1 py-0.5 leading-none" aria-hidden="true">⌥I</kbd>
+        <kbd class="ml-0.5 text-[9px] font-mono bg-violet-500/60 rounded px-1 py-0.5 leading-none" aria-hidden="true">⌘I</kbd>
       </button>
     </Transition>
   </Teleport>
@@ -786,11 +1154,23 @@ function escapeHtml(s: string): string {
       ><!-- Universal Define-by-Selection rule: z-[10100] sits above most surfaces.
             History and PlanModels drawers are at z-[10200]/z-[10201] so they
             correctly cover this panel when open (drawers take priority). -->
-        <!-- Backdrop — pointer-events-none so it does NOT block clicks on
-             Plan Crest bar (z-[300]) or other surfaces below z-[10100].
-             Click-outside-to-close is handled by _onOutsideMousedown above. -->
+        <!-- r93ll (Tom Gilb 2026-06-11 "the dark bar is a bug") — visible backdrop:
+             previously this backdrop was `pointer-events-none z-[-1]` with no visible
+             tint, leaving the underlying PentaPanel "Locked — edits disabled" footer
+             bleeding through under the Illuminate popover. Now the backdrop has a soft
+             white tint + backdrop-blur so the popover sits on a clean field. Still
+             pointer-events-none so it doesn't block clicks on the Plan Crest bar
+             (z-[300]) above the popover. Click-outside-to-close handled via
+             _onOutsideMousedown above. -->
+        <!-- r93rr (Tom Gilb 2026-06-11 "grey line and it prohibits selection of options"):
+             previous r93ll backdrop was `bg-white/85` (85% opacity). The underlying PentaPanel
+             "Locked — edits disabled" bar bled through the remaining 15% as a grey horizontal
+             strip that made the bottom of the popover LOOK disabled and confused Tom into
+             thinking options were unreachable. Switched to FULLY OPAQUE bg-white so nothing
+             underneath shows through. Still `pointer-events-none` so the Define-by-Selection
+             pill above (z-[10102]) still receives mouse events unimpeded. -->
         <div
-          class="fixed inset-0 z-[-1] pointer-events-none"
+          class="fixed inset-0 z-[-1] pointer-events-none bg-white"
           aria-hidden="true"
         />
 
@@ -798,9 +1178,16 @@ function escapeHtml(s: string): string {
              data-seldef-card: marker used by _updatePill() so that selections
              made INSIDE this card flip the Define pill BELOW the selection
              (otherwise the pill would land on the violet header bar above). -->
+        <!-- r93zzz — widened panel + responsive max-width so the Twin Related-
+             Concepts table has breathing room (Tom Gilb 2026-06-13: "why is the
+             info so narrow, is widening it a good idea?"). max-w-lg (32 rem) →
+             responsive ladder: mobile stays 32 rem; sm 42 rem; md 56 rem; lg 72 rem.
+             The 72 rem desktop width matches the Aspects panel + lets the
+             Related-Concepts table breathe. The Enlarge button (added below)
+             opens a full-viewport modal for the user who wants more still. -->
         <div
           data-seldef-card
-          class="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl
+          class="w-full max-w-lg sm:max-w-2xl md:max-w-4xl lg:max-w-[72rem] rounded-2xl overflow-hidden shadow-2xl
                  border border-violet-200 bg-white flex flex-col max-h-[90dvh]"
         >
           <!-- Header -->
@@ -822,12 +1209,37 @@ function escapeHtml(s: string): string {
                 "{{ term || result?.term }}"
               </p>
             </div>
+            <!-- r93ll — Export buttons (Copy + Email) per Export-on-all-windows SUPREME rule.
+                 Tom Gilb 2026-06-11: "All info, I said this rule before did I not, all windows,
+                 need an export button. The export ideally should be everything the window can
+                 offer, not just what is immediately visible." Captures EVERY tab's content (At a
+                 Glance / Notes / Examples / Mistakes / Joke / Related) + the diagram source.
+                 Disabled until the glossary entry has loaded. -->
+            <!-- r93mm — Completeness Pledge surfaced in HoverHint (Tom Gilb 2026-06-11
+                 "it seems prudent to add in the export hover: that we will export more data
+                 than might be visible, all the options"). Universal pattern: every Export
+                 HoverHint must tell the user it captures more than what's currently visible. -->
+            <button
+              type="button"
+              class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold whitespace-nowrap transition-colors ring-1 ring-emerald-800 flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="!gEntry"
+              title="📋 Copy — captures MORE than what's currently visible. Includes EVERY tab (At a Glance, Notes, Examples, Mistakes, Joke, Related), every collapsed/hidden section, AND the Diagram source — not just whatever tab you're currently looking at. Paste with ⌘V into Mail, Notes, Keynote, anywhere. The export ends with a Completeness Pledge naming anything that requires the live app to render."
+              @click="exportIlluminate('copy')"
+            >📋 Copy</button>
+            <button
+              type="button"
+              class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold whitespace-nowrap transition-colors ring-1 ring-blue-800 flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="!gEntry"
+              title="✉ Email — captures MORE than what's currently visible. Includes EVERY tab + every collapsed/hidden section + Diagram source. Not just whatever tab you're currently looking at. Auto-opens Mail to Tom@Gilb.com with colourful HTML on clipboard — paste with ⌘V in body. Completeness Pledge in the export footer names anything that needs the live app to render."
+              @click="exportIlluminate('email')"
+            >✉ Email</button>
             <CloseDot
-        variant="on-dark"
-        title="Close"
-        aria-label="Close definition"
-        @click="closeDefine"
-      />
+              variant="on-dark"
+              size="lg"
+              title="Close the Illuminate panel — Esc also closes"
+              aria-label="Close the Illuminate panel"
+              @click="closeDefine"
+            />
           </div>
 
           <!-- Body (scrollable) — plain overflow div; no scroll indicator overlay.
@@ -835,7 +1247,12 @@ function escapeHtml(s: string): string {
                and tab bar (and the diagram when rendered), so indicator is omitted here.
                The pin button + tab structure already communicate that more content exists.
                audit-ignore: scroll — documented opt-out, see comment above. -->
-          <div class="flex-1 min-h-0 overflow-y-auto px-4 py-4">
+          <!-- r41 v22 (Tom Gilb 2026-06-14 "so much missing and not scrolled,
+               closed, export") — added gilb-illuminate-scroll class so the
+               unscoped CSS at file end can paint a visible 14 px violet
+               scrollbar (mirrors GilbIllustrationPicker r41).  Forces
+               overflow-y: scroll so the bar always reserves space. -->
+          <div class="gilb-illuminate-scroll flex-1 min-h-0 px-4 py-4">
             <!-- Loading state — Rule 8: spinner + elapsed secs + % progress + amuse cards.
                  Cancel always visible so user is never trapped.
                  Timer driven by watch(loading) → _startIlluminateAnimation / _stop. -->
@@ -887,11 +1304,17 @@ function escapeHtml(s: string): string {
 
             <!-- Result -->
             <template v-else-if="result">
-              <!-- Definition -->
-              <p class="text-sm text-slate-800 leading-relaxed">{{ result.definition }}</p>
+              <!-- r93qqq r17 — Top tier-1 paragraph + source + type badge HIDDEN once the
+                   Twin response below has loaded (Tom Gilb 2026-06-13: "it looks lke the
+                   entire top parGRAPH IS SUPERFLUOUS, IT IS REPEATED BELOW AND MORE NICELY
+                   PRESENTED"). The Twin block renders the same content in structured form
+                   with WHAT'S MISSING / NEXT STEP sections; the plain wall is redundant. -->
 
-              <!-- Source attribution -->
-              <div class="mt-3 flex items-start gap-2 pt-3 border-t border-slate-100">
+              <!-- Definition — only when no Twin result yet (or Twin failed) -->
+              <p v-if="!twinResult" class="text-sm text-slate-800 leading-relaxed">{{ result.definition }}</p>
+
+              <!-- Source attribution — only when no Twin result yet -->
+              <div v-if="!twinResult" class="mt-3 flex items-start gap-2 pt-3 border-t border-slate-100">
                 <span class="text-base flex-shrink-0" aria-hidden="true">📚</span>
                 <div>
                   <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Source</p>
@@ -899,7 +1322,7 @@ function escapeHtml(s: string): string {
                 </div>
               </div>
 
-              <!-- Type badge (full width) -->
+              <!-- Type badge — always visible (small, useful context whether Twin loaded or not) -->
               <div class="mt-3">
                 <span
                   class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
@@ -907,6 +1330,146 @@ function escapeHtml(s: string): string {
                 >
                   {{ typeLabel }}
                 </span>
+              </div>
+
+              <!-- ── r93ttt — TIER 2: Tom's Twin Consultant (Tom Gilb 2026-06-12) ──────
+                   Implicit + conscious paths per Tom verbatim: "cmnd I … can be
+                   consciously or implicitly used to access toms twin books". Adds
+                   the Twin canonical Glossary entry on top of the local tier-1
+                   answer above. Composes with r93ooo Twin Integration + r93ppp
+                   Twin-as-Destination (every Ask is a funding-loop brick). -->
+              <div class="mt-4 border-t border-slate-100 pt-3">
+                <div v-if="!twinResult && !twinLoading && !twinError" class="space-y-2">
+                  <p class="text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <span aria-hidden="true">🔮</span>
+                    <span>For the canonical Glossary entry + concept number + sources, ask Tom's Twin:</span>
+                  </p>
+                  <button
+                    type="button"
+                    class="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-[12px] font-bold transition-all shadow-sm hover:shadow-md ring-1 ring-violet-700/50 flex items-center justify-center gap-2"
+                    :title="`Ask Tom's Twin Consultant (by Kai Gilb) for the canonical Glossary entry of '${result.term}' — ontology-backed search across Tom Gilb's full corpus. Free for the query; concept URLs link into the paid Twin Consultant for deeper consultation. r93ppp funding-loop discipline.`"
+                    @click="askTwin(result.term)"
+                  >
+                    <span aria-hidden="true">🔮</span>
+                    <span>Ask Tom's Twin →</span>
+                  </button>
+                </div>
+
+                <!-- Loading state: spinner + elapsed -->
+                <div v-else-if="twinLoading" class="space-y-2">
+                  <div class="flex items-center gap-2 text-[12px] text-violet-700 font-semibold">
+                    <span
+                      class="inline-block w-4 h-4 rounded-full border-2 border-violet-600 border-t-transparent animate-spin"
+                      aria-hidden="true"
+                    ></span>
+                    <span>Asking Tom's Twin (ontology-backed search across the corpus)…</span>
+                    <span v-if="twinElapsed > 0" class="font-mono text-[11px] text-violet-500">{{ twinElapsed }}s</span>
+                  </div>
+                </div>
+
+                <!-- Error state -->
+                <div v-else-if="twinError" class="space-y-2">
+                  <p class="text-[11px] text-red-700 flex items-start gap-1.5" role="alert">
+                    <span aria-hidden="true">⚠</span>
+                    <span>Twin lookup failed: {{ twinError }}. <a :href="TWIN_LOGIN_URL" target="_blank" rel="noopener" class="text-violet-700 underline font-bold">Open Twin Consultant ↗</a></span>
+                  </p>
+                  <button
+                    type="button"
+                    class="text-[11px] text-violet-600 hover:text-violet-800 underline"
+                    @click="askTwin(result.term)"
+                  >↻ Retry Twin</button>
+                </div>
+
+                <!-- Twin result — r93vvv/www/xxx/yyy + r93zzz drill-down + enlarge.
+                     Renders the Twin's markdown response with table hoisted as the
+                     featured centerpiece + colour-coded rows + ✦ glyphs (r93yyy).
+                     Row clicks emit drilldown → loads that concept inside the same
+                     panel (with back-arrow navigation history). The ⛶ button at
+                     the top-right opens the same content in a full-viewport modal. -->
+                <div v-else-if="twinResult" class="space-y-3 rounded-lg bg-violet-50/60 ring-1 ring-violet-200 px-3.5 py-3">
+                  <!-- Header strip — Back arrow (when history) + From Twin + Enlarge -->
+                  <div class="space-y-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <!-- Back arrow — only visible when there's drill-down history -->
+                      <button
+                        v-if="twinHistory.length > 0"
+                        type="button"
+                        class="text-violet-700 hover:text-violet-900 hover:bg-violet-100 rounded px-1.5 py-0.5 text-[12px] font-bold shrink-0 transition-colors"
+                        :title="`Back to ${twinHistory[twinHistory.length - 1]} — return to the previously-viewed concept (you can drill into related concepts as deeply as you like).`"
+                        @click="onTwinBack"
+                      >← Back</button>
+                      <span class="text-[11px] font-bold uppercase tracking-wider text-violet-800 flex items-center gap-1.5 flex-1">
+                        <span aria-hidden="true">🔮</span>
+                        <span>From Tom's Twin Consultant</span>
+                      </span>
+                      <span class="text-[10px] text-violet-500 italic font-normal hidden sm:inline">by Kai Gilb</span>
+                      <!-- Enlarge button — open the rendered content full-viewport -->
+                      <button
+                        type="button"
+                        class="text-violet-700 hover:text-violet-900 hover:bg-violet-100 rounded p-1 text-[14px] shrink-0 transition-colors"
+                        title="⛶ Enlarge — open the full Twin Glossary entry + the Related-Concepts diagram in a full-viewport modal. Press Escape (or click outside) to return."
+                        aria-label="Open Twin response in full-viewport modal"
+                        @click="twinEnlarged = true"
+                      >⛶</button>
+                    </div>
+                    <!-- Clickable concept-number chips — each opens the Twin concept page -->
+                    <div v-if="twinResult.conceptNumbers.length > 0" class="flex items-center gap-1.5 flex-wrap">
+                      <span class="text-[10px] uppercase tracking-wider text-violet-500 font-semibold">Concepts:</span>
+                      <a
+                        v-for="n in twinResult.conceptNumbers"
+                        :key="n"
+                        :href="twinResult.term && n === twinResult.conceptNumbers[0]
+                          ? twinConceptUrl(twinResult.term, n)
+                          : `https://www.gilb.com/tomtwin/login?concept=${n}`"
+                        target="_blank"
+                        rel="noopener"
+                        class="font-mono font-bold text-[11px] px-2 py-0.5 rounded-full bg-white ring-1 ring-violet-300 text-violet-700 hover:bg-violet-100 hover:ring-violet-500 transition-colors"
+                        :title="`Open Planguage Glossary concept *${n} in Tom Gilb's Twin Consultant (by Kai Gilb) — passwordless, free at-a-click. Funds continued Claudian development.`"
+                      >*{{ n }} ↗</a>
+                    </div>
+                  </div>
+
+                  <!-- Twin response — rendered Markdown via the universal
+                       <RenderedMarkdown> component (r93www) + r93zzz drilldown
+                       wiring: clicking any Related-Concepts row triggers an
+                       Illuminate re-query inside the same panel, with the
+                       current concept pushed onto the back-stack so the user
+                       can navigate freely through the concept graph. -->
+                  <RenderedMarkdown
+                    :source="twinResult.text"
+                    no-trap-warning
+                    @drilldown="onConceptDrilldown"
+                    @illuminate-concept="onConceptIlluminate"
+                  />
+                  <!--
+                    Pre-r93www smoke test of the renderer in case Tom still sees raw markdown
+                    after this turn: open browser devtools console and run
+                      document.querySelector('.rendered-markdown')?.innerHTML?.slice(0,200)
+                    to confirm the v-html populated. If it shows raw `##` text instead of
+                    rendered tags, the issue is HMR cache — ⌘R Safari to reload.
+                  -->
+
+                  <!-- r93xxx — single compact footer (Tom Gilb 2026-06-13: "we do not
+                       need concept data duplication, repetition, if one use the twin").
+                       Pre-r93xxx had THREE redundant Twin-reference surfaces stacked:
+                       (a) clickable concept-number chips in the header, (b) a legend
+                       paragraph explaining `*NNN`, (c) a Tier-3 action row with "Open
+                       *NNN in Twin" + "Open Twin Consultant" buttons. All three pointed
+                       to the same places. r93xxx collapses them into ONE compact line:
+                       the legend stays (it's the only one that EXPLAINS what `*NNN`
+                       means), with the Twin Consultant landing link inline. The
+                       chips at the top + inline `*NNN` links in the rendered body
+                       already cover the action surfaces — no need to repeat them. -->
+                  <p class="text-[10.5px] text-violet-700 italic pt-2 border-t border-violet-200 leading-snug flex items-start gap-1.5">
+                    <span aria-hidden="true" class="shrink-0 pt-px">ℹ</span>
+                    <span>
+                      Concept numbers <b>*NNN</b> are clickable — open in the
+                      <a :href="TWIN_LOGIN_URL" target="_blank" rel="noopener" class="text-violet-800 hover:text-violet-900 underline font-bold">Tom Gilb Consultant Twin</a>
+                      (passwordless, free, at-a-click; by Kai Gilb — funds Claudian dev).
+                      URLs in the text are also clickable.
+                    </span>
+                  </p>
+                </div>
               </div>
 
               <!-- ── Near-match suggestions — vault has no direct entry but prefix-similar concepts exist ── -->
@@ -1031,23 +1594,39 @@ function escapeHtml(s: string): string {
                         <span class="font-semibold text-violet-600">{{ gSynonymOf }}</span>
                       </div>
 
-                      <!-- Tab bar -->
-                      <div class="flex gap-1 overflow-x-auto pb-1 mb-2 border-b border-slate-100">
+                      <!-- r41 v26 (Tom Gilb 2026-06-14 "THIS NEEDS MORE
+                           DRAMATIC LARGE COLOR BETTER ICONS PRESENTATION") —
+                           tab bar now per-tab colour + bigger emoji + bolder
+                           label + dramatic active state (shadow + ring +
+                           filled background + white text + 5% scale).
+                           Inactive tabs show the SAME big emoji but in a
+                           subtle theme tint so the user senses the colour
+                           system without active loudness. -->
+                      <div class="flex gap-1.5 overflow-x-auto pb-2 mb-3 border-b-2 border-slate-200">
                         <button
                           v-for="tab in detailTabs"
                           :key="tab.key"
                           type="button"
                           :aria-selected="activeDetailTab === tab.key"
                           :class="[
-                            'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-shrink-0 transition-colors',
+                            'flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-extrabold flex-shrink-0 transition-all min-w-[68px]',
                             activeDetailTab === tab.key
-                              ? 'bg-violet-100 text-violet-700'
-                              : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50',
+                              ? `${tab.active} ring-2 shadow-md scale-105 -translate-y-0.5`
+                              : `bg-white border border-slate-200 ${tab.tinted} ${tab.hover} hover:border-current hover:shadow-sm`,
                           ]"
+                          :title="`Switch to ${tab.label} — ${tab.key === 'card' ? 'concise summary' : tab.key === 'notes' ? 'expanded notes from the Glossary entry' : tab.key === 'examples' ? 'worked examples and use cases' : tab.key === 'diagram' ? 'rendered ontology diagram for this concept' : tab.key === 'mistakes' ? 'common errors and anti-patterns' : tab.key === 'joke' ? 'a mnemonic joke or quip' : 'related concepts and cross-references'}`"
                           @click="activeDetailTab = tab.key"
                         >
-                          <span aria-hidden="true">{{ tab.emoji }}</span>
-                          {{ tab.label }}
+                          <!-- r41 v27 — mini-clip SVG of the tab's content
+                               (Thumbnail Reality rule, Tom Gilb 2026-06-14). -->
+                          <svg
+                            class="w-7 h-5 flex-shrink-0"
+                            viewBox="0 0 32 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                            v-html="tab.svg"
+                          ></svg>
+                          <span class="uppercase tracking-wide leading-tight whitespace-nowrap">{{ tab.label }}</span>
                         </button>
                       </div>
 
@@ -1210,7 +1789,7 @@ function escapeHtml(s: string): string {
             <span class="text-sm flex-shrink-0" aria-hidden="true">✨</span>
             <span class="flex-1 text-[11px] text-amber-800 leading-snug">
               Tip: press
-              <kbd class="font-mono bg-amber-100 border border-amber-200 rounded px-1 text-[10px] text-amber-700">⌥I</kbd>
+              <kbd class="font-mono bg-amber-100 border border-amber-200 rounded px-1 text-[10px] text-amber-700">⌘I</kbd>
               anytime — no selection needed.
             </span>
             <!-- CloseDot rule: inline tip panel dismiss -->
@@ -1222,19 +1801,16 @@ function escapeHtml(s: string): string {
             />
           </div>
 
-          <!-- Footer hint -->
+          <!-- Footer hint — r41 v22 (Tom 2026-06-14): removed non-canonical
+               violet "Close" text button.  The header CloseDot is the
+               canonical close affordance.  Esc + click-outside also work. -->
           <div class="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
             <p class="text-[10px] text-slate-400">
-              Select any text and click <strong>💡 Illuminate</strong>, or say <strong>"Illuminate"</strong>, or press <kbd class="font-mono border border-slate-200 rounded px-1 bg-white text-slate-400">⌥I</kbd>
+              Select any text and click <strong>💡 Illuminate</strong>, or say <strong>"Illuminate"</strong>, or press <kbd class="font-mono border border-slate-200 rounded px-1 bg-white text-slate-400">⌘I</kbd>
             </p>
-            <button
-              type="button"
-              class="text-[11px] text-violet-600 hover:text-violet-800 font-medium
-                     focus:outline-none focus:ring-2 focus:ring-violet-400 rounded px-1"
-              @click="closeDefine"
-            >
-              Close
-            </button>
+            <p class="text-[10px] text-slate-400 italic">
+              Esc · click outside · or red close (top-right) — all dismiss
+            </p>
           </div>
         </div>
       </div>
@@ -1273,7 +1849,7 @@ function escapeHtml(s: string): string {
         <div class="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 flex items-center gap-2">
           <span class="text-sm" aria-hidden="true">💡</span>
           <span class="text-xs font-bold text-white tracking-wide flex-1">Illuminate any term</span>
-          <kbd class="text-[10px] text-white/70 font-mono bg-white/15 rounded px-1.5 py-0.5">⌥I</kbd>
+          <kbd class="text-[10px] text-white/70 font-mono bg-white/15 rounded px-1.5 py-0.5">⌘I</kbd>
         </div>
         <!-- Input -->
         <div class="px-3 py-2.5">
@@ -1317,5 +1893,106 @@ function escapeHtml(s: string): string {
          floating pill appears on text selection, ⌥I works globally.
          The persistent FAB was cluttering the bottom-right and clashing with
          the Actions / Mic / Read Aloud buttons. -->
+
+    <!-- r93zzz — ENLARGE modal: full-viewport view of the Twin response with
+         the same drill-down + back-navigation. Opens when ⛶ is clicked in the
+         normal panel. Backdrop click + Escape close it. z-index sits above
+         the normal panel (z-[10100]) so it lifts cleanly. -->
+    <Teleport to="body">
+      <div
+        v-if="twinEnlarged && twinResult"
+        class="fixed inset-0 z-[10200] flex items-stretch justify-center p-4 sm:p-8"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tom's Twin Consultant — enlarged view"
+        @keyup.esc="twinEnlarged = false"
+      >
+        <!-- Backdrop (click to close) -->
+        <div
+          class="absolute inset-0 bg-violet-950/40 backdrop-blur-sm"
+          aria-hidden="true"
+          @click="twinEnlarged = false"
+        ></div>
+        <!-- Enlarged card -->
+        <div class="relative w-full max-w-[96rem] bg-white rounded-2xl shadow-2xl ring-1 ring-violet-300 flex flex-col max-h-full overflow-hidden">
+          <!-- Header bar with title + close -->
+          <div class="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-violet-700 via-violet-600 to-indigo-700 text-white shrink-0">
+            <button
+              v-if="twinHistory.length > 0"
+              type="button"
+              class="text-white hover:bg-white/15 rounded px-2 py-0.5 text-[13px] font-bold shrink-0 transition-colors"
+              :title="`Back to ${twinHistory[twinHistory.length - 1]}`"
+              @click="onTwinBack"
+            >← Back</button>
+            <span class="text-[12px] font-extrabold uppercase tracking-[0.18em]">🔮 From Tom's Twin Consultant</span>
+            <span class="text-[11px] opacity-85 italic ml-2">by Kai Gilb · funds Claudian dev</span>
+            <span class="flex-1"></span>
+            <span class="text-[11px] opacity-75 hidden md:inline">Click any row to drill into a related concept · Esc to close</span>
+            <button
+              type="button"
+              class="text-white hover:bg-white/15 rounded p-1.5 text-[18px] shrink-0 transition-colors"
+              title="Close enlarged view (Esc)"
+              aria-label="Close enlarged Twin view"
+              @click="twinEnlarged = false"
+            >✕</button>
+          </div>
+          <!-- Concepts chip row -->
+          <div v-if="twinResult.conceptNumbers.length > 0" class="flex items-center gap-1.5 flex-wrap px-5 py-2.5 bg-violet-50 border-b border-violet-200">
+            <span class="text-[10px] uppercase tracking-wider text-violet-600 font-semibold">Concepts:</span>
+            <a
+              v-for="n in twinResult.conceptNumbers"
+              :key="`enl-${n}`"
+              :href="twinResult.term && n === twinResult.conceptNumbers[0]
+                ? twinConceptUrl(twinResult.term, n)
+                : `https://www.gilb.com/tomtwin/login?concept=${n}`"
+              target="_blank"
+              rel="noopener"
+              class="font-mono font-bold text-[12px] px-2.5 py-1 rounded-full bg-white ring-1 ring-violet-300 text-violet-700 hover:bg-violet-100 hover:ring-violet-500 transition-colors"
+            >*{{ n }} ↗</a>
+          </div>
+          <!-- Body — same rendered Markdown, but in the wider canvas -->
+          <div class="flex-1 overflow-y-auto px-6 py-4">
+            <RenderedMarkdown
+              :source="twinResult.text"
+              no-trap-warning
+              @drilldown="onConceptDrilldown"
+              @illuminate-concept="onConceptIlluminate"
+            />
+          </div>
+          <!-- Footer -->
+          <div class="px-5 py-2.5 bg-violet-50 border-t border-violet-200 text-[11px] text-violet-700 italic flex items-center justify-between gap-3 shrink-0">
+            <span>Concept numbers <b>*NNN</b> open the canonical Glossary entry in the Twin Consultant (passwordless, free at-a-click).</span>
+            <a
+              :href="TWIN_LOGIN_URL"
+              target="_blank"
+              rel="noopener"
+              class="text-violet-800 hover:text-violet-900 underline font-bold shrink-0"
+            >Open Twin Consultant ↗</a>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </Teleport>
 </template>
+
+<!-- r41 v22 (Tom Gilb 2026-06-14: "so much missing and not scrolled, closed,
+     export") — UNSCOPED visible-scrollbar CSS following the canonical
+     pattern shipped on the picker.  Class is unique enough to be safe
+     globally.  overflow-y: scroll !important forces space-reservation so
+     Safari macOS doesn't auto-hide the bar. -->
+<style>
+.gilb-illuminate-scroll {
+  overflow-y: scroll !important;
+  scrollbar-color: #a78bfa #ede9fe;
+  scrollbar-width: auto;
+}
+.gilb-illuminate-scroll::-webkit-scrollbar { width: 14px; background: #ede9fe; }
+.gilb-illuminate-scroll::-webkit-scrollbar-track { background: #ede9fe; border-radius: 7px; }
+.gilb-illuminate-scroll::-webkit-scrollbar-thumb {
+  background: #a78bfa;
+  border-radius: 7px;
+  border: 2px solid #ede9fe;
+  min-height: 40px;
+}
+.gilb-illuminate-scroll::-webkit-scrollbar-thumb:hover { background: #8b5cf6; }
+</style>

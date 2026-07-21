@@ -159,7 +159,7 @@ export const CONCEPT_HINTS = {
   'vc-ratio': {
     term: 'Value/Cost ratio',
     short:
-      'Value Impact ÷ Resource Cost. ' +
+      'Value Impact / Resource Cost. ' +
       'Higher means more stakeholder value per unit of expenditure — the primary prioritisation signal.',
   },
 

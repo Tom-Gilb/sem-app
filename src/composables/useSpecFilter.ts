@@ -88,8 +88,8 @@ function matchesS(s: SEntry, pred: Predicate): boolean {
   if (pred.kind !== 'substring') return false
   const t = pred.token
   return (
-    s.description.toLowerCase().includes(t) ||
-    s.impact.toLowerCase().includes(t)
+    (s.description ?? '').toLowerCase().includes(t) ||
+    (s.impact ?? '').toLowerCase().includes(t)
   )
 }
 
@@ -163,7 +163,10 @@ export function useSpecFilter() {
     let matchedFunctions = spec.functions.filter(f => {
       if (matchesF(f, pred)) return true
       // Check if any linked V. id is in matched values
-      const fovIds = f.functionOfValue.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
+      // r41 v230 — tolerate non-string shapes (historical writer bug).
+      const _fov = typeof f.functionOfValue === 'string' ? f.functionOfValue
+        : Array.isArray(f.functionOfValue) ? f.functionOfValue.join(',') : ''
+      const fovIds = _fov.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
       return fovIds.some(id => matchedValueIds.has(id))
     })
     if (matchedFunctions.length === 0 && spec.functions.length > 0) {

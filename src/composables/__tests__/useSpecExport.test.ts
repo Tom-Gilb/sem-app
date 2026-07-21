@@ -49,22 +49,23 @@ describe('useSpecExport', () => {
   it('serialises F entry with all required fields', () => {
     const { serialise } = useSpecExport()
     const output = serialise(FULL_SPEC)
-    expect(output).toContain('#### F.ExampleFunction')
+    // r41 v107 — Description is now in the headline, not a labelled row
+    expect(output).toContain('#### F.ExampleFunction — An example function')
     expect(output).toContain('Type: Function')
     expect(output).toContain('Level: Product')
-    expect(output).toContain('Description: An example function')
+    expect(output).not.toContain('Description:')
     expect(output).toContain('Presence-Test: Works correctly')
     expect(output).toContain('Function of Value: V.ExampleValue')
   })
 
   it('serialises V entry with all required fields including Type/Level/Description/Scale/Meter/Status/Tolerable/Goal/ValueOfFunction', () => {
     // Spec: S.EvoStep3.SerialiserComposable — (a) output string contains all required field keys for V entry
+    // r41 v107 — Description moved to headline
     const { serialise } = useSpecExport()
     const output = serialise(FULL_SPEC)
-    expect(output).toContain('#### V.ExampleValue')
+    expect(output).toContain('#### V.ExampleValue — An example value')
     expect(output).toContain('Type: Value')
     expect(output).toContain('Level: Product')
-    expect(output).toContain('Description: An example value')
     expect(output).toContain('Scale: Percentage of users satisfied')
     expect(output).toContain('Meter: Survey response rate')
     expect(output).toContain('Status: pre-build')
@@ -77,22 +78,22 @@ describe('useSpecExport', () => {
     // Spec: S.EvoStep3.SerialiserComposable — (a) output string contains all required field keys for S entry
     const { serialise } = useSpecExport()
     const output = serialise(FULL_SPEC)
-    expect(output).toContain('#### S.ExampleSolution')
+    // r41 v107 — Description moved to headline
+    expect(output).toContain('#### S.ExampleSolution — An example solution')
     expect(output).toContain('Type: Solution')
     expect(output).toContain('Level: Product')
-    expect(output).toContain('Description: An example solution')
     expect(output).toContain('Impact: V.ExampleValue ~70%')
     expect(output).toContain('Function: F.ExampleFunction')
   })
 
-  it('V entry field order matches required sequence: Type → Level → Description → Scale → Meter → Status → Tolerable → Goal → Value of function', () => {
+  it('V entry field order matches required sequence: headline → Type → Level → Scale → Meter → Status → Tolerable → Goal → Value of function', () => {
     // Spec: S.EvoStep3.SerialiserComposable — (c) field order matches the required sequence
+    // r41 v107 — Description promoted to headline; row removed from parameter sequence
     const { serialise } = useSpecExport()
     const output = serialise(FULL_SPEC)
     const vBlock = output.slice(output.indexOf('#### V.ExampleValue'))
     const typePos = vBlock.indexOf('Type:')
     const levelPos = vBlock.indexOf('Level:')
-    const descPos = vBlock.indexOf('Description:')
     const scalePos = vBlock.indexOf('Scale:')
     const meterPos = vBlock.indexOf('Meter:')
     const statusPos = vBlock.indexOf('Status:')
@@ -100,8 +101,7 @@ describe('useSpecExport', () => {
     const goalPos = vBlock.indexOf('Goal:')
     const vofPos = vBlock.indexOf('Value of function:')
     expect(typePos).toBeLessThan(levelPos)
-    expect(levelPos).toBeLessThan(descPos)
-    expect(descPos).toBeLessThan(scalePos)
+    expect(levelPos).toBeLessThan(scalePos)
     expect(scalePos).toBeLessThan(meterPos)
     expect(meterPos).toBeLessThan(statusPos)
     expect(statusPos).toBeLessThan(tolerablePos)
@@ -131,9 +131,10 @@ describe('useSpecExport', () => {
       solutions: [],
     }
     const output = serialise(specAllEmptyV)
-    // 9 fields on VEntry are emittable (type, level, description, scale, meter, status, tolerable, goal, valueOfFunction)
+    // r41 v107 — Description no longer a labelled row (it's the headline);
+    // 8 fields on VEntry remain emittable (type, level, scale, meter, status, tolerable, goal, valueOfFunction)
     const placeholderCount = (output.match(/<!-- MISSING/g) || []).length
-    expect(placeholderCount).toBe(9)
+    expect(placeholderCount).toBe(8)
   })
 
   it('emits placeholder comment for missing required field', () => {
@@ -199,8 +200,9 @@ describe('useSpecExport', () => {
     expect(output).toContain('#### F.Empty')
     // All empty fields should emit placeholder comments
     const placeholderCount = (output.match(/<!-- MISSING/g) || []).length
-    // 5 fields on FEntry are emittable (type, level, description, successCriteria, functionOfValue)
-    expect(placeholderCount).toBe(5)
+    // r41 v107 — Description no longer a labelled row; 4 emittable
+    // (type, level, presenceTest/successCriteria, functionOfValue)
+    expect(placeholderCount).toBe(4)
   })
 
   it('emits placeholder comment for missing S entry fields', () => {
@@ -222,9 +224,10 @@ describe('useSpecExport', () => {
     }
     const output = serialise(specWithEmptyS)
     expect(output).toContain('#### S.Empty')
-    // 5 fields on SEntry are emittable (type, level, description, impact, function)
+    // r41 v107 — Description no longer a labelled row; 4 emittable
+    // (type, level, impact, function)
     const placeholderCount = (output.match(/<!-- MISSING/g) || []).length
-    expect(placeholderCount).toBe(5)
+    expect(placeholderCount).toBe(4)
   })
 
   it('handles multiple F, V, and S entries in a single spec', () => {
@@ -670,7 +673,7 @@ describe('exportPrioritisedPlan', () => {
 
   test('zero resourceClaim solution renders ∞ in the V/C Ratios export section', () => {
     // Spec: S.Evo9.PrioritisedPlanExport — V/C Ratio section should reflect ∞ when
-    // resource claim = 0 (per spec: "display as ∞ with a tooltip" in the UI; export
+    // resource claim = 0 (per spec: "display as ∞ with a HoverHint" in the UI; export
     // follows the same logic — vcRatios[sid] will be Infinity for zero-cost solutions).
     const spec: SpecBlock = {
       functions: [],

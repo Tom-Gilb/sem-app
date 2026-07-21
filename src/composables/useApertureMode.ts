@@ -35,10 +35,28 @@
 
 import { ref, watch } from 'vue'
 
-const STORAGE_KEY     = 'sem-app:aperture:enabled:v1'
-const OPT_OUT_KEY     = 'sem-app:aperture:opt-out:v1'
-const VIEW_KEY        = 'sem-app:aperture:view:v1'
-const ULTRA_LIGHT_KEY = 'sem-app:ultraLight:v1'   // matches useUltraLight.ts
+const STORAGE_KEY         = 'sem-app:aperture:enabled:v1'
+const OPT_OUT_KEY         = 'sem-app:aperture:opt-out:v1'
+const VIEW_KEY            = 'sem-app:aperture:view:v1'
+const ULTRA_LIGHT_KEY     = 'sem-app:ultraLight:v1'   // legacy useUltraLight.ts flag
+const SETTINGS_STORAGE_KEY = 'semSettings:v1'          // matches data/settings.ts SETTINGS_STORAGE_KEY
+
+/** Read the settings blob directly (without Vue reactivity) to check mode at startup.
+ *  This must be done raw because _readEnabled() runs at module-load time, before
+ *  Vue mounts, so the useSettings() composable cannot be called here.
+ *  Bug fixed 2026-06-09: settings.mode === 'ultra-light' was written to semSettings:v1
+ *  but _readEnabled() only checked the legacy sem-app:ultraLight:v1 key, so after
+ *  a page refresh the aperture never appeared even when Ultra Light was set. */
+function _isSettingsModeUltraLight(): boolean {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw)
+    return (parsed as Record<string, unknown>)?.mode === 'ultra-light'
+  } catch {
+    return false
+  }
+}
 
 export type ApertureView = 'plan' | 'start' | 'novice' | 'basic' | 'full' | 'previous'
 
@@ -87,9 +105,16 @@ function _readEnabled(): boolean {
     // No URL override — apply Tom's "naked Plan is the default" rule
     // (2026-05-14): when ULTRA mode is on, the aperture IS the home page
     // unless the user has explicitly opted out via ?aperture=0.
-    const ultraOn  = localStorage.getItem(ULTRA_LIGHT_KEY) === '1'
-    const optedOut = localStorage.getItem(OPT_OUT_KEY)     === '1'
-    if (ultraOn && !optedOut) return true
+    const optedOut = localStorage.getItem(OPT_OUT_KEY) === '1'
+    if (optedOut) return false
+
+    // PRIMARY: check the settings system (settings.mode === 'ultra-light').
+    // This is what SettingsPanel writes. Bug 2026-06-09: this check was absent,
+    // so Ultra Light from Settings never persisted across a page refresh.
+    if (_isSettingsModeUltraLight()) return true
+
+    // LEGACY: old useUltraLight.ts direct flag (kept for backward compat)
+    if (localStorage.getItem(ULTRA_LIGHT_KEY) === '1') return true
 
     // Fallback: explicit per-aperture flag (legacy path, kept reversible
     // so the previous behaviour still works for users not on ULTRA).

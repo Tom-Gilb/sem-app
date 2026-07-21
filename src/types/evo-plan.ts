@@ -36,6 +36,18 @@ export interface EvoStep {
   linkedSolutions: string[]
   /** Estimated share of total project effort as an integer 1–100 */
   effortPercent: number
+  /**
+   * r41 v302 — Stage 6 Sharpen Steps (6.3) additive fields.  Optional; nothing
+   * else in the codebase reads these yet, so adding them is back-compat.  Tom Gilb
+   * 2026-06-23 banked: cycle length (Tom's canonical Planguage cadences) +
+   * prerequisites (other Evo Steps that must complete first) + success criteria
+   * (how do we know this step delivered Value).  Composes with Solution
+   * Parameters SUPREME Tier-3 prerequisites field + Universal Undo + r93jjj
+   * Qualifiers (sharpened steps inherit Qualifier discipline).
+   */
+  cycleLength?: 'Day' | 'Week' | 'Sprint' | 'Month' | 'Quarter'
+  prerequisites?: string[]    // names of other EvoStep entries
+  successCriteria?: string
 }
 
 /**

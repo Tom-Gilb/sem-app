@@ -60,10 +60,12 @@ describe('resolveStageNavAction — routing (editor closed, has spec, has steps)
   it('stage 4 (Impacts) → to-spec', () => {
     expect(nav(4).action).toBe('to-spec')
   })
-  // Tom 2026-06-04 r83: was 'to-impact' (wrong — Stage 5 is Refine / Constraints,
-  // not Impacts).  Stage 5 now routes to the spec editor where the Constraints tab lives.
-  it('stage 5 (Refine / Constraints) → to-spec', () => {
-    expect(nav(5).action).toBe('to-spec')
+  // Tom 2026-06-08 major redesign: stage 5 is now RefineSolutionsView ('to-impact'),
+  // giving a dedicated view with toolbox + Efficiency metric.
+  // Previously was 'to-spec' (Tom 2026-06-04 r83) but that opened the plain spec editor
+  // with no dedicated stage-5 interface. Updated 2026-06-09.
+  it('stage 5 (Refine Solutions) → to-impact', () => {
+    expect(nav(5).action).toBe('to-impact')
   })
   it('stage 6 (Evo Steps) → to-evo', () => {
     expect(nav(6).action).toBe('to-evo')
@@ -200,10 +202,10 @@ describe('resolveStageNavAction — advisory toasts (non-blocking guidance)', ()
 // ── Section 4: toast + action together (integration of both outputs) ──────────
 
 describe('resolveStageNavAction — toast + action together', () => {
-  // Tom 2026-06-04 r83: was 'to-impact' (wrong); Stage 5 = Refine routes to spec editor.
-  it('stage 5, no spec: action=to-spec AND toast=spec-missing', () => {
+  // Updated 2026-06-09: stage 5 now routes to-impact (RefineSolutionsView, Tom 2026-06-08).
+  it('stage 5, no spec: action=to-impact AND toast=spec-missing', () => {
     const { action, toast } = nav(5, { hasSpec: false })
-    expect(action).toBe('to-spec')
+    expect(action).toBe('to-impact')
     expect(toast).toBe('spec-missing')
   })
 

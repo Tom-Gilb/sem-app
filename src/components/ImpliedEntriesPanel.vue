@@ -47,7 +47,7 @@
   • No select-none on body content (Define-by-Selection rule).
 -->
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { computeImpliedEntries, type SugGroup, type ImpliedEntry } from '../utils/impliedHierarchies'
 import CloseDot from './CloseDot.vue'
 
@@ -100,12 +100,75 @@ const aiStakeholderSugs = computed(() => uniqueAiSugs.value.filter(s => s.group 
 const aiValueSugs       = computed(() => uniqueAiSugs.value.filter(s => s.group === 'values'))
 const aiMeansSugs       = computed(() => uniqueAiSugs.value.filter(s => s.group === 'means'))
 
+// ── r41 v397 (Tom Gilb 2026-06-27 verbatim "if I select some implied S E M
+// does it recompute to see if those selections imply more factors, I think it
+// did before and that is quite elegant, and should be 'announced' (Your
+// selections imply yet more factors')") — Cascade announcement.
+//
+// Recomputation already works because `suggestions` is a Vue computed over
+// `props.stakeholders/values/means` and SEMEntryForm pushes accepted chip
+// texts into those arrays.  Each acceptance re-fires `computeImpliedEntries`
+// against the new chip set; rules that match the freshly-added chip's text
+// pattern produce NEW derivations.  v397 adds the announcement Tom remembers:
+// a violet banner above the panel reads "✨ Your selections imply N more
+// factor(s)" the moment new derivations appear post-acceptance.
+//
+// Implementation: watch `suggestions` for set-difference between recomputes.
+// `_firstRun` flag skips the initial mount fire (we don't want to announce
+// the original suggestions as "new"); subsequent fires diff the new key set
+// against the previous to count strictly-new derivations.  Items REMOVED
+// (the just-accepted chip) don't contribute to the diff because they're not
+// in the new set.  Banner dismisses on explicit ✕ OR auto-replaces on next
+// cascade event.
+
+type SugKey = string  // `${group}:${text.toLowerCase()}`
+function _toKey(s: { group: SugGroup; text: string }): SugKey {
+  return `${s.group}:${s.text.toLowerCase()}`
+}
+
+const _previousSugKeys = ref<Set<SugKey>>(new Set())
+let   _firstSuggestionRun = true
+const newDerivationCount = ref<number>(0)
+
+watch(suggestions, (newSugs) => {
+  const newKeys = new Set(newSugs.map(_toKey))
+  if (!_firstSuggestionRun) {
+    let added = 0
+    for (const k of newKeys) {
+      if (!_previousSugKeys.value.has(k)) added++
+    }
+    if (added > 0) newDerivationCount.value = added
+    // If no new derivations were added but the user did accept something,
+    // we leave the previous count visible until the user dismisses or until
+    // another cascade fires.  Setting to 0 only when an empty-cascade should
+    // NOT clobber an existing announcement is intentional: the planner gets
+    // to see the prior announcement until they read + dismiss it.
+  }
+  _previousSugKeys.value = newKeys
+  _firstSuggestionRun = false
+})
+
+function dismissCascadeBanner(): void {
+  newDerivationCount.value = 0
+}
+
 // ── Total: Tier 1 + Tier 2 ──────────────────────────────────────────────────
 // Panel stays visible while aiLoading is true (spinner shows) even if
 // Tier-1 count is zero.
 
 const total = computed(() => suggestions.value.length + uniqueAiSugs.value.length)
-const showPanel = computed(() => total.value > 0 || !!props.aiLoading)
+// r41 v54 (Tom Gilb 2026-06-16 verbatim: "as u see there was no implied
+// suggestions below the parse") — No-Silent-Data-Loss SUPREME: when neither
+// tier finds suggestions AND AI is not loading AND AI did not error, the
+// panel previously hid entirely with zero feedback. Tom's domain (17th-
+// century ship-naming text) is outside the Tier-1 rule base, and Tier 2
+// AI is currently grandfathered/optional. Result: silent disappear.
+// Fix: always render the panel during review so the planner sees explicit
+// feedback ("Checked — no additional implications found for this input")
+// instead of guessing whether the parser even tried. Composes with the
+// SEM-teaches-incrementally rule + AI-Max principle.
+const showPanel = computed(() => true)
+const hasContent = computed(() => total.value > 0 || !!props.aiLoading || !!props.aiError)
 
 /** Flat list of ALL suggestions — used by Accept All. */
 const allSuggestions = computed(() =>
@@ -151,7 +214,9 @@ const GROUP_LABEL: Record<SugGroup, string> = {
       <div class="flex-1 min-w-0">
         <p id="implied-header" class="text-white text-[12px] font-semibold leading-tight">
           Suggested additions
-          <span class="ml-1 font-normal text-white/60">({{ total }} implied by your input)</span>
+          <span v-if="total > 0" class="ml-1 font-normal text-white/60">({{ total }} implied by your input)</span>
+          <span v-else-if="aiLoading" class="ml-1 font-normal text-white/60">(checking…)</span>
+          <span v-else class="ml-1 font-normal text-white/60">(none additional implied)</span>
         </p>
         <!-- AI loading indicator: subtle pulsing line below the subtitle -->
         <p v-if="aiLoading" class="text-amber-200 text-[10px] leading-tight animate-pulse">
@@ -192,6 +257,62 @@ const GROUP_LABEL: Record<SugGroup, string> = {
     <!-- Body -->
     <div class="px-4 py-3 space-y-3">
 
+      <!-- r41 v397 (Tom Gilb 2026-06-27 verbatim "should be 'announced'
+           (Your selections imply yet more factors'") — Cascade announcement
+           banner.  Renders when the post-acceptance recompute surfaced at
+           least one NEW derivation (set-difference vs previous suggestion
+           keys, computed in the `suggestions` watcher above).  Persists
+           until the user dismisses or until the next cascade event replaces
+           the count — never auto-dismisses on a timer (universal accessibility:
+           important messages must persist for any reader to parse). -->
+      <div
+        v-if="newDerivationCount > 0"
+        role="status"
+        aria-live="polite"
+        class="flex items-center gap-2 px-3 py-2 rounded-lg
+               bg-violet-200 border-2 border-violet-500 ring-2 ring-violet-300"
+      >
+        <span aria-hidden="true" class="text-base leading-none">✨</span>
+        <p class="flex-1 text-[13px] font-semibold text-violet-900 leading-snug">
+          Your selections imply
+          <span class="font-extrabold">{{ newDerivationCount }}</span>
+          more factor{{ newDerivationCount === 1 ? '' : 's' }} — see the chips below.
+        </p>
+        <button
+          type="button"
+          class="shrink-0 w-6 h-6 flex items-center justify-center rounded-full
+                 text-violet-700 hover:bg-violet-300 hover:text-violet-900
+                 focus:outline-none focus:ring-2 focus:ring-violet-500"
+          aria-label="Dismiss cascade announcement"
+          title="Dismiss"
+          @click="dismissCascadeBanner"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+
+      <!-- r41 v54 (Tom Gilb 2026-06-16) — empty-state fallback. Previously this
+           panel silently hid (v-if showPanel=false) when neither Tier 1 nor
+           Tier 2 found anything. That was a No-Silent-Data-Loss violation:
+           the planner could not tell whether the parser even tried. Now the
+           panel always renders during review; when nothing was found, this
+           reassuring message takes the place of suggestion chips. Composes
+           with SEM-teaches-incrementally + AI-Max + DD-009 Interaction
+           Disclosure (always-explicit feedback). -->
+      <div
+        v-if="!hasContent"
+        class="flex items-start gap-2 text-[12px] text-violet-700/90 italic"
+      >
+        <span class="shrink-0 text-base leading-none" aria-hidden="true">✓</span>
+        <p>
+          Checked — no additional stakeholders, values, or means were implied by your input beyond what you already typed.
+          <span class="block text-[11px] not-italic text-violet-600/70 mt-0.5">
+            (Implied-suggestions catalogue covers common modern domains — niche or historical input may legitimately have nothing more to add.)
+          </span>
+        </p>
+      </div>
+
+
       <!-- Stakeholders -->
       <div v-if="stakeholderSugs.length > 0 || aiStakeholderSugs.length > 0">
         <p class="text-[10px] font-bold uppercase tracking-wide text-indigo-500 mb-1.5">
@@ -217,7 +338,7 @@ const GROUP_LABEL: Record<SugGroup, string> = {
               aria-hidden="true"
             >+</span>
           </button>
-          <!-- Tier 2: AI-powered (amber + button, ✨ prefix on tooltip) -->
+          <!-- Tier 2: AI-powered (amber + button, ✨ prefix on HoverHint) -->
           <button
             v-for="sug in aiStakeholderSugs"
             :key="`ai-${sug.text}`"

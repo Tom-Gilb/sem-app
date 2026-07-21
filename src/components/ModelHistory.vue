@@ -148,11 +148,12 @@ onUnmounted(() => {
     />
 
     <!-- Panel -->
+    <!-- audit-ignore: scroll — fixed inset-0 dialog backdrop; overflow-y-auto allows long dialog content to scroll in the browser viewport; ScrollContainer is not appropriate for a position:fixed full-screen backdrop element -->
     <div
       class="fixed inset-0 z-[493] flex items-start justify-center overflow-y-auto py-8 px-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Model History — all saved plans and system models"
+      aria-label="Past Models — all saved plans and system models"
     >
       <div class="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/20">
 
@@ -162,14 +163,14 @@ onUnmounted(() => {
           <div class="flex items-center gap-3 min-w-0">
             <span class="text-xl shrink-0" aria-hidden="true">🗂️</span>
             <div class="min-w-0">
-              <h2 class="text-white font-bold text-base leading-tight">Model History</h2>
+              <h2 class="text-white font-bold text-base leading-tight">Past Models</h2>
               <p class="text-white/60 text-[11px] leading-none mt-0.5">
                 {{ allModels.length }} saved {{ allModels.length === 1 ? 'record' : 'records' }} —
                 plans and system models
               </p>
             </div>
           </div>
-          <CloseDot variant="on-dark" aria-label="Close Model History" @click="emit('close')" />
+          <CloseDot variant="on-dark" aria-label="Close Past Models" @click="emit('close')" />
         </div>
 
         <!-- ── Search ──────────────────────────────────────────────────── -->
@@ -182,7 +183,7 @@ onUnmounted(() => {
             class="w-full rounded-lg px-3 py-2 text-sm bg-white/10 text-white
                    placeholder-white/40 border border-white/15
                    focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            aria-label="Search Model History"
+            aria-label="Search Past Models"
           />
         </div>
 

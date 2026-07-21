@@ -14,39 +14,62 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { openEml, textToEmailHtml } from '../composables/useEmlExport'
 import {
+  exportEmail,
+  htmlDocumentShell,
+  htmlEsc,
+  softWrap,
+} from '../composables/useExportShared'
+import {
   useSharpen,
   type SharpenCategory,
   type SharpenRound,
   type PlannerSuggestionMode,
 } from '../composables/useSharpen'
 import SharpenDiffList from './SharpenDiffList.vue'
+import SpecActionFooter from './SpecActionFooter.vue'
 import CloseDot from './CloseDot.vue'
+import PlanIdentityBand from './PlanIdentityBand.vue'  // r41 v92 (Tom Gilb 2026-06-16 "go phase 2")
 import CopyGlyph  from './icons/CopyGlyph.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
+import JustificationGlyph from './icons/JustificationGlyph.vue'
 import type { SpecBlock } from '../types/spec'
 import ScrollContainer from './ScrollContainer.vue'
 import PriorityActionButton from './PriorityActionButton.vue'
 import { useInputSafetyNet } from '../composables/useInputSafetyNet'
+import { useSpecHistory }    from '../composables/useSpecHistory'
+import { useSpecLock }       from '../composables/useSpecLock'
 import AmuseMeButton from './AmuseMeButton.vue'
+// r41 v79 (Tom Gilb 2026-06-16 "the sharpening q and a needs export badly
+// everywhere now") — Sharpening Q&A export per the SUPREME "Export button
+// on all windows" rule.  copySharpen + emailSharpen + previewSharpen all
+// build the same colourful HTML capturing every Round (category + Qs +
+// As + AI suggestions + spec changes) and route through the standard
+// dual-MIME clipboard + Mail.app pipeline.
+import { copySharpen, emailSharpen, previewSharpen } from '../composables/useSharpenExport'
+import { getLastClipboardResult } from '../composables/useExportShared'
+import { useToast }          from '../composables/useToast'
 
 const props = defineProps<{
   spec: SpecBlock
   /** When true: renders as a fixed full-screen overlay via Teleport */
   modal?: boolean
+  /** Plan name + version for the export header.  Optional — falls back to
+   *  "Sharpening Q&A" if absent. */
+  planName?: string
+  planVersion?: string
+  /** r41 v92 (Tom Gilb 2026-06-16 "go phase 2") — identity band fields. */
+  planOwner?: string
+  generatedAt?: string
 }>()
 
 const emit = defineEmits<{
   sharpened:      [spec: SpecBlock]
   done:           []
   'open-visualise': []
-  /** Tom 2026-05-13: "Global Priority is only in Actions, it needs to be a
-   *  button in Sharpening and in Editing and maybe other places." This emit
-   *  bubbles to App.vue which flips `globalPriorityOpen` to true. The exclusive-
-   *  surface rule auto-closes Sharpening, so the user lands in the priority
-   *  panel cleanly. */
   'open-global-priority': []
-  /** Open the "About the Priority Glyph" info modal (DD-002, 2026-05-14 split-button) */
   'open-priority-info': []
+  /** r41 v92 — bubble history selection to App.vue. */
+  'select-history': [versionId: string]
 }>()
 
 const {
@@ -67,6 +90,102 @@ const {
   processPlannerSuggestion,
   cancelSharpen,
 } = useSharpen()
+
+// ── Standard Done-Changing Close Process (DD-standard-close-2026-06-09) ─────
+const { isLocked, lock, unlock } = useSpecLock()
+const { addVersion: _addSpecSnapshot } = useSpecHistory()
+/** Count of sharpening rounds completed since the last version snapshot. */
+const _roundsCompleted = ref(0)
+const _lastSaved       = ref<Date | null>(null)
+
+// ── r41 v79 — Sharpening Q&A export ─────────────────────────────────────────
+const { showToast: _showSharpenToast } = useToast()
+const _effectivePlanName = computed(() => props.planName?.trim() || 'Planning Spec')
+const _effectivePlanVersion = computed(() => props.planVersion?.trim() || undefined)
+/** Whether enough Q&A state exists to make an export meaningful — at least
+ *  one completed round OR the current round has at least one question
+ *  loaded. */
+const sharpenExportReady = computed<boolean>(() =>
+  rounds.value.length > 0 || currentQuestions.value.length > 0,
+)
+async function onCopySharpen(): Promise<void> {
+  if (!sharpenExportReady.value) {
+    _showSharpenToast('Nothing to export yet — answer at least one Sharpening question first.', 4500)
+    return
+  }
+  // Include the current in-progress round (if any) alongside completed rounds.
+  const exportRounds = _buildExportRounds()
+  try {
+    // r41 v85 — pass live spec so renderer can surface per-field source attribution
+    await copySharpen(exportRounds, _effectivePlanName.value, _effectivePlanVersion.value, props.spec)
+    // r41 v81 — surface the truth about what landed on clipboard.
+    const result = getLastClipboardResult()
+    if (result === 'html+plain') {
+      _showSharpenToast('📋 Sharpening Q&A copied — ✓ COLOUR HTML on clipboard.  Paste into Mail, Notes, Keynote, Claude, ChatGPT, anywhere.', 6000)
+    } else if (result === 'plain-fallback') {
+      _showSharpenToast('⚠ Colour HTML write FAILED — only plain text on clipboard.  Open DevTools Console for the error.  Common fix: click in the SEM App first, then click 📋 Copy again.', 12000)
+    } else {
+      _showSharpenToast('⚠ Clipboard write FAILED entirely.  Open Console for the error.', 12000)
+    }
+  } catch (e) {
+    _showSharpenToast(`Copy failed — ${String(e).slice(0, 80)}`, 6000)
+  }
+}
+async function onEmailSharpen(): Promise<void> {
+  if (!sharpenExportReady.value) {
+    _showSharpenToast('Nothing to email yet — answer at least one Sharpening question first.', 4500)
+    return
+  }
+  const exportRounds = _buildExportRounds()
+  try {
+    // r41 v85 — pass live spec so renderer can surface per-field source attribution
+    await emailSharpen(exportRounds, _effectivePlanName.value, _effectivePlanVersion.value, props.spec)
+    // r41 v81 — surface the truth about what landed on clipboard.
+    const result = getLastClipboardResult()
+    if (result === 'html+plain') {
+      _showSharpenToast('📨 Mail opening — type recipient + ⌘V the COLOUR Q&A.  ✓ Colour HTML on clipboard.  If paste lands plain anyway: Mail → Format → Make Rich Text.', 9000)
+    } else if (result === 'plain-fallback') {
+      _showSharpenToast('⚠ Colour HTML write FAILED — Mail will open with plain-text-only on clipboard.  Open DevTools Console for the error.  Common fix: click in the SEM App first, then click 📨 Mail again.', 12000)
+    } else {
+      _showSharpenToast('⚠ Clipboard write FAILED entirely.  Mail will open but nothing will paste.  Open Console for the error.', 12000)
+    }
+  } catch (e) {
+    _showSharpenToast(`Email failed — ${String(e).slice(0, 80)}`, 6000)
+  }
+}
+function onPreviewSharpen(): void {
+  if (!sharpenExportReady.value) {
+    _showSharpenToast('Nothing to preview yet — answer at least one Sharpening question first.', 4500)
+    return
+  }
+  previewSharpen(_buildExportRounds(), _effectivePlanName.value, _effectivePlanVersion.value, props.spec)
+}
+/** Build the rounds array for export — completed rounds + (if in progress)
+ *  the current category snapshot so the user can export mid-flow without
+ *  needing to finish a round first.
+ *
+ *  Bug fix 2026-06-22 (Tom Gilb report: "I DID THIS ROUND AND ANSWERED
+ *  QUESTION BUT THE MAIL VERSION CLAIMS NOT Q ANSWERED").  Root cause: this
+ *  function was pushing the raw `answers.value` textarea contents — which
+ *  are empty when the user ticked a suggestion chip without ALSO typing
+ *  free-text.  The committed-round path (line ~748) correctly uses
+ *  effectiveAnswers() which fuses chips + typed text; the mid-flow export
+ *  path silently dropped the chip-only answers.  Renderer downstream
+ *  correctly translated empty → "(skipped)", so the export looked like the
+ *  user had skipped every chip-only question.  Fix: call effectiveAnswers()
+ *  on the in-progress round, same as round submission does. */
+function _buildExportRounds() {
+  const completed = [...rounds.value] as Array<typeof rounds.value[number]>
+  if (currentCategory.value && currentQuestions.value.length > 0 && phase.value !== 'idle') {
+    completed.push({
+      category:  currentCategory.value,
+      questions: [...currentQuestions.value],
+      answers:   effectiveAnswers(),
+      changes:   [],
+    })
+  }
+  return completed
+}
 
 // Local answer state — reset when a new category starts
 const answers = ref<string[]>([])
@@ -118,6 +237,18 @@ const roundResultDiffOpen = ref(false)
 // ── Copy + Email (round results) ─────────────────────────────────────────────
 const sharpenCopyDone = ref(false)
 let _sharpenCopyTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Q&A Justification [?!"] — suggestion group context pins ─────────────────
+// UI-only; not persisted. Key = question index (i). When open, shows the
+// AI source layer badge + category context for the suggestion group.
+const openJustifications = ref<Set<number>>(new Set())
+function isJustOpen(i: number): boolean { return openJustifications.value.has(i) }
+function toggleJust(i: number): void {
+  const next = new Set(openJustifications.value)
+  if (next.has(i)) next.delete(i)
+  else next.add(i)
+  openJustifications.value = next
+}
 
 /** Per-type change counts for the round that just completed. */
 const roundResultCounts = computed(() => {
@@ -174,11 +305,82 @@ async function copySharpenAll(): Promise<void> {
   _sharpenCopyTimer = setTimeout(() => { sharpenCopyDone.value = false }, 12000)
 }
 
-function emailSharpenAll(): void {
+/** Builds a colourful flat-table HTML for the completed sharpening round.
+ *  Amber/white scheme — grouped by entry type (Function / Value / Solution).
+ *  Per Colorful HTML Spec Email Rule: ONE flat table, no nested tables,
+ *  bgcolor= on every cell. */
+function buildSharpenColorHtml(): string {
+  const r = justCompletedRound.value
+  if (!r) return ''
+  const date    = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const catLabel = r.category.label
+  const fChanges = r.changes.filter(c => c.entryType === 'F')
+  const vChanges = r.changes.filter(c => c.entryType === 'V')
+  const sChanges = r.changes.filter(c => c.entryType === 'S')
+
+  const renderGroup = (label: string, bg: string, changes: typeof r.changes): string => {
+    if (changes.length === 0) return ''
+    let rows = `<tr><td colspan="2" bgcolor="${bg}" style="background:${bg};color:#ffffff;padding:8px 18px;font:700 12px/1.4 'Helvetica Neue',Arial,sans-serif;text-transform:uppercase;letter-spacing:0.1em;">${htmlEsc(label)}</td></tr>`
+    for (const c of changes) {
+      const statusLabel = c.status === 'added' ? 'ADDED' : 'MODIFIED'
+      rows += `<tr>
+  <td bgcolor="#fff8f0" style="background:#fff8f0;padding:4px 18px 2px 18px;font:700 12px/1.4 'Helvetica Neue',Arial,sans-serif;color:#92400e;width:80px;">${htmlEsc(statusLabel)}</td>
+  <td bgcolor="#fff8f0" style="background:#fff8f0;padding:4px 18px 2px 18px;font:700 12px/1.4 'Helvetica Neue',Arial,sans-serif;color:#1f2937;">${htmlEsc(c.id)}</td>
+</tr>`
+      if (c.status === 'added') {
+        for (const [f, v] of Object.entries(c.after)) {
+          if (!v) continue
+          const lines = softWrap(String(v), 70)
+          for (let li = 0; li < lines.length; li++) {
+            rows += `<tr>
+  <td bgcolor="#ffffff" style="background:#ffffff;padding:${li === 0 ? '2' : '0'}px 18px 0 36px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#92400e;">${li === 0 ? htmlEsc(f) + ':' : ''}</td>
+  <td bgcolor="#ffffff" style="background:#ffffff;padding:${li === 0 ? '2' : '0'}px 18px 0 0;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#374151;">${htmlEsc(lines[li])}</td>
+</tr>`
+          }
+        }
+      } else {
+        for (const f of c.changedFields) {
+          const before  = String(c.before?.[f] ?? '')
+          const after   = String(c.after[f] ?? '')
+          const bLines  = softWrap(before, 65)
+          const aLines  = softWrap(after, 65)
+          const maxRows = Math.max(bLines.length, aLines.length)
+          for (let li = 0; li < maxRows; li++) {
+            rows += `<tr>
+  <td bgcolor="#ffffff" style="background:#ffffff;padding:${li === 0 ? '2' : '0'}px 18px 0 36px;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#92400e;">${li === 0 ? htmlEsc(f) + ':' : ''}</td>
+  <td bgcolor="#ffffff" style="background:#ffffff;padding:${li === 0 ? '2' : '0'}px 18px 0 0;font:400 11px/1.4 'Helvetica Neue',Arial,sans-serif;color:#374151;">${li === 0 ? `<span style="color:#b91c1c;text-decoration:line-through;">${htmlEsc(bLines[0] ?? '')}</span> → ` : ''}${htmlEsc((aLines[li] ?? bLines[li]) ?? '')}</td>
+</tr>`
+          }
+        }
+      }
+      // spacer row
+      rows += `<tr><td bgcolor="#ffffff" height="6" style="background:#ffffff;height:6px;"></td><td bgcolor="#ffffff" style="background:#ffffff;"></td></tr>`
+    }
+    return rows
+  }
+
+  const bodyRows =
+    renderGroup('Functions', '#15803d', fChanges) +
+    renderGroup('Values', '#6d28d9', vChanges) +
+    renderGroup('Solutions', '#c2410c', sChanges)
+
+  const headerHtml = `<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px 0;border-collapse:collapse;">
+  <tr><td bgcolor="#d97706" style="background:#d97706;color:#ffffff;padding:8px 22px;font:700 18px/1.4 'Helvetica Neue',Arial,sans-serif;">Sharpening Changes — ${htmlEsc(catLabel)}</td></tr>
+  <tr><td bgcolor="#f59e0b" style="background:#f59e0b;color:#fff7ed;padding:4px 22px 10px 22px;font:600 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:0.12em;text-transform:uppercase;">Exported: ${htmlEsc(date)} · ${r.changes.length} change${r.changes.length === 1 ? '' : 's'}</td></tr>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px 0;border-collapse:collapse;border:1px solid #fcd34d;">
+  ${bodyRows}
+</table>`
+
+  return htmlDocumentShell({ title: `Sharpening Changes — ${catLabel}`, bodyHtml: headerHtml })
+}
+
+async function emailSharpenAll(): Promise<void> {
   const r       = justCompletedRound.value
   const subject = `Sharpening Changes — ${r?.category.label ?? 'Spec'}`
-  const text    = buildSharpenPlainText()
-  openEml(textToEmailHtml(text, subject), subject, { plainBody: text })
+  const html    = buildSharpenColorHtml()
+  const plain   = buildSharpenPlainText()
+  await exportEmail(html, subject, 'Sharpening Changes', plain)
 }
 
 // ── Open Critical Question sub-flow ──────────────────────────────────────────
@@ -318,6 +520,48 @@ function handlePlannerMoveForward(): void {
 // Expected durations: 'questions' ≈ 8 s, 'refining' ≈ 25 s.
 const loadingStartTime = ref<number | null>(null)
 const elapsedSeconds   = ref(0)
+
+// ── Running-commentary phase narratives (Tom Gilb 2026-06-16) ────────────────
+// Tom verbatim: *"I like the idea of the running commentary of what a stage is
+// doing when the progress bar is running. Can you look into doing it on all
+// stages?"* Pattern matches the LoadingProgress phases prop ratified 2026-06-03
+// and the GENERATION_PHASES rotation in SpecOutput.vue. Each phase pairs an
+// elapsed-seconds boundary with a sentence narrating what the AI is conceptually
+// doing — visible to the planner during the wait, teaching the Sharpening
+// methodology in Planguage-native terms per SEM-teaches-incrementally SUPREME.
+interface SharpenNarrativePhase { atSecond: number; message: string }
+
+const SHARPEN_QUESTIONS_PHASES: SharpenNarrativePhase[] = [
+  { atSecond: 0,  message: '📥 Reading the spec — pulling the entries this category will sharpen.' },
+  { atSecond: 3,  message: '🧠 Identifying gaps + ambiguities — what is missing, vague, or under-specified.' },
+  { atSecond: 6,  message: '✍ Drafting Planguage-grounded questions — each one targets one Tom Gilb principle.' },
+  { atSecond: 10, message: '🔍 Refining the questions — clarity, brevity, one concept per question.' },
+  { atSecond: 15, message: '⏱ Still working — long specs need more questions.  Watchdog active.' },
+]
+
+const SHARPEN_REFINING_PHASES: SharpenNarrativePhase[] = [
+  { atSecond: 0,  message: '📥 Reading your answers — combining your insights with the current spec.' },
+  { atSecond: 5,  message: '🎯 Locating the affected entries — finding which Value / Function / Solution / Constraint / Resource each insight touches.' },
+  { atSecond: 12, message: '✍ Drafting field-level edits — Scale / Meter / Tolerable / Goal / Wish updates per insight.' },
+  { atSecond: 20, message: '🔗 Cross-linking + validating the Planguage Representation.' },
+  { atSecond: 30, message: '🧬 Applying changes — preserving every field you did not change, updating only the targeted ones.' },
+  { atSecond: 45, message: '⏱ Still working — long answer sets take longer.' },
+]
+
+const currentSharpenNarrative = computed<string>(() => {
+  const list = phase.value === 'questions'
+    ? SHARPEN_QUESTIONS_PHASES
+    : phase.value === 'refining'
+      ? SHARPEN_REFINING_PHASES
+      : null
+  if (!list) return ''
+  let pick = list[0].message
+  for (const p of list) {
+    if (p.atSecond <= elapsedSeconds.value) pick = p.message
+    else break
+  }
+  return pick
+})
 let _timerHandle: ReturnType<typeof setInterval> | null = null
 
 // Done-flash state — true for 600 ms after each loading phase completes.
@@ -515,7 +759,10 @@ async function handleSubmit(): Promise<void> {
     effectiveAnswers(),
     extraQA.length ? extraQA : undefined,
   )
-  if (refined) emit('sharpened', refined)
+  if (refined) {
+    emit('sharpened', refined)
+    _roundsCompleted.value++
+  }
 }
 
 function handleDone(): void {
@@ -528,7 +775,25 @@ function handleDone(): void {
   // to the category picker or re-generate questions.
   // The "Cancel round" button in the header is the explicit abort path for modal use.
   if (!props.modal) cancelSharpen()
+  // Done-Changing process: auto-snapshot if any sharpening rounds were completed.
+  if (_roundsCompleted.value > 0 && props.spec) {
+    const rCount = _roundsCompleted.value
+    const label = `Sharpening · ${rCount} round${rCount !== 1 ? 's' : ''} · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    _addSpecSnapshot(props.spec, label)
+    _roundsCompleted.value = 0
+    _lastSaved.value = new Date()
+  }
   emit('done')
+}
+
+/** Save a version snapshot mid-session without closing (SpecActionFooter "Save Version"). */
+function handleSaveVersionSharpen(): void {
+  if (!props.spec || _roundsCompleted.value === 0) return
+  const rCount = _roundsCompleted.value
+  const label = `Sharpening · ${rCount} round${rCount !== 1 ? 's' : ''} · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  _addSpecSnapshot(props.spec, label)
+  _roundsCompleted.value = 0
+  _lastSaved.value = new Date()
 }
 
 function isRoundDone(key: string): boolean {
@@ -593,7 +858,53 @@ function totalChanges(): number {
           @action="emit('open-global-priority')"
           @info="emit('open-priority-info')"
         />
-        <!-- Sharp Enough — ALWAYS present, never hidden by phase -->
+        <!-- r41 v412 (Tom Gilb 2026-06-28 verbatim "apply sharpening needs
+             also to be in top banner, else enough sharpening can be confused
+             as accept") — Apply Sharpening mirror in the TOP banner.
+             Why this exists: the bottom-of-panel Apply Sharpening button
+             (line ~1443) is the canonical primary action when phase ==
+             'answering' — but the panel can scroll for many questions, so
+             the bottom button can be off-screen.  Without a top mirror, the
+             planner sees ONLY "✅ Sharp Enough" in the visible viewport and
+             reads it as "Accept these sharpening changes" — semantically
+             WRONG.  "Sharp Enough" CLOSES the panel without applying the
+             current in-progress round; "Apply Sharpening" ACCEPTS the
+             round's edits into the spec.  Two opposite actions sharing a
+             green checkmark surface is the trust violation Tom is flagging.
+             Phase-gated to `answering` so it only appears when applying is
+             meaningful — never competes with Sharp Enough at idle.  This is
+             also DD-014 Top-and-Bottom Navigation Mirror SUPREME applied to
+             the action button (not just nav) — same lesson, action layer.
+             Composes with: MOVE Principle (action visible at-a-glance, no
+             scroll-hunt) + Done/You-Can/Continue SUPREME (each action's
+             intent is unambiguous at every phase) + accessibility universal-
+             baseline (the bottom Apply may be off-screen for any reader) +
+             Tom-Repeats-Himself SUPREME (the "confused as accept" wording
+             names the exact failure mode of leaving Sharp Enough alone). -->
+        <button
+          v-if="phase === 'answering'"
+          type="button"
+          :disabled="loading || openQLoading || plannerActionLoading"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                 bg-amber-900 text-amber-50 text-xs font-bold
+                 hover:bg-amber-950 active:bg-black
+                 disabled:opacity-60 disabled:cursor-not-allowed
+                 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-1 focus:ring-offset-amber-500
+                 ring-2 ring-amber-200 shadow-md
+                 transition-colors"
+          :title="loading ? 'Sharpening in progress…' : '🔪 Apply Sharpening — accept the answers + insights you have entered, mutate the spec, record this as one completed sharpening round'"
+          aria-label="Apply Sharpening to spec"
+          @click.stop="handleSubmit"
+        >
+          <span v-if="loading" class="h-3 w-3 animate-spin rounded-full border-2 border-amber-50/40 border-t-amber-50" aria-hidden="true" />
+          {{ loading ? 'Sharpening…' : '🔪 Apply Sharpening' }}
+        </button>
+        <!-- Sharp Enough — ALWAYS present, never hidden by phase.
+             r41 v412 — title clarified so the planner sees the contrast with
+             "Apply Sharpening" in HoverHint.  Sharp Enough = CLOSE the
+             sharpening surface without committing the current in-progress
+             round; Apply Sharpening = COMMIT the current round into the
+             spec. -->
         <button
           type="button"
           class="flex items-center gap-1.5 px-3 py-1.5 rounded-full
@@ -601,12 +912,76 @@ function totalChanges(): number {
                  hover:bg-amber-50 active:bg-amber-100
                  focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-1 focus:ring-offset-amber-500
                  transition-colors"
-          aria-label="Sharp Enough — proceed to planning"
+          title="✅ Sharp Enough — done sharpening for now; CLOSE the panel and move on.  Does NOT apply the current in-progress round (use 🔪 Apply Sharpening for that)."
+          aria-label="Sharp Enough — proceed to planning without applying the current in-progress round"
           @click.stop="handleDone"
         >
           ✅ Sharp Enough
         </button>
       </div>
+    </div>
+
+    <!-- Plan identity band (r41 v92 — Phase 2 sweep) — amber-toned for Sharpen. -->
+    <PlanIdentityBand
+      :plan-name="planName"
+      :plan-owner="planOwner"
+      :plan-version="planVersion"
+      :generated-at="generatedAt"
+      :theme="{ bg: 'bg-amber-700', borderTop: 'border-amber-500', label: 'text-amber-100', pickerBorder: 'border-amber-300' }"
+      @select-history="(id: string) => emit('select-history', id)"
+    />
+
+    <!-- r41 v79 (Tom Gilb 2026-06-16 verbatim "the sharpening q and a needs
+         export badly everywhere now") — Export pin row.  Renders directly
+         below the header bar so the Export trio is visible at EVERY phase
+         (idle / questions / answering / refining / done-flash).  Three micro-
+         pins: 📋 Copy (dual-MIME), 📨 Email (Mail.app + SEM Email Body
+         Standard), 👁 Preview (new window with the rendered HTML).  All
+         three call onCopySharpen / onEmailSharpen / onPreviewSharpen which
+         build the same colourful HTML capturing every Round + Q + A + spec
+         change made.  Disabled (greyed) when there's no Q&A yet.  Per the
+         SUPREME "Export button on all windows" rule. -->
+    <div class="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100">
+      <span class="text-[10px] uppercase tracking-wider font-bold text-amber-700 mr-1">Export Q&amp;A:</span>
+      <button
+        type="button"
+        :disabled="!sharpenExportReady"
+        class="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold border transition-colors
+               border-amber-300 bg-white text-amber-800 hover:bg-amber-100 hover:border-amber-400
+               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white
+               focus:outline-none focus:ring-2 focus:ring-amber-400"
+        title="Copy the full Sharpening Q&A (colour HTML + plain text) to clipboard — paste into Mail, Notes, Keynote, Claude, ChatGPT, anywhere"
+        aria-label="Copy Sharpening Q&A to clipboard"
+        @click.stop="onCopySharpen"
+      >📋 Copy</button>
+      <button
+        type="button"
+        :disabled="!sharpenExportReady"
+        class="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold border transition-colors
+               border-amber-300 bg-white text-amber-800 hover:bg-amber-100 hover:border-amber-400
+               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white
+               focus:outline-none focus:ring-2 focus:ring-amber-400"
+        title="Open Mail.app to Tom@Gilb.com with the Sharpening Q&A on the clipboard — press ⌘V in the body to paste the colour version, then Send"
+        aria-label="Email Sharpening Q&A"
+        @click.stop="onEmailSharpen"
+      >📨 Mail</button>
+      <button
+        type="button"
+        :disabled="!sharpenExportReady"
+        class="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold border transition-colors
+               border-amber-300 bg-white text-amber-800 hover:bg-amber-100 hover:border-amber-400
+               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white
+               focus:outline-none focus:ring-2 focus:ring-amber-400"
+        title="Preview the rendered Sharpening Q&A in a new window — see 100% of what will be exported"
+        aria-label="Preview Sharpening Q&A"
+        @click.stop="onPreviewSharpen"
+      >👁 Preview</button>
+      <span v-if="!sharpenExportReady" class="text-[10px] italic text-amber-500 ml-1">
+        Answer at least one question to enable export
+      </span>
+      <span v-else class="text-[10px] italic text-amber-600 ml-1">
+        {{ rounds.length }} round{{ rounds.length === 1 ? '' : 's' }} ready · auto-includes current round in progress
+      </span>
     </div>
 
     <!-- Body: post-round results — shown after refining done-flash, before the category picker -->
@@ -820,6 +1195,17 @@ function totalChanges(): number {
           <template v-else>Done</template>
         </p>
       </div>
+      <!-- r41 v57 (Tom Gilb 2026-06-16 "running commentary … all stages") —
+           Phase-narrative banner: sentence-length description of what the AI
+           is conceptually doing right now, rotating with elapsed seconds. -->
+      <div
+        v-if="!_showDone && currentSharpenNarrative"
+        class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900 leading-snug"
+        role="status"
+        aria-live="polite"
+      >
+        {{ currentSharpenNarrative }}
+      </div>
       <!-- AmuseMeButton: sharpening takes 8–30s; entertain the user while waiting -->
       <AmuseMeButton v-if="!_showDone" :is-loading="loading" class="w-full" />
     </div>
@@ -839,22 +1225,52 @@ function totalChanges(): number {
             <span class="text-amber-500 font-bold mr-1">{{ i + 1 }}.</span>{{ q.text }}
           </label>
           <!-- Multi-select suggestion chips — click to toggle; selected chips are joined at submit -->
-          <div v-if="q.suggestions.length > 0" class="flex flex-wrap gap-1.5">
-            <button
-              v-for="sug in q.suggestions"
-              :key="sug"
-              type="button"
-              :aria-pressed="!!selectedSugs[i]?.has(sug)"
-              :aria-label="`${selectedSugs[i]?.has(sug) ? 'Deselect' : 'Select'} suggestion: ${sug}`"
-              class="px-2.5 py-1 rounded-full border text-[11px] font-medium
-                     focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors"
-              :class="selectedSugs[i]?.has(sug)
-                ? 'border-amber-500 bg-amber-400 text-white'
-                : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-200 hover:border-amber-400'"
-              @click="toggleSuggestion(i, sug)"
+          <div v-if="q.suggestions.length > 0">
+            <!-- Suggestion label row + [?!"] Justification pin (DD-009, DD-011) -->
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wide text-amber-700">Suggested answers</span>
+              <JustificationGlyph
+                :open="isJustOpen(i)"
+                @toggle="toggleJust(i)"
+              />
+            </div>
+            <!-- Justification context block — AI source layer (UI-only, not persisted) -->
+            <div
+              v-if="isJustOpen(i)"
+              class="mb-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] space-y-1.5"
             >
-              <span v-if="selectedSugs[i]?.has(sug)" class="mr-1" aria-hidden="true">✓</span>{{ sug }}
-            </button>
+              <div class="flex items-center gap-1.5">
+                <span class="font-mono font-bold text-indigo-700 text-[10px]">[?]</span>
+                <span class="text-slate-700"><b>Question source:</b> AI sharpening interview — category <em>{{ currentCategory?.label ?? '—' }}</em></span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-mono font-bold text-indigo-700 text-[10px]">[!]</span>
+                <span class="text-slate-700"><b>Source layer:</b> LLM training — general Planguage + spec-engineering knowledge applied to your current spec</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-mono font-bold text-indigo-700 text-[10px]">["]</span>
+                <span class="text-slate-700"><b>How to use:</b> Tick any suggestion to include it in your effective answer. Add your own typed answer to override or extend.</span>
+              </div>
+            </div>
+            <!-- Chip row -->
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="sug in q.suggestions"
+                :key="sug"
+                type="button"
+                :aria-pressed="!!selectedSugs[i]?.has(sug)"
+                :aria-label="`${selectedSugs[i]?.has(sug) ? 'Deselect' : 'Select'} suggestion: ${sug}`"
+                :title="`${selectedSugs[i]?.has(sug) ? 'Deselect' : 'Select'}: ${sug}`"
+                class="px-2.5 py-1 rounded-full border text-[11px] font-medium
+                       focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors"
+                :class="selectedSugs[i]?.has(sug)
+                  ? 'border-amber-500 bg-amber-400 text-white'
+                  : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-200 hover:border-amber-400'"
+                @click="toggleSuggestion(i, sug)"
+              >
+                <span v-if="selectedSugs[i]?.has(sug)" class="mr-1" aria-hidden="true">✓</span>{{ sug }}
+              </button>
+            </div>
           </div>
           <!-- Selected chips preview (only when ≥1 chip selected) -->
           <p v-if="selectedSugs[i]?.size" class="text-[10px] text-amber-700 leading-snug">
@@ -1119,6 +1535,15 @@ function totalChanges(): number {
           <template v-else>Done</template>
         </p>
       </div>
+      <!-- r41 v57 — phase narrative banner (refining phase) -->
+      <div
+        v-if="!_showDone && currentSharpenNarrative"
+        class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900 leading-snug"
+        role="status"
+        aria-live="polite"
+      >
+        {{ currentSharpenNarrative }}
+      </div>
       <!-- AmuseMeButton: sharpening takes 8–30s; entertain the user while waiting -->
       <AmuseMeButton v-if="!_showDone" :is-loading="loading" class="w-full" />
     </div>
@@ -1188,14 +1613,42 @@ function totalChanges(): number {
               aria-label="Open Global Priority"
               @click="emit('open-global-priority')"
             >⚖️ Priority</button>
-            <!-- Done sharpening — ALWAYS present -->
+            <!-- r41 v412 — Apply Sharpening mirror in MODAL header.
+                 Same rationale as the inline-mode mirror above: without
+                 this, "✅ Done sharpening" and "✅ Apply Sharpening" share
+                 the green-check vocabulary and the planner reads "Done" as
+                 "Accept these changes" — which it is NOT.  Phase-gated to
+                 'answering' so it only appears when applying is meaningful. -->
+            <button
+              v-if="phase === 'answering'"
+              type="button"
+              :disabled="loading || openQLoading || plannerActionLoading"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                     bg-amber-900 text-amber-50 text-xs font-bold
+                     hover:bg-amber-950 active:bg-black
+                     disabled:opacity-60 disabled:cursor-not-allowed
+                     focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-1 focus:ring-offset-amber-500
+                     ring-2 ring-amber-200 shadow-md
+                     transition-colors"
+              :title="loading ? 'Sharpening in progress…' : '🔪 Apply Sharpening — accept the answers + insights you have entered, mutate the spec, record this as one completed sharpening round'"
+              aria-label="Apply Sharpening to spec"
+              @click.stop="handleSubmit"
+            >
+              <span v-if="loading" class="h-3 w-3 animate-spin rounded-full border-2 border-amber-50/40 border-t-amber-50" aria-hidden="true" />
+              {{ loading ? 'Sharpening…' : '🔪 Apply Sharpening' }}
+            </button>
+            <!-- Done sharpening — ALWAYS present.  r41 v412 — title clarifies
+                 the contrast with Apply Sharpening: Done = close without
+                 committing the current round; Apply = commit the current
+                 round into the spec. -->
             <button
               type="button"
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-amber-700
                      text-xs font-semibold hover:bg-amber-50 active:bg-amber-100
                      focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-1 focus:ring-offset-amber-500
                      transition-colors"
-              aria-label="Done sharpening — close panel"
+              title="✅ Done sharpening — done sharpening for now; CLOSE the panel and move on.  Does NOT apply the current in-progress round (use 🔪 Apply Sharpening for that)."
+              aria-label="Done sharpening — close panel without applying the current in-progress round"
               @click="handleDone"
             >
               ✅ Done sharpening
@@ -1208,6 +1661,58 @@ function totalChanges(): number {
         @click="handleDone"
       />
           </div>
+        </div>
+
+        <!-- Plan identity band (r41 v92 — Phase 2 sweep) — modal version. -->
+        <PlanIdentityBand
+          :plan-name="planName"
+          :plan-owner="planOwner"
+          :plan-version="planVersion"
+          :generated-at="generatedAt"
+          :theme="{ bg: 'bg-amber-700', borderTop: 'border-amber-500', label: 'text-amber-100', pickerBorder: 'border-amber-300' }"
+          @select-history="(id: string) => emit('select-history', id)"
+        />
+
+        <!-- r41 v79 — Modal-mode Export pin row (same trio as inline mode) -->
+        <div class="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100">
+          <span class="text-[10px] uppercase tracking-wider font-bold text-amber-700 mr-1">Export Q&amp;A:</span>
+          <button
+            type="button"
+            :disabled="!sharpenExportReady"
+            class="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold border transition-colors
+                   border-amber-300 bg-white text-amber-800 hover:bg-amber-100 hover:border-amber-400
+                   disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white
+                   focus:outline-none focus:ring-2 focus:ring-amber-400"
+            title="Copy the full Sharpening Q&A (colour HTML + plain text) to clipboard — paste into Mail, Notes, Keynote, Claude, ChatGPT, anywhere"
+            aria-label="Copy Sharpening Q&A to clipboard"
+            @click="onCopySharpen"
+          >📋 Copy</button>
+          <button
+            type="button"
+            :disabled="!sharpenExportReady"
+            class="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold border transition-colors
+                   border-amber-300 bg-white text-amber-800 hover:bg-amber-100 hover:border-amber-400
+                   disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white
+                   focus:outline-none focus:ring-2 focus:ring-amber-400"
+            title="Open Mail.app to Tom@Gilb.com with the Sharpening Q&A on the clipboard — press ⌘V in the body to paste the colour version, then Send"
+            aria-label="Email Sharpening Q&A"
+            @click="onEmailSharpen"
+          >📨 Mail</button>
+          <button
+            type="button"
+            :disabled="!sharpenExportReady"
+            class="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold border transition-colors
+                   border-amber-300 bg-white text-amber-800 hover:bg-amber-100 hover:border-amber-400
+                   disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white
+                   focus:outline-none focus:ring-2 focus:ring-amber-400"
+            title="Preview the rendered Sharpening Q&A in a new window — see 100% of what will be exported"
+            aria-label="Preview Sharpening Q&A"
+            @click="onPreviewSharpen"
+          >👁 Preview</button>
+          <span v-if="!sharpenExportReady" class="text-[10px] italic text-amber-500 ml-1">Answer at least one question to enable export</span>
+          <span v-else class="text-[10px] italic text-amber-600 ml-1">
+            {{ rounds.length }} round{{ rounds.length === 1 ? '' : 's' }} ready · auto-includes current round in progress
+          </span>
         </div>
 
         <!-- Modal body: post-round results — shown after refining done-flash, before category picker -->
@@ -1412,6 +1917,15 @@ function totalChanges(): number {
               <template v-else>Done</template>
             </p>
           </div>
+          <!-- r41 v57 — phase narrative banner (modal · questions phase) -->
+          <div
+            v-if="!_showDone && currentSharpenNarrative"
+            class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900 leading-snug"
+            role="status"
+            aria-live="polite"
+          >
+            {{ currentSharpenNarrative }}
+          </div>
           <!-- AmuseMeButton: sharpening takes 8–30s; entertain the user while waiting -->
           <AmuseMeButton v-if="!_showDone" :is-loading="loading" class="w-full" />
         </div>
@@ -1431,22 +1945,52 @@ function totalChanges(): number {
                 <span class="text-amber-500 font-bold mr-1">{{ i + 1 }}.</span>{{ q.text }}
               </label>
               <!-- Multi-select suggestion chips — click to toggle; selected chips are joined at submit -->
-              <div v-if="q.suggestions.length > 0" class="flex flex-wrap gap-1.5">
-                <button
-                  v-for="sug in q.suggestions"
-                  :key="sug"
-                  type="button"
-                  :aria-pressed="!!selectedSugs[i]?.has(sug)"
-                  :aria-label="`${selectedSugs[i]?.has(sug) ? 'Deselect' : 'Select'} suggestion: ${sug}`"
-                  class="px-2.5 py-1 rounded-full border text-[11px] font-medium
-                         focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors"
-                  :class="selectedSugs[i]?.has(sug)
-                    ? 'border-amber-500 bg-amber-400 text-white'
-                    : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-200 hover:border-amber-400'"
-                  @click="toggleSuggestion(i, sug)"
+              <div v-if="q.suggestions.length > 0">
+                <!-- Suggestion label row + [?!"] Justification pin (DD-009, DD-011) -->
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="text-[10px] font-bold uppercase tracking-wide text-amber-700">Suggested answers</span>
+                  <JustificationGlyph
+                    :open="isJustOpen(i)"
+                      @toggle="toggleJust(i)"
+                  />
+                </div>
+                <!-- Justification context block (UI-only, not persisted) -->
+                <div
+                  v-if="isJustOpen(i)"
+                  class="mb-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] space-y-1.5"
                 >
-                  <span v-if="selectedSugs[i]?.has(sug)" class="mr-1" aria-hidden="true">✓</span>{{ sug }}
-                </button>
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-mono font-bold text-indigo-700 text-[10px]">[?]</span>
+                    <span class="text-slate-700"><b>Question source:</b> AI sharpening interview — category <em>{{ currentCategory?.label ?? '—' }}</em></span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-mono font-bold text-indigo-700 text-[10px]">[!]</span>
+                    <span class="text-slate-700"><b>Source layer:</b> LLM training — general Planguage + spec-engineering knowledge applied to your current spec</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-mono font-bold text-indigo-700 text-[10px]">["]</span>
+                    <span class="text-slate-700"><b>How to use:</b> Tick any suggestion to include it in your effective answer. Add your own typed answer to override or extend.</span>
+                  </div>
+                </div>
+                <!-- Chip row -->
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="sug in q.suggestions"
+                    :key="sug"
+                    type="button"
+                    :aria-pressed="!!selectedSugs[i]?.has(sug)"
+                    :aria-label="`${selectedSugs[i]?.has(sug) ? 'Deselect' : 'Select'} suggestion: ${sug}`"
+                    :title="`${selectedSugs[i]?.has(sug) ? 'Deselect' : 'Select'}: ${sug}`"
+                    class="px-2.5 py-1 rounded-full border text-[11px] font-medium
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors"
+                    :class="selectedSugs[i]?.has(sug)
+                      ? 'border-amber-500 bg-amber-400 text-white'
+                      : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-200 hover:border-amber-400'"
+                    @click="toggleSuggestion(i, sug)"
+                  >
+                    <span v-if="selectedSugs[i]?.has(sug)" class="mr-1" aria-hidden="true">✓</span>{{ sug }}
+                  </button>
+                </div>
               </div>
               <!-- Selected chips preview (only when ≥1 chip selected) -->
               <p v-if="selectedSugs[i]?.size" class="text-[10px] text-amber-700 leading-snug">
@@ -1698,10 +2242,28 @@ function totalChanges(): number {
               <template v-else>Done</template>
             </p>
           </div>
+          <!-- r41 v57 — phase narrative banner (modal · refining phase) -->
+          <div
+            v-if="!_showDone && currentSharpenNarrative"
+            class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900 leading-snug"
+            role="status"
+            aria-live="polite"
+          >
+            {{ currentSharpenNarrative }}
+          </div>
           <!-- AmuseMeButton: sharpening takes 8–30s; entertain the user while waiting -->
           <AmuseMeButton v-if="!_showDone" :is-loading="loading" class="w-full" />
         </div>
 
+      <!-- Standard Done-Changing Close Footer (DD-standard-close-2026-06-09) -->
+      <SpecActionFooter
+        :change-count="_roundsCompleted"
+        :last-saved="_lastSaved"
+        :is-locked="isLocked"
+        @close="handleDone"
+        @save-version="handleSaveVersionSharpen"
+        @toggle-lock="isLocked ? unlock() : lock()"
+      />
       </div><!-- end card -->
     </div><!-- end outer container -->
   </Teleport>

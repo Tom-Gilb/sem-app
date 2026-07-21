@@ -9,7 +9,8 @@
 // This file ships the same content to the bundle so the panel can render
 // offline and so Copy + Email actions work without a fetch.
 
-import { openEml, textToEmailHtml } from './useEmlExport'
+import { textToEmailHtml } from './useEmlExport'
+import { exportEmail } from './useExportShared'
 
 export interface PriorityAboutSection {
   /** Short heading shown as a card title in the panel. */
@@ -162,13 +163,11 @@ export function getAboutPriorityGlyphText(): string {
 }
 
 /**
- * Open a .eml draft in Mail.app with the Priority Glyph explanation
- * pre-filled in the body — no manual paste required (Tom Gilb rule 2026-05-29).
- *
- * Replaces the old `buildAboutPriorityGlyphMailto()` + `window.location.href` pattern.
+ * Email the Priority Glyph explanation via mailto: + clipboard
+ * (Auto-Open Email Rule, SUPREME, CLAUDE.md — .eml retired 2026-06-07).
  */
-export function openPriorityGlyphEmail(): void {
+export async function openPriorityGlyphEmail(): Promise<void> {
   const subject = 'The SEM App Priority Glyph — [A>B>C]'
   const text    = getAboutPriorityGlyphText()
-  openEml(textToEmailHtml(text, subject), subject, { plainBody: text })
+  await exportEmail(textToEmailHtml(text, subject), subject, 'Priority Glyph explanation', 'Tom@Gilb.com', text)
 }

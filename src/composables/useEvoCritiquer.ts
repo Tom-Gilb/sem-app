@@ -129,7 +129,7 @@ export const HEALTH_DIMENSION_DEFS: DimensionDef[] = [
     id: 'solutions-linkage',
     label: 'Solutions Linkage',
     evoSteps: [3],
-    description: 'Are solutions (S. entries) clearly linked to the values they deliver? Are impacts quantified?',
+    description: 'Are Solution entries clearly linked to the Values they deliver? Are impacts quantified?',
   },
   {
     id: 'decomposition-quality',

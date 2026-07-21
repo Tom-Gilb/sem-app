@@ -22,17 +22,36 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import PlanIdentityBand from './PlanIdentityBand.vue'  // r41 v96 (Tom Gilb 2026-06-16 "do that" — Phase 3 sweep)
 import {
   useDecisionMapper,
 } from '../composables/useDecisionMapper'
 import type { DecisionOption, DecisionCriterion, PlanguagizedEntry } from '../composables/useDecisionMapper'
 import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
+import { exportArtefact } from '../composables/useExportShared'
+import {
+  renderDecisionMapperHtml,
+  renderDecisionMapperPlain,
+  type DecisionExportState,
+} from '../composables/useDecisionMapperExport'
+
+const props = defineProps<{
+  /** r41 v96 — identity band fields (Phase 3 sweep). */
+  planName?: string
+  planOwner?: string
+  planVersion?: string
+  generatedAt?: string
+}>()
 
 const emit = defineEmits<{
   close: []
   /** User clicked the Agents button — App.vue should close this panel and open AgentMenuPanel. */
   'open-agents': []
+  /** r41 v96 — bubble history selection. */
+  'select-history': [versionId: string]
 }>()
+
+void props
 
 // ── Composable ────────────────────────────────────────────────────────────────
 
@@ -216,8 +235,8 @@ const DECISION_WISDOM = [
   {
     emoji: '📐',
     title: 'Constraints Are Binary, Values Are Scalar',
-    text: 'In Planguage, a Constraint (C.) is either met or violated — there is no partial credit. A Value (V.) has a scale and a goal. The best decision meets ALL constraints, then maximises value.',
-    ref: 'Tom Gilb, Planguage Standard — C. entry rules',
+    text: 'In Planguage, a Constraint is either met or violated — there is no partial credit. A Value has a scale and a goal. The best decision meets ALL constraints, then maximises value.',
+    ref: 'Tom Gilb, Planguage Standard — Constraint entry rules',
   },
   {
     emoji: '🔄',
@@ -271,7 +290,7 @@ function _startDecisionLoadingAnim(): void {
   }, 250)
   _dmWisdomTimer = setInterval(() => {
     dmActiveWisdomIdx.value = (dmActiveWisdomIdx.value + 1) % DECISION_WISDOM.length
-  }, 8_000)
+  }, 10_000)  // Tom 2026-06-09: 10s card advance
 }
 
 function _stopDecisionLoadingAnim(): void {
@@ -289,6 +308,60 @@ watch(
 )
 
 onUnmounted(() => _stopDecisionLoadingAnim())
+
+// ── Export · Full Model (Tom Gilb 2026-06-06 universal Export-on-all-windows rule) ──
+async function exportDecisionMapper(): Promise<void> {
+  const d = selectedDecision.value
+  if (!d) return
+  const state: DecisionExportState = {
+    planName:            d.title || 'Decision Analysis',
+    versionLabel:        new Date(d.createdAt).toLocaleDateString('en-AU'),
+    question:            d.question,
+    context:             d.context,
+    recommendation:      d.recommendation,
+    recommendedOptionId: d.recommendedOptionId,
+    criteria:            d.criteria.map(c => ({
+      id: c.id,
+      label: c.label,
+      type: c.type,
+      weight: c.weight,
+      description: c.description,
+      scale: c.scale,
+      direction: c.direction,
+    })),
+    options:             d.options.map(o => ({
+      id: o.id,
+      label: o.label,
+      description: o.description,
+      scores: { ...o.scores },
+      constraintsMet: { ...o.constraintsMet },
+      planguageEntries: o.planguageEntries.map(e => ({
+        id: e.id, type: e.type, tag: e.tag,
+        description: e.description, details: e.details, confidence: e.confidence,
+      })),
+      pros: [...o.pros],
+      cons: [...o.cons],
+      feasibilityScore: o.feasibilityScore,
+      valueScore: o.valueScore,
+      recommendation: o.recommendation,
+    })),
+    planguageModel:      d.planguageModel.map(e => ({
+      id: e.id, type: e.type, tag: e.tag,
+      description: e.description, details: e.details, confidence: e.confidence,
+    })),
+    comparisonText:      d.comparisonText,
+    comparisonAnalysis:  d.comparisonAnalysis,
+  }
+  // Mailto-No-Self-To SUPREME (Tom Gilb 2026-06-16): Tom is the SENDER when he
+  // clicks Export — recipient is someone else he chooses. To: must be EMPTY.
+  await exportArtefact({
+    htmlText:     renderDecisionMapperHtml(state),
+    plainText:    renderDecisionMapperPlain(state),
+    subject:      `Decisions Agent · ${d.title || 'Decision Analysis'} · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'Decisions Agent',
+    to: '',
+  })
+}
 
 // ── Continue Amuse Me (useAmuseLifecycle) ──────────────────────────────────
 // Keeps the wisdom carousel visible for 10 s after analysis completes, with
@@ -372,6 +445,21 @@ const {
           <span aria-hidden="true">🦾</span> Agents
         </button>
 
+        <!-- ⬇ Export · Tom Gilb 2026-06-06 universal Export-on-all-windows rule.
+             Mailto-No-Self-To SUPREME — to:'' (Tom is the sender). -->
+        <button
+          v-if="selectedDecision"
+          type="button"
+          class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg
+                 bg-amber-400/30 hover:bg-amber-400/50 text-white text-xs font-semibold
+                 border border-amber-200/50 hover:border-amber-100 transition-colors"
+          title="⬇ Export Decision Analysis — opens preview window with 100% of the analysis (decision matrix, per-option Planguage models, AI recommendation, Glossary footnote). Copies colourful HTML to clipboard. Opens Mail (To: empty — you choose recipient)."
+          aria-label="Export Decision Analysis — preview window + clipboard + Mail"
+          @click="exportDecisionMapper"
+        >
+          ⬇ Export
+        </button>
+
         <CloseDot
           variant="on-dark"
           aria-label="Close Decisions Agent — return to main workspace"
@@ -379,6 +467,16 @@ const {
           @click="emit('close')"
         />
       </div>
+
+      <!-- Plan identity band (r41 v96 — Phase 3 sweep) — rose-toned for Decisions. -->
+      <PlanIdentityBand
+        :plan-name="props.planName"
+        :plan-owner="props.planOwner"
+        :plan-version="props.planVersion"
+        :generated-at="props.generatedAt"
+        :theme="{ bg: 'bg-rose-700', borderTop: 'border-rose-500', label: 'text-rose-100', pickerBorder: 'border-rose-300' }"
+        @select-history="(id: string) => emit('select-history', id)"
+      />
 
       <!-- NEW DECISION FORM (slide-in) -->
       <div

@@ -27,7 +27,7 @@
  *     (the real case — dblclick fires on the SVG inside the span)
  *   - PlTypeIcon sets data-pl-type when noDetailClick is false (the default)
  *   - PlTypeIcon removes data-pl-type when noDetailClick=true
- *   - Tooltip discloses the double-click affordance (DD-009)
+ *   - HoverHint discloses the double-click affordance (DD-009)
  *   - End-to-end: glyphTypeFromDblClick → openGlyphPanel → CustomEvent dispatched
  *
  * Fix before shipping if ANY test here fails.
@@ -195,16 +195,16 @@ describe('PlTypeIcon — data-pl-type attribute for Layer A detection (DD-013)',
   })
 })
 
-// ── Tooltip content (DD-009 Interaction Disclosure) ───────────────────────────
+// ── HoverHint content (DD-009 Interaction Disclosure) ───────────────────────────
 
-describe('PlTypeIcon — tooltip discloses double-click affordance (DD-009)', () => {
-  it('tooltip includes "Double-click for Glyph Detail" by default', () => {
+describe('PlTypeIcon — HoverHint discloses double-click affordance (DD-009)', () => {
+  it('HoverHint includes "Double-click for Glyph Detail" by default', () => {
     const wrapper = mount(PlTypeIcon, { props: { plType: 'constraint' } })
     expect(wrapper.find('span').attributes('title')).toContain('Double-click for Glyph Detail')
     wrapper.unmount()
   })
 
-  it('tooltip omits double-click suffix when noDetailClick=true', () => {
+  it('HoverHint omits double-click suffix when noDetailClick=true', () => {
     const wrapper = mount(PlTypeIcon, {
       props: { plType: 'constraint', noDetailClick: true },
     })

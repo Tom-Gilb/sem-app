@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- r93y (Tom Gilb 2026-06-11 "I tried r, no reaction cmnd shift r did work").
+         Belt-and-suspenders cache busting in addition to Vite's HTTP no-store headers.
+         Safari Add-to-Dock PWA mode has its own caching layer that can ignore Cache-Control
+         headers on some asset classes. These <meta> tags instruct the browser at parse time
+         (before any cache layer kicks in) that NO content from this page should ever cache.
+         Combined with the Vite server.headers from r93j, plain ⌘R now flushes every layer. -->
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>sem-app</title>
   </head>
   <body>

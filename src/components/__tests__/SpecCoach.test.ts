@@ -66,89 +66,110 @@ describe('SpecCoach.vue', () => {
     const wrapper = mount(SpecCoach, {
       props: { spec: minimalSpec, visible: true },
     })
-    const fab = wrapper.find('button[aria-label="Open spec coach"]')
+    const fab = wrapper.find('button[aria-label="Ask Anything"]')
     expect(fab.exists()).toBe(true)
   })
 
-  it('FAB has aria-label="Open spec coach"', () => {
+  it('FAB has aria-label="Ask Anything"', () => {
     const wrapper = mount(SpecCoach, {
       props: { spec: minimalSpec, visible: true },
     })
     const fab = wrapper.find('button')
-    expect(fab.attributes('aria-label')).toBe('Open spec coach')
+    expect(fab.attributes('aria-label')).toBe('Ask Anything')
   })
 
   it('FAB has min-h-[56px] class', () => {
     const wrapper = mount(SpecCoach, {
       props: { spec: minimalSpec, visible: true },
     })
-    const fab = wrapper.find('button[aria-label="Open spec coach"]')
+    const fab = wrapper.find('button[aria-label="Ask Anything"]')
     expect(fab.classes()).toContain('min-h-[56px]')
   })
+
+  // The expanded panel uses <Teleport to="body"> — wrapper.find() cannot see
+  // teleported content. These tests use attachTo+document.body.querySelector instead.
+  // See: https://test-utils.vuejs.org/guide/advanced/teleport
 
   it('clicking FAB shows expanded chat panel', async () => {
     const wrapper = mount(SpecCoach, {
       props: { spec: minimalSpec, visible: true },
+      attachTo: document.body,
     })
-    const fab = wrapper.find('button[aria-label="Open spec coach"]')
-    await fab.trigger('click')
+    await wrapper.find('button[aria-label="Ask Anything"]').trigger('click')
+    await wrapper.vm.$nextTick()
 
-    // Expanded panel should be visible — look for the dialog role
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    // Expanded panel is teleported to body — query document directly
+    expect(document.body.querySelector('[role="dialog"]')).toBeTruthy()
+    wrapper.unmount()
   })
 
   it('close button collapses the panel back to FAB', async () => {
     const wrapper = mount(SpecCoach, {
       props: { spec: minimalSpec, visible: true },
+      attachTo: document.body,
     })
-    // Open first
-    await wrapper.find('button[aria-label="Open spec coach"]').trigger('click')
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    await wrapper.find('button[aria-label="Ask Anything"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(document.body.querySelector('[role="dialog"]')).toBeTruthy()
 
-    // Close
-    const closeBtn = wrapper.find('button[aria-label="Close spec coach"]')
-    expect(closeBtn.exists()).toBe(true)
-    await closeBtn.trigger('click')
+    const closeBtn = document.body.querySelector('button[aria-label="Close Ask Anything"]') as HTMLButtonElement | null
+    expect(closeBtn).toBeTruthy()
+    closeBtn!.click()
+    await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
-    expect(wrapper.find('button[aria-label="Open spec coach"]').exists()).toBe(true)
+    expect(document.body.querySelector('[role="dialog"]')).toBeFalsy()
+    expect(wrapper.find('button[aria-label="Ask Anything"]').exists()).toBe(true)
+    wrapper.unmount()
   })
 
   it('Send button has h-11 class (≥44px)', async () => {
     const wrapper = mount(SpecCoach, {
       props: { spec: minimalSpec, visible: true },
+      attachTo: document.body,
     })
-    await wrapper.find('button[aria-label="Open spec coach"]').trigger('click')
+    await wrapper.find('button[aria-label="Ask Anything"]').trigger('click')
+    await wrapper.vm.$nextTick()
 
-    const sendBtn = wrapper.find('button[aria-label="Send message"]')
-    expect(sendBtn.exists()).toBe(true)
-    expect(sendBtn.classes()).toContain('h-11')
+    const sendBtn = document.body.querySelector('button[aria-label="Send question"]') as HTMLButtonElement | null
+    expect(sendBtn).toBeTruthy()
+    expect(sendBtn!.classList.contains('h-11')).toBe(true)
+    wrapper.unmount()
   })
 
   it('empty state message is shown when messages is empty', async () => {
     const wrapper = mount(SpecCoach, {
       props: { spec: minimalSpec, visible: true },
+      attachTo: document.body,
     })
-    await wrapper.find('button[aria-label="Open spec coach"]').trigger('click')
+    await wrapper.find('button[aria-label="Ask Anything"]').trigger('click')
+    await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('Ask me anything about your spec!')
+    expect(document.body.textContent).toContain('Ask me anything about your spec!')
+    wrapper.unmount()
   })
 
   it('after ask(), user message appears in list', async () => {
     const wrapper = mount(SpecCoach, {
       props: { spec: minimalSpec, visible: true },
+      attachTo: document.body,
     })
-    await wrapper.find('button[aria-label="Open spec coach"]').trigger('click')
+    await wrapper.find('button[aria-label="Ask Anything"]').trigger('click')
+    await wrapper.vm.$nextTick()
 
-    // Type a message
-    const input = wrapper.find('input[type="text"]')
-    await input.setValue('What is the scale?')
+    const input = document.body.querySelector('input[type="text"]') as HTMLInputElement | null
+    expect(input).toBeTruthy()
+    // Set value via Vue model binding
+    input!.value = 'What is the scale?'
+    input!.dispatchEvent(new Event('input'))
+    await wrapper.vm.$nextTick()
 
-    // Click Send
-    const sendBtn = wrapper.find('button[aria-label="Send message"]')
-    await sendBtn.trigger('click')
+    const sendBtn = document.body.querySelector('button[aria-label="Send question"]') as HTMLButtonElement | null
+    expect(sendBtn).toBeTruthy()
+    sendBtn!.click()
+    await wrapper.vm.$nextTick()
 
     // The user message should appear immediately (before async coach response)
-    expect(wrapper.text()).toContain('What is the scale?')
+    expect(document.body.textContent).toContain('What is the scale?')
+    wrapper.unmount()
   })
 })

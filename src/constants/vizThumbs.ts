@@ -175,7 +175,7 @@ export const VIZ_THUMBS: Record<VisualisTab, string> = {
 export const VIZ_STRIP_ITEMS: { tab: VisualisTab; label: string }[] = [
   { tab: 'flow',     label: 'Value Flow'   },
   { tab: 'radar',    label: 'Radar'        },
-  { tab: 'arch',     label: 'Architecture' },
+  { tab: 'arch',     label: 'Arch. View'   },
   { tab: 'risk',     label: 'Risk'         },
   { tab: 'finance',  label: 'Finance'      },
   { tab: 'swimlane', label: 'Swimlane'     },

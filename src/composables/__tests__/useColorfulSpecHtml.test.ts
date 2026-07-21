@@ -142,3 +142,106 @@ describe('renderColorfulSpecHtml — soft-wrap data preservation', () => {
     expect(html).not.toContain('Serves')
   })
 })
+
+// ── r41 v115 (Tom Gilb 2026-06-17 verbatim "I want all the source (<-) detail
+// too in the email. Copy means 'Copy'") — pin the per-field source rendering
+// so any regression that hides the inline source rows fires a red CI signal.
+// The user-facing contract: when a Value entry carries fieldSources stamped
+// at generation time, every scalar level row that has a fieldSource emits
+// an inline `← <source>` row beneath the value.  This mirrors the in-app
+// SpecOutput display (SpecOutput.vue:6382, 6421, 6439, ... — inline `<span
+// v-if="v.fieldSources?.['scale']">← {{ ...source }}</span>`).  Composes
+// with: Sources-of-Specs SUPREME, BOTH-surfaces rule, Trace-Before-Patch
+// SUPREME (Tom shouldn't have to flag a source-row regression — CI does it).
+describe('renderColorfulSpecHtml — per-field source rendering (r41 v115 regression)', () => {
+  function makeValueWithSources(): SpecBlock {
+    return makeSpec({
+      values: [
+        {
+          id:        'Hull Form',
+          type:      'Value',
+          level:     'Product',
+          description: 'Vessel structural displacement (tons by depth in hold)',
+          scale:       '1466 tons (by depth in hold)',
+          meter:       'displacement_tons_by_depth_in_hold(x)',
+          tolerable:   '1466 tons (by depth in hold — minimum structural displacement accepted by the Committee)',
+          goal:        '1836 tons by mean breadth calculation, per the April 1635 approved schedule',
+          wish:        '1836 tons',
+          status:      '1466 tons',
+          valueOfFunction: 'Hull Form',
+          fieldSources: {
+            scale:     { source: 'SEM Stage 1, Based on User Script, 17Jun26 02:11', sourceType: 'ai', tool: 'SEM LLM Parser', timestamp: '2026-06-17T02:11:00Z' },
+            meter:     { source: 'SEM Stage 1, Based on User Script, 17Jun26 02:11', sourceType: 'ai', tool: 'SEM LLM Parser', timestamp: '2026-06-17T02:11:00Z' },
+            tolerable: { source: 'SEM Stage 1, Based on User Script, 17Jun26 02:11', sourceType: 'ai', tool: 'SEM LLM Parser', timestamp: '2026-06-17T02:11:00Z' },
+            goal:      { source: 'SEM Stage 1, Based on User Script, 17Jun26 02:11', sourceType: 'ai', tool: 'SEM LLM Parser', timestamp: '2026-06-17T02:11:00Z' },
+            wish:      { source: 'SEM Stage 1, Based on User Script, 17Jun26 02:11', sourceType: 'ai', tool: 'SEM LLM Parser', timestamp: '2026-06-17T02:11:00Z' },
+            status:    { source: 'SEM Stage 1, Based on User Script, 17Jun26 02:11', sourceType: 'ai', tool: 'SEM LLM Parser', timestamp: '2026-06-17T02:11:00Z' },
+          },
+        } as unknown as SpecBlock['values'][number],
+      ],
+    })
+  }
+
+  it('emits an inline `← <source>` row beneath every scalar level that carries a fieldSource', () => {
+    const spec = makeValueWithSources()
+    const html = renderColorfulSpecHtml(spec, 'Sovereign of the Seas', undefined, { mode: 'full' })
+
+    // The source string should appear at least 6 times — once per scalar level
+    // (Scale / Meter / Tolerable / Goal / Wish / Status).
+    const matches = html.match(/SEM Stage 1, Based on User Script, 17Jun26 02:11/g) ?? []
+    expect(matches.length).toBeGreaterThanOrEqual(6)
+
+    // Each appearance should be in an `← ` chip — the left-arrow HTML entity
+    // is the inline-source-row marker.
+    expect(html).toContain('&larr; SEM Stage 1, Based on User Script')
+  })
+
+  it('collapses identical per-field sources into ONE `Source (all fields)` banner (r41 v110 dedup)', () => {
+    // When EVERY per-field source string is the same (typical case: a single
+    // SEM-LLM-Parser run stamped every field with one timestamp), the
+    // sourcesSummaryRow dedup logic collapses to ONE banner line instead of
+    // emitting 6 identical chips.  Pin that behaviour.
+    const spec = makeValueWithSources()
+    const html = renderColorfulSpecHtml(spec, 'Sovereign of the Seas', undefined, { mode: 'full' })
+    // Expect the consolidated banner.
+    expect(html).toContain('<b>Source (all fields)</b>: SEM Stage 1, Based on User Script, 17Jun26 02:11')
+    // The verbose `<b>scale</b>: ...` per-field chips should NOT appear when
+    // every source matches.
+    expect(html).not.toMatch(/<b>scale<\/b>: SEM Stage 1/i)
+  })
+
+  it('omits inline `← <source>` row when its value is empty (no orphan inline rows beneath blank values)', () => {
+    // Per-field inline source row should NOT appear beneath an empty value
+    // (bodyRow returns '' when value is empty, so its source row doesn't
+    // render either).  The top-of-entry sourcesSummaryRow banner DOES still
+    // surface the source for entry-level provenance — that's by design per
+    // Sources-of-Specs SUPREME (a stamped fieldSource is preserved even when
+    // the field value itself is blank).
+    const spec = makeSpec({
+      values: [
+        {
+          id:        'Empty Value',
+          type:      'Value',
+          level:     'Product',
+          description: 'no scalar levels set yet',
+          scale:     '',
+          meter:     '',
+          tolerable: '',
+          goal:      '',
+          wish:      '',
+          status:    '',
+          valueOfFunction: '',
+          fieldSources: {
+            scale: { source: 'INLINE_ROW_PROBE', sourceType: 'ai' },
+          },
+        } as unknown as SpecBlock['values'][number],
+      ],
+    })
+    const html = renderColorfulSpecHtml(spec, 'Empty', undefined, { mode: 'full' })
+    // The inline `← INLINE_ROW_PROBE` chip (the value-row companion) must NOT
+    // appear since the Scale value is empty.
+    expect(html).not.toMatch(/&larr; INLINE_ROW_PROBE/)
+    // The top-of-entry banner DOES surface it — preserved provenance.
+    expect(html).toContain('INLINE_ROW_PROBE')
+  })
+})

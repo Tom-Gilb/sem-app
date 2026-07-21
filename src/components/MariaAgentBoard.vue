@@ -28,7 +28,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
+import ScrollContainer from './ScrollContainer.vue'
 import EmailGlyph from './icons/EmailGlyph.vue'
+import PlanIdentityBand from './PlanIdentityBand.vue'  // r41 v92 (Tom Gilb 2026-06-16 "go phase 2")
 import { useMaria, cancelCurrentMaria, mariaStreamedText } from '../composables/useMaria'
 import { openEml }             from '../composables/useEmlExport'
 import { buildMariaEmailHtml } from '../lib/maria/email'
@@ -38,9 +40,22 @@ import { lastMariaResult, pushMariaResult, mariaPendingDocument } from '../lib/m
 import { useBoardMembers }     from '../composables/useBoardMembers'
 import type { MemberMatch }    from '../lib/maria/boardMatcher'
 
+const props = defineProps<{
+  /** r41 v92 — identity band fields (Phase 2 sweep). */
+  planName?: string
+  planOwner?: string
+  planVersion?: string
+  generatedAt?: string
+}>()
+
 const emit = defineEmits<{
   close: []
+  /** r41 v92 — bubble history selection. */
+  'select-history': [versionId: string]
 }>()
+
+// Quiet the `props` unused-vars lint when this file is processed alone.
+void props
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -831,8 +846,18 @@ function sendEmailReport(): void {
           />
         </div>
 
+        <!-- Plan identity band (r41 v92 — Phase 2 sweep) — emerald-toned for Maria. -->
+        <PlanIdentityBand
+          :plan-name="props.planName"
+          :plan-owner="props.planOwner"
+          :plan-version="props.planVersion"
+          :generated-at="props.generatedAt"
+          :theme="{ bg: 'bg-emerald-800', borderTop: 'border-emerald-500', label: 'text-emerald-100', pickerBorder: 'border-emerald-300' }"
+          @select-history="(id: string) => emit('select-history', id)"
+        />
+
         <!-- Body -->
-        <div class="flex-1 min-h-0 overflow-y-auto p-5">
+        <ScrollContainer outer-class="flex-1 min-h-0" inner-class="p-5">
 
           <!-- ─── Loading phase ──────────────────────────────────────────── -->
           <div v-if="loading && !result" class="py-4">
@@ -941,6 +966,7 @@ function sendEmailReport(): void {
               <!-- Photo or styled fallback — contain (no cropping) with emerald-50 bg for letterboxing -->
               <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-50 flex items-center justify-center" style="height:260px;">
                 <!-- Real photo (hidden if URL empty or failed to load) -->
+                <!-- audit-ignore: scroll — max-h-full on <img> is a layout constraint (contain-mode letterbox), not a scroll region; the parent has overflow-hidden -->
                 <img
                   v-if="MONTESSORI_PHOTOS[activeFactIdx].url && !failedPhotos.has(activeFactIdx)"
                   :key="activeFactIdx"
@@ -1101,6 +1127,7 @@ function sendEmailReport(): void {
                 <span class="text-[10px] text-slate-400 tabular-nums font-medium">{{ activeFactIdx + 1 }} / {{ MONTESSORI_PHOTOS.length }}</span>
               </div>
               <div class="relative mx-3 rounded-xl overflow-hidden bg-emerald-50 flex items-center justify-center" style="height:200px;">
+                <!-- audit-ignore: scroll — max-h-full on <img> is a layout constraint (contain-mode letterbox), not a scroll region; the parent has overflow-hidden -->
                 <img
                   v-if="MONTESSORI_PHOTOS[activeFactIdx].url && !failedPhotos.has(activeFactIdx)"
                   :key="activeFactIdx"
@@ -1509,7 +1536,7 @@ function sendEmailReport(): void {
             </div>
 
           </div>
-        </div>
+        </ScrollContainer>
 
       </div>
     </div>

@@ -74,7 +74,7 @@ interface MiniLane {
   key:    string
   /** SDR pivot tab — null = not pivotable within SDR. */
   tab:    'functions' | 'values' | 'solutions' | null
-  /** Cross-stage nav action — null = truly inert (hover tooltip only). */
+  /** Cross-stage nav action — null = truly inert (hover HoverHint only). */
   action: 'go-evo' | 'go-tasks' | null
   label:  string
   c:      SpecTypeColourSet
@@ -283,6 +283,7 @@ function onDotClick(id: string, lane: MiniLane): void {
     <!-- ── Back to Value Flow — full-width CTA bar (Tom 2026-05-17: "Large enough and
          placed well enough to not be missed. Clarity in Icons. Clarity in Text.") ──
          Picture + Text: VFD sparkline (recognisable diagram thumbnail) + clear label. -->
+    <!-- audit-ignore: close — this is a navigation CTA ("Back to Value Flow Diagram"), not a close affordance; emit('close') is the mechanism but the semantic is navigation, not dismiss -->
     <button
       type="button"
       class="sdr-mm-back"

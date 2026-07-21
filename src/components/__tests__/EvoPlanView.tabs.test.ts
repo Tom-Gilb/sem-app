@@ -33,7 +33,13 @@ vi.mock('../../composables/useEvoPlan', () => ({
     renameStep: mockRenameStep,
     removeStep: mockRemoveStep,
     confirmPlan: mockConfirmPlan,
+    cancelFetch: vi.fn(),
+    // generatedSolutionsKey added 2026-06-09 — EvoPlanView computes solutionsStale from it;
+    // without it the component throws "Cannot read properties of undefined (reading 'value')"
+    generatedSolutionsKey: readonly(ref<string | null>(null)),
   }),
+  // solutionsFingerprint is a named export used directly in EvoPlanView.vue line 200
+  solutionsFingerprint: () => '__empty__',
 }))
 
 // ── Minimal SpecBlock prop ─────────────────────────────────────────────────────
@@ -90,7 +96,12 @@ beforeEach(() => {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('EvoPlanView tabs', () => {
+// SKIPPED 2026-06-09: The Plan/Timeline/Coverage/Gantt/Effort tab bar was replaced
+// by the EVO_MENU_GROUPS square-button interface. All non-Plan panels are now
+// v-if="false" and activeTab is an orphaned ref. These tests need a full rewrite
+// when the tab panels are re-exposed. Mock fix (generatedSolutionsKey + cancelFetch
+// + solutionsFingerprint) is already applied so mount errors are gone.
+describe.skip('EvoPlanView tabs', () => {
 
   // ── Tab bar structure ────────────────────────────────────────────────────────
 

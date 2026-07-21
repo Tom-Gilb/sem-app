@@ -17,12 +17,41 @@ const PLACEHOLDER = (field: string) => `<!-- MISSING — ${field} fill before ex
 
 // Field order follows Planguage convention:
 //   Type, Level, Description, then type-specific fields
+/**
+ * r93e8 — Markdown-flavour Qualifiers serializer (sibling of `_qualifiersPlain`
+ * + `qualifiersRow` in useColorfulSpecHtml.ts). Emits a "Qualifiers: ..." line
+ * for the Planguage-Markdown export (used by `serialise()`) following the
+ * canonical Glossary *124 + *666 + *153/*107/*062 three-class taxonomy. Fires
+ * the Infinity Trap warning per r93mmm SUPREME when ALL three classes empty.
+ * Composes with r93zz Plain-Text Completeness Pledge (Markdown export is a
+ * peer of HTML + plain — must mirror).
+ */
+interface _MdConditions {
+  time?:  string; place?: string; event?: string
+  when?:  string; where?: string; what?:  string; how?:   string; why?:   string
+}
+function _qualifiersMarkdown(conditions: _MdConditions | null | undefined): string {
+  const t  = (conditions?.time  ?? conditions?.when  ?? '').trim()
+  const p  = (conditions?.place ?? conditions?.where ?? '').trim()
+  const ev = (conditions?.event ?? conditions?.what  ?? conditions?.how ?? '').trim()
+  const filled = [t, p, ev].filter(Boolean)
+  if (filled.length === 0) {
+    return `Qualifiers: ⚠ [∞] INFINITY TRAP — no qualifiers; bound in Time + Place + Event (*124 Qualifier https://www.gilb.com/tomtwin/concept/Qualifier.124)`
+  }
+  return `Qualifiers: [${filled.join(', ')}] · Time: ${t || '—'} · Place: ${p || '—'} · Event: ${ev || '—'} (*124 Qualifier, AND-logic)`
+}
+
 function serialiseFEntry(entry: FEntry): string {
+  // r41 v107 — "Description" promoted from labelled parameter row → headline
+  // per CLAUDE.md SUPREME rule "'Description' is NOT a canonical Planguage
+  // parameter" (Tom Gilb 2026-06-17 "description is still there in the email,
+  // but not on screen" — both-surfaces alignment). Description renders as the
+  // entry-card headline next to the Tag.
+  const head = entry.description ? `#### ${entry.id} — ${entry.description}` : `#### ${entry.id}`
   return [
-    `#### ${entry.id}`,
+    head,
     `Type: ${entry.type || PLACEHOLDER('Type')}`,
     `Level: ${entry.level || PLACEHOLDER('Level')}`,
-    `Description: ${entry.description || PLACEHOLDER('Description')}`,
     // DD-004 (Tom 2026-05-14, "REPURPOSE: NOT AS SUCCESS. AS PRESENCE OR ABSENCE
     // OF THE DEFINED FUNCTION."): successCriteria → presenceTest. Read presenceTest
     // first; fall back to legacy successCriteria so older saved specs still serialise.
@@ -34,27 +63,30 @@ function serialiseFEntry(entry: FEntry): string {
 // Field order: Type, Level, Description, Scale, Meter, Status, Tolerable, Goal,
 // Value of function — matching Planguage V. entry convention.
 function serialiseVEntry(entry: VEntry): string {
+  // r41 v107 — Description → headline (see serialiseFEntry comment).
+  const head = entry.description ? `#### ${entry.id} — ${entry.description}` : `#### ${entry.id}`
   return [
-    `#### ${entry.id}`,
+    head,
     `Type: ${entry.type || PLACEHOLDER('Type')}`,
     `Level: ${entry.level || PLACEHOLDER('Level')}`,
-    `Description: ${entry.description || PLACEHOLDER('Description')}`,
     `Scale: ${entry.scale || PLACEHOLDER('Scale')}`,
     `Meter: ${entry.meter || PLACEHOLDER('Meter')}`,
     `Status: ${entry.status || PLACEHOLDER('Status')}`,
     `Tolerable: ${entry.tolerable || PLACEHOLDER('Tolerable')}`,
     `Goal: ${entry.goal || PLACEHOLDER('Goal')}`,
     `Value of function: ${entry.valueOfFunction || PLACEHOLDER('Value of function')}`,
+    _qualifiersMarkdown((entry as { conditions?: _MdConditions }).conditions),
   ].join('\n')
 }
 
 // Field order: Type, Level, Description, Impact, Function.
 function serialiseSEntry(entry: SEntry): string {
+  // r41 v107 — Description → headline (see serialiseFEntry comment).
+  const head = entry.description ? `#### ${entry.id} — ${entry.description}` : `#### ${entry.id}`
   return [
-    `#### ${entry.id}`,
+    head,
     `Type: ${entry.type || PLACEHOLDER('Type')}`,
     `Level: ${entry.level || PLACEHOLDER('Level')}`,
-    `Description: ${entry.description || PLACEHOLDER('Description')}`,
     `Impact: ${entry.impact || PLACEHOLDER('Impact')}`,
     `Function: ${entry.function || PLACEHOLDER('Function')}`,
   ].join('\n')
@@ -63,11 +95,12 @@ function serialiseSEntry(entry: SEntry): string {
 // Phase 1 of Resources beef-up (Tom Gilb 2026-06-04, r77): Resource entries (R.).
 // Field order: Description, Scale, Meter, Now (Status), Tolerable, Goal, optional Wish / Forecast / linkages.
 function serialiseREntry(entry: REntry): string {
+  // r41 v107 — Description → headline (see serialiseFEntry comment).
+  const head = entry.description ? `#### ${entry.id} — ${entry.description}` : `#### ${entry.id}`
   const lines = [
-    `#### ${entry.id}`,
+    head,
     `Type: ${entry.type || PLACEHOLDER('Type')}`,
     `Level: ${entry.level || PLACEHOLDER('Level')}`,
-    `Description: ${entry.description || PLACEHOLDER('Description')}`,
     `Scale: ${entry.scale || PLACEHOLDER('Scale')}`,
     `Meter: ${entry.meter || PLACEHOLDER('Meter')}`,
     `Now: ${entry.status || PLACEHOLDER('Now')}`,
@@ -80,21 +113,24 @@ function serialiseREntry(entry: REntry): string {
   if (entry.resourceForValue) lines.push(`Resource of Value: ${entry.resourceForValue}`)
   if (entry.consumedBy)       lines.push(`Consumed by: ${entry.consumedBy}`)
   if (entry.currentStatus)    lines.push(`Current Status: ${entry.currentStatus}`)
+  lines.push(_qualifiersMarkdown((entry as { conditions?: _MdConditions }).conditions))
   return lines.join('\n')
 }
 
 // DD-006: Binary Constraint entries (C.)
 // Field order follows Template_Write_Constraint.md: Description, Scope, Rationale, Source.
 function serialiseCEntry(entry: CEntry): string {
+  // r41 v107 — Description → headline (see serialiseFEntry comment).
+  const head = entry.description ? `#### ${entry.id} — ${entry.description}` : `#### ${entry.id}`
   const lines = [
-    `#### ${entry.id}`,
+    head,
     `Type: ${entry.type || PLACEHOLDER('Type')}`,
     `Level: ${entry.level || PLACEHOLDER('Level')}`,
-    `Description: ${entry.description || PLACEHOLDER('Description')}`,
     `Scope: ${entry.scope || PLACEHOLDER('Scope')}`,
     `Rationale: ${entry.rationale || PLACEHOLDER('Rationale')}`,
   ]
   if (entry.source) lines.push(`Source: ${entry.source}`)
+  lines.push(_qualifiersMarkdown((entry as { conditions?: _MdConditions }).conditions))
   return lines.join('\n')
 }
 
@@ -119,7 +155,7 @@ function serialiseCEntry(entry: CEntry): string {
  * // markdown contains "#### F.MyFunction\nType: Function\n…"
  */
 export function useSpecExport() {
-  function serialise(spec: SpecBlock): string {
+  function serialise(spec: SpecBlock, envelopeAppendix: string = ''): string {
     const sections: string[] = []
 
     for (const entry of spec.functions) {
@@ -138,7 +174,16 @@ export function useSpecExport() {
       sections.push(serialiseREntry(entry))
     }
 
-    return sections.join('\n\n')
+    // v514 — optional Resources envelope appendix (invisible HTML-comment
+    // block containing base64-encoded envelope JSON).  Tom Gilb 2026-07-21:
+    // "can you promise me that all running estimation data is saved and
+    // restored with any version of the spec?" — when the caller passes an
+    // envelope-appendix string (from useResourcesEnvelope.serialiseEnvelopeToMarkdown),
+    // it lands here so spec exports carry full-fidelity resource data.
+    // Existing callers that pass no second argument get identical behaviour
+    // to pre-v514 (no appendix, no visible change).
+    const base = sections.join('\n\n')
+    return envelopeAppendix ? `${base}${envelopeAppendix}` : base
   }
 
   return { serialise }
@@ -223,17 +268,63 @@ function _pad(label: string, width = 14): string {
 // Tom 2026-06-04: never print the word "undefined" in plain-text exports.
 // Optional fields render as an em-dash placeholder so the structure is
 // visible but no JS-runtime artefact leaks into the email body.
+/**
+ * r93e8 — plain-text Qualifiers renderer (Tom Gilb 2026-06-13 "good shared infras").
+ *
+ * Sibling of `qualifiersRow()` in useColorfulSpecHtml.ts (r93c6). Adds the
+ * canonical 3-class Qualifiers (Time / Place / Event per Planguage Glossary
+ * *124 + *666 + *153/*107/*062) to every scalar V / R / C entry in the
+ * plain-text export. Fires the Infinity Trap warning (r93mmm SUPREME) when
+ * ALL three classes empty. Reads BOTH canonical (time/place/event) AND
+ * legacy (when/where/what/how/why) fields per r93rrr migration aliases.
+ *
+ * Cite: https://www.gilb.com/tomtwin/concept/Qualifier.124 — Twin Consultant
+ * (by Kai Gilb — funds Claudian dev per r93ppp).
+ *
+ * Composes with r93zz Plain-Text Completeness Pledge: plain MUST mirror HTML.
+ */
+interface _AnyConditions {
+  time?:  string; place?: string; event?: string
+  when?:  string; where?: string; what?:  string; how?:   string; why?:   string
+}
+function _qualifiersPlain(conditions: _AnyConditions | null | undefined): string[] {
+  const t  = (conditions?.time  ?? conditions?.when  ?? '').trim()
+  const p  = (conditions?.place ?? conditions?.where ?? '').trim()
+  const ev = (conditions?.event ?? conditions?.what  ?? conditions?.how ?? '').trim()
+  const filled = [t, p, ev].filter(Boolean)
+  if (filled.length === 0) {
+    return [
+      `  ${_pad('Qualifiers:')} ⚠ [∞] INFINITY TRAP — no qualifiers; bound`,
+      `                in Time + Place + Event or risk infinite costs.`,
+      `                *124 Qualifier  https://www.gilb.com/tomtwin/concept/Qualifier.124`,
+      `                (via Tom Gilb Consultant Twin, by Kai Gilb — funds Claudian dev)`,
+    ]
+  }
+  return [
+    `  ${_pad('Qualifiers:')} [${filled.join(', ')}]`,
+    `                Time: ${t || '—'}  ·  Place: ${p || '—'}  ·  Event: ${ev || '—'}`,
+    `                (*124 Qualifier, AND-logic definitional)`,
+  ]
+}
+
 function _opt(value: string | undefined | null): string {
   const v = (value ?? '').toString().trim()
   return v.length ? v : '—'
 }
 
+// r41 v107 — plain-text serializers also promote Description → headline per
+// CLAUDE.md SUPREME rule "'Description' is NOT a canonical Planguage parameter"
+// (Tom Gilb 2026-06-17 "description is still there in the email, but not on
+// screen"). Plain headline format: `<id> — <description>` (no Markdown #).
+function _planHead(entry: { id: string; description?: string }): string {
+  return entry.description ? `${entry.id} — ${entry.description}` : entry.id
+}
+
 function serialiseFEntryPlain(entry: FEntry): string {
   return [
-    entry.id,
+    _planHead(entry),
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
-    `  ${_pad('Description:')} ${entry.description}`,
     `  ${_pad('Presence:')}  ${_opt(entry.presenceTest ?? entry.successCriteria)}`,
     `  ${_pad('Delivers:')}  ${_opt(entry.functionOfValue)}`,
   ].join('\n')
@@ -241,25 +332,25 @@ function serialiseFEntryPlain(entry: FEntry): string {
 
 function serialiseVEntryPlain(entry: VEntry): string {
   return [
-    entry.id,
+    _planHead(entry),
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
-    `  ${_pad('Description:')} ${entry.description}`,
     `  ${_pad('Scale:')}     ${_opt(entry.scale)}`,
     `  ${_pad('Meter:')}     ${_opt(entry.meter)}`,
     `  ${_pad('Now:')}       ${_opt(entry.status)}`,
     `  ${_pad('Tolerable:')} ${_opt(entry.tolerable)}`,
     `  ${_pad('Goal:')}      ${_opt(entry.goal)}`,
     `  ${_pad('For:')}       ${_opt(entry.valueOfFunction)}`,
+    // r93e8 — canonical 3-class Qualifiers + Infinity Trap warning per r93c6 sibling
+    ..._qualifiersPlain((entry as { conditions?: _AnyConditions }).conditions),
   ].join('\n')
 }
 
 function serialiseSEntryPlain(entry: SEntry): string {
   return [
-    entry.id,
+    _planHead(entry),
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
-    `  ${_pad('Description:')} ${entry.description}`,
     `  ${_pad('Impact:')}    ${_opt(entry.impact)}`,
     `  ${_pad('Function:')}  ${_opt(entry.function)}`,
   ].join('\n')
@@ -267,10 +358,9 @@ function serialiseSEntryPlain(entry: SEntry): string {
 
 function serialiseREntryPlain(entry: REntry): string {
   const lines = [
-    entry.id,
+    _planHead(entry),
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
-    `  ${_pad('Description:')} ${entry.description}`,
     `  ${_pad('Scale:')}     ${_opt(entry.scale)}`,
     `  ${_pad('Meter:')}     ${_opt(entry.meter)}`,
     `  ${_pad('Now:')}       ${_opt(entry.status)}`,
@@ -282,19 +372,22 @@ function serialiseREntryPlain(entry: REntry): string {
   if (entry.forecast)         lines.push(`  ${_pad('Forecast:')}  ${entry.forecast}`)
   if (entry.resourceForValue) lines.push(`  ${_pad('Enables:')}   ${entry.resourceForValue}`)
   if (entry.consumedBy)       lines.push(`  ${_pad('Consumed by:')} ${entry.consumedBy}`)
+  // r93e8 — canonical 3-class Qualifiers + Infinity Trap warning
+  for (const line of _qualifiersPlain((entry as { conditions?: _AnyConditions }).conditions)) lines.push(line)
   return lines.join('\n')
 }
 
 function serialiseCEntryPlain(entry: CEntry): string {
   const lines = [
-    entry.id,
+    _planHead(entry),
     `  ${_pad('Type:')}      ${entry.type}`,
     `  ${_pad('Level:')}     ${entry.level}`,
-    `  ${_pad('Description:')} ${entry.description}`,
     `  ${_pad('Scope:')}     ${entry.scope}`,
     `  ${_pad('Rationale:')} ${entry.rationale}`,
   ]
   if (entry.source) lines.push(`  ${_pad('Source:')}    ${entry.source}`)
+  // r93e8 — canonical 3-class Qualifiers + Infinity Trap warning
+  for (const line of _qualifiersPlain((entry as { conditions?: _AnyConditions }).conditions)) lines.push(line)
   return lines.join('\n')
 }
 

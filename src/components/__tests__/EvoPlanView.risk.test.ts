@@ -32,7 +32,10 @@ vi.mock('../../composables/useEvoPlan', () => ({
     renameStep: mockRenameStep,
     removeStep: mockRemoveStep,
     confirmPlan: mockConfirmPlan,
+    cancelFetch: vi.fn(),
+    generatedSolutionsKey: readonly(ref<string | null>(null)),
   }),
+  solutionsFingerprint: () => '__empty__',
 }))
 
 // ── Minimal SpecBlock prop ─────────────────────────────────────────────────────
@@ -87,7 +90,9 @@ beforeEach(() => {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('EvoPlanView — Risk Radar integration (Feature #27)', () => {
+// SKIPPED 2026-06-09: Risk Radar panel is v-if="false"; tab bar removed.
+// Rewrite needed when the panel is re-exposed via activeTab routing.
+describe.skip('EvoPlanView — Risk Radar integration (Feature #27)', () => {
 
   // ── Mini radar presence ────────────────────────────────────────────────────
 

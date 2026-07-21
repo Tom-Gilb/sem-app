@@ -90,8 +90,8 @@ export function useOkrCrosswalk(spec: Ref<SpecBlock | null>) {
       for (const v of unmatched) {
         if (
           hasKeywordOverlap(f.description, v.description) ||
-          f.functionOfValue.includes(v.id) ||
-          v.valueOfFunction.includes(f.id)
+          (f.functionOfValue ?? '').includes(v.id) ||
+          (v.valueOfFunction ?? '').includes(f.id)
         ) {
           matched.push(v)
         } else {

@@ -21,13 +21,28 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import PlanIdentityBand from './PlanIdentityBand.vue'  // r41 v96 (Tom Gilb 2026-06-16 "do that" — Phase 3 sweep)
 import {
   useSpecImporter,
 } from '../composables/useSpecImporter'
 import type { PlanguagizedEntry, PlanProblem, PlanVersion } from '../composables/useSpecImporter'
 import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
 
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{
+  /** r41 v96 — identity band fields (Phase 3 sweep). */
+  planName?: string
+  planOwner?: string
+  planVersion?: string
+  generatedAt?: string
+}>()
+
+const emit = defineEmits<{
+  close: []
+  /** r41 v96 — bubble history selection. */
+  'select-history': [versionId: string]
+}>()
+
+void props
 
 // ── Composable ────────────────────────────────────────────────────────────────
 
@@ -257,13 +272,13 @@ const PLAN_IMPORTER_WISDOM = [
   {
     emoji: '🔢',
     title: 'Values Must Be Measurable',
-    text: 'A Value entry (V.) is only complete when it has a Scale (unit of measurement), a Meter (how you measure it), a Goal (the target), and a Tolerable (the minimum acceptable). Without these, a value is a wish — not a specification.',
+    text: 'A Value entry is only complete when it has a Scale (unit of measurement), a Meter (how you measure it), a Goal (the target), and a Tolerable (the minimum acceptable). Without these, a value is a wish — not a specification.',
     ref: 'Template_Write_Values.md — Gilb Planguage Standard',
   },
   {
     emoji: '⚖️',
     title: 'Functions Are Binary',
-    text: 'A Function (F.) is WHAT the system DOES — present or absent. Quality, speed, and cost attach as Values, not inside the function. "A fast search function" becomes F. (Search) + V. (Search response time, Goal ≤0.5s).',
+    text: 'A Function is WHAT the system DOES — present or absent. Quality, speed, and cost attach as Values, not inside the function. "A fast search function" becomes a Function (Search) plus a Value (Search response time, Goal ≤0.5s).',
     ref: 'DD-004 — SEM Design Decisions, design-decisions.md',
   },
   {
@@ -275,13 +290,13 @@ const PLAN_IMPORTER_WISDOM = [
   {
     emoji: '👥',
     title: 'Stakeholders Include the Inanimate',
-    text: 'Data has needs (privacy, integrity). Laws have requirements (compliance). Regulations have enforcement mechanisms. In Planguage, any entity whose needs must be respected is a Stakeholder (S.) — not just people and organisations.',
+    text: 'Data has needs (privacy, integrity). Laws have requirements (compliance). Regulations have enforcement mechanisms. In Planguage, any entity whose needs must be respected is a Stakeholder — not just people and organisations.',
     ref: 'Tom Gilb, 2026-05-15 — "all data is a stakeholder, it has needs like GDPR"',
   },
   {
     emoji: '💰',
     title: 'Resources Are Budgets, Not Estimates',
-    text: 'A Resource entry (R.) defines an allocated budget: time, money, people, compute, or any scarce input. Budgets constrain the solution space. Running out of a resource mid-project is a constraint violation, not a surprise.',
+    text: 'A Resource entry defines an allocated budget: time, money, people, compute, or any scarce input. Budgets constrain the solution space. Running out of a resource mid-project is a constraint violation, not a surprise.',
     ref: 'Template_Write_Resource.md — Gilb Planguage Standard',
   },
   {
@@ -318,7 +333,7 @@ function _startPlanImportLoadingAnim(): void {
   }, 250)
   _piWisdomTimer = setInterval(() => {
     piActiveWisdomIdx.value = (piActiveWisdomIdx.value + 1) % PLAN_IMPORTER_WISDOM.length
-  }, 8_000)
+  }, 10_000)  // Tom 2026-06-09: 10s card advance
 }
 
 function _stopPlanImportLoadingAnim(): void {
@@ -412,6 +427,16 @@ const {
           @click="emit('close')"
         />
       </div>
+
+      <!-- Plan identity band (r41 v96 — Phase 3 sweep) — orange-toned for Spec Agent. -->
+      <PlanIdentityBand
+        :plan-name="props.planName"
+        :plan-owner="props.planOwner"
+        :plan-version="props.planVersion"
+        :generated-at="props.generatedAt"
+        :theme="{ bg: 'bg-orange-700', borderTop: 'border-orange-500', label: 'text-orange-100', pickerBorder: 'border-orange-300' }"
+        @select-history="(id: string) => emit('select-history', id)"
+      />
 
       <!-- IMPORT FORM (shown when triggered) -->
       <div

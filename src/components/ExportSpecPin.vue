@@ -37,14 +37,38 @@ import EmailGlyph   from './icons/EmailGlyph.vue'
 import MessageGlyph from './icons/MessageGlyph.vue'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
+// r41 v382 (Tom Gilb 2026-06-25 "we need only one well designed export button
+// and function and icon and this is not it") — ExportSpecPin is now THE canonical
+// Export button for every SEM App window.  Stage Info + Arrow Info panels use it
+// too.  Added optional label / subtitle / artefactKind props so the affordance can
+// honestly describe what it's exporting WITHOUT changing the icon or flow.
 const props = withDefaults(defineProps<{
-  /** Whether a Spec is currently loaded (gates the button). */
+  /** Whether the artefact is available (gates the button). */
   hasSpec?: boolean
-  /** Displayed spec name — shown in "Copied: X" feedback line. */
+  /** Display name of the artefact — shown in "Copied: X" feedback line. */
   specName?: string
+  /**
+   * Primary button label — defaults to "Export Your Full Spec" for the
+   * full-Plan case.  Override for context-specific exports (e.g.
+   * "Export Stage Info" inside StageInfoPanel).
+   */
+  label?: string
+  /**
+   * Small italic subtitle under the label — defaults to
+   * "auto-copies · choose channel".
+   */
+  subtitle?: string
+  /**
+   * Word used in the "X is in your clipboard" closing message — defaults
+   * to "Spec".  Override for context (e.g. "Stage Info").
+   */
+  artefactKind?: string
 }>(), {
   hasSpec:  false,
   specName: 'Spec',
+  label: 'Export Your Full Spec',
+  subtitle: 'auto-copies · choose channel',
+  artefactKind: 'Spec',
 })
 
 const emit = defineEmits<{
@@ -124,15 +148,17 @@ function dismiss() {
       :class="hasSpec
         ? 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700 hover:border-slate-600 hover:shadow-md focus:ring-slate-500'
         : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'"
-      aria-label="Export this Spec — click to auto-copy and choose a send channel"
-      title="EXPORT SPEC — click to auto-copy to clipboard and choose Email · Download · Message · Chat.&#10;Auto-copies immediately on click. Channel menu stays open 20 seconds."
+      aria-label="Export your full Spec — click to auto-copy and choose a send channel"
+      title="EXPORT YOUR FULL SPEC — click to auto-copy to clipboard and choose Email · Download · Message · Chat.&#10;Auto-copies immediately on click. Channel menu stays open 20 seconds."
       @click="openPin"
     >
+      <!-- r41 v17 (Tom Gilb 2026-06-14 "ambiguous, change to 'Export Your Full
+           Spec'") — label disambiguated from per-entry Spec to the whole plan. -->
       <!-- Glyph: GetGlyph [*]→* encodes 'pull content out to destination' -->
       <GetGlyph size="compact" class="flex-shrink-0" :class="hasSpec ? 'text-white' : 'text-slate-400'" />
       <span class="flex flex-col items-start leading-tight">
-        <span>Export Spec</span>
-        <span class="text-[10px] font-normal opacity-70">auto-copies · choose channel</span>
+        <span>{{ label }}</span>
+        <span class="text-[10px] font-normal opacity-70">{{ subtitle }}</span>
       </span>
     </button>
   </div>
@@ -274,6 +300,6 @@ function dismiss() {
       <circle cx="8" cy="8" r="7" />
       <polyline points="4.5,8 7,10.5 11.5,5.5" />
     </svg>
-    <span>Spec is in your clipboard</span>
+    <span>{{ artefactKind }} is in your clipboard</span>
   </div>
 </template>

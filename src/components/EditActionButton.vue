@@ -19,7 +19,7 @@ import EditGlyph from './icons/EditGlyph.vue'
 withDefaults(defineProps<{
   /** Right-half label. "Edit Plan" / "Edit Spec" / etc. */
   label: string
-  /** Tooltip on the action half (right). */
+  /** HoverHint on the action half (right). */
   actionTitle?: string
   /** aria-label on the action half (right). */
   actionAriaLabel?: string

@@ -24,6 +24,8 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import { useAmuseLifecycle } from '../composables/useAmuseLifecycle'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import PlanIdentityBand from './PlanIdentityBand.vue'  // r41 v92 (Tom Gilb 2026-06-16 "go phase 2")
+import { useSpecHistory } from '../composables/useSpecHistory'
 import {
   exportArtefact,
   htmlEsc,
@@ -44,7 +46,24 @@ const emit = defineEmits<{
   'open-agents': []
   /** Request the parent to open the full plan history browser (ModelHistory). */
   'open-history': []
+  /** r41 v92 — bubble history selection (PlanIdentityBand picker). */
+  'select-history': [versionId: string]
 }>()
+
+// r41 v92 — identity band integration.  Pulls plan-name/owner/version/date
+// from the active planModel.value (the panel already has its own plan
+// picker; this complements it by showing the CURRENT plan's identity).
+const { history: _evoSpecHistory } = useSpecHistory()
+const _evoIdentity = computed(() => {
+  const m = planModel.value
+  if (!m) return { name: '', owner: '', version: '', generatedAt: '' }
+  return {
+    name:    m.name || '',
+    owner:   (m.ownerName ?? '') || '',
+    version: m.version ? `v${m.version}` : '',
+    generatedAt: (m as unknown as { generatedAt?: string }).generatedAt ?? '',
+  }
+})
 
 // ── Composables ───────────────────────────────────────────────────────────────
 
@@ -188,6 +207,33 @@ const elapsed           = ref(0)
 const simulatedProgress = ref(0)
 const activeWisdomIdx   = ref(0)
 
+// ── Running-commentary phases (Tom Gilb 2026-06-16 "all stages") ──────────────
+// Tom verbatim: *"I like the idea of the running commentary of what a stage is
+// doing when the progress bar is running. Can you look into doing it on all
+// stages?"* Each phase narrates what the AI is conceptually doing during the
+// EvoCritiquer critique pass through the 9-step Evo cycle (Tom's canonical
+// 2024 EVO book formulation, per memory/canonical_evo_cycle.md).
+interface EvoCritiquePhase { atSecond: number; message: string }
+const EVO_CRITIQUE_PHASES: EvoCritiquePhase[] = [
+  { atSecond: 0,  message: '📥 Reading the full plan — Stakeholders, Values, Solutions, Constraints, Evo steps.' },
+  { atSecond: 5,  message: '👥 Step 1 — Auditing Stakeholders: any missing animate or inanimate parties?' },
+  { atSecond: 11, message: '🎯 Step 2 — Auditing Values: every Scale / Tolerable / Goal / Wish, every Qualifier.' },
+  { atSecond: 18, message: '⚙ Step 3 — Auditing Solutions: do they actually impact the named Values?' },
+  { atSecond: 25, message: '🧩 Step 4–5 — Auditing Decompose + Prioritize: smallest delivery first; juicy-first ordering.' },
+  { atSecond: 33, message: '🚀 Step 6–7 — Auditing Develop + Deliver: are Evo steps small enough to ship in 1–2 weeks?' },
+  { atSecond: 41, message: '📏 Step 8–9 — Auditing Measure + Learn: do you have a Meter ready at delivery + Learn-loop?' },
+  { atSecond: 50, message: '✍ Drafting the critique findings + Gilb-cited recommendations.' },
+  { atSecond: 65, message: '⏱ Still working — complex plans take longer to critique thoroughly.' },
+]
+const currentEvoCritiqueNarrative = computed<string>(() => {
+  let pick = EVO_CRITIQUE_PHASES[0].message
+  for (const p of EVO_CRITIQUE_PHASES) {
+    if (p.atSecond <= elapsed.value) pick = p.message
+    else break
+  }
+  return pick
+})
+
 // Post-loading amuse lifecycle for Tab 1 wisdom carousel
 const {
   amuseActive:    evoAmuseActive,
@@ -216,7 +262,7 @@ function _startLoadingAnimation(): void {
 
   _wisdomTimer = setInterval(() => {
     activeWisdomIdx.value = (activeWisdomIdx.value + 1) % EVO_WISDOM.length
-  }, 8_000)
+  }, 10_000)  // Tom 2026-06-09: 10s card advance
 }
 
 function _stopLoadingAnimation(): void {
@@ -432,11 +478,14 @@ function _renderCritiquerPlainText(): string {
 }
 
 async function exportCritiquer(): Promise<void> {
+  // Mailto-No-Self-To SUPREME (Tom Gilb 2026-06-16): Tom is the SENDER when he
+  // clicks Export — recipient is someone else he chooses. To: must be EMPTY.
   await exportArtefact({
     htmlText:     _renderCritiquerHtml(),
     plainText:    _renderCritiquerPlainText(),
     subject:      `Evo Critiquer Report · ${new Date().toLocaleDateString('en-AU')}`,
     artefactName: 'Evo Critiquer',
+    to: '',
   })
 }
 </script>
@@ -528,6 +577,16 @@ async function exportCritiquer(): Promise<void> {
         />
       </div>
 
+      <!-- Plan identity band (r41 v92 — Phase 2 sweep) — indigo-toned for Evo Critiquer. -->
+      <PlanIdentityBand
+        :plan-name="_evoIdentity.name"
+        :plan-owner="_evoIdentity.owner"
+        :plan-version="_evoIdentity.version"
+        :generated-at="_evoIdentity.generatedAt"
+        :theme="{ bg: 'bg-indigo-700', borderTop: 'border-indigo-400', label: 'text-indigo-100', pickerBorder: 'border-indigo-300' }"
+        @select-history="(id: string) => emit('select-history', id)"
+      />
+
       <!-- TAB BAR -->
       <div class="flex shrink-0 border-b border-violet-100 bg-violet-50 select-none">
         <button
@@ -601,7 +660,7 @@ async function exportCritiquer(): Promise<void> {
                     class="text-[10px] font-semibold text-violet-600 hover:text-violet-800 underline-offset-2 hover:underline transition-colors"
                     title="Open full plan history browser — search, filter, and load any saved plan"
                     @click="emit('open-history')"
-                  >🗂️ Full History</button>
+                  >🗂️ Past Reports</button>
                 </div>
                 <!-- Search -->
                 <input
@@ -696,6 +755,17 @@ async function exportCritiquer(): Promise<void> {
                     :style="{ width: simulatedProgress + '%' }"
                   />
                 </div>
+              </div>
+              <!-- r41 v57 (Tom Gilb 2026-06-16 "running commentary … all stages") —
+                   Phase-narrative banner: sentence-length description of what the
+                   AI is conceptually doing right now, rotating with elapsed seconds.
+                   Mirrors the 9-step Evo cycle so the wait teaches the methodology. -->
+              <div
+                class="w-full max-w-xs rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[12px] text-violet-900 leading-snug text-left"
+                role="status"
+                aria-live="polite"
+              >
+                {{ currentEvoCritiqueNarrative }}
               </div>
             </template>
 

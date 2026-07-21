@@ -5,8 +5,12 @@
 //       S.Evo9.VDTTableComponent / S.Evo9.PrioritisedPlanExport
 // Auth views are shown before the SEM entry form when not authenticated.
 
-import { ref, computed, onMounted, onUnmounted, nextTick, watch, type ComponentPublicInstance } from 'vue'
+import { ref, customRef, computed, onMounted, onUnmounted, nextTick, watch, type ComponentPublicInstance } from 'vue'
 import SEMEntryForm from './components/SEMEntryForm.vue'
+// r41 v164 — Demos Menu catalog (Tom Gilb 2026-06-17 "MAKE THIS A GENERIC MENU").
+import DemosMenu from './components/DemosMenu.vue'
+// r41 v168 — Demo Player (renders Tolerable-tier clip + source citation).
+import DemoPlayer from './components/DemoPlayer.vue'
 import SpecOutput from './components/SpecOutput.vue'
 // Ultra Light Phase 3 — "Naked Plan" aperture + single Menu pin.
 // Tom 2026-05-14: *"white out everything except the input/output… one
@@ -50,6 +54,7 @@ import { PLANNING_STAGES } from './data/planningStages'
 // import PlanningStageBar from './components/PlanningStageBar.vue'
 import CollaborationCursors from './components/CollaborationCursors.vue'
 import FocusModeBackdrop from './components/FocusModeBackdrop.vue'
+import ToastHistoryBell from './components/ToastHistoryBell.vue'  // r41 v277 — 🔔 recall any toast that disappeared too fast
 import ComparisonMode from './components/ComparisonMode.vue'
 import SpecHistory from './components/SpecHistory.vue'
 import CloseDot from './components/CloseDot.vue'
@@ -76,6 +81,13 @@ import { useWorkspace } from './composables/useWorkspace'
 import { useLoadingState, _resetLoadingStateForTest as _forceClearLoading } from './composables/useLoadingState'
 import { useDemoMode } from './composables/useDemoMode'
 import { useSpecHistory, type SpecVersion } from './composables/useSpecHistory'
+// v514 — Resources envelope: captures the full state of the 4 resource
+// composables (useResourceEstimations + useIetResourceSnapshot +
+// usePlanScopeFramework + useResourcesAgent) so it travels with every
+// SpecVersion + spec export.  Tom Gilb 2026-07-21 "can you promise me that
+// all running estimation data is saved and restored with any version of the
+// spec?" — the answer is YES from v514 forward.
+import { useResourcesEnvelope, type ResourcesEnvelope } from './composables/useResourcesEnvelope'
 import { loadPlan as _loadEvoPlan, clearLoadedPlan as _clearEvoPlan, resetPlanForLoad as _resetPlanForLoad, useEvoPlan } from './composables/useEvoPlan'
 import { useReplay } from './composables/useReplay'
 import { useProjectDashboard } from './composables/useProjectDashboard'
@@ -123,6 +135,12 @@ import StandardsAuditorPanel from './components/StandardsAuditorPanel.vue'
 import PlanguageAnalyzerPanel from './components/PlanguageAnalyzerPanel.vue'
 import InternetContextPanel from './components/InternetContextPanel.vue'
 import StudyActDataCollection from './components/StudyActDataCollection.vue'
+// r41 v295 (Tom Gilb 2026-06-22 "always continue · research and innovation")
+// — Stage 9 Study-Act focused actuals-capture modal. Triage banner above the
+// existing sub-step strip auto-detects three states and routes the planner to
+// either Skip → Stage 10, Capture Actuals (opens this panel), or Compare to
+// Estimates.
+import Stage9ActualsPanel from './components/Stage9ActualsPanel.vue'
 // Planguage-family glyphs for the Plan Crest people chips — Tom 2026-06-04
 // approved set replacing the dated 🔑 / 💡 / ⌨ emojis (per DD-011 / DD-012).
 import OwnerGlyph from './components/icons/OwnerGlyph.vue'
@@ -134,15 +152,108 @@ import SpecHealthBadge from './components/SpecHealthBadge.vue'
 // r41 v116 — IdentityStrip (Group 3 identity) + StageToolsStrip (Group 2)
 // per Tom Gilb 2026-06-17 redesign mandate ("organize into clear groups").
 import IdentityStrip from './components/IdentityStrip.vue'
+// r41 v415 (Tom Gilb 2026-07-01 verbatim "Can you put a word or symbol telling
+// me exactly which agent we are using for running SEM, on the sem surface,
+// especially llama.  Is this something I can adjust in my settings?") —
+// persistent chip in the IdentityStrip #end slot spells out which AI
+// provider + model is answering SEM's API calls (Claude Sonnet vs. local
+// Ollama Llama).  Composes with MOVE Principle + Icon-Plus-Text + DD-009
+// Zero-Training UI + Model Selection SUPREME (2026-05-30 Haiku lesson).
+import ActiveModelChip from './components/ActiveModelChip.vue'
+// r41 v417 (Tom Gilb 2026-07-01 "please continue backlog" — audit-backlog
+// #2: Stage 1 task-centric workspace per Stage-Has-A-Purpose SUPREME).
+// This generic reusable component surfaces the TASK shape of each stage as
+// prominent action pins (Capture / Generate / Import / Sharpen / Edit for
+// Stage 1); items #5-9 (Stages 6/7/8/9/10) will inherit this component
+// with their own action registries in later rev.
+import StageTaskWorkspace from './components/StageTaskWorkspace.vue'
 import StageToolsStrip from './components/StageToolsStrip.vue'
 // r41 v123 — Level 3 · Agents as its own component (Tom Gilb 2026-06-17
 // "ship phase 2 — I want all 3 new groups asap").
 import AgentsStrip from './components/AgentsStrip.vue'
+// r41 v321 (Tom Gilb 2026-06-24) — SpecPulse: persistent 6-tile color-block banner
+// showing live counts of Stakeholders / Functions / Values / Solutions / Constraints
+// / Resources.  Mounts between AgentsStrip and main stage work.  Tom: "console the
+// planner that the Planguage Plan is building up and exists".
+import SpecPulse from './components/SpecPulse.vue'
+// r41 v335 (Tom Gilb 2026-06-24 "go diagnostics") — in-app console-error capture
+// surface for the PWA window where Safari Web Inspector is awkward to reach.
+import DiagnosticsPanel from './components/DiagnosticsPanel.vue'
+import { useDiagnostics } from './composables/useDiagnostics'
 // r41 v141 — Level 1 · Process Tools as its own component (Tom Gilb 2026-06-17
 // "keep working, real progress").  Achieves full Level-1/2/3 architectural
 // parity; removes ~200 LOC of inline cluster markup × 2 from App.vue.
 import ProcessToolsStrip from './components/ProcessToolsStrip.vue'
 import { useSpecHealth, type SpecHealthContext, type PlanHealthContext } from './composables/useSpecHealth'
+// r41 v200 (Tom Gilb 2026-06-19) — stage-readiness gates fire a toast when
+// the current stage's exit-postcondition is unmet at forward-advance time.
+// Replaces the historic "skip ahead and do not function" silent-bug class.
+import { checkStageExit, STAGE_GATES } from './composables/useStageGates'
+// r41 v202 (Tom Gilb 2026-06-19 verbatim "Stage 1:Steps: As you did well
+// at a later stage, lets divide into clear steps call them 1.1 Spec
+// Entry, 1.2 Spec Parsing, Step 1.3 Parse Implied Sharpening, 1.4
+// Planguage Generation, 1.5 Planguage Edit").  Stage 1 sub-step strip
+// surfaces the five sub-stages at the top of the Stage 1 view, so the
+// planner sees the explicit progression instead of one undifferentiated
+// "Stage 1" surface.
+import Stage1SubStepStrip from './components/Stage1SubStepStrip.vue'
+// r41 v243 (Tom Gilb 2026-06-21 — Stage 2 sub-phase architecture).
+import Stage2SubStepStrip from './components/Stage2SubStepStrip.vue'
+// r41 v251 (Tom Gilb 2026-06-21 — Stage 4 sub-phase architecture · Reasonable Balance).
+import Stage4SubStepStrip from './components/Stage4SubStepStrip.vue'
+// r41 v252 (Tom Gilb 2026-06-21 — Stage 4 Phase 2 ship: Estimates Approval + Tools/Agents).
+import EstimatesApprovalPanel, { type EstimatesApproval } from './components/EstimatesApprovalPanel.vue'
+// r41 v477 (Tom Gilb 2026-07-04 "continue backlog" — audit-backlog #3
+// Stage 4 Impacts Phase 2).  IET Settings Panel — local Stage-4 settings
+// drawer (Conservatism · Credibility Threshold · Auto-Assumption Strength).
+// Composes with rule_stage_4_impacts_design.md SUPREME.
+import IetSettingsPanel from './components/IetSettingsPanel.vue'
+// r41 v478 (Tom Gilb 2026-07-04 "continue backlog" — audit-backlog #4
+// Stage 5 Refine Phase 2).  Solution Set + Changes-List deliverable panel
+// (5.5.1 + 5.5.2).  Composes with rule_stage_5_refine_design.md SUPREME.
+import SolutionSetDeliverablePanel from './components/SolutionSetDeliverablePanel.vue'
+import Stage4ToolsAndAgentsTable, { type Stage4ToolKey } from './components/Stage4ToolsAndAgentsTable.vue'
+// r41 v253 (Tom Gilb 2026-06-21 — Stage 5 Refine sub-phase architecture).
+import Stage5SubStepStrip from './components/Stage5SubStepStrip.vue'
+// r41 v302 (Tom Gilb 2026-06-23 — Stage 6 sub-step surfaces 6.2 / 6.3 / 6.4).
+import Stage6PrioritisePanel from './components/Stage6PrioritisePanel.vue'
+import Stage6SharpenStepsPanel from './components/Stage6SharpenStepsPanel.vue'
+import Stage6ToolsAndAgentsPanel, { type Stage6ToolKey } from './components/Stage6ToolsAndAgentsPanel.vue'
+// r41 v254 (Tom Gilb 2026-06-21 mandate "plough through and do as much as possible") —
+// Stages 3 / 6 / 8 / 9 sub-step strips via the new generic strip component.
+import GenericStageSubStepStrip from './components/GenericStageSubStepStrip.vue'
+import { STAGE3_SUBSTEPS, type Stage3SubStepKey } from './data/stage3SubSteps'
+import { STAGE6_SUBSTEPS, type Stage6SubStepKey } from './data/stage6SubSteps'
+import { STAGE8_SUBSTEPS, type Stage8SubStepKey } from './data/stage8SubSteps'
+import { STAGE9_SUBSTEPS, type Stage9SubStepKey } from './data/stage9SubSteps'
+// r41 v246 (Tom Gilb 2026-06-21 — global Spec Title anchor when main crest is off-screen).
+import SpecTitleAnchor from './components/SpecTitleAnchor.vue'
+// Sub-step registry + key type lives in a plain .ts module because Vue 3
+// `<script setup>` does NOT allow top-level `export` declarations
+// (crashes Vite with "Importing a module script failed").  Same pattern
+// as `planningStages.ts` (2026-06-03).
+import type { Stage1SubStepKey } from './data/stage1SubSteps'
+import type { Stage2SubStepKey } from './data/stage2SubSteps'
+import type { Stage4SubStepKey } from './data/stage4SubSteps'
+import type { Stage5SubStepKey } from './data/stage5SubSteps'
+// 1.3 Parse Implied Sharpening — review + accept/reject inferred entries.
+import ParseImpliedSharpeningPanel from './components/ParseImpliedSharpeningPanel.vue'
+// r41 v206 — universal typing journal: every keystroke into any input or
+// textarea is captured to localStorage so accidental text loss can be
+// recovered from Safari DevTools.  Wired into onMounted below.
+import { installTypingJournal } from './composables/useTypingJournal'
+// r41 v208 — initial-input capture: stage from GetAPlanPanel, commit to
+// the spec-model id here in the import handler so the planner can always
+// recover / compare with what they originally pasted/fetched/uploaded.
+import { commitPendingInitialInput, getInitialInput, type InitialInputSnapshot } from './composables/useInitialInput'
+import InitialInputPanel from './components/InitialInputPanel.vue'
+// r41 v204 (Tom Gilb 2026-06-19 verbatim "am I being premature? I keep on
+// seeing v0.1 and nothing in the spec library at all for Indianapolis").
+// EmptySpecCallout sits at the top of every Stage 2-11 view when the spec
+// is null or has zero real entries — the planner gets a CLEAR diagnostic
+// + one-click jump back to 1.2 Spec Parsing instead of staring at an
+// inexplicably-empty downstream stage.
+import EmptySpecCallout from './components/EmptySpecCallout.vue'
 import CopyrightPanel from './components/CopyrightPanel.vue'
 import SaveGlyphHistoryPanel from './components/SaveGlyphHistoryPanel.vue'
 import SymbolFamilyPanel from './components/SymbolFamilyPanel.vue'
@@ -203,6 +314,7 @@ import ExportSpecPin from './components/ExportSpecPin.vue'
 import AnalyzeTypeIcon         from './components/icons/AnalyzeTypeIcon.vue'
 import { useTaskSuggestions } from './composables/useTaskSuggestions'
 import ResourcesSharpenPanel from './components/ResourcesSharpenPanel.vue'
+import ResourcesAgent from './components/ResourcesAgent.vue'   // v509 — ESTIMATION 8
 import ResourcesKissPanel from './components/ResourcesKissPanel.vue'
 import ResourceCostEngineeringPanel from './components/ResourceCostEngineeringPanel.vue'
 import SolutionSharpenPanel from './components/SolutionSharpenPanel.vue'
@@ -217,11 +329,55 @@ import type { IncorruptibleFinding } from './types/incorruptible'
 //   plan check + sharpening. Mirrors the Incorruptible pattern exactly. Pace-of-Innovation is
 //   the DOMINANT Requirement per Dove et al. (cited by Tom Gilb).
 import ElonPanel from './components/ElonPanel.vue'
+// r41 v225 (Tom Gilb 2026-06-20) — Munger Agent (Charlie Munger's 12 prompts of
+// analytical rigor — Inversion, Second-Order, Circle of Competence, Bias Audit,
+// Lollapalooza, Opportunity Cost, Fat Pitch, Incentive Map, Simplicity Filter,
+// Destroy-Your-Own-Idea, Long Game, Deathbed). Mirrors Elon/Incorruptible plumbing.
+import MungerPanel from './components/MungerPanel.vue'
+// r41 v254 (Tom Gilb 2026-06-22) — Heilmeier Agent (DARPA's 9-question Catechism +
+// IEEE 2025 "Who is left out?" extension; mapped to Planguage per Tom's comparison PDF)
+import HeilmeierPanel from './components/HeilmeierPanel.vue'
+// r41 v385 (Tom Gilb 2026-06-26) — Feynman Agent (Cargo Cult Science 1974 + Challenger
+// Appendix F 1986 + "What I cannot create, I do not understand" 1988 + Tom-dropped
+// 10 Feynman prompts PDF @aigleeson 2026-06-26).  Six lenses: cargo-cult ·
+// estimate-gap · cannot-create · jargon-curtain · unexamined-assumption ·
+// notebook-confession.  Mirrors Munger / Heilmeier panel pattern.
+import FeynmanPanel from './components/FeynmanPanel.vue'
+import type { FeynmanFinding } from './types/feynman'
+import { applyFeynmanFix as _applyFeynmanFixImpl } from './composables/useFeynmanFindings'
+// r41 v305 (Tom Gilb 2026-06-23) — Role Agent (MAJOR REDESIGN: 13 deterministic
+// detectors covering Stakeholder + Role compliance per Tom's 14-point directive).
+// Role IS Stakeholder (Tom #8/9) — fixes mutate StakeholderEntry records.
+import RoleAgentPanel from './components/RoleAgentPanel.vue'
+// r41 v312 (Tom Gilb 2026-06-23) — Phase 2 of Roles redesign: Role Health
+// Dashboard (per-Stakeholder Health Score + RACI Matrix + PHI roll-up).
+import RoleHealthDashboard from './components/RoleHealthDashboard.vue'
+import RoleFlowDiagram from './components/RoleFlowDiagram.vue'
+import RoleRoutingRulesPanel from './components/RoleRoutingRulesPanel.vue'
+import { applyRoutingRules as _applyRoleRoutingRulesImpl } from './composables/useRoleRoutingRules'
+// r41 v231 (Tom Gilb 2026-06-20 verbatim "I think we need only one agent,
+// not 2 as you have constructed, in th mene, but we can choose various
+// agent modes") — single-pin-per-agent + mode dispatcher.
+import AgentModePicker from './components/AgentModePicker.vue'
+import { normalizeSpecBlock as _normalizeSpecBlock } from './utils/normalizeSpec'
+type AgentModeKey = 'principles' | 'analysis' | 'improvement' | 'sharpening' | 'create-optional'
+import { applyMungerFix as _applyMungerFixImpl } from './composables/useMungerFindings'
+import type { MungerFinding } from './types/munger'
+import { applyHeilmeierFix as _applyHeilmeierFixImpl } from './composables/useHeilmeierFindings'
+import type { HeilmeierFinding } from './types/heilmeier'
+import { applyRoleFix as _applyRoleFixImpl } from './composables/useRoleFindings'
+import type { RoleFinding } from './types/role'
 import ElonSharpeningPanel from './components/ElonSharpeningPanel.vue'
 import { applyElonFix, generateElonReport } from './composables/useElonFindings'
 import type { ElonFinding } from './types/elon'
 // Universal Undo System (Tom Gilb SUPREME rule 2026-06-11 r93v).
 import { useUndoHistory, registerUndoSpecRestorer } from './composables/useUndoHistory'
+// r41 v352 — Stage 2.2 auto-generate-Solutions wiring.
+import { useGenerateSolutions } from './composables/useGenerateSolutions'
+import PlanguageProgressWindow from './components/PlanguageProgressWindow.vue'
+// r41 v373 — Stage 3.3 Add Qualifiers flow.
+import AddQualifiersFlow from './components/AddQualifiersFlow.vue'
+import type { ConditionSet } from './types/spec'
 import BookCoverChip from './components/BookCoverChip.vue'
 import ScrollContainer from './components/ScrollContainer.vue'
 import {
@@ -250,6 +406,10 @@ import {
   type PlanModel,
 } from './composables/useSpecModel'
 import { clearComparison } from './composables/useModelComparison'
+// r41 2026-06-20 — plan-scoped contract memory (Tom Gilb option B).
+import { useContractStore } from './composables/useContractStore'
+// 2026-07-14 bug fix — Contract → Spec bridge (see watcher below for context).
+import { contractEntriesToSpec } from './composables/useSpecFromContract'
 import SelectionDefiner from './components/SelectionDefiner.vue'
 // 2026-05-14 — Fresh Start menu replaces the bare 🆘 Reset pill with a
 // graduated 4-option popover (Blank Canvas / Save This and Stop / Cancel
@@ -258,7 +418,7 @@ import FreshStartMenu from './components/FreshStartMenu.vue'
 import InputSafetyNetToast from './components/InputSafetyNetToast.vue'
 import { formatBackupTimestamp } from './composables/useFreshStart'
 import { defineCurrentSelection, openDefineSearch, defineTerm, closeDefine, useDefine as _useDefineForPickerSuppress } from './composables/useDefine'
-import SpecWizard from './components/SpecWizard.vue'
+// r41 v365 — SpecWizard import REMOVED (component dead code in app shell).
 import SpecPresentation from './components/SpecPresentation.vue'
 import BullockPanel from './components/BullockPanel.vue'
 // AmuseMeButton is used inside SpecOutput.vue directly — not imported at App level
@@ -268,6 +428,7 @@ import type { SpecBlock, FieldSource, VEntry, FEntry, CEntry, REntry, SEntry } f
 import type { ModelLibraryEntry } from './composables/useModelLibrary'
 import { useModelLibrary } from './composables/useModelLibrary'
 import { rBudget, rBudgetLabel } from './types/spec'
+import { stampEntry } from './utils/sourceStamp'
 import GlobalSearch from './components/GlobalSearch.vue'
 import { useGlobalSearch, type SearchEntry } from './composables/useGlobalSearch'
 import { useToolInfo } from './composables/useToolInfo'
@@ -305,7 +466,13 @@ const survey = useSurveyGate()
 const surveyVisible = survey.surveyVisible
 const activeSurveyQuestion = survey.activeSurveyQuestion
 
-const { loading: sdkLoading, error: sdkError, translate } = useSDK()
+const { loading: sdkLoading, error: sdkError, translate, translateStream } = useSDK()
+
+// r41 v352 (Tom Gilb 2026-06-25 "the developed Planguage numbers are still zero"):
+// reactive accumulator for streamed JSON from translateStream — drives
+// PlanguageProgressWindow's live counts during generation. Without streaming,
+// the spec lands in one shot at the very end and tiles stay at 0 the whole way.
+const streamingText = ref<string>('')
 const { questions: clarifyQuestions, loading: clarifyLoading, generateQuestions } = useClarifyingQuestions()
 const { serialise } = useSpecExport()
 const { user, init, signOut } = useAuth()
@@ -347,8 +514,78 @@ const sharpeningDone = ref(false)
 const changesListOpen = ref(true)
 // sharpenModalOpen: true when the nav "Sharpen ▾" dropdown opens the modal.
 const sharpenModalOpen = ref(false)
+
+// r41 v373 — Stage 3.3 Add Qualifiers Flow visibility + apply handler.
+const addQualifiersFlowOpen = ref(false)
+
+function onAddQualifiersApply(defaultsMap: Map<string, ConditionSet>): void {
+  if (!currentSpec.value || defaultsMap.size === 0) {
+    addQualifiersFlowOpen.value = false
+    return
+  }
+  // Deep-clone for Universal Undo (prev/next must be independent objects).
+  const prevSpec: SpecBlock = JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock
+  const nextSpec: SpecBlock = JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock
+  let applied = 0
+  // Apply to Values
+  if (nextSpec.values) {
+    for (const v of nextSpec.values) {
+      const set = defaultsMap.get(v.id)
+      if (set) {
+        v.conditionSets = [set]   // single-set this round; multi-set is Round 3
+        applied++
+      }
+    }
+  }
+  // Apply to Resources
+  if (nextSpec.resources) {
+    for (const r of nextSpec.resources) {
+      const set = defaultsMap.get(r.id)
+      if (set) {
+        r.conditionSets = [set]
+        applied++
+      }
+    }
+  }
+  if (applied === 0) {
+    showToast('No matching V/R entries to update.', 4000)
+    addQualifiersFlowOpen.value = false
+    return
+  }
+  undoHistory.record({
+    label:    `Stage 3.3 Add Qualifiers · ${applied} entr${applied === 1 ? 'y' : 'ies'}`,
+    source:   'Stage33AddQualifiers',
+    prevSpec,
+    nextSpec,
+    affectedFields: ['values[].conditionSets', 'resources[].conditionSets'],
+  })
+  currentSpec.value = nextSpec
+  if (specModel.value) saveSpecSnapshot(nextSpec)
+  showToast(`Stage 3.3 — Qualifiers applied to ${applied} entr${applied === 1 ? 'y' : 'ies'}.`, 5000)
+  addQualifiersFlowOpen.value = false
+}
 // resourcesSharpenOpen: true when Stage 10 · Resources Sharpening panel is open.
 const resourcesSharpenOpen = ref(false)
+// v509 — ESTIMATION 8: Resources Agent full-screen hub.
+const resourcesAgentOpen = ref(false)
+const _resourcesAgentPlanIdRef = computed(() => (currentSpec.value as { name?: string } | null)?.name ?? 'default')
+
+// v514 — Resources envelope orchestrator: single instance keyed by the same
+// planId all 4 resource composables use.  captureEnvelope() gathers the full
+// state on every SpecVersion save; hydrateEnvelope() restores on SpecVersion
+// load.  Also drives spec-export appendix + spec-import extraction.
+const _resourcesEnvelope = useResourcesEnvelope(_resourcesAgentPlanIdRef)
+
+// v511b (2026-07-21) — Tom Gilb: "The 3 top edit do not work at all".  The
+// Plan Scope Framework strip's Edit buttons now navigate to Stage 10 +
+// open ResourcesSharpenPanel — the canonical home of the framework editor.
+// Section param carried through for future scroll-to-section wiring (v512+).
+function onOpenScopeEditorFromStage1(section: 'deadline' | 'startEvents' | 'budget'): void {
+  planningStage.value = 10
+  resourcesSharpenOpen.value = true
+  const label = section === 'deadline' ? 'Deadline' : section === 'startEvents' ? 'Project Start Events' : 'Budget'
+  showToast(`📐 Opening Plan Scope Framework — ${label} section`, 'info')
+}
 // optimaOpen: true when Stage 10 · OPTIMA Resource Optimization panel is open.
 const optimaOpen  = ref(false)
 const autoDboOpen          = ref(false)     // Auto-DBO — Design By Objectives (Tom 2026-06-07)
@@ -361,6 +598,10 @@ const kissOpen = ref(false)
 // Tom 2026-06-05: "COST ENGINEERING: THE TOOL, SEPARATE TOOL for Dynamic (Evo Step)
 // Design to [Cost, Value, Constraint] and for initial statics upfront."
 const costEngineeringOpen = ref(false)
+// r41 v295 (Tom Gilb 2026-06-22 "always continue · research and innovation")
+// — stage9ActualsOpen: true when the Stage 9 Study-Act Capture Actuals
+// focused modal is open. Mounted via the triage banner state-2 action pin.
+const stage9ActualsOpen = ref(false)
 
 
 // Tom 2026-06-04 r88 — Phase 2 of Resources beef-up: write-back from
@@ -456,19 +697,30 @@ function _modelEntryToSpec(entry: ModelLibraryEntry): SpecBlock {
     }
   }
 
+  // r41 v220 (2026-06-20 producer-stamp sweep) — every entry built from the
+  // ModelLibraryEntry source is stamped with its origin so the Incorruptible
+  // engine + colorful HTML export show the Source chip lit up.
+  // r41 v415 (Source Attribution SUPREME sweep) — Class B (from library).
+  const stampOpts = {
+    generator:  'Model Library → Spec',
+    planName:   entry.name || entry.id,
+    sourceType: 'system' as const,
+    tool:       '_modelEntryToSpec',
+    stage:      'model-library',
+  }
   return {
-    functions,
-    values,
-    solutions,
-    constraints,
-    resources,
+    functions:   functions.map(e => stampEntry(e, stampOpts)),
+    values:      values.map(e => stampEntry(e, stampOpts)),
+    solutions:   solutions.map(e => stampEntry(e, stampOpts)),
+    constraints: constraints.map(e => stampEntry(e, stampOpts)),
+    resources:   resources.map(e => stampEntry(e, stampOpts)),
     stakes: (entry.stakeholders ?? []).join(', '),
-    stakeholderEntries: (entry.stakeholders ?? []).map(name => ({
+    stakeholderEntries: (entry.stakeholders ?? []).map(name => stampEntry({
       id: name,
       type: 'Stakeholder',
       definition: '',
       description: '',
-    })),
+    }, stampOpts)),
   } as SpecBlock
 }
 
@@ -733,6 +985,319 @@ function onElonAcceptFix(finding: ElonFinding): void {
   console.log('[Elon] fix applied:', finding.suggestedFix.type, '→', result.affectedItemType, result.affectedItemId)
 }
 
+// r41 v225 (Tom Gilb 2026-06-20) — Munger Accept-Fix handler.
+// Mirrors onElonAcceptFix but trimmed (no library-model branch, no per-finding
+// snapshot Map — relies on Universal Undo only).
+function onMungerAcceptFix(finding: MungerFinding): void {
+  const target = currentSpec.value
+  if (!target) {
+    showToast('🧠 Munger — no plan bound. Open a plan first.', 4000)
+    return
+  }
+  const result = _applyMungerFixImpl(finding, target)
+  if (!result) {
+    showToast(
+      `🧠 Munger — fix type "${finding.suggestedFix.type}" pending Phase 2. ` +
+      `Use the suggested Planguage manually for now.`,
+      6000,
+    )
+    return
+  }
+  const preFixSnapshot: SpecBlock = JSON.parse(JSON.stringify(target))
+  undoHistory.record({
+    label:          `Munger Fix · ${finding.principleViolated}`,
+    source:         'Munger',
+    prevSpec:       preFixSnapshot,
+    nextSpec:       JSON.parse(JSON.stringify(result.newSpec)) as SpecBlock,
+    affectedFields: [`${result.affectedItemType}.${result.affectedItemId}`],
+    principle:      finding.principleViolated,
+  })
+  currentSpec.value = result.newSpec
+  if (specModel.value) saveSpecSnapshot(result.newSpec)
+  showToast(`🧠 Munger — ${result.summary}`, 7000, { label: '[Undo]', handler: handleGlobalUndo })
+  console.log('[Munger] fix applied:', finding.suggestedFix.type, '→', result.affectedItemType, result.affectedItemId)
+}
+
+/**
+ * r41 v404 (Tom Gilb 2026-06-28 verbatim "A clear messge: YOU HAVE ACCEPTS
+ * 11 FIXES. CLICK HERE TO CONFIRM AND TO SEE THE CONSEQUENCES IN YOUR PLAN
+ * NOW"): handler for the prominent "see consequences" CTA in MungerPanel.
+ * Closes the Munger panel + opens the Spec Editor on the Solutions tab so
+ * the planner sees the updated spec immediately (Munger fixes apply on
+ * each Accept Fix click; the Spec Editor surfaces the per-field results).
+ * Confirmation toast names the count so the planner has a durable record
+ * of "11 fixes applied — viewing updated spec".
+ */
+/**
+ * r41 v404 → v408 (Tom Gilb 2026-06-28: "I would like the per agent
+ * breakdown.  And in all cases I want consolation that the exact source of
+ * the change is attached to the spec"): unified confirm-and-view handler
+ * for every agent panel.  Closes the agent modal + opens the Spec Editor
+ * + bumps spec version with per-agent count tracking (agentRoundCounts +
+ * agentFixCounts) + shows toast with Source-attribution confirmation.
+ * Replaces the v407 per-agent handler bodies with a single dispatcher;
+ * each `handle*ConfirmAndView` is now a one-line call.
+ */
+interface AgentConfirmContext {
+  /** v-if open ref to close. */
+  closeFlag: { value: boolean }
+  /** Agent emoji + name for the toast headline + Source attribution string. */
+  displayName: string
+  /** Stable key for agentRoundCounts / agentFixCounts.  Stage 3 banner reads these. */
+  agentKey: 'munger' | 'heilmeier' | 'feynman' | 'elon' | 'incorruptible' | 'role'
+}
+function _agentConfirmAndView(ctx: AgentConfirmContext, acceptedCount: number): void {
+  ctx.closeFlag.value = false
+  _openSpecEditor({ tab: 'solutions' })
+  if (currentSpec.value && acceptedCount > 0) {
+    try {
+      bumpSpecVersion(currentSpec.value, { agentKey: ctx.agentKey, acceptedFixCount: acceptedCount })
+    } catch (err) { console.warn(`[${ctx.agentKey}ConfirmAndView] bumpSpecVersion failed:`, err) }
+  }
+  const noun = acceptedCount === 1 ? 'fix' : 'fixes'
+  showToast(
+    `${ctx.displayName} — ${acceptedCount} ${noun} applied · viewing updated spec\n✓ Source: ${ctx.displayName} attached to each mutated field`,
+    7000,
+    { label: '[Undo]', handler: handleGlobalUndo },
+  )
+}
+function handleMungerConfirmAndView(acceptedCount: number): void {
+  _agentConfirmAndView({ closeFlag: mungerOpen,        displayName: '🧠 Munger',        agentKey: 'munger' },        acceptedCount)
+}
+function handleHeilmeierConfirmAndView(acceptedCount: number): void {
+  _agentConfirmAndView({ closeFlag: heilmeierOpen,     displayName: '🎯 Heilmeier',     agentKey: 'heilmeier' },     acceptedCount)
+}
+function handleFeynmanConfirmAndView(acceptedCount: number): void {
+  _agentConfirmAndView({ closeFlag: feynmanOpen,       displayName: '⚛ Feynman',        agentKey: 'feynman' },       acceptedCount)
+}
+function handleElonConfirmAndView(acceptedCount: number): void {
+  _agentConfirmAndView({ closeFlag: elonOpen,          displayName: '⚡ Elon',           agentKey: 'elon' },          acceptedCount)
+}
+function handleIncorruptibleConfirmAndView(acceptedCount: number): void {
+  _agentConfirmAndView({ closeFlag: incorruptibleOpen, displayName: '🛡️ Incorruptible', agentKey: 'incorruptible' }, acceptedCount)
+}
+function handleRoleAgentConfirmAndView(acceptedCount: number): void {
+  _agentConfirmAndView({ closeFlag: roleAgentOpen,     displayName: '🎭 Role Agent',    agentKey: 'role' },          acceptedCount)
+}
+
+// r41 v385 (Tom Gilb 2026-06-26) — Feynman Accept-Fix handler.
+// Mirrors onMungerAcceptFix verbatim — same Universal Undo wiring + same
+// notification + Undo affordance.  Phase 1: simple stamp-fix types route
+// here; complex fix types (add-evo-step / strip-jargon / etc.) return null
+// from applyFeynmanFix and surface a "use manually for now" notification.
+function onFeynmanAcceptFix(finding: FeynmanFinding): void {
+  const target = currentSpec.value
+  if (!target) {
+    showToast('⚛ Feynman — no plan bound. Open a plan first.', 4000)
+    return
+  }
+  const result = _applyFeynmanFixImpl(finding, target)
+  if (!result) {
+    showToast(
+      `⚛ Feynman — fix type "${finding.suggestedFix.type}" is Phase 2. ` +
+      `Use the proposed Planguage edit manually until then.`,
+      6000,
+    )
+    return
+  }
+  const preFixSnapshot: SpecBlock = JSON.parse(JSON.stringify(target))
+  undoHistory.record({
+    label:          `Feynman Fix · ${finding.principleViolated}`,
+    source:         'Feynman',
+    prevSpec:       preFixSnapshot,
+    nextSpec:       JSON.parse(JSON.stringify(result.newSpec)) as SpecBlock,
+    affectedFields: [`${result.affectedItemType}.${result.affectedItemId}`],
+    principle:      finding.principleViolated,
+  })
+  currentSpec.value = result.newSpec
+  if (specModel.value) saveSpecSnapshot(result.newSpec)
+  showToast(`⚛ Feynman — ${result.summary}`, 7000, { label: '[Undo]', handler: handleGlobalUndo })
+  console.log('[Feynman] fix applied:', finding.suggestedFix.type, '→', result.affectedItemType, result.affectedItemId)
+}
+
+// r41 v254 (Tom Gilb 2026-06-22) — Heilmeier Accept-Fix handler.
+// Mirrors onMungerAcceptFix verbatim (substitution of names) — same Universal
+// Undo wiring, same notification + Undo affordance.
+function onHeilmeierAcceptFix(finding: HeilmeierFinding): void {
+  const target = currentSpec.value
+  if (!target) {
+    showToast('🎯 Heilmeier — no plan bound. Open a plan first.', 4000)
+    return
+  }
+  const result = _applyHeilmeierFixImpl(finding, target)
+  if (!result) {
+    showToast(
+      `🎯 Heilmeier — fix type "${finding.suggestedFix.type}" pending Phase 2. ` +
+      `Use the suggested Planguage manually for now.`,
+      6000,
+    )
+    return
+  }
+  const preFixSnapshot: SpecBlock = JSON.parse(JSON.stringify(target))
+  undoHistory.record({
+    label:          `Heilmeier Fix · ${finding.principleViolated}`,
+    source:         'Heilmeier',
+    prevSpec:       preFixSnapshot,
+    nextSpec:       JSON.parse(JSON.stringify(result.newSpec)) as SpecBlock,
+    affectedFields: [`${result.affectedItemType}.${result.affectedItemId}`],
+    principle:      finding.principleViolated,
+  })
+  currentSpec.value = result.newSpec
+  if (specModel.value) saveSpecSnapshot(result.newSpec)
+  showToast(`🎯 Heilmeier — ${result.summary}`, 7000, { label: '[Undo]', handler: handleGlobalUndo })
+  console.log('[Heilmeier] fix applied:', finding.suggestedFix.type, '→', result.affectedItemType, result.affectedItemId)
+}
+
+// r41 v305 (Tom Gilb 2026-06-23) — Role Agent Accept-Fix handler.
+// Mirrors onHeilmeierAcceptFix verbatim — Role IS Stakeholder (Tom #8/9), so
+// fixes mutate StakeholderEntry records using role fields from spec.ts v305.
+function onRoleAcceptFix(finding: RoleFinding): void {
+  const target = currentSpec.value
+  if (!target) {
+    showToast('Role Agent — no plan bound. Open a plan first.', 4000)
+    return
+  }
+  const result = _applyRoleFixImpl(finding, target)
+  if (!result) {
+    showToast(
+      `Role Agent — fix type "${finding.suggestedFix.type}" could not be applied automatically. ` +
+      `Use the suggested Planguage manually for now.`,
+      6000,
+    )
+    return
+  }
+  const preFixSnapshot: SpecBlock = JSON.parse(JSON.stringify(target))
+  undoHistory.record({
+    label:          `Role Agent · ${finding.principleViolated}`,
+    source:         'Role Agent',
+    prevSpec:       preFixSnapshot,
+    nextSpec:       JSON.parse(JSON.stringify(result.newSpec)) as SpecBlock,
+    affectedFields: [`${result.affectedItemType}.${result.affectedItemId}`],
+    principle:      finding.principleViolated,
+  })
+  currentSpec.value = result.newSpec
+  if (specModel.value) saveSpecSnapshot(result.newSpec)
+  showToast(`Role Agent — ${result.summary}`, 7000, { label: '[Undo]', handler: handleGlobalUndo })
+  console.log('[Role] fix applied:', finding.suggestedFix.type, '→', result.affectedItemType, result.affectedItemId)
+}
+
+/** r41 v313 — Route Role Flow Diagram node clicks (Tom Gilb 2026-06-23
+ *  Phase 3 of Roles redesign).  Solution / Value nodes → Spec Editor;
+ *  Role / Person nodes → Role Agent panel; Resource nodes → functions
+ *  fallback for now (the Spec Editor's tab union has no 'resources' slot
+ *  in Phase 3 MVP — Phase 3.1 will add it). */
+function onRoleFlowOpenEditor(payload: {
+  kind: 'role' | 'person' | 'solution' | 'value' | 'resource'
+  entryId: string
+}): void {
+  roleFlowOpen.value = false
+  if (payload.kind === 'solution') {
+    _openSpecEditor({ tab: 'solutions', entryId: payload.entryId })
+    return
+  }
+  if (payload.kind === 'value') {
+    _openSpecEditor({ tab: 'values', entryId: payload.entryId })
+    return
+  }
+  if (payload.kind === 'role' || payload.kind === 'person') {
+    roleAgentOpen.value = true
+    return
+  }
+  // resource — Phase 3.1 will add a dedicated tab; fall back to the editor.
+  _openSpecEditor({})
+}
+
+/** r41 v314 — Phase 4 FINAL: apply routing rules to currentSpec via
+ *  Universal Undo SUPREME.  RoleRoutingRulesPanel emits the
+ *  pre-previewed result; this handler records the Undo entry BEFORE
+ *  mutating currentSpec. */
+function onApplyRoleRouting(payload: {
+  rules: import('./composables/useRoleRoutingRules').RoutingRule[]
+  result: import('./composables/useRoleRoutingRules').RoutingApplyResult
+}): void {
+  const target = currentSpec.value
+  if (!target) {
+    showToast('Role Routing — no plan bound. Open a plan first.', 4000)
+    return
+  }
+  if (payload.result.matchedEntries.length === 0) {
+    showToast('Role Routing — no changes to apply.', 3500)
+    return
+  }
+  // Re-run apply NON-dry so we get the actual mutated spec.
+  const { newSpec, result } = _applyRoleRoutingRulesImpl(target, payload.rules, { respectExisting: true, dryRun: false })
+  const preFixSnapshot: SpecBlock = JSON.parse(JSON.stringify(target))
+  undoHistory.record({
+    label:          `Role Routing · ${result.matchedEntries.length} change${result.matchedEntries.length === 1 ? '' : 's'}`,
+    source:         'Role Routing',
+    prevSpec:       preFixSnapshot,
+    nextSpec:       JSON.parse(JSON.stringify(newSpec)) as SpecBlock,
+    affectedFields: result.matchedEntries.map(c => `${c.entryType}.${c.entryId}.${c.field}`),
+    principle:      'Default Responsibility for defined Roles (Tom 10-point Roles framework #5)',
+  })
+  currentSpec.value = newSpec
+  if (specModel.value) saveSpecSnapshot(newSpec)
+  showToast(
+    `🎯 Role Routing — ${result.matchedEntries.length} auto-fill${result.matchedEntries.length === 1 ? '' : 's'} applied`,
+    7000,
+    { label: '[Undo]', handler: handleGlobalUndo },
+  )
+}
+
+/** r41 v314 — Phase 4 FINAL: promote a placeholder Stakeholder's
+ *  personName via Universal Undo SUPREME.  Stamps fieldSources on the
+ *  personName change per No-Silent-Data-Loss SUPREME. */
+function onPromoteRolePlaceholder(payload: {
+  stakeholderId: string
+  candidate: import('./composables/useRolePlaceholderResolver').PlaceholderCandidate
+}): void {
+  const target = currentSpec.value
+  if (!target) {
+    showToast('Placeholder Resolver — no plan bound. Open a plan first.', 4000)
+    return
+  }
+  const stakeholders = target.stakeholderEntries ?? []
+  const idx = stakeholders.findIndex(s => s.id === payload.stakeholderId)
+  if (idx < 0) {
+    showToast(`Placeholder Resolver — Stakeholder ${payload.stakeholderId} not found.`, 4000)
+    return
+  }
+  if (payload.candidate.source === 'generic-template') {
+    showToast('Placeholder Resolver — generic template cannot be auto-promoted; type a name in the Spec Editor.', 5000)
+    return
+  }
+  const nowIso = new Date().toISOString()
+  const preFixSnapshot: SpecBlock = JSON.parse(JSON.stringify(target))
+  const newSpec: SpecBlock = JSON.parse(JSON.stringify(target))
+  const sh = (newSpec.stakeholderEntries ?? [])[idx]
+  sh.personName = payload.candidate.personName
+  sh.isPlaceholder = false
+  const fs = sh.fieldSources ?? {}
+  fs.personName = {
+    source:     'Placeholder Resolver',
+    sourceType: 'system',
+    timestamp:  nowIso,
+    tool:       'useRolePlaceholderResolver',
+  }
+  fs.isPlaceholder = fs.personName
+  sh.fieldSources = fs
+  undoHistory.record({
+    label:          `Placeholder Promote · ${payload.stakeholderId} → ${payload.candidate.personName}`,
+    source:         'Placeholder Resolver',
+    prevSpec:       preFixSnapshot,
+    nextSpec:       JSON.parse(JSON.stringify(newSpec)) as SpecBlock,
+    affectedFields: [`Stakeholder.${payload.stakeholderId}.personName`, `Stakeholder.${payload.stakeholderId}.isPlaceholder`],
+    principle:      'Musk Responsibility Principle 1 — specific named individuals',
+  })
+  currentSpec.value = newSpec
+  if (specModel.value) saveSpecSnapshot(newSpec)
+  showToast(
+    `🎯 Placeholder Resolver — ${payload.stakeholderId} → ${payload.candidate.personName}`,
+    7000,
+    { label: '[Undo]', handler: handleGlobalUndo },
+  )
+}
+
 function onElonSynthesiseFindings(findings: ElonFinding[]): void {
   if (findings.length === 0) return
   // Compute BEFORE Velocity Score
@@ -807,6 +1372,44 @@ function onPentaUpdateSpec(updatedSpec: SpecBlock): void {
     updatedSpec.solutions?.length ?? 0, 'S.')
 }
 
+// r41 v295 (Tom Gilb 2026-06-22 "always continue · research and innovation").
+// Stage 9 Study-Act Capture Actuals apply handler. Routes through Universal
+// Undo SUPREME (record BEFORE mutation), persists via saveSpecSnapshot,
+// closes the modal, and surfaces a confirmation notification (banned word
+// "toast" — using "notification" per CLAUDE.md SUPREME rule).
+function onStage9ActualsApply(updatedSpec: SpecBlock): void {
+  if (currentSpec.value) {
+    undoHistory.record({
+      label:    'Stage 9 Capture Actuals',
+      source:   'Stage9ActualsPanel',
+      prevSpec: JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock,
+      nextSpec: JSON.parse(JSON.stringify(updatedSpec))       as SpecBlock,
+    })
+  }
+  // Count what changed for the notification.
+  const prev = currentSpec.value
+  let valuesUpdated    = 0
+  let resourcesUpdated = 0
+  if (prev) {
+    const prevValues = new Map((prev.values ?? []).map(v => [v.id, v.status ?? '']))
+    const prevRes    = new Map((prev.resources ?? []).map(r => [r.id, r.status ?? '']))
+    for (const v of updatedSpec.values ?? []) {
+      if ((prevValues.get(v.id) ?? '') !== (v.status ?? '')) valuesUpdated++
+    }
+    for (const r of updatedSpec.resources ?? []) {
+      if ((prevRes.get(r.id) ?? '') !== (r.status ?? '')) resourcesUpdated++
+    }
+  }
+  currentSpec.value = updatedSpec
+  if (specModel.value) saveSpecSnapshot(updatedSpec)
+  stage9ActualsOpen.value = false
+  showToast(
+    `📥 Study-Act actuals captured — ${valuesUpdated} Value${valuesUpdated === 1 ? '' : 's'}, ${resourcesUpdated} Resource${resourcesUpdated === 1 ? '' : 's'} updated`,
+    5000,
+  )
+  console.log('[Stage9Actuals] applied — values updated:', valuesUpdated, '· resources updated:', resourcesUpdated)
+}
+
 // bullockOpen: true when the Bullock Audit Trail modal is open.
 const bullockOpen = ref(false)
 // sharpenedEntryIds: reactive list of entry IDs touched by sharpening rounds.
@@ -826,15 +1429,151 @@ const sharpenSummary = computed(() => {
   return { totalChanges, at: lastSharpenedAt.value }
 })
 
+/**
+ * r41 v408 (Tom Gilb 2026-06-28 verbatim: "I would like the per agent
+ * breakdown. And in all cases I want consolation that the exact source
+ * of the change is attached to the spec").
+ *
+ * Per-agent breakdown for the Stage 3 banner.  Reads `specModel.agentFixCounts`
+ * (the cumulative per-agent accepted-fix counter populated by
+ * `_agentConfirmAndView` → `bumpSpecVersion({ agentKey, acceptedFixCount })`).
+ *
+ * Returns an ordered array of chip-ready records the template renders as
+ * an indigo chip row beneath the "N sharpening rounds complete" pill.
+ * Each chip shows the agent's display name + fix count, doubling as the
+ * "consolation that the exact Source of the change is attached to the
+ * spec" (since each chip exists ONLY because the agent's confirm-and-view
+ * stamped fieldSources on every mutated field with that agent's name).
+ *
+ * Per-agent breakdown is intentionally separate from `sharpenRounds`
+ * (which lives in `useSharpen()` and carries the CANONICAL Sharpen Panel
+ * activity) — agent panels (Munger / Heilmeier / Feynman / Elon /
+ * Incorruptible / Role) do NOT push into sharpenRounds, they bump
+ * `agentFixCounts` directly via _agentConfirmAndView.  Composes with
+ * Done/You-Can/Continue SUPREME (banner is the DONE state) + Source
+ * attribution audit trail.
+ */
+const AGENT_DISPLAY_NAMES: Record<string, string> = {
+  munger:        'Munger',
+  heilmeier:     'Heilmeier',
+  feynman:       'Feynman',
+  elon:          'Elon',
+  incorruptible: 'Incorruptible',
+  role:          'Role Agent',
+  'sharpen-panel': 'Sharpen Panel',
+}
+const agentFixBreakdown = computed<{ key: string; label: string; count: number }[]>(() => {
+  const raw = specModel.value?.agentFixCounts
+  if (!raw) return []
+  const entries = Object.entries(raw)
+    .filter(([, n]) => typeof n === 'number' && n > 0)
+    .map(([key, n]) => ({
+      key,
+      label: AGENT_DISPLAY_NAMES[key] ?? (key.charAt(0).toUpperCase() + key.slice(1)),
+      count: n as number,
+    }))
+  // Sort by descending count, then alpha by label for stable order.
+  entries.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  return entries
+})
+const totalAgentFixes = computed<number>(() =>
+  agentFixBreakdown.value.reduce((sum, e) => sum + e.count, 0),
+)
+
 // --- Feature #177: Generated-at timestamp ---
 // Set whenever a spec is generated (doTranslate) or restored (session).
 // Passed to SpecOutput for display in the spec header.
 const specGeneratedAt = ref<Date | null>(null)
 
+// r41 v277 (Tom Gilb 2026-06-22 "AI was slow message disappeared before I
+// could read" + "a second far too fast disappearing message said something
+// about what was generated") — persistent post-generation BANNER state.
+// The toast tells the in-flight story; the banner is the durable record
+// the user actually sees when they land on Stage 2.  Survives until the
+// user dismisses it OR a new generation overwrites it.  Composes with
+// universal accessibility (important notifications must persist for every reader; ephemeral = silent data loss) + No-Silent-Data-
+// Loss SUPREME + MOVE Principle (visible at-a-glance on the destination).
+interface GenerationReport {
+  ts: number               // Date.now() of generation completion
+  kind: 'success' | 'slow-fallback' | 'failure'
+  headline: string         // short single-sentence label
+  detail: string           // full multi-sentence message (same as the toast text)
+}
+const lastGenerationReport = ref<GenerationReport | null>(null)
+function dismissGenerationReport(): void { lastGenerationReport.value = null }
+
 // --- Plan Model ---
 // Named, versioned model tracking for each spec/plan pair.
 // Initialised in doTranslate(); bumped in onSpecSharpened().
 const { currentModel: specModel, allModels: _allSpecModels } = useSpecModel()
+
+// r41 2026-06-20 (Tom Gilb verbatim picked option B "per-plan contract
+// memory" after the Monitor-sticky-on-Indianapolis bug) — wire the active
+// SpecModel id into the contract store so switching plans hydrates the
+// Contracts agent from that plan's remembered contract slot.  Migration
+// shim inside `applyPlanSwitch` hoists any legacy global current-contract
+// id to the first-seen plan slot.  Composes with No-Silent-Data-Loss
+// SUPREME (no contract state silently dropped on plan switch — parked
+// under the prev-plan key + still in the contracts list) + Universal
+// Undo SUPREME (every plan↔contract pairing is reversible by switching
+// back) + Architectural Resilience SUPREME (plan-scoped active-state is
+// the portable pattern other agents will inherit).
+const _contractsStoreForPlanSwitch = useContractStore()
+watch(
+  () => specModel.value?.id ?? null,
+  (id) => { _contractsStoreForPlanSwitch.applyPlanSwitch(id) },
+  { immediate: true },
+)
+
+// r41 v420 → v422 → v425 evolution of the SpecTitleAnchor content binding:
+//
+// v420 (Tom Gilb 2026-07-01 *"I tried switch contract and got the title up
+//       there but under it the older monitor contract"*) — made the anchor
+//       show the CONTRACT title in Contracts mode instead of the stale plan
+//       name.
+// v422 (Tom Gilb 2026-07-01 *"I have not yet focussed on models, but good to
+//       try to clean suspected bugs eary"*) — extended to Model Library.
+// v425 (Tom Gilb 2026-07-01 *"the blue contracts return pin does n ot work,
+//       and it overlaps other text"*) — REVISED: both v420 and v422 tried
+//       to render a DUPLICATE title chip on top of overlays that already
+//       have their own titles inline in their headers.  The result:
+//       (a) collision — the anchor pill at `top-2 left-3` overlapped
+//       ContractHub's own "← Your Contracts" pill;  (b) broken click —
+//       the click handler calls `window.scrollTo`, but ContractHub is a
+//       `fixed inset-0 z-[600]` full-screen dialog; scrolling the window
+//       does nothing because the dialog's internal scroll containers are
+//       separate.
+//
+// Correct architecture: mode-level overlays (Contracts, Models) OWN their
+// context anchors inside their own headers.  The global SpecTitleAnchor
+// exists to surface the ACTIVE PLAN title when plan-side tool overlays
+// (Penta, Sharpen, EHT, etc.) cover the main Spec Crest — those tool
+// overlays don't display a plan-context header inline.  Fix: pass `null`
+// for the anchor's specName whenever a mode-level overlay is open, which
+// the anchor's own `visible` computed already handles by hiding cleanly.
+// No collision.  No broken click (the anchor doesn't render at all).
+//
+// Composes with No-Silent-Removal SUPREME (anchor still surfaces in every
+// other context — only hides where a duplicate would collide with the
+// overlay's own title), MOVE Principle SUPREME (one title per surface, not
+// two), Tom-Repeats-Himself SUPREME (this class-bug family: two anchors
+// competing for the same viewport corner — solved by ownership),
+// Architectural Resilience SUPREME (clean separation: mode overlays own
+// their titles; global anchor covers the gap for tool overlays), Trace-
+// Before-Patch SUPREME (v420 + v422 tried to patch by REPLACING content;
+// v425 sees the real problem was DUPLICATION and hides accordingly).
+const _specTitleAnchorName = computed<string | null>(() => {
+  // Mode-level overlays own their own title in their header — do NOT render
+  // a second one on top.  Anchor auto-hides when name is null.
+  if (contractsOpen.value)    return null
+  if (modelLibraryOpen.value) return null
+  return specModel.value?.name ?? null
+})
+const _specTitleAnchorVersion = computed<string | null>(() => {
+  if (contractsOpen.value)    return null
+  if (modelLibraryOpen.value) return null
+  return specModel.value?.version ? `v${specModel.value.version}` : null
+})
 
 // Live "now" tick for the top bar's save-time label (refreshed every 30 s)
 const _topBarNow = ref(Date.now())
@@ -1011,6 +1750,11 @@ const feedMeOpen             = ref(false)
 // Visual + Workflow + Export + Collab + Diagnostics.  v1: panel + persistence;
 // component consumption of individual settings ships incrementally.
 const settingsOpen           = ref(false)
+// r41 v335 — Diagnostics Panel open ref + early useDiagnostics() call to
+// install the console.error / window.error / unhandledrejection listeners
+// AS EARLY AS POSSIBLE in App.vue setup so even mount-time errors get caught.
+const diagnosticsOpen        = ref(false)
+const { errorCount: diagnosticsErrorCount } = useDiagnostics()
 // r41 v112 (Tom Gilb 2026-06-17 verbatim "owner button does not open, and
 // where is Stewards?") — pre-spec Stewards manager.  Lets the planner add
 // Owners / Planners / Scribes BEFORE the first generation; the list is
@@ -1232,6 +1976,11 @@ const specInputOpen = ref(false)
 // --- Feature #77: Animated Onboarding Tour ---
 // Tour is opt-in only — opens via the "Tour" button or voice command, never automatically.
 const tourOpen = ref(false)
+// r41 v164 — Demos Menu (Tom Gilb 2026-06-17 verbatim "MAKE THIS A
+// GENERIC MENU TO A SET OF DEMOS, ON EACH STAGE, EACH TOOL, EACH AGENT").
+const demosMenuOpen = ref(false)
+// r41 v168 — currently-playing demo (id + display title/subtitle).
+const playingDemo = ref<{ id: string; title: string; subtitle: string } | null>(null)
 
 // --- Feature #50: Multi-project Dashboard ---
 const {
@@ -1245,20 +1994,12 @@ const dashboardOpen = ref(false)
 /** ID of the Spec History entry for the currently active spec generation session. */
 const currentDashboardEntryId = ref<string | null>(null)
 
-// --- Feature #53: Progressive spec wizard ---
+// r41 v365 (Tom Gilb 2026-06-25 "remove what is not in use") — Feature #53
+// SpecWizard fully removed.  `wizardOpen` ref kept as permanent `false` so
+// the few remaining safety-net references (registerExclusiveSurface + the
+// v-if guard at line ~13271 + _closeAllOverlays' defensive reset) still
+// compile.  No code path can set it to true anymore — wizard cannot surface.
 const wizardOpen = ref(false)
-
-async function handleWizardSubmit(
-  wizardStakes: string,
-  wizardEnds: string,
-  wizardMeans: string,
-  _oneLiner: string,
-): Promise<void> {
-  wizardOpen.value = false
-  await handleSubmit({ stakes: wizardStakes, ends: wizardEnds, means: wizardMeans })
-  // After generation the user stays at stage 1 (spec view) so they can see the
-  // result before choosing to advance — consistent with the SEMEntryForm flow.
-}
 
 // --- Feature #17: Comparison Mode ---
 const comparisonMode = ref(false)
@@ -1295,14 +2036,18 @@ watch(specCrestEl, (el) => {
 })
 onUnmounted(() => _specCrestRO?.disconnect())
 // contentTopPad: padding-top on the main content div.
-// r41 v142 — Tom Gilb 2026-06-17 verbatim "I do not like the 3 bars covering
-// the plan.  Can you insert them fixed right under the stages bar?" — the
-// Spec Crest wrapper now ALWAYS renders (v140 dropped its specModel gate
-// to make the 3 Level strips visible pre-spec).  So the padding must
-// ALWAYS clear stage bar + crest height, not only when a plan is loaded.
+// r41 v229 (Tom Gilb 2026-06-20 verbatim "menus do not disappear, they
+// scroll up, out of the way") — Plan Crest is now IN-FLOW with mt-[148px]
+// to clear the fixed stage bar.  Main content sits NATURALLY below the
+// Plan Crest in the document, so it no longer needs padding-top to clear
+// a fixed crest.  The Plan Crest's own mt-[148px] handles stage-bar
+// clearance for the page top; main content has zero structural padding.
+// `contentTopPad` retained as `undefined` so the existing :style binding
+// is a no-op.  specCrestH ResizeObserver retained for any future widget
+// that needs the crest height.
 const contentTopPad = computed(() =>
   view.value === 'app'
-    ? STAGE_BAR_H + specCrestH.value
+    ? undefined  // Plan Crest is in-flow now; no padding needed.
     : undefined
 )
 // --- Feature #195: Spec Targets ---
@@ -1339,6 +2084,91 @@ const incorruptibleSharpeningOpen = ref(false)
 //   Mirrors Incorruptible plumbing 1:1: target-spec, model-mode flag, accepted-id set,
 //   undo-snapshot map. Pace-of-Innovation is the DOMINANT Requirement; UI + scoring respect it.
 const elonOpen        = ref(false)
+// r41 v225 — Munger Agent open flag
+const mungerOpen      = ref(false)
+// r41 v254 (Tom Gilb 2026-06-22) — Heilmeier Agent open flag
+const heilmeierOpen   = ref(false)
+// r41 v385 (Tom Gilb 2026-06-26) — Feynman Agent open flag
+const feynmanOpen     = ref(false)
+// r41 v305 (Tom Gilb 2026-06-23) — Role Agent open flag (MAJOR REDESIGN)
+const roleAgentOpen   = ref(false)
+// r41 v312 (Tom Gilb 2026-06-23) — Phase 2: Role Health Dashboard open flag.
+const roleHealthOpen  = ref(false)
+// r41 v313 (Tom Gilb 2026-06-23) — Phase 3: Role Flow Diagram open flag
+// (Tom 14-point spec #10: "We should be able to generate a Role diagram
+//  with all stakeholders, and how they relate to all Planguage specs").
+const roleFlowOpen    = ref(false)
+// r41 v314 (Tom Gilb 2026-06-23) — Phase 4 FINAL: Role Routing Rules &
+// Placeholder Resolver Panel open flag (Tom 14-point spec #14 + Tom
+// 10-point Roles framework #5 + #8 — maximum automation of Role management).
+const roleRoutingOpen = ref(false)
+
+// r41 v231 — Agent Mode Picker.  One pin per agent in AgentsStrip; clicking
+// opens this picker for the planner to choose Principles / Analysis /
+// Improvement / Sharpening / Create Optional Version.  Dispatches to the
+// existing panel/handler.
+const modePickerOpen     = ref(false)
+const modePickerAgentId  = ref<AgentRegistryId | null>(null)
+function onOpenModePicker(agentId: AgentRegistryId): void {
+  modePickerAgentId.value = agentId
+  modePickerOpen.value    = true
+}
+function onModeSelect(mode: AgentModeKey): void {
+  const id = modePickerAgentId.value
+  modePickerOpen.value    = false
+  if (!id) return
+  // Dispatch — most modes route to the agent's existing panel.  Create
+  // Optional Version is Phase 2 for non-AutoDBO agents; show a toast.
+  switch (mode) {
+    case 'principles':
+      // Read-only info — open the AgentMenuPanel's per-agent rich tile.
+      // For now, route to the same panel as analysis but the planner sees
+      // the agent's identity card with NO action buttons engaged.  Phase 2
+      // can route to a dedicated Principles popover.
+      agentMenuOpen.value = true
+      break
+    case 'analysis':
+    case 'improvement':
+      // Both modes open the existing analysis panel; Accept-Fix is available
+      // in both (Analysis-only = "don't apply"; Improvement = "use Accept").
+      // Phase 2 can gate Accept-Fix on the mode if Tom asks.
+      if (id === 'munger')        mungerOpen.value        = true
+      if (id === 'heilmeier')     heilmeierOpen.value     = true
+      if (id === 'feynman')       feynmanOpen.value       = true
+      if (id === 'roles')         roleAgentOpen.value     = true
+      if (id === 'elon')          elonOpen.value          = true
+      if (id === 'incorruptible') incorruptibleOpen.value = true
+      break
+    case 'sharpening':
+      // Open the sharpening Q&A panel (Elon/Incorruptible have one;
+      // Munger sharpening is Phase 2 — toast.).
+      if (id === 'munger') {
+        showToast('🔪 Munger Sharpening Q&A — Phase 2 build pending.  Run Analysis mode for the deterministic check now.', 5000)
+      }
+      if (id === 'feynman') {
+        showToast('⚛ Feynman Sharpening Q&A — Phase 2 build pending.  Run Analysis mode for the deterministic check now.', 5000)
+      }
+      if (id === 'elon')          _launchElonSharpeningOnCurrentPlan()
+      if (id === 'incorruptible') _launchIncorruptibleSharpeningOnCurrentPlan()
+      break
+    case 'create-optional':
+      showToast('🌱 Create Optional Version — Phase 2 build pending.  Use Auto-DBO directly for spec-version branching now.', 5500)
+      break
+  }
+}
+
+// r41 v229 (Tom Gilb 2026-06-20 refinement: "menus do not disappear, they
+// scroll up, out of the way, but we inituitively know that and can bring
+// them down by a simple scroll") — Focus Mode toggle DROPPED.  The Plan
+// Crest is now in-flow (see specCrestEl mt-[148px] above) and scrolls up
+// out of view as the page scrolls down.  Scrolling up brings the menus
+// back into view — natural, no toggle, no keyboard combo, no localStorage
+// state.  Composes with No-Silent-Removal (menus always in DOM, just
+// above the viewport when scrolled past).
+// `focusModeActive` stub kept as a const false so any descendant template
+// references still type-check; can be removed in a follow-up sweep.
+const focusModeActive = ref(false)
+function focusModeToggle(): void { /* no-op — r41 v229 dropped Focus Mode in favour of natural scroll. */ }
 const elonTargetSpec  = ref<SpecBlock | null>(null)
 const elonTargetTitle = ref<string>('')
 const elonIsModel     = ref<boolean>(false)
@@ -1592,12 +2422,117 @@ function _openSpecEditor(opts?: {
   specEditorOpen.value  = true
 }
 
+// r41 v321 — SpecPulse tile-click router (Tom Gilb 2026-06-24).  Each tile in the
+// 6-tile color-block banner routes to the appropriate detail surface for that
+// Planguage type.  Spec Editor handles functions / values / solutions / constraints;
+// r41 v363 (Tom Gilb 2026-06-25 "THEY ARE ALSO Planguage SPECS AND IT IS
+// CRITICAL TO KNOW WHEN THEY ARE NOT DONE OR ARE DONE"): live done/total
+// tracking for the SpecPulse Evo Steps + Tasks tiles.  A Task is "done"
+// when its TaskSuggestion.completed === true.  An Evo Step is "done" when
+// it has at least one task AND every task on that step is completed.  A
+// step with ZERO tasks counts as NOT-done (you haven't planned its work
+// yet, so you can't claim it as delivered).
+const specPulseStepStats = computed(() => {
+  const steps = confirmedSteps.value
+  const tasksMap = tasksByStep.value
+  const totalSteps = steps.length
+  let totalTasks = 0
+  let doneTasks  = 0
+  let doneSteps  = 0
+  for (const step of steps) {
+    const stepTasks = tasksMap[step.name] ?? []
+    const taskTotal = Array.isArray(stepTasks) ? stepTasks.length : 0
+    const taskDone  = Array.isArray(stepTasks) ? stepTasks.filter(t => t.completed === true).length : 0
+    totalTasks += taskTotal
+    doneTasks  += taskDone
+    if (taskTotal > 0 && taskDone === taskTotal) doneSteps++
+  }
+  return { totalSteps, totalTasks, doneSteps, doneTasks }
+})
+
+// r41 v375 (Tom Gilb 2026-06-25 "the generation loop went on and on so i
+// went away from it") — visible Cancel button during loading routes through
+// here.  Aborts the in-flight API request, clears loading state, restores
+// the previous spec (if any) via the existing safety-net pattern, and
+// surfaces a toast naming what happened so the planner isn't confused.
+function onCancelGeneration(): void {
+  console.warn('[onCancelGeneration] Planner cancelled generation', { elapsedMs: Date.now() - (_lastTranslateStart ?? Date.now()), sdkLoading: sdkLoading.value })
+  cancelCurrentTranslate()  // aborts the AbortController inside useSDK
+  _forceClearLoading()       // clears all loading keys regardless of finally blocks
+  _activeTranslateCallId = 0 // S3 sweep 2026-06-26 — release the in-flight guard
+  // Drop back to the entry form so the planner can edit and retry.
+  stage1Sub.value = 'form'
+  stage.value     = 1
+  showToast('❌ Generation cancelled — your input is preserved.  Edit and Generate again when ready.', 6000)
+}
+let _lastTranslateStart: number | null = null
+
+// stakeholders routes to Stakeholder Mapper agent; resources routes to Resources
+// Sharpening panel.  Composes with MOVE Principle (one click = the right destination).
+function onSpecPulseTileClick(
+  type: 'stakeholders' | 'functions' | 'values' | 'solutions' | 'constraints' | 'resources' | 'evosteps' | 'tasks',
+): void {
+  switch (type) {
+    case 'stakeholders':
+      stakeholderMapperOpen.value = true
+      return
+    case 'resources':
+      resourcesSharpenOpen.value = true
+      return
+    case 'functions':
+    case 'values':
+    case 'solutions':
+    case 'constraints':
+      _openSpecEditor({ tab: type })
+      return
+    case 'evosteps':
+      // r41 v362 — jump to Stage 6 (Generate Evo Steps) where confirmedSteps live.
+      goToStage(6)
+      return
+    case 'tasks':
+      // r41 v362 — jump to Stage 8 (Tasks) where tasksByStep is edited.
+      goToStage(8)
+      return
+  }
+}
+
 function _closeSpecEditor(): void {
   specEditorOpen.value  = false
   _editorTarget.value   = { id: '', name: '' }
   _editorTab.value      = ''
   _editorEntryId.value  = ''
   _editorReturnTo.value = null
+}
+
+// r41 v298 (Tom Gilb 2026-06-23 verbatim "stages row and others not present").
+// Router from SpecEditorPanel's embedded AgentsStrip pin click to the matching
+// agent panel open-ref.  Mirrors the canvas-level AgentsStrip wiring.  Called
+// after _closeSpecEditor() (the spec editor saves + unmounts first per
+// No-Silent-Data-Loss SUPREME).
+function _openAgentFromEditor(agentId: string): void {
+  switch (agentId) {
+    case 'maria':                 mariaOpen.value = true; break
+    case 'contracts':             contractsOpen.value = true; break
+    case 'models':                modelLibraryOpen.value = true; break
+    case 'stakeholder-mapper':    stakeholderMapperOpen.value = true; break
+    case 'evo-step-critique':     evoCritiquerOpen.value = true; break
+    case 'plan-importer':         specImporterOpen.value = true; break
+    case 'decisions':             decisionMapperOpen.value = true; break
+    case 'strategy-agent':        strategyAgentOpen.value = true; break
+    case 'incorruptible':         incorruptibleOpen.value = true; break
+    case 'incorruptible-sharpen': _launchIncorruptibleSharpeningOnCurrentPlan(); break
+    case 'elon':                  elonOpen.value = true; break
+    case 'elon-sharpen':          _launchElonSharpeningOnCurrentPlan(); break
+    case 'munger':                mungerOpen.value = true; break
+    case 'heilmeier':             heilmeierOpen.value = true; break
+    case 'feynman':               feynmanOpen.value = true; break
+    case 'roles':                 roleAgentOpen.value = true; break
+    case 'autoDbo':               autoDboOpen.value = true; break
+    default:
+      // mode-picker routes through AgentModePicker for multi-mode agents
+      // (incorruptible / elon / munger).  Re-use the existing handler.
+      onOpenModePicker(agentId as Parameters<typeof onOpenModePicker>[0])
+  }
 }
 // --- Feature #197: Tool Info ---
 const toolInfoPanelOpen   = ref(false)
@@ -1728,9 +2663,28 @@ const specHealthAlertCount = computed<number>(() => {
 })
 
 // --- Feature #29: Spec Version History ---
-const { history: specHistory, addVersion, clearHistory: _clearHistory } = useSpecHistory()
+const { history: specHistory, addVersion: _addVersionRaw, clearHistory: _clearHistory } = useSpecHistory()
+
+// v514 — Local wrapper: every addVersion call captures the Resources envelope
+// alongside the SpecBlock so the resource subsystem travels with the spec.
+// Tom Gilb 2026-07-21: "can you promise me that all running estimation data
+// is saved and restored with any version of the spec?" — this wrapper closes
+// that promise for all 14 in-app call sites transparently.
+function addVersion(
+  spec: import('./types/spec').SpecBlock,
+  label: string,
+  plan: import('./types/evo-plan').EvoStepPlan | null = null,
+  specName: string = '',
+  specOwners: string[] = [],
+): void {
+  let envelope: ResourcesEnvelope | null = null
+  try { envelope = _resourcesEnvelope.captureEnvelope() } catch (err) {
+    console.warn('[App.vue addVersion] captureEnvelope failed — SpecVersion saved without resources envelope', err)
+  }
+  _addVersionRaw(spec, label, plan, specName, specOwners, envelope)
+}
 const { dismissOops: _dismissOops } = useInputSafetyNet()
-const { plan: _evoPlan, confirmPlan: _confirmEvoPlan, fetchPlan: _fetchEvoPlan } = useEvoPlan()
+const { plan: _evoPlan, confirmPlan: _confirmEvoPlan, fetchPlan: _fetchEvoPlan, loading: _evoPlanLoading, error: _evoPlanError } = useEvoPlan()
 const historyOpen = ref(false)
 
 // --- Fresh Start menu (2026-05-14) — graduated replacement for the bare
@@ -1747,6 +2701,30 @@ const freshStartOpen = ref(false)
 function _specOwnerNames(): string[] {
   return specModel.value?.owners?.map(o => o.name).filter(Boolean) ?? []
 }
+
+/**
+ * r41 v394 (Tom Gilb 2026-06-27 verbatim "the logged source of these is the
+ * 'Suggested Additions' selected by [Whoever is Planner, default Scribe,]
+ * Date and Time"): resolve the actor name to stamp on FieldSource records
+ * for chips accepted from the Suggested Additions panel.
+ *
+ * Resolution chain:
+ *   1. First Planner with a non-empty name
+ *   2. Else first Scribe (default-device-user OR named replacement)
+ *   3. Else 'Default User' fallback
+ *
+ * Passed to SEMEntryForm as the `acceptedSuggestionActor` prop and used by
+ * `onImpliedAdd` to build the FieldSource.acceptedBy field.  Reactive — if
+ * Tom adds a Planner mid-session, future accepts use the new actor.
+ */
+const acceptedSuggestionActor = computed<string>(() => {
+  const sm = specModel.value
+  const planner = sm?.planners?.find(p => p.name?.trim())?.name?.trim()
+  if (planner) return planner
+  const scribe = sm?.scribes?.find(s => s.name?.trim())?.name?.trim()
+  if (scribe) return scribe
+  return 'Default User'
+})
 
 // --- Feature #202: Plan Health Auto-Snapshot watcher ---------------------
 // Tom's directive: "as automatic as possible, requiring no human intervention".
@@ -1792,6 +2770,10 @@ function onHistoryRestore(
   plan: EvoStepPlan | null,
   planName: string = '',
   historyOwners: string[] = [],
+  /** v514 — Resources envelope from the restored SpecVersion.  Optional for
+   *  backwards-compat with pre-v514 saved versions (null → resource subsystem
+   *  stays at its current state; no silent wipe). */
+  resourcesEnvelope: unknown = null,
 ): void {
   // 2026-05-13 (fifth fix) — close History BEFORE doing any restore work.
   // Tom: "it responded to saas users and brought it in then went dead can
@@ -1870,6 +2852,18 @@ function onHistoryRestore(
       stage.value = 1          // stay at Spec view; user decides when to advance
     }
 
+    // v514 — Hydrate the Resources envelope BEFORE addVersion so the new
+    // "Restored" SpecVersion captures the just-restored envelope (round-trip
+    // fidelity: restore then re-save = same state).  Guarded — hydrate only
+    // when the envelope is present + shaped as expected (backwards-compat).
+    if (resourcesEnvelope) {
+      try {
+        _resourcesEnvelope.hydrateEnvelope(resourcesEnvelope as ResourcesEnvelope)
+      } catch (envErr) {
+        console.warn('[onHistoryRestore] Resources envelope hydrate failed — spec loaded but resource subsystem stayed at current state', envErr)
+      }
+    }
+
     addVersion(spec, 'Restored', plan, specModel.value?.name ?? '', _specOwnerNames())
   } catch (err) {
     // Don't swallow silently — log so we can diagnose. History is already
@@ -1894,6 +2888,8 @@ function onUnifiedHistoryLoadSpec(version: SpecVersion): void {
     version.plan,
     version.specName ?? (version as unknown as Record<string, string>).planName ?? '',
     version.specOwners ?? (version as unknown as Record<string, string[]>).planOwners ?? [],
+    // v514 — envelope round-trip
+    version.resourcesEnvelope,
   )
 }
 
@@ -1905,11 +2901,27 @@ function onUnifiedHistoryLoadSpec(version: SpecVersion): void {
  * Uses the same wiring as onHistoryRestore but without the plan / history
  * overhead — a simple "load this spec as the current working spec".
  */
-function onSpecFileImport(spec: SpecBlock): void {
+function onSpecFileImport(spec: SpecBlock, rawMarkdown?: string): void {
   currentSpec.value     = spec
   markdown.value        = serialise(spec)
   specGeneratedAt.value = new Date()
   _ensurePlanModel(spec)
+  // v514 — extract + hydrate Resources envelope from the imported markdown
+  // (if present).  Envelope is a base64-encoded HTML-comment block; absence
+  // is fine (pre-v514 files or bare markdown).  Envelope is hydrated AFTER
+  // _ensurePlanModel so planId (derived from spec.name) is stable when the
+  // resource composables initialise their per-plan storage keys.
+  if (rawMarkdown) {
+    try {
+      const env = _resourcesEnvelope.extractEnvelopeFromMarkdown(rawMarkdown)
+      if (env) {
+        _resourcesEnvelope.hydrateEnvelope(env)
+        console.info('[onSpecFileImport] Resources envelope hydrated from imported markdown', { estimations: env.estimations?.estimations.length ?? 0 })
+      }
+    } catch (err) {
+      console.warn('[onSpecFileImport] Resources envelope extract/hydrate failed — spec imported without resources', err)
+    }
+  }
   stage.value = 1  // go to stage 1 so SpecOutput is visible
 }
 
@@ -2051,7 +3063,36 @@ const appLoadedStamp: string = (() => {
 
 // --- Spec state ---
 // The raw SpecBlock generated from the SEM entry (needed for Evo Plan + Impact Estimation)
-const currentSpec = ref<SpecBlock | null>(null)
+//
+// r41 v287 (Tom Gilb 2026-06-22 verbatim *"and I dream that you develop tests
+// to detect it wonk work at all"* — after THREE consecutive mount crashes
+// from the same class.  v232 banked a post-flush watcher; v286 fixed the
+// normalizer's no-op bug; v287 closes the remaining race: the watcher fires
+// AFTER child components' `watchEffect` + computeds have already dereferenced
+// the dirty value during synchronous mount.  Solution: replace `ref` with a
+// `customRef` that normalizes SYNCHRONOUSLY at set-time.  Every one of the
+// ~30 `currentSpec.value = X` assignment sites in App.vue now writes
+// pre-normalized data through this ref — there is no dirty intermediate
+// state for any reader to observe.  Idempotent: `_normalizeSpecBlock` is
+// safe to call on already-normalized input (returns identical shape).
+// Composes with: Trace-Before-Patch SUPREME (v285 patched 4 sites; v286
+// fixed the normalizer; v287 fixes the race — three iterations because
+// each named one part of the system, not the system); Architectural
+// Resilience SUPREME (one set-time gate beats N read-site guards);
+// No-Silent-Data-Loss SUPREME (toStr defaults; real values pass through);
+// Feature-Invariants-Smoke-Test SUPREME (new invariant locks the customRef
+// in place + new mount-smoke pass loads a real-shape stored spec).
+const currentSpec = customRef<SpecBlock | null>((track, trigger) => {
+  let value: SpecBlock | null = null
+  return {
+    get() { track(); return value },
+    set(v: SpecBlock | null) {
+      // Coerce on every assignment — synchronous, before any consumer reads.
+      value = v ? _normalizeSpecBlock(v) : null
+      trigger()
+    },
+  }
+})
 
 // r41 v39 — Tom Gilb 2026-06-15 "penta did not catch the planguage stuff" —
 // `currentSpec` (the App.vue local ref) and `specModel.spec` (the persisted
@@ -2070,6 +3111,62 @@ watch([currentSpec, () => specModel.value?.spec], ([curSpec, modelSpec]) => {
   }
 }, { immediate: true })
 
+// ── Contract → Spec bridge (2026-07-14 bug fix, Tom Gilb verbatim: "I have
+//    the indianapolis contract in clearly but when I go to penta no data from
+//    a project registers, this is true for some other sub apps").
+//
+// Contracts mode stores entries in useContractStore (via allEntries derived
+// from the active contract's clauses).  PentaPanel / MultiVisionPanel /
+// ResourceOptimaPanel — and every other component receiving :spec=
+// "currentSpec ?? specModel?.spec" — reads currentSpec, which was NEVER
+// populated from the contract store.  ContractHub + HistoryPanel read the
+// store directly and worked fine; every other sub-app saw an empty spec.
+//
+// Direction 1 fix (Tom-approved): watch contractStore.allEntries.  When it
+// changes to a non-empty list, shape-convert via contractEntriesToSpec() and
+// hydrate currentSpec.  Empty list = no active contract = leave currentSpec
+// alone (do not clobber a manually-entered plan spec).  When BOTH a manual
+// spec AND a contract are present, the contract wins for now — this matches
+// the existing architecture where Contracts mode is the source of truth for
+// contract-mode plans.  If Tom needs a merge instead of overwrite, we'll add
+// it in a follow-up (the migration path is additive).
+//
+// No-Silent-Data-Loss: currentSpec is written via App.vue's set-time
+// customRef normalizer, so shape drift is impossible; Universal Undo already
+// records any watcher-driven mutation IF it flows through the recording
+// wrapper — this direct assignment is a system-level hydration, not a user
+// edit, so it intentionally skips undo (mirrors the specModel hydration
+// watcher above).
+// r41 v? (2026-07-14 second-pass fix, Tom Gilb verbatim: "I did cmnd R,
+// Indianapolis was in, penta showed no data").  The first-pass watcher above
+// keyed on `allEntries` — which is derived from `currentContract` — which is
+// null whenever `_currentId` doesn't point at a stored contract.  That happens
+// on plan switches when `_planContractMap[planId]` is unset: `applyPlanSwitch`
+// nulls `_currentId` and Indianapolis stays visible in ContractHub (which
+// reads the raw `contracts` list) but Penta sees an empty spec.
+//
+// Second-pass fix: read the raw `contracts` list too.  Prefer the "current"
+// contract when set; otherwise fall back to the most recently stored contract
+// that actually has entries.  This means "if anything is loaded, Penta shows
+// it" — which matches Tom's mental model ("I have Indianapolis in").
+watch(
+  () => {
+    const cur = _contractsStoreForPlanSwitch.currentContract.value
+    if (cur && cur.clauses.some(cl => cl.entries.length > 0)) return cur
+    return _contractsStoreForPlanSwitch.contracts.value.find(
+      c => c.clauses.some(cl => cl.entries.length > 0),
+    ) ?? null
+  },
+  (contract) => {
+    if (!contract) return
+    const entries = contract.clauses.flatMap(cl => cl.entries)
+    if (entries.length === 0) return
+    console.log(`[contract→spec] hydrating currentSpec from contract "${contract.title}" (${entries.length} entries)`)
+    currentSpec.value = contractEntriesToSpec(entries)
+  },
+  { immediate: true, deep: true },   // deep — pick up newly-parsed clauses/entries
+)
+
 // History is saved explicitly at each meaningful action (Generated, Make Ambitious,
 // Lean Plan, Restored) — not via a watch, which would fire on session restore and
 // on onHistoryRestore, causing duplicate and mislabelled entries.
@@ -2078,7 +3175,46 @@ watch([currentSpec, () => specModel.value?.spec], ([curSpec, modelSpec]) => {
 // null→spec: new spec generated → add a fresh entry and remember its ID.
 // spec→spec: spec was sharpened → update the existing entry (name, score, entryCount).
 watch(currentSpec, (spec, prevSpec) => {
-  if (!spec) return
+  if (!spec) {
+    // r41 v272 (Tom Gilb 2026-06-22 "after I had loaded with the indy pdf it
+    // reverted back to this begining by itself" + "the input window jump and
+    // disappears after a small time 10 seconds") — DEFENSIVE BREADCRUMB on
+    // currentSpec → null transitions.  Tom can NOT see the stack trace because
+    // he doesn't open DevTools (per Do-Not-Outsource-Investigation SUPREME), but
+    // the next session/Playwright probe CAN read these breadcrumbs.  Stores last
+    // 20 transitions in window._semStateLog so the next investigation has a
+    // history of WHEN spec went null + the JS stack of WHO did it.
+    if (prevSpec) {
+      try {
+        const err = new Error('currentSpec → null transition (breadcrumb only)')
+        const stack = err.stack ?? '(no stack)'
+        const entry = {
+          ts: new Date().toISOString(),
+          event: 'currentSpec→null',
+          prevSpecName: (prevSpec as { plan?: { name?: string } }).plan?.name ?? '(unknown)',
+          planningStageAtTransition: planningStage.value,
+          stackTop16: stack.split('\n').slice(0, 16).join('\n'),
+          isLoading: isLoading.value,
+          sdkError: sdkError.value,
+        }
+        const w = window as unknown as { _semStateLog?: Array<typeof entry> }
+        if (!w._semStateLog) w._semStateLog = []
+        w._semStateLog.push(entry)
+        if (w._semStateLog.length > 20) w._semStateLog.shift()
+        // v514 (2026-07-21) — Tom Gilb: "reverted to the beginning without any input, BUG".
+        // Persist the last 20 breadcrumbs to localStorage so we can retro-diagnose
+        // AFTER refresh (per-tab window._semStateLog is lost on ⌘R).  Tom does not
+        // open DevTools (Do-Not-Outsource-Investigation SUPREME) — this makes the
+        // stack trace grep-able from Claudian's shell after the fact.  Storage cost
+        // is tiny (20 × ~2 KB = 40 KB); silent-fail on quota is fine — the primary
+        // window._semStateLog is still live for same-session inspection.
+        try { localStorage.setItem('sem-state-log-v1', JSON.stringify(w._semStateLog)) } catch { /* quota */ }
+        // Also log to console for live-debugging sessions.
+        console.warn('[sem:state] currentSpec → null', entry)
+      } catch { /* noop */ }
+    }
+    return
+  }
   if (!prevSpec) {
     // Brand-new spec — create a fresh Spec History entry
     currentDashboardEntryId.value = addToDashboard(spec)
@@ -2157,6 +3293,25 @@ function handleStageBarNav(n: number): void {
     return
   }
 
+  // Stage-readiness gate (Tom Gilb 2026-06-19 verbatim: "I am tired of
+  // several times a week having to push an example through the stages
+  // that skip ahead and do not function").  When the user is advancing
+  // FORWARD past a stage whose exit postcondition is unmet, surface a
+  // toast naming the missing data.  Warning only — never blocks
+  // navigation (DD-007 stages-never-locked) — but the user can no longer
+  // advance silently into a downstream stage that will display nothing.
+  if (n > planningStage.value) {
+    const fromStage = planningStage.value
+    const gateReason = checkStageExit(fromStage, currentSpec.value)
+    if (gateReason) {
+      const fromLabel = STAGE_GATES.find(g => g.stage === fromStage)?.label ?? `Stage ${fromStage}`
+      showToast(
+        `⚠ Stage ${fromStage} (${fromLabel}) is not complete: ${gateReason}.  Advancing anyway — the next stage may appear empty.`,
+        6000,
+      )
+    }
+  }
+
   planningStage.value = n  // stages never locked (DD-007)
 
   // r41 v82 (Tom Gilb 2026-06-16 "tried to go st 2, msg stakeholders not
@@ -2179,6 +3334,34 @@ function handleStageBarNav(n: number): void {
   if (toast !== null) {
     // Use per-stage advisory (explicit reason + what to do) — Tom 2026-06-05
     showToast(getStageAdvisory(n, toast), 5500)
+  } else {
+    // r41 v241 (Tom Gilb 2026-06-21 verbatim "I moved to stage 2 solutions, and nothing
+    // happened, no new solutions generate, no report of completion, There was a sharpening
+    // opportunity if I were to take it").  Stage navigation that previously fired NO toast
+    // (because the stage was reachable + spec was ready) left Tom looking at unchanged
+    // content with no orientation cue.  Now: always announce arrival with a status line +
+    // primary-action hint, so the planner has a Report-of-Completion-or-State on every
+    // stage hop.  Composes with MOVE Principle SUPREME (visible options) + AI-Max SUPREME
+    // (suggest action at every blank moment) + DD-009 Zero-Training UI.
+    const stageMeta = PLANNING_STAGES.find(s => s.stage === n)
+    if (stageMeta && currentSpec.value) {
+      const spec = currentSpec.value
+      const fCount = spec.functions?.length ?? 0
+      const vCount = spec.values?.length ?? 0
+      const sCount = spec.solutions?.length ?? 0
+      const cCount = spec.constraints?.length ?? 0
+      const summary =
+        n === 1 ? `${vCount} Value${vCount !== 1 ? 's' : ''}, ${fCount} Function${fCount !== 1 ? 's' : ''} so far` :
+        n === 2 ? `${sCount} Solution${sCount !== 1 ? 's' : ''} for ${vCount} Value${vCount !== 1 ? 's' : ''}` :
+        n === 3 ? `${fCount} Function${fCount !== 1 ? 's' : ''} to sharpen` :
+        n === 4 ? `${vCount} Value${vCount !== 1 ? 's' : ''} ready to score for impact` :
+        n === 5 ? `${cCount} Constraint${cCount !== 1 ? 's' : ''} to refine` :
+        n === 6 ? `${sCount} Solution${sCount !== 1 ? 's' : ''}, ${confirmedSteps.value.length} Evo Step${confirmedSteps.value.length !== 1 ? 's' : ''} confirmed` :
+        `${fCount + vCount + sCount + cCount} total spec entries`
+      const action = planningStageAction.value
+      const actionHint = action ? ` · primary action: ${action.label}` : ''
+      showToast(`📐 Stage ${n}: ${stageMeta.label} — ${summary}${actionHint}`, 5000)
+    }
   }
 
   switch (action) {
@@ -2238,7 +3421,11 @@ const planningStageAction = computed<{ label: string; handler: () => void } | nu
   if (!currentSpec.value && planningStage.value > 1) return null
   switch (planningStage.value) {
     case 1:  return { label: '✏️ Enter Stakes',        handler: () => goToStage1() }
-    case 2:  return { label: '0→* Edit Values',         handler: () => _openSpecEditor({ tab: 'values' }) }
+    // r41 v241 (Tom 2026-06-21 "I moved to stage 2 solutions, and nothing happened, no new
+    // solutions generate") — Stage 2 IS Solutions per planningStages.ts; previous mapping
+    // said "Edit Values" which was stale. Primary action now opens the SpecEditor focused on
+    // the Solutions tab so Tom can review / add / sharpen Solutions immediately.
+    case 2:  return { label: '[*]→ Open Solutions Editor', handler: () => _openSpecEditor({ tab: 'solutions' }) }
     case 3:  return { label: '✨ Sharpen Spec',         handler: () => { sharpenModalOpen.value = true } }
     case 4:  return { label: '📊 Estimate Impacts',     handler: () => goToImpactStage() }
     case 5:  return { label: '[*] Refine Solutions',    handler: () => _openSpecEditor({ tab: 'solutions' }) }
@@ -2259,6 +3446,1361 @@ const formResetKey = ref(0)
 // formSubStage — mirrors SEMEntryForm's internal stage so App.vue can show the right
 // Next Step label. Updated via the 'stage-change' emit from SEMEntryForm.
 const formSubStage = ref<'input' | 'review'>('input')
+
+// ── Stage 1 sub-step strip (Tom Gilb 2026-06-19) ─────────────────────────────
+// 1.1 Spec Entry → 1.2 Spec Parsing → 1.3 Parse Implied Sharpening →
+// 1.4 Planguage Generation → 1.5 Planguage Edit.
+// `stage1SubStep` is the CURRENT highlighted step.  `stage1DoneSteps`
+// computed from spec / parse state — completed steps render with the
+// green ✓ badge in the strip.
+const stage1SubStep = ref<Stage1SubStepKey>('1.1')
+
+// r41 v400 (Tom Gilb 2026-06-28 "fix 1.3 and 3.2 and be done"): explicit
+// user-intent flag for substep 1.3 (Parse Implied Sharpening).  Same shape
+// as v399's `stage2_3UserMarkedDone` — captures the "Done sharpening" click
+// regardless of whether any Apply landed inside the panel.  Watcher on
+// `parseImpliedSharpeningOpen` is declared AFTER that ref (further down
+// the script) because script-setup evaluates top-to-bottom.
+const stage1_3UserMarkedDone = ref<boolean>(false)
+
+// r41 v336 (Tom Gilb 2026-06-24 "the yellow for phase 1.1 is still on and we
+// are in 1.4 or 1.5"): auto-advance the CURRENT (yellow) sub-step marker as
+// the workflow progresses.  Before v336, the marker was stuck at the default
+// '1.1' until the planner manually clicked a pill in the strip.  Post-generate
+// state showed 1.1 yellow + 1.2 + 1.4 green-done — confusing because the
+// planner is clearly past 1.1.  Auto-advance: when a NEW done-step lands AND
+// it is LATER in the canonical order than current, move current forward.
+// Manual navigation (onStage1SubStepGo) still wins for explicit backward jumps. */
+const STAGE1_ORDER: readonly Stage1SubStepKey[] = ['1.1', '1.2', '1.3', '1.4', '1.5'] as const
+const stage1DoneSteps = computed<Stage1SubStepKey[]>(() => {
+  const done: Stage1SubStepKey[] = []
+  // 1.1 Spec Entry — done once a draft text/URL/file has been accepted OR a
+  // currentSpec is loaded (the simplest test: anything is in the workspace).
+  const hasInput = formSubStage.value === 'review' || !!currentSpec.value
+  if (hasInput) done.push('1.1')
+  // 1.2 Spec Parsing — done once the parser has produced ANY entries.
+  const entryTotal =
+    (currentSpec.value?.functions?.length ?? 0) +
+    (currentSpec.value?.values?.length ?? 0) +
+    (currentSpec.value?.solutions?.length ?? 0) +
+    (currentSpec.value?.constraints?.length ?? 0) +
+    (currentSpec.value?.resources?.length ?? 0)
+  if (entryTotal > 0) done.push('1.2')
+  // 1.3 Parse Implied Sharpening — done if the planner has run at least one
+  // sharpening round in this session (sharpenRounds counter on the model)
+  // OR if the planner explicitly marked 1.3 done by closing the panel.
+  // r41 v400 (Tom Gilb 2026-06-28 "fix 1.3 and 3.2 and be done"): propagates
+  // the v399 "honour user intent on Done click" pattern to this substep.
+  if ((specModel.value?.sharpenRounds ?? 0) > 0 || stage1_3UserMarkedDone.value) done.push('1.3')
+  // 1.4 Planguage Generation — done when the spec has REAL F./V./S./C./R.
+  // entries (not just the fallback V.ImportedText placeholder).
+  const hasReal =
+    (currentSpec.value?.functions?.length ?? 0) > 0 ||
+    (currentSpec.value?.solutions?.length ?? 0) > 0 ||
+    ((currentSpec.value?.values?.length ?? 0) > 0 &&
+      !currentSpec.value?.values?.every(v => v.id === 'V.ImportedText'))
+  if (hasReal) done.push('1.4')
+  // 1.5 Planguage Edit — done once the planner has opened the Spec Editor
+  // at least once (specEditorOpen has been true) — proxied here by
+  // manualEditCount > 0 on the spec model.
+  if ((specModel.value?.manualEditCount ?? 0) > 0) done.push('1.5')
+  return done
+})
+
+// r41 v336 (Tom Gilb 2026-06-24 "the yellow for phase 1.1 is still on and we
+// are in 1.4 or 1.5"): auto-advance the CURRENT (yellow) sub-step marker as
+// the workflow progresses.  Before v336, the marker was stuck at the default
+// '1.1' until the planner manually clicked a pill in the strip.  Post-generate
+// state showed 1.1 yellow + 1.2 + 1.4 green-done — confusing because the
+// planner is clearly past 1.1.  Auto-advance: when a NEW done-step lands AND
+// it is LATER in the canonical order than current, move current forward.
+// Manual navigation (onStage1SubStepGo) still wins for explicit backward jumps.
+// MUST be placed AFTER stage1DoneSteps is declared (v336.1 fix — the watcher
+// initially landed before the computed, triggering ReferenceError on mount).
+watch(() => stage1DoneSteps.value, (done) => {
+  if (done.length === 0) return
+  let latestDone: Stage1SubStepKey | null = null
+  for (const k of STAGE1_ORDER) {
+    if (done.includes(k)) latestDone = k
+  }
+  if (!latestDone) return
+  const latestIdx = STAGE1_ORDER.indexOf(latestDone)
+  const targetIdx = Math.min(latestIdx + 1, STAGE1_ORDER.length - 1)
+  const target = STAGE1_ORDER[targetIdx]
+  const currentIdx = STAGE1_ORDER.indexOf(stage1SubStep.value)
+  if (targetIdx > currentIdx) {
+    stage1SubStep.value = target
+  }
+  // r41 v338 (Tom Gilb 2026-06-24 "the yellow marker did not work at all"):
+  // `immediate: true` is essential — when the page loads with a hydrated
+  // spec from localStorage, `stage1DoneSteps` is ALREADY populated at mount
+  // and the watch otherwise never fires until the planner mutates the spec.
+  // Without immediate, the yellow marker is stuck on '1.1' across refreshes
+  // even though done-steps clearly show 1.4/1.5 reached. v336 shipped the
+  // logic; v338 actually makes it run.
+}, { deep: false, flush: 'post', immediate: true })
+
+/** r41 v303/v304 — Stage 1 stakeholder count helper.
+ *
+ *  v304 bug fix (Tom Gilb 2026-06-23 "no stakeholders in message but 2
+ *  stakeholders just below"): the SpecOutput "N identified" badge counts
+ *  stakeholders from TWO paths — structured `spec.stakeholderEntries`
+ *  (post-2026-06-09 specs) AND derived from `v.wishStakeholder` (pre-
+ *  2026-06-09 fallback / specs whose Stakeholder Mapper has not yet run).
+ *  My v303 computeds only checked the structured path, so a Tom-shaped spec
+ *  with derived-only stakeholders falsely showed "No Stakeholders" in the
+ *  banner while the section below showed "2 identified".  Fix: count the
+ *  union via the same two-path logic SpecOutput uses. */
+function _stage1StakeholderCount(): number {
+  const spec = currentSpec.value
+  if (!spec) return 0
+  const structuredCount = spec.stakeholderEntries?.length ?? 0
+  if (structuredCount > 0) return structuredCount
+  // Fallback: count unique non-empty `wishStakeholder` values across Values.
+  // Matches SpecOutput.specStakeholderCards' fallback branch exactly.
+  const derived = new Set<string>()
+  for (const v of (spec.values ?? [])) {
+    const w = v.wishStakeholder?.trim()
+    if (w && w.length > 0) derived.add(w.toLowerCase())
+  }
+  return derived.size
+}
+
+/** r41 v303 (Tom Gilb 2026-06-23 verbatim "i cannot see here what is done,
+ *  what to do, how to move on") — Stage 1 status banner: counts what's in
+ *  the spec so the planner sees progress at a glance. */
+const _stage1ProgressSentence = computed<string>(() => {
+  const spec = currentSpec.value
+  if (!spec) return 'No spec yet — paste text, a URL, or upload a file via 1.1 Capture Spec Input to begin.'
+  const shCount = _stage1StakeholderCount()
+  const vCount  = spec.values?.length ?? 0
+  const fCount  = spec.functions?.length ?? 0
+  const sCount  = spec.solutions?.length ?? 0
+  const cCount  = spec.constraints?.length ?? 0
+  const rCount  = spec.resources?.length ?? 0
+  const parts: string[] = []
+  if (shCount > 0) parts.push(`${shCount} Stakeholder${shCount === 1 ? '' : 's'}`)
+  if (vCount  > 0) parts.push(`${vCount} Value${vCount === 1 ? '' : 's'}`)
+  if (fCount  > 0) parts.push(`${fCount} Function${fCount === 1 ? '' : 's'}`)
+  if (sCount  > 0) parts.push(`${sCount} Solution${sCount === 1 ? '' : 's'}`)
+  if (cCount  > 0) parts.push(`${cCount} Constraint${cCount === 1 ? '' : 's'}`)
+  if (rCount  > 0) parts.push(`${rCount} Resource${rCount === 1 ? '' : 's'}`)
+  if (parts.length === 0) return 'Spec exists but no entries parsed yet.'
+  return `✅ ${parts.join(' · ')} captured.`
+})
+
+/** r41 v303/v304 — Stage 1 next-action sentence: names ONE concrete next step. */
+const _stage1NextActionSentence = computed<string>(() => {
+  const spec = currentSpec.value
+  if (!spec) return 'Use the entry form below to paste text, drop a URL, or upload a file.'
+  const vCount = spec.values?.length ?? 0
+  const fCount = spec.functions?.length ?? 0
+  const shCount = _stage1StakeholderCount()
+  if (vCount === 0 && fCount === 0) {
+    return 'Spec is empty of Values + Functions — open the Spec Editor to add them, or re-parse the source.'
+  }
+  if (shCount === 0) {
+    return 'No Stakeholders identified yet — derive them from your Values via the Stakeholder Mapper agent, or add manually in the Spec Editor.'
+  }
+  if (vCount > 0 && spec.values?.every(v => !v.goal || v.goal.trim().length === 0)) {
+    return 'Values have no Goal level set — open the Spec Editor (Values tab) and quantify each Value with Scale + Meter + Goal.'
+  }
+  return 'Stakes captured — advance to Stage 2 Solutions to generate / sharpen Solutions that deliver these Values.'
+})
+
+/** Stage 1.3 Parse Implied Sharpening panel open flag. */
+const parseImpliedSharpeningOpen = ref(false)
+
+// r41 v400 — Watcher for 1.3 panel close: same shape as v399's handleSharpenModalDone
+// for the 2.3/3.2 surfaces.  Closing the 1.3 panel IS the explicit Done signal —
+// captures user intent + advances stage1SubStep to 1.4 + acknowledges via toast.
+// Composes with No-Silent-Data-Loss SUPREME (flow-state acknowledgement) + MOVE
+// Principle SUPREME (NEXT pointer advances visibly).
+watch(parseImpliedSharpeningOpen, (isOpen, wasOpen) => {
+  if (wasOpen && !isOpen && planningStage.value === 1 && stage1SubStep.value === '1.3') {
+    stage1_3UserMarkedDone.value = true
+    stage1SubStep.value = '1.4'
+    const n = sharpenRounds.value.length
+    if (n > 0) {
+      showToast(`🔪 ${n} sharpening round${n !== 1 ? 's' : ''} applied — Stage 1.3 done · advanced to 1.4`, 6000, { label: '[Undo]', handler: handleGlobalUndo })
+    } else {
+      showToast('🔪 No changes applied this round — Stage 1.3 marked done · advanced to 1.4', 5000)
+    }
+  }
+})
+
+/** Initial Input viewer panel — Tom Gilb 2026-06-19 INITIAL SPECS request. */
+const initialInputPanelOpen = ref(false)
+const currentInitialInput = computed<InitialInputSnapshot | null>(() => {
+  const id = specModel.value?.id
+  if (!id) return null
+  return getInitialInput(id)
+})
+function openInitialInputPanel(): void {
+  initialInputPanelOpen.value = true
+}
+
+// ── Stage 2 sub-step state (Tom Gilb 2026-06-21) ─────────────────────────────
+// 2.1 Read In Specs → 2.2 Generate Solutions → 2.3 Sharpen Spec → 2.4 Tools and Agents.
+// Mirrors Stage 1 sub-step pattern.  Composes with Stage-Has-A-Purpose SUPREME.
+const stage2SubStep = ref<Stage2SubStepKey>('2.1')
+
+// r41 v352 — Stage 2.2 auto-generate-Solutions wiring.  Tom Gilb 2026-06-25
+// *"2.2 did not clearly generate solutions, and we need the proof of that
+// with the same window we just developed for stage 2 (Name = Planguage
+// Progress window)"*.  The handler `runStage22GenerateSolutions` mounts
+// the PlanguageProgressWindow modal as the visible receipt while the AI
+// drafts one Solution per unaddressed Value (per Solution Parameters
+// SUPREME 7-Tier-1 minimum field set), then lands the result via
+// Universal Undo.  Composable: `useGenerateSolutions(currentSpec)`.
+const _genSolutions = useGenerateSolutions(currentSpec)
+const stage22ProgressWindowOpen = ref(false)
+
+async function runStage22GenerateSolutions(): Promise<void> {
+  if (!currentSpec.value) {
+    showToast('No spec loaded — generate a spec at Stage 1 first.', 4000)
+    return
+  }
+  const targetCount = _genSolutions.unaddressedCount.value
+  if (targetCount === 0) {
+    showToast('All Values already have at least one linked Solution — nothing to generate.  Open Sharpen (2.3) to refine existing Solutions.', 6000)
+    return
+  }
+  stage22ProgressWindowOpen.value = true
+  showToast(`Generating ${targetCount} Solution${targetCount === 1 ? '' : 's'} for unaddressed Value${targetCount === 1 ? '' : 's'}…`, 3000)
+  try {
+    const generated = await _genSolutions.generate()
+    if (generated.length === 0) {
+      const errMsg = _genSolutions.error.value || 'Generation produced no Solutions.'
+      showToast(`Stage 2.2 — ${errMsg}`, 7000)
+      return
+    }
+    // Merge generated Solutions into the spec via Universal Undo.
+    const prevSpec = JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock
+    const nextSpec: SpecBlock = JSON.parse(JSON.stringify(currentSpec.value)) as SpecBlock
+    nextSpec.solutions = [...(nextSpec.solutions ?? []), ...generated]
+    undoHistory.record({
+      label:    `Stage 2.2 Auto-Generate · ${generated.length} Solution${generated.length === 1 ? '' : 's'}`,
+      source:   'Stage22GenerateSolutions',
+      prevSpec,
+      nextSpec,
+      affectedFields: generated.map(s => `solutions.${s.id}`),
+    })
+    currentSpec.value = nextSpec
+    if (specModel.value) saveSpecSnapshot(nextSpec)
+    showToast(`Stage 2.2 — Generated ${generated.length} Solution${generated.length === 1 ? '' : 's'} for unaddressed Value${generated.length === 1 ? '' : 's'}.`, 6000)
+  } finally {
+    // Keep the window open briefly so the final count is visible before
+    // dismissing (the planner sees the counter tile update to the new
+    // total).  3s — enough to register; short enough not to block.
+    setTimeout(() => { stage22ProgressWindowOpen.value = false }, 3000)
+  }
+}
+// r41 v399 (Tom Gilb 2026-06-28 verbatim "I said done sharpening, then it
+// should have move to show me results of sharpening, but it want to
+// sharpening"): explicit user-intent flag for 2.3.  Previously 2.3 was only
+// marked done when `specModel.sharpenRounds > 0` — that increments per
+// APPLY action inside the modal, NOT on "Done sharpening" click.  If Tom
+// reviews the spec, decides nothing needs sharpening, and clicks Done, the
+// substep stayed marked active because no Apply fired.  Tom's mental model:
+// "Done sharpening" = "I'm done with 2.3" regardless of changes.  This flag
+// captures that intent immediately; `stage2DoneSteps` honours it; the NEXT
+// pointer advances to 2.4.
+const stage2_3UserMarkedDone = ref<boolean>(false)
+
+const stage2DoneSteps = computed<Stage2SubStepKey[]>(() => {
+  const done: Stage2SubStepKey[] = []
+  const spec = currentSpec.value
+  if (!spec) return done
+  // 2.1 done — Spec exists in workspace (planner can read it).
+  done.push('2.1')
+  // 2.2 done — at least one Solution exists in the spec (the work of Stage 2).
+  if ((spec.solutions?.length ?? 0) > 0) done.push('2.2')
+  // 2.3 done — at least one sharpen round has run OR user explicitly marked
+  // 2.3 done via "Done sharpening" click (Tom 2026-06-28 — v399).
+  if ((specModel.value?.sharpenRounds ?? 0) > 0 || stage2_3UserMarkedDone.value) done.push('2.3')
+  // 2.4 Tools — never tracked as "done"; zero-or-more cycles, always available
+  //   as an OPTIONAL action per the Done/You Can/Continue SUPREME rule.
+  // 2.5 Agents — same; v404 split per Tom Gilb 2026-06-28.  Both Tools and
+  //   Agents stay in the YOU CAN list permanently until the planner clicks
+  //   Continue to Stage 3 (skip).  Composes with Stages-are-Cyclic SUPREME.
+  return done
+})
+
+function onStage2SubStepGo(target: Stage2SubStepKey): void {
+  stage2SubStep.value = target
+  switch (target) {
+    case '2.1':
+      // Read In Specs — open the Spec Editor on the Solutions tab so the
+      // planner sees what is currently in the plan (the "review the spec"
+      // entry point Tom asked for).
+      _openSpecEditor({ tab: 'solutions' })
+      showToast('2.1 — Read In Specs · Spec Editor open on Solutions tab', 2800)
+      break
+    case '2.2':
+      // r41 v352 (Tom Gilb 2026-06-25 *"2.2 did not clearly generate
+      // solutions, and we need the proof of that with the same window we
+      // just developed for stage 2 (Name = Planguage Progress window)"*):
+      // 2.2 now ACTUALLY generates Solutions via useGenerateSolutions.
+      // The PlanguageProgressWindow opens as the visible receipt; the AI
+      // drafts one Solution per unaddressed Value with Tier-1 26-parameter
+      // fields populated; results merge through Universal Undo.  The
+      // Sharpen modal remains available at 2.3 for the deeper Q&A path.
+      void runStage22GenerateSolutions()
+      break
+    case '2.3':
+      // Sharpen Spec — open the Sharpen modal (full-spec scope).
+      sharpenModalOpen.value = true
+      showToast('2.3 — Sharpen the entire set of specs', 2800)
+      break
+    case '2.4':
+      // r41 v404 (Tom Gilb 2026-06-28 "agents were not a group in the menu"):
+      // 2.4 is now TOOLS ONLY (Penta, Multivision, Value Flow).  Opens the
+      // Actions menu pointed at the Tools section.  Agents moved to 2.5.
+      menuOpen.value = true
+      showToast('2.4 — Apply visualisation Tools (Penta, Multivision, Value Flow). Agents are at 2.5.', 3500)
+      break
+    case '2.5':
+      // r41 v404 — NEW. Agents as a distinct group per Tom.  Opens the
+      // Actions menu where the planner can pick from Munger / Heilmeier /
+      // Feynman / Elon / Incorruptible / Roles / Auto-DBO.  The Agents
+      // Strip pin cluster at the top of the page also exposes every Agent
+      // for one-click access.
+      menuOpen.value = true
+      showToast('2.5 — Apply analytical Agents (Munger, Heilmeier, Feynman, Elon, Incorruptible, Roles, Auto-DBO). The Agents Strip above also has every agent one-click.', 4500)
+      break
+  }
+}
+
+function onStage2ContinueToStage3(): void {
+  // Tom Gilb 2026-06-21 verbatim: "allow the option of MOving to the next
+  // stage (we can come back here, and we can refine with tools and agents
+  // at later stages)".  Advances planningStage to 3 (Sharpen).
+  handleStageBarNav(3)
+}
+
+// ── Stage 4 sub-step state (Tom Gilb 2026-06-21 — Reasonable Balance) ────────
+// 4.1 Look at Estimates → 4.2 Adjust → 4.3 Approve → 4.4 Tools and Agents → 4.5 Move to Stage 5.
+// Mirrors Stage 2 sub-step pattern.  Composes with rule_stage_4_impacts_design.md SUPREME.
+// Phase 1 implementation: routes each sub-step to its existing canonical surface;
+// Phase 2+ builds the Evidence/Source/Credibility data model + Estimates Approval flow +
+// Tools-and-Agents table + IET Settings Panel.
+const stage4SubStep = ref<Stage4SubStepKey>('4.1')
+// r41 v252 — declared BEFORE stage4DoneSteps because the computed references it.
+// (Vue 3 <script setup> evaluates declarations top-down; a computed that closes over a
+// later-declared ref will hit ReferenceError at first access.  Move-not-mirror.)
+const estimatesApprovalCount = ref(0)  // count of Estimates Versions approved this session
+const stage4DoneSteps = computed<Stage4SubStepKey[]>(() => {
+  const done: Stage4SubStepKey[] = []
+  if (!currentSpec.value) return done
+  // 4.1 done — Spec + IET exist (planner can look).
+  if ((currentSpec.value.solutions?.length ?? 0) > 0 && (currentSpec.value.values?.length ?? 0) > 0) {
+    done.push('4.1')
+  }
+  // 4.2 done — at least one Estimate has been recorded (impactMatrix has entries).
+  //  (impactMatrix telemetry available in Phase 2 — for now, mark when planner has visited 4.2)
+  // 4.3 done — at least one Estimates Version approved this session (v252).
+  if (estimatesApprovalCount.value > 0) done.push('4.3')
+  // 4.4 — Tools / Agents — no precise tracking yet (Phase 2 telemetry).
+  return done
+})
+
+// ── Stage 4 Phase 2 modal state (Tom Gilb 2026-06-21) ────────────────────────
+// 4.3 Estimates Approval Panel; 4.4 Tools-and-Agents Table.  Phase 2+ build of
+// rule_stage_4_impacts_design.md SUPREME.  Note: estimatesApprovalCount is
+// hoisted above to be declared BEFORE stage4DoneSteps that references it.
+const estimatesApprovalOpen = ref(false)
+const stage4ToolsTableOpen  = ref(false)
+
+// ── Stage 6 sub-step modal state (Tom Gilb 2026-06-23 — r41 v302) ────────────
+// 6.2 Prioritise · 6.3 Sharpen Steps · 6.4 Tools and Agents.
+const stage6PrioritiseOpen      = ref(false)
+const stage6SharpenStepsOpen    = ref(false)
+const stage6ToolsAndAgentsOpen  = ref(false)
+
+// r41 v256 — scroll the IET into view after Stage 4 navigation.  Tom Gilb 2026-06-21
+// verbatim "look at estimates, except they are not here now" — IET was rendering off-
+// screen; scrollIntoView({behavior:'smooth', block:'start'}) brings it into the
+// viewport.  Wrapped in nextTick + small delay so the v-if reactively mounts the IET
+// before the scroll fires.
+function scrollIetIntoView(): void {
+  nextTick(() => {
+    setTimeout(() => {
+      const el = ietWrapperEl.value
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 80)
+  })
+}
+
+// r41 v262 — scroll the EvoPlanView into view after Stage 6 navigation (mirrors v256 IET).
+function scrollEvoPlanIntoView(): void {
+  nextTick(() => {
+    setTimeout(() => {
+      const el = evoPlanWrapperEl.value
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 120)  // longer delay than IET because EvoPlanView often kicks an async fetch on mount
+  })
+}
+
+function onStage4SubStepGo(target: Stage4SubStepKey): void {
+  stage4SubStep.value = target
+  switch (target) {
+    case '4.1':
+      // Look at Estimates + Evidence — open the IET via the canonical action,
+      // then scroll it into view (the v255 strip is visible at top but the IET
+      // was rendering below the fold; Tom Gilb 2026-06-21 "they are not here now").
+      goToImpactStage()
+      scrollIetIntoView()
+      showToast('4.1 — Look at Estimates · Evidence + Source + Credibility', 2800)
+      break
+    case '4.2':
+      // Adjust — same IET surface; edits inline.
+      goToImpactStage()
+      scrollIetIntoView()
+      showToast('4.2 — Adjust individual + total estimates', 2800)
+      break
+    case '4.3':
+      // r41 v252 — Approve Estimates: open EstimatesApprovalPanel.  Creates an
+      // Estimates Version with identity + date + time + remarks/caveats per Tom
+      // Gilb 2026-06-21 verbatim.  Composes with Universal Undo + useSpecHistory.
+      estimatesApprovalOpen.value = true
+      break
+    case '4.4':
+      // r41 v252 — Tools and Agents: open the dedicated Stage 4 table panel
+      // (Penta / Multivision / Value Flow / Compare / Spec Health / Munger /
+      // Maria / Elon / Incorruptible / Spec Agent — with how-this-helps).
+      stage4ToolsTableOpen.value = true
+      break
+    case '4.5':
+      // Move to Stage 5 (Refine).  You can return to Stage 4 anytime.
+      handleStageBarNav(5)
+      break
+  }
+}
+
+// r41 v252 — Approve estimates → persist as Estimates Version via useSpecHistory.
+function onEstimatesApproved(record: EstimatesApproval): void {
+  if (!currentSpec.value) {
+    showToast('⚠ No spec to approve — generate at Stage 1 first.', 3500)
+    estimatesApprovalOpen.value = false
+    return
+  }
+  const nickname = record.nickname ? ` "${record.nickname}"` : ''
+  const remarks  = record.remarks  ? ` · ${record.remarks.slice(0, 80)}${record.remarks.length > 80 ? '…' : ''}` : ''
+  const label    = `Estimates Approved · ${record.identity}${nickname}${remarks}`
+  try {
+    addVersion(
+      currentSpec.value,
+      label,
+      _evoPlan.value as EvoStepPlan | null,
+      specModel.value?.name ?? '',
+      _specOwnerNames(),
+    )
+    estimatesApprovalCount.value++
+    estimatesApprovalOpen.value = false
+    showToast(`✅ Estimates Version approved by ${record.identity} — saved to history`, 4500)
+  } catch (err) {
+    console.warn('[onEstimatesApproved] addVersion failed:', err)
+    showToast(`⚠ Approval saved in-session but persistence failed — ${err instanceof Error ? err.message : 'localStorage may be full'}`, 5500)
+  }
+}
+
+// ── Stage 5 sub-step state (Tom Gilb 2026-06-21 — Refine Re-design) ──────────
+// 5.1 Reduce Resources → 5.2 More Value Same Cost → 5.3 Reduce Risks →
+// 5.4 Relax Constraints → 5.5 Approve Solution Set (Exit Process).
+// Phase 1: 5.1-5.4 route to existing Sharpen modal (placeholder until per-sub-
+// phase toolbox lands in Phase 2); 5.5 opens the approval panel with
+// panelKind="solutions" (reuses v252 EstimatesApprovalPanel).
+// solutionSetApprovalCount declared BEFORE stage5DoneSteps per the v252 lesson
+// (Vue 3 <script setup> evaluates top-down; computed closing over a later-
+// declared ref hits ReferenceError at first access).
+const solutionSetApprovalCount = ref(0)
+const stage5SubStep = ref<Stage5SubStepKey>('5.1')
+const stage5DoneSteps = computed<Stage5SubStepKey[]>(() => {
+  const done: Stage5SubStepKey[] = []
+  if (!currentSpec.value) return done
+  // 5.1-5.4 — no precise telemetry yet; Phase 2 adds per-sub-phase tracking.
+  // 5.5 done — at least one Solution Set Version approved this session (v253).
+  if (solutionSetApprovalCount.value > 0) done.push('5.5')
+  return done
+})
+
+const solutionSetApprovalOpen = ref(false)
+
+function onStage5SubStepGo(target: Stage5SubStepKey): void {
+  stage5SubStep.value = target
+  switch (target) {
+    case '5.1':
+      // Reduce Resources — Phase 1 routes to Sharpen modal; Phase 2 adds the
+      // per-sub-phase resource-reduction tool palette.
+      sharpenModalOpen.value = true
+      showToast('5.1 — Reduce Resources by re-design · Re-design = change · delete · add', 3500)
+      break
+    case '5.2':
+      sharpenModalOpen.value = true
+      showToast('5.2 — More Value at same cost · re-designs that lift Value/Cost ratio', 3500)
+      break
+    case '5.3':
+      sharpenModalOpen.value = true
+      showToast('5.3 — Reduce Risks · iterate on Solution Tier-2 risks + sideEffects', 3500)
+      break
+    case '5.4':
+      sharpenModalOpen.value = true
+      showToast('5.4 — Relax Constraints + Qualifiers (when / where / who) — temporary or permanent', 3800)
+      break
+    case '5.5':
+      // Approve Solution Set — opens the approval panel with panelKind="solutions".
+      // Per Tom 2026-06-21 verbatim: approval is PLANNER-level (not Owner-level).
+      solutionSetApprovalOpen.value = true
+      break
+  }
+}
+
+// r41 v253 — Approve Solution Set → persist as Solution Set Version via useSpecHistory.
+function onSolutionSetApproved(record: EstimatesApproval): void {
+  if (!currentSpec.value) {
+    showToast('⚠ No spec to approve — generate at Stage 1 first.', 3500)
+    solutionSetApprovalOpen.value = false
+    return
+  }
+  const nickname = record.nickname ? ` "${record.nickname}"` : ''
+  const remarks  = record.remarks  ? ` · ${record.remarks.slice(0, 80)}${record.remarks.length > 80 ? '…' : ''}` : ''
+  const authority = record.approvalAuthority ?? 'planner'
+  const label = `Solution Set Approved (${authority}) · ${record.identity}${nickname}${remarks}`
+  try {
+    addVersion(
+      currentSpec.value,
+      label,
+      _evoPlan.value as EvoStepPlan | null,
+      specModel.value?.name ?? '',
+      _specOwnerNames(),
+    )
+    solutionSetApprovalCount.value++
+    solutionSetApprovalOpen.value = false
+    showToast(`✅ Solution Set Version approved by ${record.identity} (${authority}-level) — saved to history`, 4500)
+  } catch (err) {
+    console.warn('[onSolutionSetApproved] addVersion failed:', err)
+    showToast(`⚠ Approval saved in-session but persistence failed — ${err instanceof Error ? err.message : 'localStorage may be full'}`, 5500)
+  }
+}
+
+// ── Stages 3 / 6 / 8 / 9 sub-step state (Tom Gilb 2026-06-21 "plough through") ─
+// Per the v254 generic strip pattern, each new stage gets a current+done state +
+// a handler that routes each sub-step to its existing canonical surface.  Phase 2+
+// builds per-sub-phase toolboxes + the AI-driven flows promised in each long-hint.
+const stage3SubStep = ref<Stage3SubStepKey>('3.1')
+// r41 v400 (Tom Gilb 2026-06-28 "fix 1.3 and 3.2 and be done"): v399 pattern
+// propagated — explicit user-intent flag for 3.2 so the substep advances on
+// "Done sharpening" click even when no Apply landed inside the modal.
+const stage3_2UserMarkedDone = ref<boolean>(false)
+const stage3DoneSteps = computed<Stage3SubStepKey[]>(() => {
+  const done: Stage3SubStepKey[] = []
+  if (!currentSpec.value) return done
+  if ((specModel.value?.sharpenRounds ?? 0) > 0 || stage3_2UserMarkedDone.value) done.push('3.2')
+  return done
+})
+function onStage3SubStepGo(target: Stage3SubStepKey): void {
+  stage3SubStep.value = target
+  switch (target) {
+    case '3.1': specHealthStatusOpen.value = true; showToast('3.1 — Inventory gaps via Plan Health audit', 3000); break
+    case '3.2': sharpenModalOpen.value = true;     showToast('3.2 — Sharpen Entries · AI-assisted interview', 3000); break
+    case '3.3':
+      // r41 v373 (Tom Gilb 2026-06-27 *"the add qualifiers stage does not
+      // offer any process for doing that. I suggest 2 rounds. 1. A default
+      // set of qualifiers for everything..."*): Stage 3.3 now opens the
+      // Add Qualifiers Flow modal — Round 1 (mechanical defaults shown
+      // instantly + AI refines per-entry from plan context in background)
+      // + Round 2 (per-entry edit).  Round 3 (multi-set additional Levels
+      // per r93kkk) banked for next session.  Sharpen modal still reachable
+      // at 3.2 for the deeper Q&A path.
+      addQualifiersFlowOpen.value = true
+      showToast('3.3 — Add Qualifiers · mechanical defaults shown; AI refines from your plan context', 3500)
+      break
+    case '3.4': sharpenModalOpen.value = true;     showToast('3.4 — Review + Apply sharpening proposals', 3000); break
+    case '3.5': handleStageBarNav(4); break
+  }
+}
+
+const stage6SubStep = ref<Stage6SubStepKey>('6.1')
+const stage6DoneSteps = computed<Stage6SubStepKey[]>(() => {
+  const done: Stage6SubStepKey[] = []
+  if (!currentSpec.value) return done
+  if (confirmedSteps.value.length > 0) { done.push('6.1', '6.5') }
+  return done
+})
+function onStage6SubStepGo(target: Stage6SubStepKey): void {
+  stage6SubStep.value = target
+  switch (target) {
+    // r41 v262 (Tom Gilb 2026-06-21 "where is it? how do we proceed? why can it just do it
+    // and announce it is done") — 6.1 now AUTO-FIRES generation + scrolls EvoPlanView into
+    // view + announces completion via toast.  No hunt for the EvoPlanner — clicking 6.1 IS
+    // the EvoPlanner invocation.  Composes with AI-Max SUPREME + MOVE Principle + Stage-
+    // Has-A-Purpose SUPREME.
+    case '6.1':
+      showToast('⚡ 6.1 — Generating Evo Steps from your Solution Set… (Claudian working; result will appear below)', 5000)
+      void _triggerEvoGeneration()
+      scrollEvoPlanIntoView()
+      break
+    // r41 v302 (Tom Gilb 2026-06-23 autonomous backlog) — Stage 6 sub-step
+    // surfaces 6.2 / 6.3 / 6.4 mounted as focused modal panels.  When an Evo
+    // plan exists, clicking the sub-step OPENS the matching panel.  When no
+    // plan exists, the legacy navigation + notification path runs so the
+    // planner is guided to Stage 6.1 first.
+    case '6.2':
+      if (confirmedSteps.value.length > 0) {
+        stage6PrioritiseOpen.value = true
+      } else {
+        goToStage2(); scrollEvoPlanIntoView()
+        showToast('6.2 — Generate Evo Steps first (6.1) so you have something to prioritise.', 3500)
+      }
+      break
+    case '6.3':
+      if (confirmedSteps.value.length > 0) {
+        stage6SharpenStepsOpen.value = true
+      } else {
+        goToStage2(); scrollEvoPlanIntoView()
+        showToast('6.3 — Generate Evo Steps first (6.1), then sharpen each one.', 3500)
+      }
+      break
+    case '6.4':
+      stage6ToolsAndAgentsOpen.value = true
+      break
+    case '6.5': handleStageBarNav(7); break
+  }
+}
+
+const stage8SubStep = ref<Stage8SubStepKey>('8.1')
+const stage8DoneSteps = computed<Stage8SubStepKey[]>(() => {
+  const done: Stage8SubStepKey[] = []
+  if (!currentSpec.value) return done
+  if (confirmedSteps.value.length > 0) done.push('8.1')
+  return done
+})
+function onStage8SubStepGo(target: Stage8SubStepKey): void {
+  stage8SubStep.value = target
+  switch (target) {
+    case '8.1': goToTasksStage(); showToast('8.1 — Decompose each Evo Step into Tasks', 3000); break
+    case '8.2': goToTasksStage(); showToast('8.2 — Estimate Task effort in hours/days (no story points — banned)', 3500); break
+    case '8.3': goToTasksStage(); showToast('8.3 — Assign + sequence Tasks per Implementation Responsible', 3500); break
+    case '8.4': handleStageBarNav(9); break
+  }
+}
+
+const stage9SubStep = ref<Stage9SubStepKey>('9.1')
+const stage9DoneSteps = computed<Stage9SubStepKey[]>(() => {
+  // Phase 2 — telemetry on actuals capture + estimate-diff + spec-update events.
+  return []
+})
+function onStage9SubStepGo(target: Stage9SubStepKey): void {
+  stage9SubStep.value = target
+  switch (target) {
+    case '9.1': showToast('9.1 — Measure Actuals · record real Values + Costs from latest delivery (Phase 2 deep build)', 4500); break
+    case '9.2': showToast('9.2 — Compare actuals vs Stage 4 Estimates Version (Phase 2)', 4500); break
+    case '9.3': _openSpecEditor({}); showToast('9.3 — Update real Values + Costs in spec (every change is Undo-able)', 4500); break
+    case '9.4': showToast('9.4 — Decide next cycle: continue Evo / return to Stage 4 (re-estimate) / return to Stage 5 (re-design)', 5000); break
+    case '9.5': handleStageBarNav(10); break
+  }
+}
+
+// r41 v252 — Tools-and-Agents table dispatcher.  Maps each tool key to its
+// existing canonical surface so Stage 4 sub-step 4.4 wires into the rest of
+// the app without inventing new surfaces.
+function onStage4ToolInvoke(key: Stage4ToolKey): void {
+  stage4ToolsTableOpen.value = false
+  switch (key) {
+    case 'penta':         menuOpen.value = true; showToast('Penta — open via Actions palette', 2400); break
+    case 'multivision':   multiVisionOpen.value = true; break
+    case 'value-flow':    visualiseOpen.value = true; break
+    case 'compare':       comparisonMode.value = true; break
+    case 'spec-health':   specHealthStatusOpen.value = true; break
+    case 'munger':        showToast('Munger agent — invoke via the Agents row at the top (Munger pin).', 3500); break
+    case 'heilmeier':     showToast('Heilmeier agent — invoke via the Agents row at the top (Heilmeier pin).', 3500); break
+    case 'roles':         showToast('Role agent — invoke via the Agents row at the top (Roles pin).', 3500); break
+    case 'maria':         showToast('Maria agent — invoke via the Agents row at the top (Maria pin).', 3500); break
+    case 'elon':          showToast('Elon agent — invoke via the Agents row at the top (Elon pin).', 3500); break
+    case 'incorruptible': showToast('Incorruptible agent — invoke via the Agents row at the top (Incorrupt pin).', 3500); break
+    case 'spec-agent':    showToast('Spec Agent — invoke via the Agents row at the top (Spec Agent pin).', 3500); break
+  }
+}
+
+// r41 v302 (Tom Gilb 2026-06-23 autonomous backlog) — Stage 6 sub-step handlers.
+// Apply paths record undoHistory BEFORE mutation per Universal Undo SUPREME.
+
+function onStage6PrioritiseApply(newOrder: EvoStep[]): void {
+  undoHistory.record({
+    label:     'Stage 6.2 — Prioritise Evo Steps',
+    source:    'Stage6PrioritisePanel',
+    prevSpec:  currentSpec.value ? structuredClone(currentSpec.value) : null,
+    nextSpec:  currentSpec.value ? structuredClone(currentSpec.value) : null,
+  })
+  confirmedSteps.value = newOrder
+  stage6PrioritiseOpen.value = false
+  showToast('✅ 6.2 — Evo Step priority order applied (⌘Z to undo)', 3500)
+}
+
+function onStage6SharpenStepsApply(updated: EvoStep[]): void {
+  undoHistory.record({
+    label:     'Stage 6.3 — Sharpen Evo Steps',
+    source:    'Stage6SharpenStepsPanel',
+    prevSpec:  currentSpec.value ? structuredClone(currentSpec.value) : null,
+    nextSpec:  currentSpec.value ? structuredClone(currentSpec.value) : null,
+  })
+  confirmedSteps.value = updated
+  stage6SharpenStepsOpen.value = false
+  showToast('✅ 6.3 — Evo Step sharpening applied (⌘Z to undo)', 3500)
+}
+
+function onStage6ToolInvoke(key: Stage6ToolKey): void {
+  stage6ToolsAndAgentsOpen.value = false
+  switch (key) {
+    case 'penta':         menuOpen.value = true; showToast('Penta — open via Actions palette', 2400); break
+    case 'multivision':   multiVisionOpen.value = true; break
+    case 'value-flow':    visualiseOpen.value = true; break
+    case 'iet':           handleStageBarNav(4); showToast('Stage 4 Impact Estimation Table — review per-step Value × Cost estimates', 3500); break
+    case 'optima':        optimaOpen.value = true; break
+    case 'evo-critiquer': evoCritiquerOpen.value = true; break
+    case 'evo-sharp':     evoSharpOpen.value = true; break
+    case 'munger':        showToast('Munger agent — invoke via the Agents row at the top (Munger pin).', 3500); break
+    case 'maria':         showToast('Maria agent — invoke via the Agents row at the top (Maria pin).', 3500); break
+  }
+}
+
+function onStage1SubStepGo(target: Stage1SubStepKey): void {
+  stage1SubStep.value = target
+  // Route the planner to the canonical surface for the chosen sub-step.
+  // Each branch resolves to the existing primary affordance — the strip
+  // becomes a real navigator instead of just a status indicator.
+  switch (target) {
+    case '1.1':
+      // Spec Entry — open the Get-A-Spec import panel (Read In tab).
+      specInputOpen.value = true
+      showToast('1.1 — Capture Spec Input · paste, fetch a URL, or upload a file', 2200)
+      break
+    case '1.2':
+      // Spec Parsing — same panel; the Parse button is the primary action.
+      specInputOpen.value = true
+      showToast('1.2 — Parse to S·E·M · click 🔍 Parse as Planguage Spec', 2500)
+      break
+    case '1.3':
+      // Parse Implied Sharpening — open the dedicated review panel.
+      if (!currentSpec.value) {
+        showToast('1.3 — needs entries first.  Run 1.1 + 1.2.', 3000)
+        specInputOpen.value = true
+        break
+      }
+      parseImpliedSharpeningOpen.value = true
+      break
+    case '1.4':
+      // Planguage Generation — focus the result banner in the import panel.
+      specInputOpen.value = true
+      showToast('1.4 — Generate Planguage Spec · review the result banner', 2500)
+      break
+    case '1.5':
+      // Planguage Edit — open the Spec Editor.
+      if (!currentSpec.value) {
+        showToast('1.5 — needs a spec first.  Run 1.1 → 1.4.', 3000)
+        specInputOpen.value = true
+        break
+      }
+      specEditorOpen.value = true
+      break
+  }
+}
+
+/**
+ * r41 v417 (Tom Gilb 2026-07-01 "please continue backlog" — audit-backlog
+ * item #2: Stage 1 task-centric workspace per Stage-Has-A-Purpose SUPREME):
+ * action handler for the StageTaskWorkspace pins.  Routes each action key
+ * to the CANONICAL existing surface (import panel / spec editor / sharpen
+ * flow / etc.).  No new surfaces built — this workspace surfaces the
+ * task-shape of Stage 1 while every action delegates to the affordance
+ * that already exists (No-Silent-Removal SUPREME).  Composes with
+ * onStage1SubStepGo (sub-step routing) — the workspace ships alongside
+ * the sub-step strip, not replacing it.
+ */
+function onStage1WorkspaceAction(key: 'capture' | 'generate-spec' | 'import-contract' | 'sharpen' | 'edit'): void {
+  switch (key) {
+    case 'capture':
+      // Capture: open the Get-A-Spec import panel on the paste tab
+      specInputOpen.value = true
+      showToast('Capture — paste, fetch a URL, or upload a file with your stakes / ends / means input', 2500)
+      break
+    case 'generate-spec':
+      // Generate Planguage spec — same panel, focus the generation banner
+      specInputOpen.value = true
+      showToast('Generate Spec — click 🔍 Parse as Planguage Spec inside the panel to generate F./V./S./C./R. entries', 3000)
+      break
+    case 'import-contract':
+      // Import contract — open the Contracts agent (pre-existing surface)
+      _openAgentByKey('contracts')
+      break
+    case 'sharpen':
+      // Sharpen — canonical Sharpen Plan flow
+      if (!currentSpec.value) {
+        showToast('Sharpen needs entries first.  Try Capture or Generate first.', 3000)
+        specInputOpen.value = true
+        break
+      }
+      handleSharpenPlan()
+      break
+    case 'edit':
+      // View / Edit spec — Spec Editor (under-the-hood surfaced explicitly)
+      if (!currentSpec.value) {
+        showToast('The Spec Editor opens once entries exist.  Try Capture or Generate first.', 3000)
+        specInputOpen.value = true
+        break
+      }
+      _openSpecEditor({})
+      break
+  }
+}
+
+/**
+ * r41 v417 — Stage 1 action registry consumed by StageTaskWorkspace.
+ * Ordered by expected planner flow: Capture → Generate → Sharpen → Edit
+ * (Import Contract is the alternate first-step for planners who have a
+ * contract to work from).  Registry lives in App.vue rather than a data
+ * module because the disabled-reason strings need currentSpec reactivity —
+ * data modules can't hold reactive state.
+ */
+const stage1WorkspaceActions = computed(() => {
+  const hasSpec = !!currentSpec.value
+  const hasEntries =
+    (currentSpec.value?.values?.length ?? 0) +
+    (currentSpec.value?.functions?.length ?? 0) +
+    (currentSpec.value?.solutions?.length ?? 0) > 0
+  return [
+    {
+      key: 'capture' as const,
+      glyph: '📥',
+      label: 'Capture Input',
+      shortHint: 'Paste stakes / ends / means text — the starting point',
+      longHint: 'Opens the Get-A-Spec import panel where you paste, fetch a URL, or upload a file.  This is the FIRST action of Stage 1 — Stakes / Ends / Means text is what the spec is generated FROM.',
+      tone: hasEntries ? 'secondary' as const : 'primary' as const,
+      badge: hasEntries ? '✓ Done' : undefined,
+    },
+    {
+      key: 'generate-spec' as const,
+      glyph: '⚡',
+      label: 'Generate Spec',
+      shortHint: 'AI turns your text into Planguage F./V./S./C./R. entries',
+      longHint: 'Runs the Planguage generation pipeline over your captured input.  Produces Stakeholders + Values + Functions + Solutions + Constraints as structured entries.  Every entry is Undo-able.',
+      tone: hasSpec ? 'secondary' as const : 'ai' as const,
+      badge: hasSpec ? `${(currentSpec.value?.values?.length ?? 0)}V·${(currentSpec.value?.functions?.length ?? 0)}F·${(currentSpec.value?.solutions?.length ?? 0)}S` : undefined,
+      disabled: !hasSpec && !originalInput.value,
+      disabledReason: 'Capture Input first — the AI needs your stakes / ends / means text to generate a spec.',
+    },
+    {
+      key: 'import-contract' as const,
+      glyph: '📄',
+      label: 'Import Contract',
+      shortHint: 'Parse a contract into a Planguage spec (Contracts Agent)',
+      longHint: 'Opens the Contracts Agent — parses a contract document (PDF or text) into structured Planguage entries + remembers the contract for later reruns.  Alternative first-step when you have a contract, not free-form text.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'sharpen' as const,
+      glyph: '🔪',
+      label: 'Sharpen Existing',
+      shortHint: 'Ask category-scoped questions that refine entries',
+      longHint: 'Opens the canonical Sharpen Plan flow.  Pick a category (Risks / Innovation / Governance / etc.); the AI proposes questions; your answers refine the affected entries.  Every fix is Source-stamped + Undo-able.',
+      tone: 'secondary' as const,
+      disabled: !hasEntries,
+      disabledReason: 'Sharpening needs entries — Capture + Generate first.',
+    },
+    {
+      key: 'edit' as const,
+      glyph: '✎',
+      label: 'View / Edit Spec',
+      shortHint: 'Open the Spec Editor — the under-the-hood surface',
+      longHint: 'Opens the Spec Editor — the full structured Planguage view.  Add, edit, delete any F./V./S./C./R./Stakeholder entry manually.  The Planguage spec is INFRASTRUCTURE — this is where you drop when you want to see it.',
+      tone: 'secondary' as const,
+      disabled: !hasSpec,
+      disabledReason: 'The Spec Editor opens once entries exist.',
+    },
+  ]
+})
+
+// r41 v477 — IET Settings drawer open state.  Toggled by an ⚙ pin surfaced
+// on the Stage 4 task-centric workspace + from the Actions palette.
+const ietSettingsOpen = ref(false)
+
+// r41 v478 — Solution Set + Changes-List deliverable panel open state.
+// Toggled by a 📦 pin on the Stage 5 task-centric workspace (5.5.1 + 5.5.2).
+const solutionSetDeliverableOpen = ref(false)
+
+// r41 v478 — deliverable panel Copy + Email handlers (extracted from template
+// per r41 v258 no-inline-window-in-vue-template-handlers invariant).
+function onSolutionSetDeliverableCopy(text: string): void {
+  navigator.clipboard?.writeText(text)
+  showToast('📋 Copied to clipboard', 2500)
+}
+function onSolutionSetDeliverableEmail(text: string): void {
+  const subject = 'Solution Set deliverable · ' + (specModel.value?.name ?? '')
+  const body    = text.slice(0, 2000)
+  window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)
+  showToast('✉ Opening Mail (⌘V to paste full text)', 3000)
+}
+
+function _openAgentByKey(k: string): void {
+  // Route to the canonical agent-open path — Contracts opens the ContractHub.
+  if (k === 'contracts') {
+    contractsOpen.value = true
+    return
+  }
+  // Fallback — open the agent menu so the planner can pick manually.
+  agentMenuOpen.value = true
+}
+
+// ─── v476 — Task-centric workspaces for Stages 6-10 ─────────────────────────
+// r41 v476 (Tom Gilb 2026-07-01 "continue backlog") — audit-backlog items
+// #5-#9 (Stages 6, 7, 8, 9, 10 task-centric workspaces) all shipped via the
+// generic StageTaskWorkspace.vue component built in v417.  Every stage:
+//   - Purpose sentence names the stage's PRIMARY job
+//   - Action registry (computed, state-aware badges + disabled reasons)
+//   - Handler routes each key to the CANONICAL existing surface
+// (No-Silent-Removal SUPREME — no new pipelines; every action delegates to
+// an already-shipped affordance.)  Composes with Stage-Has-A-Purpose SUPREME
+// + Done/You-Can/Continue SUPREME + Stages-are-Cyclic SUPREME + MOVE + AI-Max.
+
+// ─── Stage 5 — Refine (v478 Phase 2a workspace) ────────────────────────────
+function onStage5WorkspaceAction(
+  key: 'reduce-resources' | 'more-value' | 'reduce-risks' | 'relax-constraints' | 'deliverables' | 'approve' | 'continue',
+): void {
+  switch (key) {
+    case 'reduce-resources':  onStage5SubStepGo('5.1'); break
+    case 'more-value':        onStage5SubStepGo('5.2'); break
+    case 'reduce-risks':      onStage5SubStepGo('5.3'); break
+    case 'relax-constraints': onStage5SubStepGo('5.4'); break
+    case 'deliverables':      solutionSetDeliverableOpen.value = true; break
+    case 'approve':           solutionSetApprovalOpen.value = true; break
+    case 'continue':          handleStageBarNav(6); break
+  }
+}
+const stage5WorkspaceActions = computed(() => {
+  const hasSpec = !!currentSpec.value
+  const nSolutions = currentSpec.value?.solutions?.length ?? 0
+  return [
+    {
+      key: 'reduce-resources' as const, glyph: '📉', label: 'Reduce Resources',
+      shortHint: '5.1 · Trim resource consumption by re-design',
+      longHint: 'Explore potential resource reductions through re-design.  Change · delete · add design solutions that lower resource claims without sacrificing Value delivery.',
+      tone: 'secondary' as const,
+      disabled: !hasSpec, disabledReason: 'Generate a spec first.',
+    },
+    {
+      key: 'more-value' as const, glyph: '📈', label: 'More Value, Same Cost',
+      shortHint: '5.2 · Lift Value/Cost ratio by re-design',
+      longHint: 'Explore re-designs that give more value at about the same costs.  Find solutions where marginal Value uplift is achievable inside existing Resource budgets.',
+      tone: 'secondary' as const,
+      disabled: !hasSpec, disabledReason: 'Generate a spec first.',
+    },
+    {
+      key: 'reduce-risks' as const, glyph: '⚠', label: 'Reduce Risks',
+      shortHint: '5.3 · Lower failure-mode exposure',
+      longHint: 'Explore re-designs that reduce risks.  Iterate on Solution Tier-2 risks + sideEffects fields; propose alternates that hedge failure modes.',
+      tone: 'secondary' as const,
+      disabled: !hasSpec, disabledReason: 'Generate a spec first.',
+    },
+    {
+      key: 'relax-constraints' as const, glyph: '🔓', label: 'Relax Constraints',
+      shortHint: '5.4 · Loosen Constraints + Qualifiers (temporary or permanent)',
+      longHint: 'Explore temporary or permanent relaxation of Constraints and Qualifiers (when / where / who) to improve overall solution efficiency — WITHOUT triggering the Infinity Trap (r93mmm).',
+      tone: 'secondary' as const,
+      disabled: !hasSpec, disabledReason: 'Generate a spec first.',
+    },
+    {
+      key: 'deliverables' as const, glyph: '📦', label: 'View Deliverables',
+      shortHint: '5.5.1 Solution Set · 5.5.2 Changes-List',
+      longHint: 'Opens the Solution Set (Tier-1 canonical parameters with sources + impacts) and the Changes-List (implied additions/sharpenings to Stakeholder/Value/Constraint/Resource/Function specs).  Copy + Email exports.',
+      tone: nSolutions > 0 ? 'ai' as const : 'secondary' as const,
+      badge: nSolutions > 0 ? `${nSolutions} S.` : undefined,
+      disabled: !hasSpec || nSolutions === 0,
+      disabledReason: 'No solutions in the current spec yet — return to Stage 2 to generate them.',
+    },
+    {
+      key: 'approve' as const, glyph: '✅', label: 'Approve Solution Set',
+      shortHint: '5.5 · Planner-only approval (Solution Set Version)',
+      longHint: 'Opens the approval panel.  Captures planner identity + auto-stamped date/time + free-text caveats + optional nickname.  Per Tom Gilb: "by Planner, not necessarily other instances like Owner" — approval is PLANNER-level here; escalate to Owner-level via the panel\'s approvalAuthority pin.',
+      tone: 'secondary' as const,
+      disabled: !hasSpec, disabledReason: 'Generate a spec first.',
+    },
+    {
+      key: 'continue' as const, glyph: '➜', label: 'Continue → Stage 6',
+      shortHint: '5.5.3 · Move on to Evo Steps (return anytime)',
+      longHint: 'Advance to Stage 6 (Evo Steps) — generate small, valuable, deliverable increments from the approved Solution Set.  Per Tom: "not revoking the right to go back to this step and improve solutions further" (Stages-are-Cyclic SUPREME).',
+      tone: 'secondary' as const,
+      disabled: !hasSpec, disabledReason: 'Generate a spec first.',
+    },
+  ]
+})
+
+// ─── Stage 4 — Impacts (v477 Phase 2a workspace) ───────────────────────────
+function onStage4WorkspaceAction(
+  key: 'iet' | 'settings' | 'approve' | 'tools' | 'continue',
+): void {
+  switch (key) {
+    case 'iet':      goToImpactStage(); showToast('Open IET — review each Solution × Value estimate.  Evidence + Source + Credibility per cell (Phase 2b UI wiring).', 4500); break
+    case 'settings': ietSettingsOpen.value = true; break
+    case 'approve':  estimatesApprovalOpen.value = true; break
+    case 'tools':    stage4ToolsTableOpen.value = true; break
+    case 'continue': handleStageBarNav(5); break
+  }
+}
+const stage4WorkspaceActions = computed(() => {
+  const hasSpec = !!currentSpec.value
+  return [
+    {
+      key: 'iet' as const, glyph: '📊', label: 'Look at Estimates',
+      shortHint: 'Open the IET — Solution × Value grid',
+      longHint: 'Opens the Impact Estimation Table.  Each cell is one Solution × Value estimate — percent impact + Evidence + Source + Credibility (0.0-1.0 CE-book scale).',
+      tone: 'primary' as const,
+      disabled: !hasSpec, disabledReason: 'Generate a spec first (Stage 1) to have Solutions × Values to estimate.',
+    },
+    {
+      key: 'settings' as const, glyph: '⚙', label: 'IET Settings',
+      shortHint: 'Conservative-vs-Risky slider + Credibility threshold',
+      longHint: 'Opens the IET Settings drawer — Conservatism (0-100), Credibility Threshold (0-100% CE-book), Auto-Assumption Strength (0-100%).  Drives the auto-conservative-assumption generator + the "needs evidence" flag on IET cells.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'approve' as const, glyph: '✅', label: 'Approve Estimates',
+      shortHint: 'Create an Estimates Version (identity + date + remarks + nickname)',
+      longHint: 'Opens the Estimates Approval panel.  Captures planner identity + auto-stamped date/time + free-text caveats + optional short nickname.  Creates a versioned snapshot in spec history — reversible per Universal Undo SUPREME.',
+      tone: 'secondary' as const,
+      disabled: !hasSpec, disabledReason: 'Estimates need a spec first.',
+    },
+    {
+      key: 'tools' as const, glyph: '🧰', label: 'Tools + Agents',
+      shortHint: 'Optional Tools + Agents menu (Penta / Munger / …)',
+      longHint: 'Opens the Stage 4 Tools + Agents table — each row describes one tool/agent + one-sentence "how this helps at Stage 4".  Any number of tools, any number of times, until you choose to Move Ahead.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'continue' as const, glyph: '➜', label: 'Continue → Stage 5',
+      shortHint: 'Move on to Refine Attributes',
+      longHint: 'Advance to Stage 5 (Refine Attributes) — reduce resources, more value same cost, reduce risks, relax constraints, approve Solution Set.  Stages are cyclic — you can return to Stage 4 anytime.',
+      tone: 'secondary' as const,
+    },
+  ]
+})
+
+// ─── Stage 6 — Evo Steps ────────────────────────────────────────────────────
+function onStage6WorkspaceAction(
+  key: 'generate' | 'prioritise' | 'sharpen' | 'tools' | 'continue',
+): void {
+  switch (key) {
+    case 'generate':
+      showToast('⚡ Generating Evo Steps from your Solution Set…', 4500)
+      void _triggerEvoGeneration()
+      scrollEvoPlanIntoView()
+      break
+    case 'prioritise':
+      if (confirmedSteps.value.length > 0) stage6PrioritiseOpen.value = true
+      else showToast('Generate Evo Steps first — nothing to prioritise yet.', 3200)
+      break
+    case 'sharpen':
+      if (confirmedSteps.value.length > 0) stage6SharpenStepsOpen.value = true
+      else showToast('Generate Evo Steps first — nothing to sharpen yet.', 3200)
+      break
+    case 'tools':
+      stage6ToolsAndAgentsOpen.value = true
+      break
+    case 'continue':
+      handleStageBarNav(7)
+      break
+  }
+}
+const stage6WorkspaceActions = computed(() => {
+  const nSteps = confirmedSteps.value.length
+  const hasSpec = !!currentSpec.value
+  return [
+    {
+      key: 'generate' as const, glyph: '⚡', label: 'Generate Evo Steps',
+      shortHint: 'AI proposes Evo Steps from your Solution Set',
+      longHint: 'Runs the EvoPlanner over your confirmed Solutions.  Produces an ordered list of Evo Steps (each has a name + which Solutions it delivers).  Every step is Undo-able.',
+      tone: nSteps === 0 ? 'ai' as const : 'secondary' as const,
+      badge: nSteps > 0 ? `${nSteps} step${nSteps === 1 ? '' : 's'}` : undefined,
+      disabled: !hasSpec, disabledReason: 'Generate a spec first (Stage 1) so there are Solutions to base Evo Steps on.',
+    },
+    {
+      key: 'prioritise' as const, glyph: '⚖', label: 'Prioritise Steps',
+      shortHint: 'Order Evo Steps by Value ÷ Cost',
+      longHint: 'Opens the Stage 6.2 Prioritise panel where you rank Evo Steps by projected value delivery divided by resource cost.  Highest ratios first = maximum learning per cycle.',
+      tone: 'secondary' as const,
+      disabled: nSteps === 0, disabledReason: 'Generate Evo Steps first — nothing to prioritise yet.',
+    },
+    {
+      key: 'sharpen' as const, glyph: '🔪', label: 'Sharpen Steps',
+      shortHint: 'Refine each Evo Step\'s name + success criteria',
+      longHint: 'Opens the Stage 6.3 Sharpen Steps panel where you refine each Evo Step\'s name, which Values it moves, and the success criteria the next Study-Act cycle will measure.',
+      tone: 'secondary' as const,
+      disabled: nSteps === 0, disabledReason: 'Generate Evo Steps first.',
+    },
+    {
+      key: 'tools' as const, glyph: '🧰', label: 'Tools + Agents',
+      shortHint: 'Apply supporting tools + agents to this stage',
+      longHint: 'Opens Stage 6.4 Tools and Agents — routes to Munger, Heilmeier, Roles, Elon, Incorruptible, and other agents that can sharpen Evo Step planning.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'continue' as const, glyph: '➜', label: 'Continue → Stage 7',
+      shortHint: 'Move on to Evo Impact estimation',
+      longHint: 'Advance to Stage 7 (Evo Impact) — where each Evo Step\'s impact on the Value entries is estimated + tabulated in the VDT.',
+      tone: 'secondary' as const,
+      disabled: nSteps === 0, disabledReason: 'Generate at least one Evo Step first.',
+    },
+  ]
+})
+
+// ─── Stage 7 — Evo Impact ───────────────────────────────────────────────────
+function onStage7WorkspaceAction(
+  key: 'vdt' | 'multivision' | 'optima' | 'value-flow' | 'continue',
+): void {
+  switch (key) {
+    case 'vdt':          menuOpen.value = true; showToast('Open Actions → VDT to run Value÷Cost ranking across every Evo Step.', 3200); break
+    case 'multivision':  multiVisionOpen.value = true; break
+    case 'optima':       optimaOpen.value = true; break
+    case 'value-flow':   visualiseOpen.value = true; break
+    case 'continue':     handleStageBarNav(8); break
+  }
+}
+const stage7WorkspaceActions = computed(() => {
+  const nSteps = confirmedSteps.value.length
+  return [
+    {
+      key: 'vdt' as const, glyph: '📊', label: 'Run VDT Ranking',
+      shortHint: 'Value ÷ Cost ranking across every Evo Step',
+      longHint: 'Opens the Value Delivery Table (VDT) — each row is an Evo Step, each column is a Value/Cost cell.  Cells populate with delivery percentages; the sum is the ranking metric.',
+      tone: nSteps > 0 ? 'ai' as const : 'secondary' as const,
+      disabled: nSteps === 0, disabledReason: 'Generate Evo Steps first (Stage 6).',
+    },
+    {
+      key: 'multivision' as const, glyph: '🎚', label: 'MultiVision Sliders',
+      shortHint: 'Interactive Value ambition + Resource budget sliders',
+      longHint: 'Opens MultiVision — Value ambition sliders (Tolerable → Goal → Wish), Resource budget sliders, live VDT consequences: which Solutions are funded, per-Value delivery %, overall vision balance score.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'optima' as const, glyph: '🎯', label: 'OPTIMA Sliders',
+      shortHint: 'Balance critical Values via VDT sliders (Optima book)',
+      longHint: 'Opens the Resource OPTIMA panel — adjust one Resource slider to see impact propagate across all Value entries.  Green = Goal met, orange = Tolerable risk, red = Constraint violation.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'value-flow' as const, glyph: '🌊', label: 'Value Flow',
+      shortHint: 'Visualise how Values flow through Evo Steps',
+      longHint: 'Opens the Value Flow visualisation — shows how each Value entry accumulates delivery over the sequence of Evo Steps.  Highlights bottlenecks and dead ends.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'continue' as const, glyph: '➜', label: 'Continue → Stage 8',
+      shortHint: 'Move on to Task decomposition',
+      longHint: 'Advance to Stage 8 (Tasks) — decompose each Evo Step into concrete Tasks with estimates + assignments.',
+      tone: 'secondary' as const,
+    },
+  ]
+})
+
+// ─── Stage 8 — Tasks ────────────────────────────────────────────────────────
+function onStage8WorkspaceAction(
+  key: 'decompose' | 'estimate' | 'assign' | 'continue',
+): void {
+  switch (key) {
+    case 'decompose': goToTasksStage(); showToast('Decompose each Evo Step into concrete Tasks.', 3200); break
+    case 'estimate':  goToTasksStage(); showToast('Estimate Task effort in hours/days (story-points is banned).', 3600); break
+    case 'assign':    goToTasksStage(); showToast('Assign + sequence Tasks per Implementation Responsible.', 3600); break
+    case 'continue':  handleStageBarNav(9); break
+  }
+}
+const stage8WorkspaceActions = computed(() => {
+  const nSteps = confirmedSteps.value.length
+  return [
+    {
+      key: 'decompose' as const, glyph: '🧩', label: 'Decompose Tasks',
+      shortHint: 'Break each Evo Step into named Tasks',
+      longHint: 'Opens the Tasks stage — each Evo Step becomes a parent; add child Tasks with a name + brief description.  Tasks are what the delivery team actually does.',
+      tone: nSteps > 0 ? 'primary' as const : 'secondary' as const,
+      disabled: nSteps === 0, disabledReason: 'Generate Evo Steps first (Stage 6).',
+    },
+    {
+      key: 'estimate' as const, glyph: '⏱', label: 'Estimate Effort',
+      shortHint: 'Hours + days per Task (no story-points)',
+      longHint: 'Estimate effort per Task in concrete units — hours, days, or weeks.  Story-point vocabulary is BANNED per Banned Scrum Vocabulary SUPREME.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'assign' as const, glyph: '👥', label: 'Assign + Sequence',
+      shortHint: 'Route Tasks to Implementation Responsible people',
+      longHint: 'Assign each Task to a named Implementation Responsible person.  Sequence Tasks within their Evo Step so parallel + serial dependencies are explicit.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'continue' as const, glyph: '➜', label: 'Continue → Stage 9',
+      shortHint: 'Move on to Study-Act (measure actuals)',
+      longHint: 'Advance to Stage 9 (Study-Act) — after delivery, measure real Value change and real Resource cost.  Compare against Stage 4 estimates.',
+      tone: 'secondary' as const,
+    },
+  ]
+})
+
+// ─── Stage 9 — Study-Act ────────────────────────────────────────────────────
+function onStage9WorkspaceAction(
+  key: 'measure' | 'compare' | 'update' | 'decide' | 'continue',
+): void {
+  switch (key) {
+    case 'measure': showToast('Record real Values + Costs from the latest Evo delivery cycle.', 4500); break
+    case 'compare': showToast('Compare measured actuals against Stage 4 Estimates Version.', 4500); break
+    case 'update':  _openSpecEditor({}); showToast('Update Values + Costs in the spec (Undo-able).', 4500); break
+    case 'decide':  showToast('Decide next cycle — Continue Evo · Return to Stage 4 (re-estimate) · Return to Stage 5 (re-design).', 5000); break
+    case 'continue': handleStageBarNav(10); break
+  }
+}
+const stage9WorkspaceActions = computed(() => {
+  return [
+    {
+      key: 'measure' as const, glyph: '📏', label: 'Measure Actuals',
+      shortHint: 'Record real Value change + Resource cost',
+      longHint: 'Capture the actuals from the delivery cycle just completed: real Value entries\' Status, real Resource usage, real Task completion times.',
+      tone: 'ai' as const,
+    },
+    {
+      key: 'compare' as const, glyph: '⚖', label: 'Compare vs Estimates',
+      shortHint: 'Actuals vs Stage 4 Estimates Version',
+      longHint: 'Compare measured actuals against the Estimates Version approved in Stage 4.  Surface the diff so learnings feed the next cycle.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'update' as const, glyph: '✎', label: 'Update Spec',
+      shortHint: 'Write real Values + Costs into the spec',
+      longHint: 'Open the Spec Editor to record real Values, Costs, and Constraints discovered from the delivery cycle.  Every edit is Undo-able + Source-stamped.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'decide' as const, glyph: '🧭', label: 'Decide Next Cycle',
+      shortHint: 'Continue Evo · Re-estimate · Re-design',
+      longHint: 'Explicit decision point: Continue Evo (all good — proceed to next Evo Step) OR Return to Stage 4 (re-estimate with new actuals) OR Return to Stage 5 (re-design because Value targets are unmet).',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'continue' as const, glyph: '➜', label: 'Continue → Stage 10',
+      shortHint: 'Move on to Resource optimization',
+      longHint: 'Advance to Stage 10 (Resources) — audit Resource allocation with OPTIMA + MultiVision now that you have real actuals to feed into the sliders.',
+      tone: 'secondary' as const,
+    },
+  ]
+})
+
+// ─── Stage 10 — Resources ───────────────────────────────────────────────────
+function onStage10WorkspaceAction(
+  key: 'optima' | 'multivision' | 'edit-resources' | 'compare' | 'continue',
+): void {
+  switch (key) {
+    case 'optima':          optimaOpen.value = true; break
+    case 'multivision':     multiVisionOpen.value = true; break
+    case 'edit-resources':  _openSpecEditor({ tab: 'solutions' }); showToast('Open the Spec Editor to add / edit R. Resource entries.', 3200); break
+    case 'compare':         comparisonMode.value = true; break
+    case 'continue':        handleStageBarNav(11); break
+  }
+}
+const stage10WorkspaceActions = computed(() => {
+  const nR = (currentSpec.value?.resources?.length ?? 0)
+  return [
+    {
+      key: 'optima' as const, glyph: '🎯', label: 'OPTIMA Sliders',
+      shortHint: 'Balance critical Values via Resource sliders (Optima book)',
+      longHint: 'Opens Resource OPTIMA — Tom Gilb\'s book on Balancing Critical Values.  Adjust a Resource slider to see impact propagate: green = Goal met, orange = Tolerable risk, red = Constraint violation.',
+      tone: 'primary' as const,
+      badge: nR > 0 ? `${nR} R.` : undefined,
+    },
+    {
+      key: 'multivision' as const, glyph: '🎚', label: 'MultiVision Sliders',
+      shortHint: 'Value ambition + Resource budget interactive sandbox',
+      longHint: 'Opens MultiVision — Value ambition sliders (Tolerable / Goal / Wish) + Resource budget sliders.  Live VDT consequences show which Solutions are funded, per-Value delivery %, and the vision-balance score.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'edit-resources' as const, glyph: '✎', label: 'Edit Resources',
+      shortHint: 'Add or edit R. Resource entries in the spec',
+      longHint: 'Opens the Spec Editor to add or refine Resource entries (people, money, time, materials).  Every R. entry can carry its own Scale + Meter + Tolerable + Goal + Wish + Qualifiers.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'compare' as const, glyph: '⚖', label: 'Compare Scenarios',
+      shortHint: 'Side-by-side comparison across Resource allocations',
+      longHint: 'Opens the Comparison mode — pin two or more Resource-allocation scenarios and see their VDT + Value-delivery consequences side by side.',
+      tone: 'secondary' as const,
+    },
+    {
+      key: 'continue' as const, glyph: '➜', label: 'Continue → Stage 11',
+      shortHint: 'Move on to Export',
+      longHint: 'Advance to Stage 11 (Export) — export the full spec + Evo plan + estimates + actuals to email / clipboard / .eml / PDF.',
+      tone: 'secondary' as const,
+    },
+  ]
+})
+
+/** Hold the most recent refinement hint from 1.3 in a ref so a follow-up
+ *  rev can prepend it to the next direct-Anthropic re-extraction pass.
+ *  No Claudian round-trip is involved — this is the Option A path Tom
+ *  approved 2026-06-19. */
+const stage13RefinementHint = ref<string>('')
+function onStage13RefinementHint(text: string): void {
+  stage13RefinementHint.value = text
+  showToast(`✓ Hint noted (${text.length} chars) — re-extract wiring lands in the next rev.`, 3500)
+}
+function onStage13RejectEntry(id: string): void {
+  // Soft-reject only for this rev — full removal-through-Undo lands later.
+  console.info('[ParseImpliedSharpening] entry soft-rejected:', id)
+}
+
+/** r41 v211 — snapshot the parent passes into GetAPlanPanel so the
+ *  previous initial input can be restored on a recovery-flow open.  Set
+ *  immediately before opening; cleared after the panel consumes it via
+ *  its watcher. */
+const restoreSnapshotForGetAPlan = ref<{ text: string; mode: 'text'|'url'|'file'; source?: string } | null>(null)
+
+/** Wired into EmptySpecCallout — routes the planner back to Stage 1.
+ *  Tom Gilb 2026-06-19 "it goes back to 1.2 but there is no input so it
+ *  should go to 1.1 and ideally it would keep or refresh the previous
+ *  input, or offer to do that if we do not override".  Logic:
+ *    1. If we have a captured initial-input snapshot for the current
+ *       spec model, stage it into `restoreSnapshotForGetAPlan` so the
+ *       panel auto-pre-fills the matching tab + field.  Sub-step is
+ *       1.2 (input is ready to parse).
+ *    2. If no snapshot exists, route to 1.1 (Spec Entry) — the planner
+ *       genuinely has nothing to parse yet. */
+function onEmptySpecCalloutGoToParsing(): void {
+  handleStageBarNav(1)
+  const snapshot = specModel.value?.id ? getInitialInput(specModel.value.id) : null
+  if (snapshot && snapshot.text) {
+    restoreSnapshotForGetAPlan.value = {
+      text:   snapshot.text,
+      mode:   snapshot.mode,
+      source: snapshot.source,
+    }
+    // r41 v212 (Tom Gilb 2026-06-19 "no change, went to 1.2") — sub-step
+    // depends on whether the input is GENUINELY ready to parse:
+    //   • text / url snapshots auto-restore the field → 1.2 (Parsing) is right.
+    //   • file snapshots can ONLY restore the file NAME (browsers refuse to
+    //     let JavaScript re-attach a File object from a path), so the file
+    //     picker is still empty.  Route to 1.1 (Spec Entry) so the planner
+    //     re-selects the file before they hit Parse.  The watcher's toast
+    //     already names the previous file so they know which one to pick.
+    stage1SubStep.value = snapshot.mode === 'file' ? '1.1' : '1.2'
+    specInputOpen.value = true
+    // GetAPlanPanel's watcher fires the restore toast.
+  } else {
+    restoreSnapshotForGetAPlan.value = null
+    stage1SubStep.value = '1.1'
+    specInputOpen.value = true
+    showToast('1.1 Capture Spec Input — paste text, URL, or upload a file to begin.', 3500)
+  }
+}
 
 // --- View state ---
 // Possible views: 'loading' | 'invite' | 'sign-in' | 'sign-up' | 'confirm' | 'app'
@@ -2349,6 +4891,21 @@ watch(stage, (newStage, oldStage) => {
 console.log('[boot] script-setup end — onMounted scheduled', new Date().toISOString())
 
 onMounted(async () => {
+  // r41 v206 (Tom Gilb 2026-06-19 verbatim "DAMN TEXT DISAPPEARED" — text
+  // loss reproducibly happens in SEM App but not in Notes/Keynote, so the
+  // cause is SEM-App-specific.  Universal safety net: a document-level
+  // keystroke journal captures every `<input>` / `<textarea>` edit to
+  // localStorage in real time so accidental wipes are recoverable from
+  // Safari DevTools via `window.semTypingJournal()` /
+  // `window.semFindTyping('your phrase')`.  Installs ONCE at mount; safe
+  // on hot-reload (the install fn is idempotent). */
+  installTypingJournal()
+  // r41 v208 — convenience dev hook so Tom can read the captured initial
+  // input for the current spec from Safari DevTools without opening the
+  // panel.  `window.semInitialInput()` returns the snapshot for the
+  // active spec; `window.semInitialInput('<specId>')` reads any.
+  ;(window as unknown as { semInitialInput?: (specId?: string) => InitialInputSnapshot | null }).semInitialInput =
+    (specId?: string) => getInitialInput(specId ?? (specModel.value?.id ?? ''))
   // Phase 2 Plan→Spec localStorage key migration: copy sem-plan-* → sem-spec-* on first run.
   // Idempotent: skips any new key that is already populated. Never deletes old keys.
   backfillSpecKeysFromPlanKeys()
@@ -2359,6 +4916,29 @@ onMounted(async () => {
   if (!currentSpec.value) _restorePreSpecDraft()
   if (!currentSpec.value) _loadPreSpecStewards()
   console.log('[boot] onMounted entered', new Date().toISOString())
+  // r41 v390 (Tom Gilb 2026-07-01 verbatim "after a while in contracts agent it
+  // suddenly jumped to this" — screenshot showed Stage 1 Stakes after being in
+  // ContractHub) — hydrate the mode-specific top-level panel from `activeMode`.
+  // `activeMode` persists to localStorage but the per-panel `contractsOpen` /
+  // `modelLibraryOpen` open-refs are session-only.  Result: after a page refresh
+  // (which the analysis-failed toast literally suggested) `activeMode` restored
+  // to 'contract' but the hub was closed, so the user landed on the underlying
+  // Plan Stage 1 surface — looking like the app had "jumped".
+  // Fix: on mount, if activeMode is 'contract' or 'model', open the matching
+  // panel so the user sees the mode's canonical surface.
+  // Composes with No-Silent-Removal-of-Permanent-Surfaces SUPREME (the ContractHub
+  // is the permanent surface for Contract mode; a refresh should not silently
+  // remove it), Tom-Repeats-Himself SUPREME (Tom flagged the "jumped" symptom;
+  // fixing the mode-hydration prevents the same class of report), Architectural
+  // Resilience SUPREME (mode + open-ref stay in sync automatically).
+  try {
+    const restoredMode = _activeMode.value
+    if (restoredMode === 'contract' && view.value === 'app') {
+      contractsOpen.value = true
+    } else if (restoredMode === 'model' && view.value === 'app') {
+      modelLibraryOpen.value = true
+    }
+  } catch { /* activeMode wiring unavailable — non-fatal */ }
   // ── Hard watchdog (2026-05-12) ─────────────────────────────────────────────
   // Tom hit a "starts but does not come in after 300 seconds" boot hang.
   // Race-wrapping individual awaits (auth, workspace) wasn't enough because
@@ -2567,6 +5147,19 @@ function _tryRestoreSession(): void {
     }
   })
   evoPlanConfirmed.value      = saved.evoPlanConfirmed ?? false
+  // r41 v296 (Tom Gilb 2026-06-22): restore the in-memory Evo plan so the
+  // EvoPlanView shows the real plan on Stage 6 entry instead of the empty-
+  // state "No Evo plan yet" placeholder.  _loadEvoPlan() also sets
+  // _skipNextFetch=true so EvoPlanView's mount watcher does NOT trigger a
+  // wasteful fresh AI generation.  Falls back to _clearEvoPlan() if the
+  // saved session predates v296 OR was saved with no plan.
+  const savedEvoPlan = (saved as { evoPlan?: EvoStepPlan | null }).evoPlan
+  if (savedEvoPlan && Array.isArray(savedEvoPlan.steps) && savedEvoPlan.steps.length > 0) {
+    _loadEvoPlan(savedEvoPlan)
+    console.log('[session] restored Evo plan with', savedEvoPlan.steps.length, 'steps')
+  } else {
+    _clearEvoPlan()
+  }
   tasksByStep.value           = saved.tasksByStep ?? {}
   capturedImpactMatrix.value  = _migrateMatrixKeys(saved.capturedImpactMatrix ?? {})
   capturedVCRatios.value      = _migrateRecordKeys(saved.capturedVCRatios ?? {})
@@ -2675,6 +5268,37 @@ const evoPlanConfirmed = ref(false)
  *        ("the diagram denies [evo steps], please fix") — the live plan IS the draft.
  *  confirmedSteps remains as a fallback for the edge case of a session-restore that
  *  has a confirmed snapshot but no live plan instance yet (rare). */
+// r41 v295 (Tom Gilb 2026-06-22 "always continue · research and innovation").
+// Stage 9 Study-Act triage — auto-detect ONE of three states from the spec +
+// tasksByStep + confirmedSteps refs. Drives the triage banner that mounts at
+// the top of the Stage 9 content area.
+//   • 'no-evo'      — no Evo step delivered yet → "Skip to Stage 10".
+//   • 'no-actuals'  — Evo step delivered but no actuals captured → "Capture Actuals".
+//   • 'actuals-in'  — actuals already captured this cycle → "Compare to Estimates".
+// Composes with Stage-Has-A-Purpose SUPREME (Stage 9's job = measure actuals,
+// compare to estimates, decide next cycle), MOVE Principle (banner visible
+// at top), DD-009 Zero-Training UI (every pin has a title=).
+type Stage9TriageState = 'no-evo' | 'no-actuals' | 'actuals-in'
+const stage9TriageState = computed<Stage9TriageState>(() => {
+  const steps = confirmedSteps.value ?? []
+  if (steps.length === 0) return 'no-evo'
+  // Look for any Value.status carrying the Study-Act provenance stamp this
+  // panel writes. (Stamp format: "Source: Study-Act actuals · YYYY-MM-DD · …")
+  const spec = currentSpec.value
+  if (!spec) return 'no-evo'
+  const hasActuals =
+    (spec.values ?? []).some(v => /Study-Act actuals/i.test(v.status ?? '')) ||
+    (spec.resources ?? []).some(r => /Study-Act actuals/i.test(r.status ?? ''))
+  return hasActuals ? 'actuals-in' : 'no-actuals'
+})
+const stage9ActualsCounts = computed(() => {
+  const spec = currentSpec.value
+  if (!spec) return { v: 0, r: 0 }
+  const v = (spec.values ?? []).filter(x => /Study-Act actuals/i.test(x.status ?? '')).length
+  const r = (spec.resources ?? []).filter(x => /Study-Act actuals/i.test(x.status ?? '')).length
+  return { v, r }
+})
+
 const _stepsForDiagram = computed<EvoStep[]>(() => {
   const raw = _evoPlan.value?.steps?.length ? _evoPlan.value.steps : confirmedSteps.value
   if (!raw?.length) return raw
@@ -2843,6 +5467,117 @@ if (_origPlanningStageSet?.set) {
       if (cur !== newVal) {
         const stack = new Error().stack?.split('\n').slice(2, 7).map(s => s.trim()).join(' | ') ?? ''
         console.log(`[planningStage.SET] ${cur} → ${newVal}  via: ${stack.slice(0, 280)}`)
+        // r41 v242 (Tom Gilb 2026-06-21 verbatim "it moved by itself after stg 2 sharpening
+        // back to stage 1").  Tom does not open DevTools — the silent console.log is invisible
+        // to him.  Surface backward stage moves AND non-adjacent jumps as user-visible toasts
+        // naming the suspected source from the call stack.  Composes with Do-Not-Outsource-
+        // Investigation SUPREME — Claudian gets the diagnostic info without asking Tom to open
+        // an inspector; Tom just sees a toast he can screenshot.
+        const delta = newVal - cur
+        const isBackward = delta < 0 && newVal < cur
+        const isBigJump = Math.abs(delta) > 1
+        if (isBackward || isBigJump) {
+          const culpritLine = stack.split('|').find(s => /\.vue|\.ts/.test(s) && !/_planningStageRaw|defineProperty/.test(s)) ?? 'unknown'
+          const suspected = culpritLine.trim().slice(0, 120)
+          showToast(
+            `⚠ Stage ${cur} → ${newVal} (unexpected ${isBackward ? 'BACKWARD' : 'jump'}).  Source: ${suspected}.  If you did not click Stage ${newVal}, screenshot this notification.`,
+            9000,
+          )
+          // r41 v292 (Tom Gilb 2026-06-22 verbatim "working on resources stage
+          // questions and it jumped back to refine solutions") — second
+          // recurrence of the stage-jump bug class.  Adding a PERSISTENT
+          // breadcrumb so even if Tom misses the live notification we have an
+          // audit trail.  Pushes the last 20 jumps to localStorage and to
+          // window._semStageJumpLog for next-session forensics.  Tom does NOT
+          // open DevTools (Do-Not-Outsource-Investigation SUPREME); the log is
+          // for Claudian's next read of the screen + Playwright probes.
+          _persistStageJump('planningStage', cur, newVal, suspected, stack)
+        }
+      }
+      _origSet.call(this, newVal)
+    },
+    configurable: true,
+  })
+}
+
+/** r41 v292 — shared persistent breadcrumb for unexpected stage jumps.
+ *  Stores the last 20 jumps in localStorage under `sem-stage-jump-log` AND on
+ *  window._semStageJumpLog (in-memory mirror).  Wraps in try/catch so a quota
+ *  / private-mode failure cannot break the instrumented stage setter. */
+function _persistStageJump(
+  stageType: 'planningStage' | 'stage',
+  cur: number,
+  newVal: number,
+  suspected: string,
+  fullStack: string,
+): void {
+  try {
+    const KEY = 'sem-stage-jump-log'
+    const entry = {
+      ts: new Date().toISOString(),
+      stageType,
+      from: cur,
+      to: newVal,
+      direction: newVal < cur ? 'backward' : (Math.abs(newVal - cur) > 1 ? 'big-jump' : 'forward'),
+      suspected,
+      fullStack: fullStack.slice(0, 800),
+      planName: specModel.value?.name ?? '(none)',
+      version:  specModel.value?.version ?? null,
+    }
+    // In-memory ring
+    const w = window as unknown as { _semStageJumpLog?: typeof entry[] }
+    if (!w._semStageJumpLog) w._semStageJumpLog = []
+    w._semStageJumpLog.push(entry)
+    if (w._semStageJumpLog.length > 20) w._semStageJumpLog.shift()
+    // localStorage ring
+    const raw = localStorage.getItem(KEY)
+    const arr: typeof entry[] = raw ? JSON.parse(raw) : []
+    arr.push(entry)
+    while (arr.length > 20) arr.shift()
+    localStorage.setItem(KEY, JSON.stringify(arr))
+  } catch { /* quota / SSR / private-mode safe */ }
+}
+
+// r41 v291 (Tom Gilb 2026-06-22 verbatim "from tasks I mailed and got, not tasks
+// but whole Planguage plan, then it jumped back to stage 2") — Synchronous
+// instrumentation of every `stage` (view-level) write.  Mirrors the existing
+// planningStage instrumentation above so when Tom's stage flips unexpectedly
+// (e.g. after a Mail action steals focus to Mail.app and some focus / watcher /
+// snapshot path resets `stage`) the source call-site is named on screen via a
+// notification.  Composes with Do-Not-Outsource-Investigation SUPREME — Tom
+// does not open DevTools; the notification IS the diagnostic.
+//
+// Why only on backward / non-adjacent jumps: forward step-by-step navigation
+// is the normal case and would spam Tom with notifications.  We only fire on
+// surprising motions (Δ < 0 OR |Δ| > 1) which is the exact failure mode
+// "it jumped back to stage 2" describes.
+const _stageRaw = stage
+const _origStageDesc = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(_stageRaw),
+  'value',
+)
+if (_origStageDesc?.set && _origStageDesc?.get) {
+  const _origSet = _origStageDesc.set
+  const _origGet = _origStageDesc.get
+  Object.defineProperty(_stageRaw, 'value', {
+    get: function () { return _origGet.call(this) },
+    set: function (newVal: number) {
+      const cur = _origGet.call(this)
+      if (cur !== newVal) {
+        const stack = new Error().stack?.split('\n').slice(2, 8).map(s => s.trim()).join(' | ') ?? ''
+        console.log(`[stage.SET] ${cur} → ${newVal}  via: ${stack.slice(0, 320)}`)
+        const delta = newVal - cur
+        const isBackward = delta < 0 && newVal < cur
+        const isBigJump = Math.abs(delta) > 1
+        if (isBackward || isBigJump) {
+          const culpritLine = stack.split('|').find(s => /\.vue|\.ts/.test(s) && !/_stageRaw|defineProperty/.test(s)) ?? 'unknown'
+          const suspected = culpritLine.trim().slice(0, 140)
+          showToast(
+            `⚠ View-stage ${cur} → ${newVal} (unexpected ${isBackward ? 'BACKWARD' : 'jump'}).  Source: ${suspected}.  If you did not click Stage ${newVal}, screenshot this notification.`,
+            10000,
+          )
+          _persistStageJump('stage', cur, newVal, suspected, stack)
+        }
       }
       _origSet.call(this, newVal)
     },
@@ -2943,6 +5678,14 @@ const capturedCapitalCosts  = ref<Record<string, number>>({})
 
 // Template ref to the live ImpactEstimationView component — gives us synchronous
 // access to the matrix at export time regardless of async API call timing.
+/** r41 v256 (Tom Gilb 2026-06-21 "look at estimates, except they are not here now") —
+ *  template ref on the IET wrapper div so the Stage 4 sub-step handlers can scroll the
+ *  table into view after navigation.  The IET was rendering correctly post-v255 but
+ *  positioned far below the visible viewport — Tom clicked 4.1, state updated, but the
+ *  content was off-screen. */
+const ietWrapperEl = ref<HTMLElement | null>(null)
+/** r41 v262 — template ref on the EvoPlanView wrapper so Stage 6.1 can scroll it into view. */
+const evoPlanWrapperEl = ref<HTMLElement | null>(null)
 const ietRef = ref<(ComponentPublicInstance & { getSnapshot: () => {
   matrix: ImpactMatrix
   efficiency: Record<string, number>
@@ -3041,7 +5784,20 @@ let _hangWatchdog: ReturnType<typeof setTimeout> | null = null
 // trigger and the real spec lands afterwards, the error banner clears on
 // `currentSpec.value` assignment so the user is never shown a contradictory
 // "error + success" pair.
-const _HANG_WATCHDOG_MS = 300_000
+//
+// r41 v384 (Tom Gilb 2026-06-26 — Option C of the S3-revised pair):
+// 300_000 bumped to 350_000.  S3 (v383) set SDK timeout to 240_000 but
+// that aborted legitimate 4-5 min generations before the honest loading-
+// hint copy ("typically 60-180s; large or complex inputs can take 3-5
+// minutes") promised the user it could take.  v384 raises SDK timeout
+// to 320_000 (320 s, comfortably over the honest upper band) and
+// bumps the watchdog to 350_000 (350 s = 5:50) so the SDK abort fires
+// first with 30 s headroom for the catch+finally chain before the
+// watchdog becomes the safety net.  Net mental model: a request takes
+// up to ~5 min before the SDK gives up; the safety net is 30 s after
+// that.  No silent retries (maxRetries: 0 in useSDK.ts:65) so the
+// 320 s is the WHOLE wait — not the per-attempt wait.
+const _HANG_WATCHDOG_MS = 350_000
 //
 // Tom 2026-06-06 NEW: when the watchdog fires we now FALL BACK to a
 // deterministic mock spec built from the user's original stakes/ends/means
@@ -3062,7 +5818,7 @@ watch(isLoading, (busy) => {
       // Hard-cancel the underlying fetch BEFORE clearing loading state.
       cancelCurrentTranslate()
       _forceClearLoading()
-      _doTranslateInFlight = false   // watchdog must also release the in-flight guard
+      _activeTranslateCallId = 0     // watchdog must also release the in-flight guard (S3 sweep 2026-06-26 — was _doTranslateInFlight)
 
       // Graceful fallback: if the user had a pending payload, draft a mock
       // spec from it so they can keep moving.  Otherwise show the error.
@@ -3072,32 +5828,69 @@ watch(isLoading, (busy) => {
       // error message with no escape hatch.  Now we ALSO accept a plan-name-
       // only fallback: build a generic seed spec keyed off the plan title so
       // the user can at least START working + sharpen the rest.
+      //
+      // r41 v401 (Tom Gilb 2026-06-28 verbatim "retrograde, gigantic first
+      // stakeholder, and 4 columns of parse disappeared"): apply the SAME
+      // ≤200-char input gate the doTranslate-failure path got at v44
+      // (App.vue:6520).  Without the gate, the watchdog dumped Tom's verbose
+      // Indianapolis contract input into buildMockSpec — which `.split(/[,;]/)`s
+      // the stakes string into comma fragments, producing a silly spec with
+      // a gigantic first stakeholder containing the rest of the contract
+      // text.  v44 quoted Tom verbatim "BETTER BEFORE": red-error-banner +
+      // Retry beats a silly auto-mock for verbose input.  The watchdog path
+      // had been firing the same silly path for ~12 days because the v44
+      // gate was only applied to the doTranslate-failure path, not the
+      // watchdog path.  v401 closes the gap.
       const payload = pendingPayload.value
       const planTitle = (specModel.value?.name ?? 'New Plan').trim()
       const hasPayloadContent = !!(payload && (payload.stakes || payload.ends || payload.means))
       const hasPlanName = planTitle.length > 0 && planTitle !== 'New Plan'
-      if (hasPayloadContent || hasPlanName) {
+      const payloadCharCount = (payload?.stakes?.length ?? 0) + (payload?.ends?.length ?? 0) + (payload?.means?.length ?? 0)
+      const inputIsShortEnough = payloadCharCount <= 200  // verbose → don't mock (v44 gate)
+      // Fallback fires for plan-name-only OR very-short-payload — same shape
+      // as the v44 doTranslate-failure path.
+      const shouldRunFallback = hasPayloadContent
+        ? inputIsShortEnough
+        : hasPlanName
+      if (shouldRunFallback) {
         try {
           // Prefer the user's own stakes/ends/means if present, otherwise seed
           // from the plan title so the spec is at least named correctly.
-          const seedStakes = payload?.stakes || hasPlanName ? planTitle : ''
-          const seedEnds   = payload?.ends   || hasPlanName ? `Successful delivery of ${planTitle}` : ''
+          // r41 v401 — also fixed precedence bug in the original seed
+          // assignments: `a || b ? c : d` parses as `(a || b) ? c : d`, NOT
+          // `a || (b ? c : d)`.  When payload.stakes existed AND hasPlanName,
+          // the OLD code used planTitle instead of payload.stakes — burying
+          // the user's actual input.  Parentheses added for clarity.
+          const seedStakes = payload?.stakes || (hasPlanName ? planTitle : '')
+          const seedEnds   = payload?.ends   || (hasPlanName ? `Successful delivery of ${planTitle}` : '')
           const seedMeans  = payload?.means  || ''
           const mockSpec = buildMockSpec(seedStakes, seedEnds, seedMeans)
           currentSpec.value = mockSpec
           stage.value = 2   // jump to Evo Plan view so the user sees their spec
           sdkError.value = ''
-          showToast(
-            hasPayloadContent
-              ? '⚡ AI was slow — drafted a quick local spec from your input.  Press Sharpen on any dimension to refine, or 🆘 Reset to start fresh.'
-              : `⚡ AI was slow — drafted a starter spec for "${planTitle}".  Sharpen any dimension to refine, or 🆘 Reset to start fresh.`,
-            8000,
-          )
+          const _slowMsg = hasPayloadContent
+            ? '⚡ AI was slow — drafted a quick local spec from your input.  Press Sharpen on any dimension to refine, or 🆘 Reset to start fresh.'
+            : `⚡ AI was slow — drafted a starter spec for "${planTitle}".  Sharpen any dimension to refine, or 🆘 Reset to start fresh.`
+          showToast(_slowMsg, /* r41 v277 — 8s → 20s; important notifications must persist long enough for any reader to parse a multi-sentence message (Tom Gilb 2026-06-22 "be careful who you insult … no reason to disappear important messages that fast for anyone") */ 20000)
+          // r41 v277 — also push to the persistent generation banner so Tom sees it on Stage 2 even after the toast dismisses
+          lastGenerationReport.value = {
+            ts:       Date.now(),
+            kind:     'slow-fallback',
+            headline: '⚡ AI was slow — local fallback spec drafted',
+            detail:   _slowMsg,
+          }
         } catch (err) {
           console.error('[HangWatchdog] buildMockSpec fallback also failed', err)
           sdkError.value = 'Generation took too long and the local fallback also failed. Press Generate Spec again to retry, or 🆘 Reset to start fresh.'
           stage1Sub.value = 'form'
         }
+      } else if (hasPayloadContent && !inputIsShortEnough) {
+        // r41 v401 — Verbose input + watchdog timeout: keep user at Stage 1
+        // with the 4-column parse-review STILL VISIBLE, show retry-eligible
+        // error banner.  Pre-v44 behaviour Tom preferred over the silly mock.
+        sdkError.value = 'Generation took too long for your input size — press Generate Spec again to retry, or edit your input and re-parse.  Your 4-column parse review is preserved above.'
+        stage1Sub.value = 'review'  // KEEP the chip view, don't reset to form
+        console.info('[HangWatchdog] skipping local-fallback for verbose input — pre-v44 retry flow active', { chars: payloadCharCount })
       } else {
         sdkError.value = 'Generation took too long and was cancelled. Press Generate Spec again to retry, or 🆘 Reset to start fresh.'
         stage1Sub.value = 'form'
@@ -3161,7 +5954,7 @@ function launchDemo(): void {
         stage.value = 1
         stage1Sub.value = 'form'
         // Make sure no stale loading flag visually freezes the demo
-        _doTranslateInFlight = false
+        _activeTranslateCallId = 0  // S3 sweep 2026-06-26 — was _doTranslateInFlight
         sdkError.value = ''
       } catch (err) {
         console.error('[launchDemo] mock-spec build failed (should never happen):', err)
@@ -3239,6 +6032,18 @@ function _buildSessionSnapshot() {
     capturedVCRatios: capturedVCRatios.value,
     capturedCalendarCosts: capturedCalendarCosts.value,
     capturedCapitalCosts: capturedCapitalCosts.value,
+    // r41 v296 (Tom Gilb 2026-06-22 verbatim "it say no evo plan but i know
+    // there is one, I have a copy"): persist the active in-memory Evo plan in
+    // the session snapshot so it survives page reload.  Previously only
+    // confirmedSteps (the EvoStep[] array) and the confirmation flag were
+    // saved; the EvoStepPlan object itself (which EvoPlanView reads via
+    // `plan.value?.steps`) lived in module-level state in useEvoPlan and reset
+    // to null on every page reload — leaving the view stuck on "No Evo plan
+    // yet" until the user manually re-generated OR restored a version from
+    // history.  Pairing _saveSession with _loadEvoPlan() in _tryRestoreSession
+    // below closes the loop: the plan that the planner generated stays loaded
+    // across reloads automatically.
+    evoPlan: _evoPlan.value,
   }
 }
 
@@ -3457,7 +6262,39 @@ function _closeAllOverlays(): void {
   wizardOpen.value           = false
   // Contracts mode is a full-screen z-[600] panel — must be closed so
   // handleSubmit() / stage navigation can reach the spec form beneath it.
-  contractsOpen.value        = false
+  //
+  // r41 v421 (Tom Gilb 2026-07-01 verbatim *"i was in contracts trying to load
+  // Indianapolis and it jumped back here"*) — STRUCTURAL fix, third strike on
+  // the "Contracts overlay yanked from under the user" class-bug (v390
+  // refresh-side hydration, v416 parse-time stage watcher, v421 load-contract
+  // stage cascade).  The prior v416 guard checked `_activeMode.value` — but
+  // `_activeMode` is set only via the mode-picker governance dialog; most
+  // paths that open Contracts (agents strip, contract card, deep-link, session
+  // restore) set `contractsOpen = true` without touching `_activeMode`.  So
+  // `_activeMode` stayed `'plan'`, matched `!== 'contract'`, and the guard
+  // closed Contracts anyway.  Structural fix: use `contractsOpen.value` ITSELF
+  // as the guard.  If the Contracts overlay is currently open, the user IS
+  // inside Contracts — regardless of what `_activeMode` claims — and stage-
+  // side cascades must NOT yank it out from under them.  The overlay's own
+  // legitimate close paths remain intact: CloseDot in ContractHub's header
+  // (`@close="contractsOpen = false"`), the mode-switch governance dialog,
+  // Panic SOS reset (see `panicReset` below which closes it unconditionally),
+  // and explicit user actions.  Composes with No-Silent-Removal SUPREME
+  // (Contracts is a permanent surface for the mode; stage cascade is NOT a
+  // legitimate remove authority), Tom-Repeats-Himself SUPREME (third strike
+  // → structural fix, not another conditional patch), Trace-Before-Patch
+  // SUPREME (root cause was `_activeMode` being the wrong signal; the
+  // right signal is the overlay's own visibility).  Same reasoning applies
+  // to model mode; but modelLibraryOpen currently doesn't participate in
+  // this close, so it stays out of the guard until a matching Tom report.
+  if (!contractsOpen.value) {
+    // Overlay not open — nothing to preserve.
+  } else {
+    // Overlay IS open — user is inside Contracts.  Do NOT close from a
+    // stage-side cascade.  Legitimate close paths (CloseDot, governance,
+    // Panic SOS) still work because they call `contractsOpen = false`
+    // directly, not through this helper.
+  }
   // SharpenDropdown has internal open state not controlled by the booleans above.
   // Its fixed inset-0 z-40 backdrop blocks all clicks below it (nav bar has no
   // explicit z-index so it sits at z-auto/0 in root context — below z-40).
@@ -3504,21 +6341,75 @@ function panicReset(): void {
     stage: stage.value,
     stage1Sub: stage1Sub.value,
     view: view.value,
+    hasSpec: !!currentSpec.value,
   })
   // (1) Get the user OUT of any stuck auth/loading view immediately.
   if (view.value !== 'app') view.value = 'app'
   // (2) Close every overlay we know about.
   _closeAllOverlays()
+  // r41 v421 — _closeAllOverlays no longer touches `contractsOpen` (structural
+  // fix so stage-side cascades can't yank the user out of Contracts).  Panic
+  // SOS IS a legitimate authority to close every overlay including Contracts,
+  // so we do it explicitly here.  Same for modelLibraryOpen if needed later.
+  contractsOpen.value = false
   // (3) Force-clear ALL loading keys regardless of finally blocks.
   _forceClearLoading()
   // (4) Clear stale SDK error so the next Generate isn't blocked visually.
   sdkError.value = ''
+
+  // r41 v364 (Tom Gilb 2026-06-25 screenshot showing the entry form
+  // PRE-POPULATED with "15 Light Cruisers Build" + "President of the United
+  // States" + contract text AFTER pressing 🆘 SOS): panicReset previously
+  // only handled stuck-loading-state recovery and DID NOT wipe the spec /
+  // form data.  Tom's expectation (and what 🆘 SOS visually promises): a
+  // FULL reset to a blank workspace.  This block wipes every data ref that
+  // would otherwise persist into the next session — mirrors startFresh()'s
+  // data-wipe responsibilities exactly so the two reset paths converge on
+  // the same end state.
+  formResetKey.value++           // force SEMEntryForm to remount (clears its internal rawInput / planName / ownerName)
+  formSubStage.value = 'input'   // reset mirrored sub-stage
+  _clearSession()                // wipe persisted session blob
+  sessionRestored.value = false
+  currentSpec.value = null
+  specGeneratedAt.value = null
+  sharpeningDone.value = false
+  clearPlanModel()
+  clearComparison()
+  comparisonOpen.value = false
+  specInputOpen.value  = false
+  markdown.value = ''
+  originalInput.value = null
+  planningStage.value = 1
+  confirmedSteps.value = []
+  evoPlanConfirmed.value = false
+  tasksByStep.value = {}
+  capturedImpactMatrix.value = {}
+  capturedVCRatios.value = {}
+  capturedCalendarCosts.value = {}
+  capturedCapitalCosts.value = {}
+  collaboratorOpen.value = false
+  streamingText.value = ''       // v352 streaming accumulator
+  // v364 — clear Safety Net drafts so SEMEntryForm's onMounted auto-restore
+  // (v332 — `if (!rawInput.value && getLatestDraft('sem-home-input'))`) does
+  // NOT re-hydrate the just-wiped form on its next remount.  Without this,
+  // formResetKey++ remounts the form, onMounted fires, getLatestDraft sees
+  // the previous session's contract text in localStorage, and pre-populates
+  // rawInput — exactly the bug Tom screenshotted.  Direct localStorage
+  // delete is the cleanest reset path; the composable's STORAGE_KEY constant
+  // is internal so we use the literal key (kept in sync with the file).
+  try {
+    localStorage.removeItem('sem-app:input-safety-net:v1')
+    localStorage.removeItem('sem-app:input-safety-net:dismissed:v1')
+  } catch { /* localStorage may be blocked; SOS reset must never throw */ }
+  // Aperture mode reset (parity with startFresh)
+  if (aperture.enabled.value) aperture.backToPlan()
+
   // (5) Drop back to the entry form (sub-stage 'form' renders the SEMEntryForm).
   stage1Sub.value = 'form'
   // (6) Re-anchor stage to 1 so the user lands on the canonical home.
   stage.value = 1
   // (7) Clear in-flight translate guard so a second Generate isn't refused.
-  _doTranslateInFlight = false
+  _activeTranslateCallId = 0  // S3 sweep 2026-06-26 — was _doTranslateInFlight
   // (8) DEMO-EMERGENCY 2026-05-13. Tom mid-Kai-demo: "cant get past sign in
   //     even with reset / disaster I am demo for Kai now". Reset was setting
   //     view='app' but Supabase-stuck users were landing on a blank app
@@ -3742,7 +6633,20 @@ function handleSpeak(text: string): void {
  * Update currentSpec and markdown in place; record in version history.
  */
 function onSpecSharpened(refined: SpecBlock): void {
-  // Phase 1 (Sources of Specs) — capture before-spec and round Q&A before state changes
+  // r41 v226 (Tom Gilb 2026-06-19 verbatim "sharpening risks worked 5
+  // answerds, it added several solutions, then it bombbed out of the
+  // window") — apply succeeded (solutions were added) but a downstream
+  // step crashed silently and closed the panel.  Wrap every post-apply
+  // side-effect in its own try/catch so ONE failed step (serialise,
+  // addVersion / localStorage quota, bumpSpecVersion, provenance write)
+  // does NOT cascade into closing the panel and looking like an unrelated
+  // bomb-out.  Each failure surfaces as a console.warn + non-blocking
+  // toast so Tom can see WHICH step failed next time and bank the trace.
+  // Composes with: No-Dodging-Ambiguous-Bugs SUPREME (no more silent
+  // throws bombing the UI), No-Silent-Data-Loss SUPREME (the spec mutation
+  // ALWAYS lands even if a downstream step fails; the user keeps their
+  // sharpened result), Universal Undo SUPREME (undo.record is in its own
+  // guard so a failure there doesn't lose the spec change).
   const specModelId = specModel.value?.id
   const beforeSpec  = currentSpec.value
   const lastRound   = sharpenRounds.value[sharpenRounds.value.length - 1]
@@ -3751,27 +6655,62 @@ function onSpecSharpened(refined: SpecBlock): void {
     : 0
   const sharpenLabel = lastRound?.category.label
 
-  // r93x — Universal Undo P2 sweep: record before mutation. Covers Sharpen + Strategy
-  // Improvements (applyStrategyImprovements calls into this same function).
+  // 1. Universal Undo — record BEFORE mutation.  Failure here is non-fatal:
+  //    the spec change still applies; only the Undo entry is missing.
   if (beforeSpec) {
-    undoHistory.record({
-      label:    sharpenLabel ? `Sharpened: ${sharpenLabel}` : 'Sharpened',
-      source:   'Sharpen',
-      prevSpec: JSON.parse(JSON.stringify(beforeSpec)) as SpecBlock,
-      nextSpec: JSON.parse(JSON.stringify(refined))    as SpecBlock,
-    })
+    try {
+      undoHistory.record({
+        label:    sharpenLabel ? `Sharpened: ${sharpenLabel}` : 'Sharpened',
+        source:   'Sharpen',
+        prevSpec: JSON.parse(JSON.stringify(beforeSpec)) as SpecBlock,
+        nextSpec: JSON.parse(JSON.stringify(refined))    as SpecBlock,
+      })
+    } catch (err) {
+      console.warn('[onSpecSharpened] Undo.record failed:', err)
+      showToast(`⚠ Undo entry skipped — ${err instanceof Error ? err.message : 'serialisation failure'}`, 5000)
+    }
   }
-  currentSpec.value = refined
-  addVersion(refined, 'Sharpened', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
-  markdown.value = serialise(refined)
-  bumpSpecVersion(refined)   // bump spec model version (0.1 → 0.2 → …) after each sharpen round
 
-  // Record which entries changed — diff silently, no UI impact
+  // 2. Apply the refined spec — this is the critical step.  Always commit.
+  currentSpec.value = refined
+
+  // 3. Past Versions — addVersion writes to sem-spec-history-v1 localStorage.
+  //    Quota-exceeded throws here would previously bomb the panel; now
+  //    surfaces as a toast and the live spec stays applied.
+  try {
+    addVersion(refined, 'Sharpened', _evoPlan.value as EvoStepPlan | null, specModel.value?.name ?? '', _specOwnerNames())
+  } catch (err) {
+    console.warn('[onSpecSharpened] addVersion failed:', err)
+    showToast(`⚠ Past Versions write failed — ${err instanceof Error ? err.message : 'localStorage may be full'}`, 5000)
+  }
+
+  // 4. Markdown serialise — if a refined entry is malformed (missing required
+  //    field), serialise might throw.  Don't let that close the panel.
+  try {
+    markdown.value = serialise(refined)
+  } catch (err) {
+    console.warn('[onSpecSharpened] serialise failed:', err)
+    showToast(`⚠ Markdown render skipped — ${err instanceof Error ? err.message : 'malformed entry'}`, 5000)
+  }
+
+  // 5. Bump spec model version (0.1 → 0.2 → …)
+  try {
+    bumpSpecVersion(refined)
+  } catch (err) {
+    console.warn('[onSpecSharpened] bumpSpecVersion failed:', err)
+  }
+
+  // 6. Sharpen provenance — diff silently, no UI impact.  Failure here is
+  //    purely a missing audit-trail entry; spec stays applied.
   if (specModelId && beforeSpec) {
-    recordSharpenProvenance(specModelId, beforeSpec, refined, {
-      humanInputWords: inputWords,
-      label:           sharpenLabel,
-    })
+    try {
+      recordSharpenProvenance(specModelId, beforeSpec, refined, {
+        humanInputWords: inputWords,
+        label:           sharpenLabel,
+      })
+    } catch (err) {
+      console.warn('[onSpecSharpened] recordSharpenProvenance failed:', err)
+    }
   }
 }
 
@@ -3854,6 +6793,8 @@ function handleStrategyAgentHistoryPick(versionId: string): void {
     sv.plan ? JSON.parse(JSON.stringify(sv.plan)) : null,
     sv.specName ?? sv.planName ?? '',
     sv.specOwners ?? sv.planOwners ?? [],
+    // v514 — envelope round-trip
+    sv.resourcesEnvelope ? JSON.parse(JSON.stringify(sv.resourcesEnvelope)) : null,
   )
 }
 
@@ -3861,14 +6802,48 @@ function handleStrategyAgentHistoryPick(versionId: string): void {
  * Called when the SharpenPanel modal emits 'done' (user clicked "Done sharpening"
  * or CloseDot). Closes the modal and shows a toast so the user gets clear
  * confirmation that sharpening was applied — "no feedback" fix (r26, 2026-05-19).
+ *
+ * r41 v399 (Tom Gilb 2026-06-28 verbatim "I said done sharpening, then it
+ * should have move to show me results of sharpening, but it want to
+ * sharpening"): three behaviour upgrades on Done click —
+ *   1. Mark Stage 2.3 done via the explicit user-intent flag so the substep
+ *      strip shows ✓ and the NEXT pointer advances, even when no Apply fired
+ *      inside the modal (e.g. planner reviewed and decided nothing needed
+ *      sharpening this round).
+ *   2. Auto-advance `stage2SubStep` from '2.3' to '2.4' so the next-step
+ *      indicator reflects forward motion immediately.
+ *   3. Always show a results toast — when N > 0, "N rounds applied" with
+ *      Undo; when N === 0, "No changes applied this round — 2.3 marked
+ *      done" so the planner sees an explicit acknowledgement instead of
+ *      a silent close (No-Silent-Data-Loss SUPREME applied to flow state).
  */
 function handleSharpenModalDone(): void {
   sharpenModalOpen.value = false
+  // r41 v399 — honour Tom's explicit "Done" intent regardless of changes.
+  // r41 v400 — same pattern extended to Stage 3.2 (also opens this same
+  // SharpenPanel modal at App.vue:3625 — onStage3SubStepGo case '3.2').
+  let advancedLabel = ''  // empty → no substep advance happened
+  if (planningStage.value === 2 && stage2SubStep.value === '2.3') {
+    stage2_3UserMarkedDone.value = true
+    stage2SubStep.value = '2.4'
+    advancedLabel = 'Stage 2.3 done · advanced to 2.4'
+  } else if (planningStage.value === 3 && stage3SubStep.value === '3.2') {
+    stage3_2UserMarkedDone.value = true
+    // Stage 3 only has 3.1 → 3.2 → 3.3 — advance to 3.3.
+    stage3SubStep.value = '3.3'
+    advancedLabel = 'Stage 3.2 done · advanced to 3.3'
+  }
   const n = sharpenRounds.value.length
   if (n > 0) {
     // r93x — Universal Undo P2: toast-level [Undo] action
-    showToast(`🔪 ${n} sharpening round${n !== 1 ? 's' : ''} applied — plan updated`, 5000, { label: '[Undo]', handler: handleGlobalUndo })
+    const suffix = advancedLabel ? ` — ${advancedLabel}` : ''
+    showToast(`🔪 ${n} sharpening round${n !== 1 ? 's' : ''} applied${suffix}`, 6000, { label: '[Undo]', handler: handleGlobalUndo })
+  } else if (advancedLabel) {
+    showToast(`🔪 No changes applied this round — ${advancedLabel.replace(' done · advanced to ', ' marked done · advanced to ')}`, 5000)
   }
+  // If neither Stage 2.3 nor Stage 3.2 was the active context (rare — e.g.
+  // Sharpen opened from a navbar dropdown outside the substep flow), the
+  // toast only fires when changes were applied; no substep advance happens.
 }
 
 /**
@@ -3902,6 +6877,11 @@ function handlePlanImported(spec: SpecBlock): void {
   currentSpec.value      = spec
   specGeneratedAt.value  = new Date()
   initSpecModel(spec)
+  // r41 v208 — commit the pending raw-initial-input snapshot to the new
+  // spec model's per-id key.  Stage happens in GetAPlanPanel before the
+  // import; this transfer completes the bridge so the planner can ALWAYS
+  // come back to "what I gave it" via the per-spec storage key.
+  if (specModel.value?.id) commitPendingInitialInput(specModel.value.id)
   addVersion(spec, 'Imported', null, specModel.value?.name ?? '', _specOwnerNames())
   markdown.value    = serialise(spec)
   specInputOpen.value = false
@@ -4055,7 +7035,9 @@ function handleGetAPlanLoadModel(model: PlanModel): void {
  * then closes the panel.
  */
 function handleGetAPlanRestoreVersion(sv: SpecVersion): void {
-  onHistoryRestore(sv.spec, sv.plan, sv.planName ?? '', sv.planOwners ?? [])
+  // v514 — pass the SpecVersion's Resources envelope through so
+  // handleGetAPlan restore paths keep full round-trip fidelity.
+  onHistoryRestore(sv.spec, sv.plan, sv.planName ?? '', sv.planOwners ?? [], sv.resourcesEnvelope)
   specInputOpen.value = false
 }
 
@@ -4128,11 +7110,18 @@ async function handleSubmit(payload: { stakes: string; ends: string; means: stri
   sdkError.value = ''
   // Force-reset the in-flight guard on every new top-level generation request.
   // If a previous translate() call is hanging (e.g. network timeout that the
-  // 100-second watchdog already fired on), the guard would otherwise block this
-  // new attempt silently. The old hung promise will eventually settle and call
-  // stopLoading/finally, but by then we have a fresh _doTranslateInFlight=true
-  // from the new call — the finally race is harmless (both paths set it false).
-  _doTranslateInFlight = false
+  // 350-second watchdog already fired on; v384 — was 300s prior to v384), the
+  // guard would otherwise block this new attempt silently.
+  // S3 sweep 2026-06-26 — Tom "do stability first":
+  // the OLD comment said "the finally race is harmless (both paths set it
+  // false)" but it was NOT harmless: an old promise's late finally could
+  // clobber a NEW call's guard, opening a window for two concurrent
+  // Anthropic calls (token spend doubled).  Monotonic call-ID architecture
+  // (`_activeTranslateCallId` + per-call `_myCallId` capture) closes that
+  // window: each finally only resets if it's still the active call.  Force-
+  // clear here remains correct — we WANT to nuke any stale state on a
+  // fresh top-level Generate.
+  _activeTranslateCallId = 0
 
   // Discard any prior restored session — user is starting a new spec
   _clearSession()
@@ -4236,11 +7225,14 @@ function _formatShortDate(d: Date): string {
  *   "SEM Stage 1, Based on User Script, 9Jun26 19:04"
  */
 function stampGenerationFieldSources(spec: SpecBlock, generatedAt: Date): SpecBlock {
+  // r41 v415 (Source Attribution SUPREME sweep) — Stage 1 LLM generation is
+  // Class A (raw-text sourced from planner's typed stakes / brief).
   const fs: FieldSource = {
     source:     `SEM Stage 1, Based on User Script, ${_formatShortDate(generatedAt)}`,
     sourceType: 'ai',
     timestamp:  generatedAt.toISOString(),
     tool:       'SEM LLM Parser',
+    stage:      'plan-stage-1-input',
   }
 
   /** Stamp every non-empty string field in `fields` with the generation FieldSource. */
@@ -4274,24 +7266,51 @@ function stampGenerationFieldSources(spec: SpecBlock, generatedAt: Date): SpecBl
 // global spinner stays up forever. Guarding the entry point means a 2nd
 // click while the 1st is in flight is a no-op (the user gets one diagnostic
 // console.warn instead of a stuck UI).
-let _doTranslateInFlight = false
+//
+// 2026-06-26 S3 stability sweep — Tom: "do stability first" after the
+// 292s "endless generation" report.  Replaced boolean guard with monotonic
+// call-ID so a LATE-arriving finally from an old promise (one that the
+// watchdog already cleared at 350s — v384; was 300s — but that Anthropic
+// eventually settles later) cannot clear the guard of a NEW call in flight.
+// The
+// old `_doTranslateInFlight = false` in the late finally would have
+// opened a window for two concurrent Anthropic calls — token spend
+// doubled, loading state corrupt.  Now each doTranslate captures its
+// own `_myCallId` and the finally only resets the active ID iff it's
+// still the active call (i.e. nothing has taken over).  Force-clear
+// reset paths (SOS / hardReset / launchDemo / watchdog / etc.) set the
+// active ID to 0 unconditionally — same semantic as before.
+let _activeTranslateCallId = 0
+let _nextTranslateCallId   = 1
 
 /** Runs the actual translation, optionally with clarification answers */
 async function doTranslate(
   payload: { stakes: string; ends: string; means: string },
   clarifications?: string,
 ): Promise<void> {
-  if (_doTranslateInFlight) {
-    console.warn('[doTranslate] Refused — a previous translation is still in flight. Press 🆘 Reset to clear.')
+  if (_activeTranslateCallId !== 0) {
+    console.warn('[doTranslate] Refused — a previous translation is still in flight. Press 🆘 Reset to clear.', { activeCallId: _activeTranslateCallId })
     return
   }
-  _doTranslateInFlight = true
-  console.info('[doTranslate] starting', { stakes: payload.stakes.slice(0, 60), endsLen: payload.ends.length, hasClarifications: !!clarifications })
+  const _myCallId = _nextTranslateCallId++
+  _activeTranslateCallId = _myCallId
+  console.info('[doTranslate] starting', { callId: _myCallId, stakes: payload.stakes.slice(0, 60), endsLen: payload.ends.length, hasClarifications: !!clarifications })
   // Evo Step 10: capture start time before the API call for EntryFluency + logSpecGenerated
   const _translateStart = Date.now()
   startLoading('sdk:translate', 'Translating your plan…')
   let succeeded = false
   try {
+    // r41 v372 (Tom Gilb 2026-06-25 — Diagnostics confirmed translateStream
+    // hangs the FULL 5-min watchdog timeout in Safari PWA with large inputs
+    // [userContentLen:63225, systemLen:69767]; no STAGE: post-create EVER
+    // logged → `await client.beta.messages.create({stream:true})` never
+    // resolved).  The translateStream path is BLOCKING — watchdog fires
+    // before translate() fallback can run.  Reverted to translate() ONLY
+    // (v357 pattern).  v371's time-keyed animation provides the "dynamic
+    // count during generation" UX without depending on streaming.  When
+    // Safari PWA SSE works (future SDK version / browser version), restore
+    // translateStream by re-introducing the dual-path fallback here.
+    streamingText.value = ''
     const spec = await translate(payload.stakes, payload.ends, payload.means, clarifications)
     if (spec) {
       // Change 3 — attach Wish to all V. entries when the user provided one
@@ -4420,16 +7439,28 @@ async function doTranslate(
         r: (annotatedSpec as { resources?: unknown[] }).resources?.length ?? 0,
       }
       const _gElapsedSec = Math.round((Date.now() - _translateStart) / 1000)
-      showToast(
-        `✓ Spec generated in ${_gElapsedSec}s — ${_gCounts.f} Function${_gCounts.f === 1 ? '' : 's'} · ${_gCounts.v} Value${_gCounts.v === 1 ? '' : 's'} · ${_gCounts.s} Solution${_gCounts.s === 1 ? '' : 's'} · ${_gCounts.c} Constraint${_gCounts.c === 1 ? '' : 's'}${_gCounts.r > 0 ? ` · ${_gCounts.r} Resource${_gCounts.r === 1 ? '' : 's'}` : ''}. ${allFieldsPresent ? 'All measurement fields present.' : 'Some V. fields are blank — Sharpen panel will help.'}`,
-        9000,
-      )
+      const _genMsg = `✓ Spec generated in ${_gElapsedSec}s — ${_gCounts.f} Function${_gCounts.f === 1 ? '' : 's'} · ${_gCounts.v} Value${_gCounts.v === 1 ? '' : 's'} · ${_gCounts.s} Solution${_gCounts.s === 1 ? '' : 's'} · ${_gCounts.c} Constraint${_gCounts.c === 1 ? '' : 's'}${_gCounts.r > 0 ? ` · ${_gCounts.r} Resource${_gCounts.r === 1 ? '' : 's'}` : ''}. ${allFieldsPresent ? 'All measurement fields present.' : 'Some Value fields are blank — Sharpen panel will help.'}`
+      showToast(_genMsg, /* r41 v277 — 9s → 20s; important notifications must persist for any reader to parse multi-sentence content */ 20000)
+      // r41 v277 — also push to the persistent generation banner so Tom sees the same info on Stage 2 after the toast dismisses
+      lastGenerationReport.value = {
+        ts:       Date.now(),
+        kind:     'success',
+        headline: `✓ Spec generated in ${_gElapsedSec}s — ${_gCounts.f}F · ${_gCounts.v}V · ${_gCounts.s}S · ${_gCounts.c}C${_gCounts.r > 0 ? ` · ${_gCounts.r}R` : ''}`,
+        detail:   _genMsg,
+      }
     }
   } finally {
+    // 2026-06-26 S3 sweep — Tom "do stability first":
+    // (F2) reset guard BEFORE stopLoading so a future change that lands a
+    //      throw inside stopLoading can never trap the guard true forever.
+    // (F3) only reset the active call ID iff it's still MY call — protects
+    //      against late-arriving old promise clobbering a fresh in-flight call.
+    if (_activeTranslateCallId === _myCallId) {
+      _activeTranslateCallId = 0
+    }
     stopLoading('sdk:translate')
-    _doTranslateInFlight = false
     const elapsedMs = Date.now() - _translateStart
-    console.info('[doTranslate] finished', { succeeded, elapsedMs, sdkError: sdkError.value })
+    console.info('[doTranslate] finished', { callId: _myCallId, succeeded, elapsedMs, sdkError: sdkError.value })
     // r41 v52 (Tom Gilb 2026-06-16 "started generating, then after 10 sec
     // went back to this state") — if generation failed fast (<30 s) the
     // visible toast names WHY so the user can see the cause + retry path
@@ -4627,11 +7658,38 @@ function onPlanConfirmed(steps: EvoStep[]): void {
  * Navigates to the Impact Estimation stage (stage 3).
  * Called by voice command "Estimate Impact" and from onPlanConfirmed flow.
  */
+/**
+ * r41 v258 (Tom Gilb 2026-06-21 verbatim "refresh button not working, probably others") —
+ * Page-reload handler for the toolbar Refresh pin.  Was an inline arrow on `@refresh`:
+ *   `@refresh="() => { window.location.href = window.location.pathname + '?reload=' + Date.now() }"`
+ * which threw `Cannot read properties of undefined (reading 'location')` because Vue 3
+ * templates do NOT expose the global `window` object — template scope is intentionally
+ * restricted to the component's own bindings + a small allowlist.  The error was silent
+ * to Tom (no console open) so the button "appeared dead".
+ *
+ * Lesson banked: **never reference `window` / `document` / other browser globals from a
+ * Vue template inline expression — move the handler to <script setup> where the JS
+ * runtime scope provides them naturally.**
+ */
+function handlePageRefresh(): void {
+  window.location.href = window.location.pathname + '?reload=' + Date.now()
+}
+
+/** r41 v258 — same bug class: `window` is not in Vue template scope. */
+function handleJumpToTop(): void {
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* noop */ }
+}
+
 function goToImpactStage(): void {
   if (currentSpec.value) _ensurePlanModel(currentSpec.value) // guarantee bar shows at stage 3
   stage.value = 3
-  // Sync planning bar to stage 5 (Estimate Impacts) if it hasn't been there yet.
-  if (planningStage.value < 5) planningStage.value = 5
+  // r41 v254 (Tom Gilb 2026-06-21 verbatim "Bug: I clicked 4.1 and it jumped to
+  // stage 5") — was `if (planningStage.value < 5) planningStage.value = 5`, but
+  // Stage 4 IS Impacts per the canonical data/planningStages.ts (Stage 5 is
+  // Refine).  Stale numbering from when stages were ordered differently — same
+  // class of bug as the v241 case-2 mismatch fix.  Now syncs to Stage 4 (the
+  // correct Impacts stage), not Stage 5.
+  if (planningStage.value < 4) planningStage.value = 4
 }
 
 /**
@@ -4690,6 +7748,40 @@ function onPlanguageToolActivated(payload: { id: string; emitEvent: string; payl
     default:
       console.warn(`[PlanguageTools] No dispatcher for emitEvent "${payload.emitEvent}" (tool id: "${payload.id}").`)
   }
+}
+
+/**
+ * r41 v170 — Tom Gilb 2026-06-18 verbatim "no close or export, scroll on this:
+ * universal rule!".  Export pin added to PlanguageToolsPanel header per the
+ * Universal Export rule (Export button on all windows).  Builds a colourful
+ * HTML catalogue of all 15 tools grouped by category, copies to clipboard,
+ * auto-opens Mail.app per SEM Email Body Standard.
+ */
+async function exportPlanguageToolsCatalog(): Promise<void> {
+  const mod = await import('./data/planguageTools')
+  const { PLANGUAGE_TOOLS, PLANGUAGE_TOOL_CATEGORY_META, PLANGUAGE_TOOL_CATEGORIES_IN_ORDER, getPlanguageToolsByCategory } = mod
+  const today = new Date().toISOString().slice(0, 10)
+  const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const rows: string[] = []
+  rows.push('<table cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;width:100%;max-width:780px;margin:0 0 14px 0;">')
+  rows.push(`<tr><td bgcolor="#ea580c" style="background:#ea580c;color:#ffffff;padding:14px 18px;font-size:18px;font-weight:800;line-height:1.4;">Planguage Tools Catalogue</td></tr>`)
+  rows.push(`<tr><td bgcolor="#fff7ed" style="background:#fff7ed;color:#9a3412;padding:6px 18px;font-size:11px;font-style:italic;">${PLANGUAGE_TOOLS.length} tools across ${PLANGUAGE_TOOL_CATEGORIES_IN_ORDER.length} categories · CE Design chapter authority · Exported ${today}</td></tr>`)
+  for (const cat of PLANGUAGE_TOOL_CATEGORIES_IN_ORDER) {
+    const tools = getPlanguageToolsByCategory(cat)
+    if (tools.length === 0) continue
+    const meta = PLANGUAGE_TOOL_CATEGORY_META[cat]
+    rows.push(`<tr><td bgcolor="#fef3c7" style="background:#fef3c7;color:#78350f;padding:12px 18px 4px 18px;font-size:14px;font-weight:700;">${escapeHtml(meta.label)}</td></tr>`)
+    rows.push(`<tr><td bgcolor="#fef3c7" style="background:#fef3c7;color:#92400e;padding:0 18px 10px 18px;font-size:11px;font-style:italic;">${escapeHtml(meta.tagline)}</td></tr>`)
+    for (const t of tools) {
+      rows.push(`<tr><td bgcolor="#ffffff" style="background:#ffffff;color:#0f172a;padding:8px 18px;font-size:13px;font-weight:600;border-top:1px solid #e2e8f0;">${escapeHtml(t.name)} <span style="color:#64748b;font-weight:400;font-size:11px;">— ${escapeHtml(t.status)}</span></td></tr>`)
+      rows.push(`<tr><td bgcolor="#ffffff" style="background:#ffffff;color:#475569;padding:0 18px 6px 18px;font-size:12px;line-height:1.5;">${escapeHtml(t.description)}</td></tr>`)
+      if (t.gilbSource) rows.push(`<tr><td bgcolor="#ffffff" style="background:#ffffff;color:#c2410c;padding:0 18px 8px 18px;font-size:11px;font-style:italic;">Source: ${escapeHtml(t.gilbSource)}</td></tr>`)
+    }
+  }
+  rows.push('</table>')
+  const html = rows.join('')
+  const ok = await exportCopy(html, `Planguage Tools Catalogue (${PLANGUAGE_TOOLS.length} tools) — paste colourful HTML via ⌘V`)
+  if (ok) showToast(`📤 ${PLANGUAGE_TOOLS.length}-tool catalogue copied — ⌘V into Mail / Notes / Keynote`, 3500)
 }
 
 function onEvoToolActivated(payload: { id: string; emitEvent: string; payload?: Record<string, unknown> }): void {
@@ -5548,6 +8640,16 @@ const { active: dictationActive, supported: dictationSupported, toggle: toggleDi
     'Demo':                       () => { view.value = 'app'; launchDemo() },
     'Stop demo':                  () => { handleStopDemo() },
     // Analysis mode
+    // r41 2026-06-20 — Fork-action labels relabeled to match the Stage 1
+    // mode-toggle buttons.  Tom Gilb verbatim: "Analyze As Is" + "Answer
+    // Some Questions, for better Analysis".  Old labels kept as searchable
+    // aliases below so muscle memory + the command-palette fuzzy search
+    // still find them.
+    'Analyze As Is':              () => { analysisMode.value = 'quick' },
+    'Answer Some Questions, for better Analysis': () => { analysisMode.value = 'precise' },
+    // Back-compat aliases — fork actions are identified by their string key,
+    // so users / scripts referencing the old names still resolve.  No
+    // Silent-Removal SUPREME: nothing's silently lost.
     'Just do it':                 () => { analysisMode.value = 'quick' },
     'Ask for precision':          () => { analysisMode.value = 'precise' },
     // Apperture submit — fires when the Apperture is in 'plan' view
@@ -5619,6 +8721,31 @@ function _onGlobalKeydown(e: KeyboardEvent) {
     openGilbIllustrations()
     return
   }
+  // ⌘⇧H — Role Health Dashboard (r41 v312, Tom Gilb 2026-06-23 Phase 2 of
+  // Roles redesign). Cmd-Shift-H opens the dashboard so the planner can
+  // see per-Stakeholder Health Score + RACI Matrix without menu-dive.
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'h' || e.key === 'H')) {
+    e.preventDefault()
+    roleHealthOpen.value = true
+    return
+  }
+  // ⌘⇧R — Role Flow Diagram (r41 v313, Tom Gilb 2026-06-23 Phase 3 of
+  // Roles redesign). Cmd-Shift-R opens the 5-column Stakeholder-centric
+  // flow (Roles · People · Solutions · Values · Resources) so the planner
+  // can see how every Stakeholder relates to every Planguage spec.
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
+    e.preventDefault()
+    roleFlowOpen.value = true
+    return
+  }
+  // ⌘⇧X — Role Routing & Placeholder Resolver Panel (r41 v314, Tom Gilb
+  // 2026-06-23 Phase 4 FINAL of Roles redesign). Cmd-Shift-X opens the
+  // routing rules editor + placeholder resolver — "X" mnemonic = automation.
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'x' || e.key === 'X')) {
+    e.preventDefault()
+    roleRoutingOpen.value = true
+    return
+  }
   // ⌘, — SEM Settings (Tom Gilb 2026-06-16 verbatim "I CANT FIND SETTINGS
   // ANYWHERE").  Mac convention is ⌘, for app settings/preferences.
   if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -5656,7 +8783,28 @@ function _onGlobalKeydown(e: KeyboardEvent) {
     // Condition: loading spinner is hung OR a hard error is on screen.
     // In normal (non-stuck) use Escape does nothing here, so it never
     // interferes with typing or normal interactions.
+    //
+    // v514 (2026-07-21) — Tom Gilb: silent Stage 10 → Stage 1 reset while
+    // reading + scrolling.  Root-cause hypothesis: v504-v513 estimation
+    // subsystem left `isLoading` stuck true after a failed background
+    // estimation, and a stray Escape key press (Tom scrolling with keyboard)
+    // fired panicReset silently.  DEFENSIVE FIX: when the user is deep in
+    // the workflow (planningStage >= 6 — Evo Steps onwards) AND has a spec,
+    // demand explicit confirmation via a toast prompt rather than nuking
+    // Stage-6+ work silently.  For planningStage < 6 the old behaviour is
+    // preserved — the reset is cheap to redo from an empty/early spec.
     if (isLoading.value || sdkError.value) {
+      const deepInWorkflow = planningStage.value >= 6 && !!currentSpec.value
+      if (deepInWorkflow) {
+        // No-Silent-Data-Loss SUPREME: never silently discard Stage 6+ work
+        console.warn('[esc-guard] Escape+stuck at Stage', planningStage.value,
+          '— reset SUPPRESSED; user must click 🆘 SOS explicitly.')
+        showToast(
+          `⚠ Reset suppressed at Stage ${planningStage.value} — press 🆘 SOS in the title bar to reset explicitly, or refresh Safari to keep working.`,
+          8000,
+        )
+        return
+      }
       panicReset()
     }
   }
@@ -6047,12 +9195,8 @@ const searchEntries = computed((): SearchEntry[] => {
       keywords: ['tour', 'onboarding', 'help', 'introduction', 'guide', 'walkthrough'],
       context: 'Help', action: () => { tourOpen.value = true },
     },
-    {
-      id: 'wizard', icon: '🧙', name: 'Guided Wizard',
-      description: 'Step-by-step guided spec creation wizard',
-      keywords: ['wizard', 'guided', 'guide', 'step by step', 'beginner', 'help'],
-      context: 'Help', action: () => { wizardOpen.value = true },
-    },
+    // r41 v365 (Tom Gilb 2026-06-25 "remove what is not in use") — Wizard
+    // entry REMOVED from the Actions catalog.  SpecWizard.vue dead code.
     {
       id: 'coach', icon: '🤝', name: 'Ask Anything',
       description: 'AI collaborator — ask any question about your plan or spec',
@@ -6141,12 +9285,20 @@ const searchEntries = computed((): SearchEntry[] => {
 //
 // To exempt a surface from auto-close (e.g. genuine side-by-side comparison),
 // pass `{ exclusive: false }` and document the reason inline.
+// r41 v302 (Tom Gilb 2026-06-23) — Stage 6 sub-step panels.
+registerExclusiveSurface('stage6Prioritise',     stage6PrioritiseOpen)
+registerExclusiveSurface('stage6SharpenSteps',   stage6SharpenStepsOpen)
+registerExclusiveSurface('stage6ToolsAndAgents', stage6ToolsAndAgentsOpen)
 registerExclusiveSurface('presentation',      presentationOpen)
 registerExclusiveSurface('resourcesSharpen',  resourcesSharpenOpen)
+registerExclusiveSurface('resourcesAgent',    resourcesAgentOpen)   // v509
+registerExclusiveSurface('stage9Actuals',     stage9ActualsOpen)
 registerExclusiveSurface('optima',            optimaOpen)
 registerExclusiveSurface('autoDbo',           autoDboOpen)
 registerExclusiveSurface('planguageTools',    planguageToolsOpen)
 registerExclusiveSurface('penta',             pentaOpen)
+registerExclusiveSurface('parseImpliedSharp', parseImpliedSharpeningOpen)
+registerExclusiveSurface('initialInput',      initialInputPanelOpen)
 registerExclusiveSurface('kiss',              kissOpen)
 registerExclusiveSurface('costEngineering',   costEngineeringOpen)
 registerExclusiveSurface('sharpenModal',      sharpenModalOpen)
@@ -6161,6 +9313,9 @@ registerExclusiveSurface('strategyAgent',     strategyAgentOpen)
 registerExclusiveSurface('evoStepImprovement', evoStepImprovementOpen)
 registerExclusiveSurface('feedMe',            feedMeOpen)
 registerExclusiveSurface('settings',          settingsOpen)
+// r41 v335 — Diagnostics Panel registered as exclusive surface so other panels
+// close when it opens (Single-Surface SUPREME).
+registerExclusiveSurface('diagnostics',       diagnosticsOpen)
 registerExclusiveSurface('conflictAnalysis',  conflictAnalysisOpen)
 registerExclusiveSurface('collaborator',      collaboratorOpen)
 registerExclusiveSurface('comparison',        comparisonOpen)
@@ -6214,6 +9369,13 @@ registerExclusiveSurface('mariaBoardHub',     mariaBoardOpen)
 registerExclusiveSurface('incorruptible',     incorruptibleOpen)
 registerExclusiveSurface('incorruptibleSharp', incorruptibleSharpeningOpen)
 registerExclusiveSurface('elon',              elonOpen)
+registerExclusiveSurface('munger',            mungerOpen)
+registerExclusiveSurface('heilmeier',         heilmeierOpen)
+registerExclusiveSurface('feynman',           feynmanOpen)
+registerExclusiveSurface('roleAgent',         roleAgentOpen)
+registerExclusiveSurface('roleHealth',        roleHealthOpen)
+registerExclusiveSurface('roleFlow',          roleFlowOpen)
+registerExclusiveSurface('roleRouting',       roleRoutingOpen)
 registerExclusiveSurface('elonSharp',         elonSharpeningOpen)
 registerExclusiveSurface('modelLibrary',      modelLibraryOpen)
 registerExclusiveSurface('stakeholderMapper', stakeholderMapperOpen)
@@ -6431,7 +9593,7 @@ async function handleApertureSubmit(text: string): Promise<void> {
 
   // (1) Close any open overlays and reset in-flight guard.
   _closeAllOverlays()
-  _doTranslateInFlight = false
+  _activeTranslateCallId = 0  // S3 sweep 2026-06-26 — was _doTranslateInFlight
 
   // Clear any stale SDK error banner so the Parse review page is not confused.
   sdkError.value = ''
@@ -6614,10 +9776,23 @@ function handleApertureLoadPlan(model: PlanModel): void {
        literally tells the story of how the plan grew (provenance, human-touch,
        sharpen rounds, manual edits, days active).
        z-[300] sits above normal content and below the demo bar (z-50+).  -->
+  <!-- r41 v229 (Tom Gilb 2026-06-20 verbatim refinement: "I like the idea
+       that the menus do not disappear, they scroll up, out of the way, but
+       we inituitively know that and can bring them down by a simple scroll")
+       — Plan Crest is now IN-FLOW (mt-[148px] to clear the fixed stage bar,
+       relative positioning, NO fixed/sticky).  Scrolling the page UP brings
+       the menus down into view; scrolling DOWN sends them up out of the
+       viewport.  No toggle needed — scrolling IS the mechanism.
+       Drops r41 v228's max-h collapse + restore strip + focus-mode CSS
+       (replaced by the natural scroll behavior).
+       Composes with: No-Silent-Removal (menus still always in DOM, just
+       above the viewport when scrolled), MOVE Principle (scroll up = menus
+       visible — the user always knows where they are), accessibility_tom.md
+       (no keyboard combo to learn — just scroll). -->
   <div
     ref="specCrestEl"
     v-if="view === 'app'"
-    class="fixed top-[148px] left-0 right-0 z-[300] flex flex-col px-4 py-1.5
+    class="relative mt-[148px] z-[300] flex flex-col px-4 py-1.5
            bg-gradient-to-r from-indigo-800 via-indigo-600 to-violet-600
            text-white shadow-lg ring-1 ring-black/10 select-none"
     aria-label="Spec Crest — active spec"
@@ -6655,7 +9830,28 @@ function handleApertureLoadPlan(model: PlanModel): void {
          Fix: reserve horizontal padding on the inner row at md+ widths matching the
          absolute clusters' widths (left ~440px, right ~310px) so centred content has
          guaranteed clear space.  Below md the PLAN eyebrow is hidden anyway. -->
-    <div class="flex items-center justify-center h-12 relative md:pl-[440px] md:pr-[310px]">
+    <!-- Tom Gilb 2026-06-19 "title collision" — left cluster grew past the
+         original 440 px reservation once Find / Illuminate / Past Versions
+         gained text labels and Dictate / Speaker dropped compact mode.
+         Reservation bumped to 720 px so the centred title no longer
+         overlaps the right edge of the left cluster (the gold
+         "Indianapolis Contract" text was visibly painting over the
+         "Turn On Mic" pin).  Right cluster unchanged. -->
+    <!-- r41 v263 (Tom Gilb 2026-06-21 verbatim "this collision will persist until you design it
+         better") — Tom-Repeats-Himself SUPREME: this is the THIRD or FOURTH report of title-vs-
+         button overlap in this row.  Root cause: the LEFT absolute cluster reserves md:pl-[720px]
+         of horizontal space, but with Mic ("Turn On Mic") + Read ("Read aloud") pins rendered
+         with FULL TEXT LABELS (compact=false per Icon-Plus-Text SUPREME), the cluster's actual
+         width is ~860-900px on desktop — overflows the reservation + visually overlaps the
+         centered title.  v263 fix: (a) bump padding-left reservation to 920px so the cluster
+         has hard-guaranteed room with margin; (b) tighten title `max-w-[60%]` → `max-w-[35%]`
+         so the title truncates earlier and CANNOT extend into the cluster zone even if the
+         cluster overflows again.  Defense-in-depth: even if Tom adds another full-text pin to
+         the cluster, the title's max-w-35% still keeps it clear.  Composes with: Tom-Repeats-
+         Himself SUPREME (4th instance of overlap), Icon-Plus-Text SUPREME (preserves text
+         labels on Mic+Read — the labels are required for accessibility, can't make compact),
+         accessibility_tom.md (no overlap = no friction). -->
+    <div class="flex items-center justify-center h-12 relative md:pl-[920px] md:pr-[310px]">
       <!-- ── Left tool cluster: Edit Plan · Find · Illuminate · History · Next Step · Dictate · Speaker
            Moved from Row 2 (removed 2026-06-01 — dark bar). Sit left-absolute on the title
            row, mirroring the right cluster, so the plan title remains cleanly centred. -->
@@ -6670,10 +9866,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
              SEM-Design-History log r92.  Permanent-surface drop approved by
              Tom in chat. -->
         <!-- (Edit Plan dropped) -->
-        <!-- Find ⌘F -->
+        <!-- Find ⌘F — Icon-Plus-Text rule (Tom Gilb 2026-06-18 second-ask:
+             "Rules: Text under the pins required").  Inline "Find" label
+             added between the glyph and the shortcut kbd so the pin
+             self-identifies at a glance. -->
         <button
           type="button"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
+          class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold
                  text-white bg-white/10 hover:bg-white/20
                  focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
           aria-label="Find features (Cmd+F)"
@@ -6683,12 +9882,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
           <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
           </svg>
+          <span class="text-[10px] font-bold tracking-wide">Find</span>
           <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘F</kbd>
         </button>
-        <!-- Illuminate ⌥I -->
+        <!-- Illuminate ⌘I — Icon-Plus-Text rule (inline "Illuminate" label) -->
         <button
           type="button"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
+          class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold
                  text-white bg-white/10 hover:bg-white/20
                  focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
           aria-label="Illuminate a Planguage term (Cmd+I or Opt+I)"
@@ -6696,6 +9896,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
           @click="openDefineSearch()"
         >
           <span class="text-sm leading-none" aria-hidden="true">💡</span>
+          <span class="text-[10px] font-bold tracking-wide">Illuminate</span>
           <kbd class="inline-flex items-center px-1 rounded bg-white/20 text-white/80 font-mono text-[9px] leading-none py-0.5 ring-1 ring-white/20">⌘I</kbd>
         </button>
         <!-- History — Evo Step Color Glyph (amber < ->+-> encodes past cycles).
@@ -6708,20 +9909,29 @@ function handleApertureLoadPlan(model: PlanModel): void {
              though the parent button's title is the correct one.  Explicit
              `title="Version History"` override on the inner icon now suppresses
              the misleading canonical label. -->
+        <!-- Past Versions — Icon-Plus-Text rule.  Tom Gilb 2026-06-19 verbatim:
+             "I hope, as requested above we are getting rid of the term history
+             everywhere, in hover info and menus."  Label was "History"; the
+             panel actually lists PAST VERSIONS of saved specs / models /
+             contracts / agent reports, so "Past Versions" is both literal and
+             unambiguous.  Code identifiers (HistoryGlyph, unifiedHistoryOpen,
+             useSpecHistory) are exempt per the Spell-out-Type-Names rule's
+             code-identifier carve-out — only the rendered text changed. -->
         <div class="relative">
           <button
             type="button"
-            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
+            class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold
                    text-white bg-white/10 hover:bg-white/20
                    focus:outline-none focus:ring-2 focus:ring-white/70 transition-colors"
-            aria-label="Version History"
-            title="History — browse Session Specs, Imported Plans, Models, Contracts and Maria analyses. Load any previous spec or plan back into your workspace. Single-click to open."
+            aria-label="Past Versions — saved specs, models, contracts, agent reports"
+            title="Past Versions — browse saved Specs, Imported Plans, Models, Contracts and agent reports.  Load any past version back into your workspace.  Single-click to open."
             @click="unifiedHistoryOpen = true"
           >
-            <!-- Tom 2026-06-03: HistoryGlyph [*]→[*] replaces the misleading
-                 Evo-Step glyph.  History IS the file-to-file restoration
-                 pattern (saved snapshot → working copy) — both sides bracketed. -->
-            <HistoryGlyph size="compact" aria-label="Version History" class="shrink-0" style="height: 16px; width: auto;" />
+            <!-- HistoryGlyph component name retained (code identifier exemption);
+                 the glyph shape [*]→[*] reads "past saved snapshot → working
+                 copy" — still correct for Past Versions. -->
+            <HistoryGlyph size="compact" aria-label="Past Versions" class="shrink-0" style="height: 16px; width: auto;" />
+            <span class="text-[10px] font-bold tracking-wide">Past Versions</span>
           </button>
           <span
             v-if="specHistory.length > 0"
@@ -6742,20 +9952,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
           @click="goNext"
         >{{ nextActionLabel }} <span aria-hidden="true">→</span></button>
         <span class="h-5 w-px bg-white/20 mx-0.5 shrink-0" aria-hidden="true" />
-        <!-- 🎤 Dictate -->
+        <!-- 🎤 Dictate — Icon-Plus-Text rule (Tom Gilb 2026-06-18 second-ask:
+             "Rules: Text under the pins required").  compact=false so the
+             built-in "Turn On Mic" / "Mic Off" label renders next to the glyph. -->
         <span class="inline-flex" data-crest-tip="🎤 Dictate — speak to fill the form (⌘M)">
           <DictateButton
             :active="dictationActive"
             :supported="dictationSupported"
-            :compact="true"
+            :compact="false"
             @toggle="toggleDictation()"
           />
         </span>
-        <!-- 🔊 Speaker -->
+        <!-- 🔊 Speaker — Icon-Plus-Text rule (built-in "Read aloud" / "Stop" label) -->
         <span class="inline-flex" data-crest-tip="🔊 Read Aloud — hear the current plan content">
           <SpeakerButton
             :text="speakerText"
-            :compact="true"
+            :compact="false"
             @speak="handleSpeak"
           />
         </span>
@@ -6782,10 +9994,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
       <button
         v-if="!titleEditing"
         type="button"
-        class="group inline-flex items-center gap-3 min-w-0 max-w-[40%] flex-1 pl-2 pr-3 py-1 -my-1 rounded-lg
+        class="group inline-flex items-center gap-3 min-w-0 max-w-[35%] flex-1 pl-2 pr-3 py-1 -my-1 rounded-lg
                hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-300/80 transition-colors"
-        :title="`${specModel.name} — click to rename`"
-        :aria-label="`Plan: ${specModel.name}. Click to rename in place.`"
+        :title="`Title: ${specModel.name} — click to rename`"
+        :aria-label="`Title: ${specModel.name}. Click to rename in place.`"
         @click="startTitleEdit"
       >
         <!-- Amber crest stripe — gives the title an unmistakable left anchor -->
@@ -6793,20 +10005,24 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="shrink-0 h-9 w-1.5 rounded-full bg-gradient-to-b from-amber-200 via-amber-400 to-amber-600 shadow-[0_0_8px_rgba(251,191,36,0.55)]"
           aria-hidden="true"
         ></span>
-        <!-- Tiny "PLAN" eyebrow -->
+        <!-- "TITLE" eyebrow — Tom Gilb 2026-06-19 verbatim: "Plan = obsolete.
+             Use 'Title' (generic for any plan, spec, contract, model etc)". -->
         <span
           class="hidden md:inline text-[10px] uppercase tracking-[0.35em] font-bold text-amber-200/85 leading-none shrink-0"
           aria-hidden="true"
-        >Plan</span>
-        <!-- THE TITLE — gold-shimmer, drop-shadowed.  Font sizing dropped 2026-06-03
-             from text-2xl/[28px] to text-base/lg responsive so long titles don't
-             monopolise the row.  Truncate class on this span handles ellipsis. -->
+        >Title</span>
+        <!-- THE TITLE — gold-shimmer, drop-shadowed.  Tom Gilb 2026-06-19:
+             "Make the Title name much better and dominant".  Restored the
+             dramatic font sizing dropped 2026-06-03 — long titles are now
+             allowed to dominate the row (the IdentityStrip below carries the
+             secondary metadata; the row no longer needs to share with the
+             duplicate Owner chip that was dropped 2026-06-18). -->
         <span
           class="plan-title-shimmer truncate min-w-0 flex-1
-                 text-base md:text-lg leading-tight font-extrabold tracking-tight
+                 text-xl md:text-2xl lg:text-3xl leading-tight font-black tracking-tight
                  bg-gradient-to-r from-amber-300 via-yellow-100 via-white to-amber-300
                  bg-clip-text text-transparent
-                 drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)]"
+                 drop-shadow-[0_2px_6px_rgba(0,0,0,0.55)]"
         >{{ specModel.name }}</span>
         <svg
           class="h-4 w-4 shrink-0 opacity-0 group-hover:opacity-80 transition-opacity text-amber-200"
@@ -6816,50 +10032,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
         </svg>
       </button>
 
-      <!-- 🔑 OWNER CHIP — reinstated 2026-06-03 (Tom: *"The Stewards seem to
-           have disappeared, please reinstate, why did they disappear?  we can
-           simplify stewards to Owner Name on Title, but this is important
-           project information"*).
-           Casualty of the 2026-06-01 Plan Crest Row 2 removal — the three
-           people chips (🔑/💡/⌨️) lived on Row 2 and were dropped when Row 2
-           was deleted.  Reinstated as a SINGLE owner-name chip immediately
-           after the title (per Tom's "simplify to Owner Name on Title").
-           Clicking opens PlanOwnerPanel which still has all three role tabs
-           (Owners / Planners / Scribes) — so full Steward access is preserved
-           behind one trigger.  When no owner is set yet, the chip prompts. -->
-      <button
-        v-if="!titleEditing"
-        type="button"
-        class="group inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-lg
-               bg-amber-500/15 hover:bg-amber-500/30 border border-amber-300/40 hover:border-amber-300/80
-               text-amber-100 hover:text-white text-xs font-semibold
-               focus:outline-none focus:ring-2 focus:ring-amber-300 transition-colors"
-        :title="specModel.owners && specModel.owners.length > 0
-          ? `🔑 Spec owner: ${specModel.owners[0].name}.  Click to open Spec Stewards panel (Owners / Planners / Scribes — all roles preserved per the original 3-chip design).`
-          : `No spec owner set.  Click to open Spec Stewards panel and add owners, planners, and scribes.`"
-        :aria-label="specModel.owners && specModel.owners.length > 0
-          ? `Spec owner: ${specModel.owners[0].name}. Click for full Stewards panel.`
-          : `Add spec owner. Click for Stewards panel.`"
-        @click="specPeopleTab = 'owners'; specOwnerPanelOpen = true"
-      >
-        <!-- OwnerGlyph `[*]!` — Tom 2026-06-04 approved Planguage-family
-             replacement for the dated 🔑 emoji.
-             Tom 2026-06-07: compact (50×20, h-4=16px) was invisible — upgraded to standard (64×24, stroke 2.2px). -->
-        <OwnerGlyph size="standard" class="shrink-0" aria-hidden="true" />
-        <span class="truncate max-w-[140px]">
-          {{ specModel.owners && specModel.owners.length > 0
-            ? specModel.owners[0].name
-            : 'Add owner' }}
-        </span>
-        <!-- Subtle additional-roles hint when planners/scribes also populated -->
-        <span
-          v-if="specModel.planners && specModel.planners.length > 0 || specModel.scribes && specModel.scribes.length > 0"
-          class="text-[10px] text-amber-200/80 font-normal"
-          aria-hidden="true"
-        >
-          +{{ (specModel.planners?.length ?? 0) + (specModel.scribes?.length ?? 0) }}
-        </span>
-      </button>
+      <!-- 🔑 OWNER CHIP — REMOVED 2026-06-18 (Tom Gilb verbatim: "remove
+           repitition").  This top-bar owner chip was a pure duplicate of the
+           Spec: Owner Planner Scribe Owner chip in the IdentityStrip (same
+           glyph, same name display, same click action — both open the
+           SpecOwnerPanel on the Owners tab).  Tom's 2026-06-03 reinstate
+           request was satisfied at the time by putting an owner chip on the
+           title row; the 2026-06-09 → 2026-06-18 IdentityStrip rework
+           moved the owner chip into the canonical Spec: Owner Planner Scribe
+           cluster, making this top-row copy redundant.  Function preserved
+           (the IdentityStrip chip has identical click + display); only the
+           duplicate visual is dropped per Tom's explicit ask. -->
+      <!-- (top-bar Owner chip dropped — see Spec: Owner Planner Scribe in
+           IdentityStrip for the canonical owner affordance) -->
 
       <!-- The 6 reinstated meta chips (Version · Sharpen · Saved · Plan Story
            · Planner · Scribe) MOVED 2026-06-04 to a dedicated Row 2 wrap
@@ -6888,7 +10073,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
         <span
           class="hidden md:inline text-[10px] uppercase tracking-[0.35em] font-bold text-amber-200/85 leading-none shrink-0"
           aria-hidden="true"
-        >Plan</span>
+        >Title</span>
         <input
           ref="titleInputEl"
           v-model="titleDraft"
@@ -6901,8 +10086,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  text-white caret-amber-300 placeholder-white/40
                  text-2xl md:text-[28px] leading-none font-extrabold tracking-tight
                  drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)] outline-none text-center"
-          placeholder="Plan name"
-          aria-label="Edit plan name — Enter saves, Esc cancels"
+          placeholder="Title (Plan, Spec, Contract, Model, …)"
+          aria-label="Edit Title — Enter saves, Esc cancels"
           @keydown.enter.prevent="commitTitleEdit"
           @keydown.esc.prevent.stop="cancelTitleEdit"
           @blur="commitTitleEdit"
@@ -6936,29 +10121,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
          glance), DD-009 (HoverHints on every button), Trace-Before-Patch
          SUPREME (audited before refactor; every removed surface accounted
          for). -->
-    <!-- r41 v141 — Level 1 · Process Tools as own component (post-spec
-         variant: shows Find · Undo · Redo · Search Term · Settings · SOS
-         + Books · Agents · Actions). -->
-    <ProcessToolsStrip
-      variant="post-spec"
-      :can-undo="undoHistory.canUndo.value"
-      :can-redo="undoHistory.canRedo.value"
-      :undo-label="undoHistory.lastEntry.value?.label ?? ''"
-      :undo-source="undoHistory.lastEntry.value?.source ?? ''"
-      :undo-time="undoHistory.lastEntry.value?.timestamp.slice(11, 19) ?? ''"
-      :agent-menu-open="agentMenuOpen"
-      :menu-open="menuOpen"
-      @open-find="toggleMenu()"
-      @undo="handleGlobalUndo"
-      @redo="handleGlobalRedo"
-      @open-search-term="openGilbIllustrations()"
-      @open-settings="settingsOpen = true"
-      @open-sos="freshStartOpen = true"
-      @open-books="openBookKaleidoscope()"
-      @open-agents="agentMenuOpen = true"
-      @open-actions="toggleMenu"
-    />
     </template>
+    <!-- r41 v146 — Process Tools mount MOVED OUTSIDE the specModel-gated
+         template so it ALSO renders pre-spec.  Variant is bound to the
+         specModel state so each variant gets the right buttons (post-spec:
+         Undo/Redo/Books/Agents; pre-spec: Mic/Read).  Replaces the legacy
+         floating fixed-z9999 cluster at line ~10561 that was overlapping
+         the stage bar (Tom Gilb 2026-06-17 verbatim "you are joking?"
+         screenshot showed Find/Search Term/Settings/SOS/Mic/Read/Actions
+         pasted on top of stages 8/9/10/11). -->
+    <!-- r41 v147 — ProcessToolsStrip MOVED into IdentityStrip's `end` slot
+         (see below) per Tom Gilb 2026-06-17 verbatim "inside one of 3 bars
+         top one".  Standalone mount here removed; the strip now sits at
+         the right edge of the top Plan Identity bar via slot composition. -->
 
     <!-- ── Row 2: GROUP 3 · IDENTITY STRIP + GROUP 2 · STAGE TOOLS STRIP ──
          r41 v116 (Tom Gilb 2026-06-17 verbatim "I want all pins or buttons
@@ -6996,6 +10171,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :owners="specModel?.owners ?? []"
       :planners="specModel?.planners ?? []"
       :scribes="specModel?.scribes ?? []"
+      :planner-count="specModel?.planners?.length ?? 0"
+      :scribe-count="specModel?.scribes?.length ?? 0"
+      :architect-count="specModel?.architects?.length ?? 0"
+      :cto-count="specModel?.ctos?.length ?? 0"
       :saved-label="specBarSavedLabel"
       :unsaved="specBarUnsaved"
       :save-flash="_saveFlash"
@@ -7011,18 +10190,80 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @save-now="savedLabelClick"
       @toggle-spec-story="_togglePlanStory()"
       @edit-deadline="editDeadline"
-    />
+      @open-mode-picker="activeModePopoverOpen = true"
+    >
+      <!-- r41 v147 — ProcessToolsStrip slotted into IdentityStrip's `end` slot
+           so Level 1 sits AT the right edge of the top Plan Identity bar,
+           not floating as a separate cluster overlaying the stage tiles. -->
+      <template #end>
+        <!-- r41 v415 — persistent AI-model chip.  Sits IMMEDIATELY BEFORE the
+             ProcessToolsStrip so it's on the top identity row (Control-Pins-
+             at-Top SUPREME), adjacent to the Settings pin the HoverHint
+             instructs the planner to open for Phase 2 runtime toggle. -->
+        <ActiveModelChip />
+        <ProcessToolsStrip
+          :variant="specModel ? 'post-spec' : 'pre-spec'"
+          :can-undo="undoHistory.canUndo.value"
+          :can-redo="undoHistory.canRedo.value"
+          :undo-label="undoHistory.lastEntry.value?.label ?? ''"
+          :undo-source="undoHistory.lastEntry.value?.source ?? ''"
+          :undo-time="undoHistory.lastEntry.value?.timestamp.slice(11, 19) ?? ''"
+          :dictation-active="dictationActive"
+          :dictation-supported="dictationSupported"
+          :speaking="speaking"
+          :speaker-supported="speakerSupported"
+          :agent-menu-open="agentMenuOpen"
+          :menu-open="menuOpen"
+          :can-export="!!specModel"
+          :focus-mode-active="focusModeActive"
+          @open-find="toggleMenu()"
+          @undo="handleGlobalUndo"
+          @redo="handleGlobalRedo"
+          @open-search-term="openGilbIllustrations()"
+          @open-settings="settingsOpen = true"
+          @refresh="handlePageRefresh"
+          @open-sos="freshStartOpen = true"
+          @open-mic="toggleDictation()"
+          @open-read="speaking ? stopSpeaking() : handleSpeak(speakerText)"
+          @open-books="openBookKaleidoscope()"
+          @open-agents="agentMenuOpen = true"
+          @open-actions="toggleMenu"
+          @open-demos="demosMenuOpen = true"
+          @open-export="emailPlan()"
+          @toggle-focus="focusModeToggle"
+        />
+      </template>
+    </IdentityStrip>
     <!-- r41 v139 — Tom Gilb 2026-06-17 verbatim "retro all the new menu bars
          disappeared" — v-if="specModel" gate dropped so Stage Tools is
          visible in the pre-spec / empty-form state too.  StageToolsStrip
          reads `planning-stage` only; works for any stage including 1. -->
+    <!-- r41 v153 — specPresence map drives per-tool availability gating
+         per rule_stage_tools_dependency_logic.md.  Tom Gilb 2026-06-17:
+         "the method you have used with tools earlier to grey out and
+         inactivate an invalid tool is good, but please also give a clear
+         reaction message ('Invalid Tool' (at this point))".  Each artefact
+         flag = TRUE when at least one entry of that type exists. -->
     <StageToolsStrip
       :planning-stage="planningStage"
       :has-spec="!!currentSpec"
+      :spec-presence="{
+        spec:            !!currentSpec,
+        stakeholders:    (currentSpec?.stakeholders?.length ?? 0) > 0,
+        values:          (currentSpec?.values?.length ?? 0) > 0,
+        functions:       (currentSpec?.functions?.length ?? 0) > 0,
+        solutions:       (currentSpec?.solutions?.length ?? 0) > 0,
+        impactEstimates: ((currentSpec as { impactEstimates?: unknown[] } | null)?.impactEstimates?.length ?? 0) > 0,
+        evoSteps:        ((currentSpec as { evoSteps?: unknown[] } | null)?.evoSteps?.length ?? 0) > 0,
+        tasks:           ((currentSpec as { tasks?: unknown[] } | null)?.tasks?.length ?? 0) > 0,
+        resources:       (currentSpec?.resources?.length ?? 0) > 0,
+      }"
+      @tool-invalid="(p) => showToast(`⚠ Invalid Tool — ${p.label} cannot be used yet.  ${p.reason}`, 5000)"
       @open-penta="pentaOpen = true"
       @open-get-a-plan="specInputOpen = true"
       @open-compare="comparisonMode = true"
       @open-templates="modelLibraryOpen = true"
+      @open-initial-input="openInitialInputPanel"
       @open-sharpen-tools="planguageToolsOpen = true"
       @open-sharpen-spec="sharpenModalOpen = true"
       @open-standards-auditor="standardsAuditorOpen = true"
@@ -7035,6 +10276,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @open-evo-critiquer="evoCritiquerOpen = true"
       @open-evo-tools="evoToolsOpen = true"
       @open-spec-tools="planguageToolsOpen = true"
+      @open-spec-editor="specEditorOpen = true"
       @open-tasks="planningStage = 8"
       @open-study-act="planningStage = 9"
       @open-resources-sharpening="resourcesSharpenOpen = true"
@@ -7053,6 +10295,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
          the pre-spec / empty-form state too. -->
     <AgentsStrip
       :has-spec="!!currentSpec"
+      :spec-presence="{
+        spec:            !!currentSpec,
+        stakeholders:    (currentSpec?.stakeholders?.length ?? 0) > 0,
+        values:          (currentSpec?.values?.length ?? 0) > 0,
+        functions:       (currentSpec?.functions?.length ?? 0) > 0,
+        solutions:       (currentSpec?.solutions?.length ?? 0) > 0,
+        impactEstimates: ((currentSpec as { impactEstimates?: unknown[] } | null)?.impactEstimates?.length ?? 0) > 0,
+        evoSteps:        ((currentSpec as { evoSteps?: unknown[] } | null)?.evoSteps?.length ?? 0) > 0,
+        tasks:           ((currentSpec as { tasks?: unknown[] } | null)?.tasks?.length ?? 0) > 0,
+        resources:       (currentSpec?.resources?.length ?? 0) > 0,
+      }"
+      @tool-invalid="(p) => showToast(`⚠ Invalid Agent — ${p.label} cannot be used yet.  ${p.reason}`, 5000)"
+      @open-mode-picker="onOpenModePicker"
       @open-maria="mariaOpen = true"
       @open-contracts="contractsOpen = true"
       @open-models="modelLibraryOpen = true"
@@ -7065,18 +10320,67 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @open-incorruptible-sharpen="_launchIncorruptibleSharpeningOnCurrentPlan()"
       @open-elon="elonOpen = true"
       @open-elon-sharpen="_launchElonSharpeningOnCurrentPlan()"
+      @open-munger="mungerOpen = true"
+      @open-munger-sharpen="showToast('Munger Sharpening Q&A interview — Phase 2 build pending.  MVP analysis-only Munger Agent ships first; click the Munger pin to use it.', 5000)"
+      @open-heilmeier="heilmeierOpen = true"
+      @open-feynman="feynmanOpen = true"
+      @open-roles="roleAgentOpen = true"
       @open-auto-dbo="autoDboOpen = true"
+    />
+
+    <!-- r41 v321 (Tom Gilb 2026-06-24): Spec Pulse — persistent 6-tile color-block
+         banner showing live count of Planguage entries (Stakeholders · Functions ·
+         Values · Solutions · Constraints · Resources).  Tom verbatim: "console the
+         planner that the Planguage Plan is building up and exists … a few color
+         blocks with number of stakeholders, etc. which scales up nicely."  Hidden
+         when spec has zero entries (the empty-state confidence comes from getting
+         the first entry IN, not from staring at 0/0/0/0/0/0).  Each tile clickable
+         to jump to that type's editor / agent. -->
+    <SpecPulse
+      :spec="currentSpec"
+      :evo-steps-count="specPulseStepStats.totalSteps"
+      :tasks-count="specPulseStepStats.totalTasks"
+      :evo-steps-done="specPulseStepStats.doneSteps"
+      :tasks-done="specPulseStepStats.doneTasks"
+      @tile-click="onSpecPulseTileClick"
     />
 
     <!-- ── LEGACY META CHIPS ROW (~228 lines) deleted in r41 v118 — v116/v117 IdentityStrip + StageToolsStrip verified producing parity output.  All handlers preserved via the new component emits.  See SEM-Design-History.md r41 v116 / v117 / v118 rows for the migration audit.  Removed per No-Silent-Removal SUPREME (every demoted affordance lives in the new component or the ⌘A Actions catalog). -->
 
-    <!-- Row 3: Plan Story strip (toggled by the bright 📖 Plan Story button) -->
+    <!-- Row 3: Spec Story strip (toggled by the Spec Story button in the
+         top Spec Identity bar).  r41 v148 — gate strengthened from
+         `specStoryOpen` to `specStoryOpen && specModel` per Tom Gilb
+         2026-06-17 verbatim "spec story does not work": SpecStoryStrip's
+         planModel prop is REQUIRED non-null, but pre-spec specModel is
+         null, so the strip threw silently on click. -->
     <SpecStoryStrip
-      v-if="specStoryOpen"
+      v-if="specStoryOpen && specModel"
       :plan-model="specModel"
       @close="specStoryOpen = false"
       @edit-stewards="specPeopleTab = 'owners'; specOwnerPanelOpen = true"
     />
+    <!-- r41 v148 — when no plan is loaded, clicking Spec Story shows a
+         tiny placeholder helping the planner discover they need a plan
+         first.  No-Silent-Removal SUPREME: the click no longer "does
+         nothing"; it tells the planner what's needed. -->
+    <div
+      v-else-if="specStoryOpen && !specModel"
+      class="fixed top-[260px] left-1/2 -translate-x-1/2 z-[400] max-w-md rounded-xl bg-fuchsia-50 ring-2 ring-fuchsia-300 shadow-2xl p-4 text-fuchsia-900"
+      role="status"
+    >
+      <div class="flex items-start gap-2">
+        <span class="text-xl shrink-0" aria-hidden="true">📖</span>
+        <div class="flex-1">
+          <p class="text-sm font-bold mb-1">Spec Story is empty</p>
+          <p class="text-xs leading-relaxed mb-2">A Spec Story appears once you have generated or loaded a spec.  It shows the origin, hand-tuning, sharpen rounds, stewards, and age of the active spec.</p>
+          <button
+            type="button"
+            class="text-xs font-bold underline hover:no-underline"
+            @click="specStoryOpen = false"
+          >Got it · close</button>
+        </div>
+      </div>
+    </div>
 
   </div>
 
@@ -7115,6 +10419,20 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :initial-entry-id="_editorEntryId || undefined"
     :return-to="_editorReturnTo || undefined"
     :planning-stage="planningStage"
+    :spec-presence="{
+      spec:            !!currentSpec,
+      stakeholders:    (currentSpec?.stakeholders?.length ?? 0) > 0,
+      values:          (currentSpec?.values?.length ?? 0) > 0,
+      functions:       (currentSpec?.functions?.length ?? 0) > 0,
+      solutions:       (currentSpec?.solutions?.length ?? 0) > 0,
+      impactEstimates: ((currentSpec as { impactEstimates?: unknown[] } | null)?.impactEstimates?.length ?? 0) > 0,
+      evoSteps:        ((currentSpec as { evoSteps?: unknown[] } | null)?.evoSteps?.length ?? 0) > 0,
+      tasks:           ((currentSpec as { tasks?: unknown[] } | null)?.tasks?.length ?? 0) > 0,
+      resources:       (currentSpec?.resources?.length ?? 0) > 0,
+    }"
+    :stage2-sub-step="stage2SubStep"
+    :stage2-done-steps="stage2DoneSteps"
+    :has-plan="!!_evoPlan"
     @close="_closeSpecEditor"
     @commit-master="(editedSpec) => { _markSpecCommitted(); currentSpec = editedSpec; _closeSpecEditor(); showToast('✅ Changes committed to Master Plan', 3000) }"
     @open-global-priority="globalPriorityOpen = true"
@@ -7123,7 +10441,97 @@ function handleApertureLoadPlan(model: PlanModel): void {
     @back-to-value-flow="_handleBackToValueFlow"
     @show-in-value-flow="_handleShowInValueFlow"
     @open-actions="menuOpen = true"
-    @navigate-stage="handleStageBarNav"
+    @navigate-stage="(n) => { _closeSpecEditor(); handleStageBarNav(n) }"
+    @export-spec="(_) => emailPlan()"
+    @open-agent="(agentId) => { _closeSpecEditor(); _openAgentFromEditor(agentId) }"
+    @go-stage2-substep="(target) => { _closeSpecEditor(); onStage2SubStepGo(target) }"
+    @continue-stage2="() => { _closeSpecEditor(); onStage2ContinueToStage3() }"
+  />
+
+  <!-- r41 v252 (Tom Gilb 2026-06-21 — Stage 4 Phase 2 ship).  EstimatesApprovalPanel +
+       Stage4ToolsAndAgentsTable.  Both Teleport to body; mount conditionally via their
+       open refs.  Composes with rule_stage_4_impacts_design.md SUPREME. -->
+  <!-- r41 v477 — IET Settings Panel (Phase 2a data-shape + Settings ship). -->
+  <IetSettingsPanel :open="ietSettingsOpen" @close="ietSettingsOpen = false" />
+
+  <!-- r41 v478 — Solution Set + Changes-List deliverable panel
+       (Stage 5 sub-steps 5.5.1 + 5.5.2, audit-backlog #4). -->
+  <SolutionSetDeliverablePanel
+    :open="solutionSetDeliverableOpen && !!currentSpec"
+    :spec="currentSpec"
+    :plan-name="specModel?.name ?? ''"
+    :plan-version="specModel?.version ?? ''"
+    @close="solutionSetDeliverableOpen = false"
+    @copy="onSolutionSetDeliverableCopy"
+    @email="onSolutionSetDeliverableEmail"
+  />
+  <EstimatesApprovalPanel
+    v-if="estimatesApprovalOpen && currentSpec"
+    :spec-name="specModel?.name ?? null"
+    :default-identity="_specOwnerNames().join(', ')"
+    :default-nickname="specModel?.version ? `v${specModel.version} estimates` : ''"
+    @approve="onEstimatesApproved"
+    @close="estimatesApprovalOpen = false"
+  />
+  <!-- r41 v253 (Tom Gilb 2026-06-21 — Stage 5 sub-step 5.5 Approve Solution Set).
+       Same component as Estimates approval, configured with panelKind="solutions"
+       + approvalAuthority="planner" per Tom verbatim "by Planner, not necessarily
+       other instances like Owner". -->
+  <EstimatesApprovalPanel
+    v-if="solutionSetApprovalOpen && currentSpec"
+    :spec-name="specModel?.name ?? null"
+    :default-identity="_specOwnerNames().join(', ')"
+    :default-nickname="specModel?.version ? `v${specModel.version} solutions` : ''"
+    panel-kind="solutions"
+    approval-authority="planner"
+    @approve="onSolutionSetApproved"
+    @close="solutionSetApprovalOpen = false"
+  />
+  <Stage4ToolsAndAgentsTable
+    :open="stage4ToolsTableOpen"
+    @invoke="onStage4ToolInvoke"
+    @close="stage4ToolsTableOpen = false"
+    @continue="() => { stage4ToolsTableOpen = false; handleStageBarNav(5) }"
+  />
+
+  <!-- r41 v302 (Tom Gilb 2026-06-23 autonomous backlog) — Stage 6 sub-step panels.
+       6.2 Prioritise · 6.3 Sharpen Steps · 6.4 Tools and Agents.  Each mounts via
+       its open ref; closing via CloseDot / Escape / click-outside / Cancel. -->
+  <Stage6PrioritisePanel
+    v-if="stage6PrioritiseOpen && confirmedSteps.length > 0"
+    :steps="confirmedSteps"
+    :calendar-costs="capturedCalendarCosts"
+    :capital-costs="capturedCapitalCosts"
+    :spec-name="specModel?.name ?? null"
+    @apply="onStage6PrioritiseApply"
+    @close="stage6PrioritiseOpen = false"
+  />
+  <Stage6SharpenStepsPanel
+    v-if="stage6SharpenStepsOpen && confirmedSteps.length > 0"
+    :steps="confirmedSteps"
+    :spec-name="specModel?.name ?? null"
+    @apply="onStage6SharpenStepsApply"
+    @close="stage6SharpenStepsOpen = false"
+  />
+  <Stage6ToolsAndAgentsPanel
+    v-if="stage6ToolsAndAgentsOpen"
+    :spec-name="specModel?.name ?? null"
+    @invoke="onStage6ToolInvoke"
+    @close="stage6ToolsAndAgentsOpen = false"
+  />
+
+  <!-- r41 v246 (Tom Gilb 2026-06-21 verbatim "The Spec Title should be on any and all
+       windows when the Main title is out of Device window sight.  Easy, right?") —
+       global Spec Title anchor chip.  Mounts once at App.vue level; uses IntersectionObserver
+       on the canonical Spec Crest (aria-label="Spec Crest — active spec") + Teleports a small
+       fixed chip to body so it sits ABOVE any open modal / panel / drawer at every z-index
+       when the main crest scrolls out of viewport.  Composes with MOVE Principle SUPREME
+       (context visible at-a-glance, every window) + DD-009 Zero-Training UI + accessibility_
+       tom.md (Tom 85, context anchor reduces cognitive load). -->
+  <SpecTitleAnchor
+    :spec-name="_specTitleAnchorName"
+    :spec-version="_specTitleAnchorVersion"
+    @jump-to-top="handleJumpToTop"
   />
 
   <!-- Contracts mode — 3rd major SEM surface (Plans · Models · Contracts). z-[600]. -->
@@ -7179,10 +10587,36 @@ function handleApertureLoadPlan(model: PlanModel): void {
   />
 
   <!-- Agent Menu (2026-05-29) — grid of agent tiles; Maria is the first agent. z-[490] -->
+  <!-- r41 v164 — Demos Menu catalog (Tom Gilb 2026-06-17 vision: per-stage,
+       per-tool, per-agent demos).  Initial ship: catalog SHELL with all
+       entries; recordings get wired incrementally per Tom + team.  Click on
+       a "coming soon" demo surfaces a HoverHint reaction message. -->
+  <DemosMenu
+    v-if="view === 'app' && demosMenuOpen"
+    @close="demosMenuOpen = false"
+    @play-demo="(p) => {
+      // r41 v168 — open the DemoPlayer with Tolerable-tier content.  E2E
+      // demo still routes to the legacy launchDemo() for the in-app replay.
+      demosMenuOpen = false
+      if (p.id === 'e2e') { launchDemo(); return }
+      playingDemo = { id: p.id, title: p.title, subtitle: p.subtitle }
+    }"
+  />
+
+  <!-- r41 v168 — Tolerable-tier Demo Player: renders the registry clip +
+       source citation.  Goal-tier event-script replay comes next pass. -->
+  <DemoPlayer
+    v-if="view === 'app' && playingDemo"
+    :demo-id="playingDemo.id"
+    :title="playingDemo.title"
+    :subtitle="playingDemo.subtitle"
+    @close="playingDemo = null"
+  />
+
   <AgentMenuPanel
     v-if="view === 'app' && agentMenuOpen"
     @close="agentMenuOpen = false"
-    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') specImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true; if (id === 'history') unifiedHistoryOpen = true; if (id === 'strategy-agent') strategyAgentOpen = true; if (id === 'incorruptible') incorruptibleOpen = true; if (id === 'incorruptible-sharpen') _launchIncorruptibleSharpeningOnCurrentPlan(); if (id === 'elon') elonOpen = true; if (id === 'elon-sharpen') _launchElonSharpeningOnCurrentPlan(); if (id === 'autoDbo') autoDboOpen = true }"
+    @select-agent="(id) => { agentMenuOpen = false; if (id === 'maria') mariaBoardOpen = true; if (id === 'maria-analysis') mariaOpen = true; if (id === 'contracts') contractsOpen = true; if (id === 'models') modelLibraryOpen = true; if (id === 'stakeholder-mapper') stakeholderMapperOpen = true; if (id === 'evo-step-critique') evoCritiquerOpen = true; if (id === 'plan-importer') specImporterOpen = true; if (id === 'decisions') decisionMapperOpen = true; if (id === 'history') unifiedHistoryOpen = true; if (id === 'strategy-agent') strategyAgentOpen = true; if (id === 'incorruptible') incorruptibleOpen = true; if (id === 'incorruptible-sharpen') _launchIncorruptibleSharpeningOnCurrentPlan(); if (id === 'elon') elonOpen = true; if (id === 'elon-sharpen') _launchElonSharpeningOnCurrentPlan(); if (id === 'munger') mungerOpen = true; if (id === 'heilmeier') heilmeierOpen = true; if (id === 'feynman') feynmanOpen = true; if (id === 'autoDbo') autoDboOpen = true }"
   />
 
   <!-- Maria Agent — Board Work Parse (2026-05-29). z-[497] -->
@@ -7270,8 +10704,25 @@ function handleApertureLoadPlan(model: PlanModel): void {
   <!-- MultiVision — VDT-grounded V/R balance slider panel (z-[600]) -->
   <MultiVisionPanel
     v-if="view === 'app' && multiVisionOpen"
+    :planning-stage="planningStage"
+    :spec-presence="{
+      spec:            !!currentSpec,
+      stakeholders:    (currentSpec?.stakeholders?.length ?? 0) > 0,
+      values:          (currentSpec?.values?.length ?? 0) > 0,
+      functions:       (currentSpec?.functions?.length ?? 0) > 0,
+      solutions:       (currentSpec?.solutions?.length ?? 0) > 0,
+      resources:       (currentSpec?.resources?.length ?? 0) > 0,
+    }"
+    :stage2-sub-step="stage2SubStep"
+    :stage2-done-steps="stage2DoneSteps"
+    :has-plan="!!_evoPlan"
+    :has-spec="!!currentSpec"
     @close="multiVisionOpen = false"
     @open-multiforks="openMultiForks"
+    @navigate-stage="(n) => { multiVisionOpen = false; handleStageBarNav(n) }"
+    @open-agent="(agentId) => { multiVisionOpen = false; _openAgentFromEditor(agentId) }"
+    @go-stage2-substep="(target) => { multiVisionOpen = false; onStage2SubStepGo(target) }"
+    @continue-stage2="() => { multiVisionOpen = false; onStage2ContinueToStage3() }"
   />
 
   <!-- MultiForks — Resources → System ← Values fork diagram (r97, 2026-06-06).
@@ -7403,6 +10854,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
     v-if="view === 'app' && currentSpec && standardsAuditorOpen"
     :spec="currentSpec"
     :plan-id="specModel?.name ?? 'default'"
+    :plan-name="specModel?.name ?? 'Current Spec'"
+    :plan-version="specModel?.version ? 'v' + specModel.version : undefined"
     @close="standardsAuditorOpen = false"
   />
 
@@ -7413,6 +10866,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :spec="currentSpec"
     :plan-id="specModel?.name ?? 'default'"
     :step-names="_stepsForDiagram.map(s => s.name)"
+    :plan-name="specModel?.name ?? 'Current Spec'"
+    :plan-version="specModel?.version ? 'v' + specModel.version : undefined"
     @close="planguageAnalyzerOpen = false"
   />
 
@@ -7471,6 +10926,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
     :evo-steps="_stepsForDiagram"
     :tasks-by-step="tasksByStep"
     :impact-matrix="capturedImpactMatrix"
+    :plan-name="specModel?.name ?? ''"
+    :version-label="specModel ? `v${specModel.version}` : ''"
     @close="valueFlowOpen = false"
     @open-editor="({ tab, entryId }) => _openSpecEditor({ tab, entryId, returnTo: 'valueFlow' })"
     @node-relations-click="({ tab, entryId }) => _openSdr(tab, entryId, 'valueFlow')"
@@ -7535,10 +10992,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
        DNA strip open/closed so content never starts under either fixed header).
        When no plan: pt-8 static (stage bar is in-flow, not fixed). -->
   <div
-    class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-16 px-4 md:pr-40"
-    :class="!(view === 'app' && specModel)
-      ? 'pt-8 overflow-x-clip'
-      : ''"
+    class="min-h-screen bg-gray-50 flex flex-col items-center justify-start pb-56 px-4 md:pr-40"
+    :class="!(view === 'app' && specModel) ? 'pt-8 overflow-x-clip' : ''"
     :style="contentTopPad !== undefined ? { paddingTop: contentTopPad + 'px' } : undefined"
   >
     <!--
@@ -7589,23 +11044,18 @@ function handleApertureLoadPlan(model: PlanModel): void {
       />
       <!-- Feature #8: Demo button on sign-in page (subtle link style) -->
       <div class="mt-4 flex items-center justify-center gap-3">
+        <!-- r41 v164 — sign-in page Demo button also reframed as Demos catalog entry. -->
         <button
           type="button"
-          aria-label="See a Demo"
+          aria-label="Demos — catalog"
+          title="🎬 Demos — opens the Demos catalog (per Stage, per Tool, per Agent).  Demo = PASSIVE replay.  Use 🧙 Guided for interactive wizard."
           class="text-sm text-indigo-600 hover:text-indigo-800 underline underline-offset-2 min-h-[44px] px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
-          @click="view = 'app'; launchDemo()"
+          @click="view = 'app'; demosMenuOpen = true"
         >
-          ▶ See a demo
+          🎬 Demos
         </button>
-        <!-- Feature #53: Guided wizard button on sign-in page -->
-        <button
-          type="button"
-          aria-label="Guided"
-          class="h-11 px-4 text-sm font-medium rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
-          @click="view = 'app'; wizardOpen = true"
-        >
-          🧙 Guided
-        </button>
+        <!-- r41 v365 (Tom Gilb 2026-06-25) — Feature #53 🧙 Guided sign-in
+             button REMOVED.  Last of 5 SpecWizard trigger sites swept. -->
       </div>
     </template>
 
@@ -7674,11 +11124,14 @@ function handleApertureLoadPlan(model: PlanModel): void {
            at top-0; Plan Crest sits below at top-[124px]. Simpler than the earlier
            specCrestH-driven top offset. z-[250] stays below the Plan Crest z-[300]
            and below all modals/panels (≥z-[380]). -->
-      <div
-        :class="specModel
-          ? 'fixed top-0 left-0 right-0 z-[250]'
-          : 'self-start -ml-4 w-[calc(100%+2rem)] md:w-[calc(100%+11rem)]'"
-      >
+      <!-- r41 v145 — stage bar now ALWAYS fixed at top:0 regardless of
+           specModel.  Tom Gilb 2026-06-17 verbatim "did you get the idea of
+           fixing these menu bars?" — the pre-spec in-flow variant of the
+           stage bar was causing the v140 Spec Crest wrapper (fixed at top:
+           148) to overlap whatever in-flow content happened to be at that
+           y position.  Fix: stage bar is ALWAYS fixed top:0, wrapper sits
+           cleanly below at top:148. -->
+      <div class="fixed top-0 left-0 right-0 z-[250]">
         <ValueCounter
           :current-stage="planningStage"
           :extra-right-pad="!specModel ? 440 : 0"
@@ -7818,6 +11271,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
             <span class="text-base font-bold text-white leading-none" aria-hidden="true">→</span>
           </button>
 
+        <!-- 🔔 Toast history bell — r41 v277 (Tom 2026-06-22 "AI was slow message
+             disappeared before I could read") — re-read any toast that
+             disappeared before parsing completed.  Composes with accessibility_
+             tom.md + No-Silent-Data-Loss SUPREME + MOVE Principle. -->
+        <ToastHistoryBell />
+
         <!-- ⚡ Actions hub -->
         <button
           type="button"
@@ -7879,6 +11338,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
                  focus-visible:outline-amber-500 transition-colors"
           aria-label="Start fresh"
+          title="Start fresh — wipe the restored session and begin with a blank canvas.  Use this if you want to ignore last visit's draft."
           @click="startFresh"
         >
           ↺ Start fresh
@@ -7903,6 +11363,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  text-yellow-700 hover:text-yellow-900 focus:outline-none focus:ring-2
                  focus:ring-yellow-500 rounded text-lg font-bold"
           aria-label="Dismiss"
+          title="Dismiss the conflict banner — accept the latest remote state.  You can review and reconcile via Past Versions."
           @click="clearCollabConflicts"
         >
           ×
@@ -7923,55 +11384,30 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
         <!-- Buttons row — flex-wrap so they spill to a second line instead of going off-screen -->
         <div class="flex flex-wrap items-center gap-2 flex-1 justify-end">
-          <!-- Get A Plan — unified import / history / merge panel.
-               DD-001 (2026-05-13) — uses the canonical Get glyph `[*]→*`. -->
-          <button
-            type="button"
-            class="h-9 px-2.5 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium
-                   hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                   transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
-            aria-label="Get A Plan"
-            title="Get A Plan — load a saved Planguage plan into your workspace, or import new planning data"
-            @click="specInputOpen = true"
-          >
-            <!-- DD-011/DD-012: GetGlyph [*]→* is the correct Keyed Action Glyph for "retrieve a plan".
-                 SEM App identity icon is brand-only (h-20 hero size); not appropriate as a 12px nav button icon.
-                 GetGlyph already imported at top of file. 2026-06-01 fix. -->
-            <GetGlyph class="h-3 w-auto shrink-0" aria-hidden="true" />
-            <span>Get A Plan</span>
-          </button>
-          <!-- Feature #17: Compare button — only visible in stage 1 -->
-          <button
-            v-if="stage === 1"
-            type="button"
-            class="h-9 px-2.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-medium
-                   hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                   transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
-            aria-label="Compare"
-            title="Compare — side-by-side view of two plan models. See which solution scores better against your Values and Constraints."
-            @click="comparisonMode = true"
-          >
-            <!-- Color Glyph for 'comparison': Value glyph (violet) — comparison is value-assessment.
-                 :no-detail-click per DD-013 (parent owns click for comparison action). -->
-            <PlTypeIcon pl-type="value" size="sm" class="shrink-0" />
-            <span>Compare</span>
-          </button>
-          <!-- Plan History — also in the persistent plan identity bar + in Actions menu -->
+          <!-- r41 v162 — body "Get A Plan" button DELETED per Tom Gilb 2026-06-17
+               verbatim "if already there, delete".  Already in Stage Tools
+               IMPORT sub-pill (always-visible per stage). -->
+          <!-- r41 v162 — body "Compare" button DELETED per Tom Gilb 2026-06-17
+               v152 "what is that, drop it" — Compare at Stage 1 makes no
+               sense (nothing to compare yet); preserved at later stages
+               via Stage Tools. -->
+          <!-- Past Versions — also in the persistent spec identity bar + in Actions menu -->
           <div class="relative shrink-0">
             <button
               type="button"
               class="h-9 px-2.5 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium
                      hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
                      transition-colors duration-150 inline-flex items-center gap-1.5"
-              aria-label="Spec History"
-              title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
+              aria-label="Past Versions"
+              title="Past Versions — browse all saved spec versions, model versions, contracts and agent reports.  Load any past version back into your workspace."
               @click="historyOpen = true"
             >
-              <!-- Color Glyph for 'history': Evo Step glyph (amber) — encodes past cycles via '<' (past anchor).
-                   :no-detail-click per DD-013 (parent owns click for history panel).
-                   Tom 2026-06-03 — explicit title overrides PlTypeIcon's canonical Evo-Step label. -->
-              <PlTypeIcon pl-type="evo-step" size="sm" title="Version History" class="shrink-0" />
-              <span>History</span>
+              <!-- Color Glyph: Evo Step glyph (amber) — '<' anchor reads "past cycle".
+                   :no-detail-click per DD-013 (parent owns click for the panel).
+                   Tom 2026-06-03 — explicit title overrides PlTypeIcon's canonical
+                   Evo-Step label so the HoverHint says "Past Versions". -->
+              <PlTypeIcon pl-type="evo-step" size="sm" title="Past Versions" class="shrink-0" />
+              <span>Past Versions</span>
             </button>
             <span
               v-if="specHistory.length > 0"
@@ -7989,6 +11425,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    flex items-center gap-1
                    focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors duration-150 shrink-0"
             aria-label="Tour"
+            title="? Tour — start the SEM App onboarding tour: a 9-step walkthrough of the 11 planning stages, agents, and key affordances (about 4 minutes).  Use this once when you're new; the rest of the time it's a refresher."
             @click="tourOpen = true"
           >
             <span aria-hidden="true">?</span> Tour
@@ -8015,48 +11452,9 @@ function handleApertureLoadPlan(model: PlanModel): void {
               : 'Clear everything and start with a blank form'"
             @click="freshStartOpen = true"
           >↺ Start fresh</button>
-          <!-- 🧙 Guided Wizard button (auth bar) — hidden at narrow widths to save space -->
-          <button
-            type="button"
-            class="hidden md:flex h-9 px-2.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-medium
-                   items-center gap-1
-                   focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors duration-150 shrink-0"
-            aria-label="Guided Wizard"
-            title="Step-by-step guided spec creation"
-            @click="wizardOpen = true"
-          >🧙 Guided</button>
-          <!-- ⌘F Find button — pinned; never hidden -->
-          <button
-            type="button"
-            class="h-9 px-2.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium
-                   hover:bg-gray-200 flex items-center gap-1
-                   focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-150 shrink-0"
-            aria-label="Find features (Cmd+F)"
-            title="Find features (⌘F)"
-            @click="_toggleSearch()"
-          >
-            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-            </svg>
-            <span class="hidden sm:inline">Find</span>
-            <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-white text-gray-500 font-mono text-[9px] leading-none py-0.5 ring-1 ring-gray-300">⌘F</kbd>
-          </button>
-          <!-- ⌥I Illuminate button — pinned next to Find; violet-tinted to signal it is
-               the Illuminate feature's entry point. Tom 2026-05-17 discoverability pass.
-               Renamed Define → Illuminate 2026-05-18. -->
-          <button
-            type="button"
-            class="h-9 px-2.5 rounded-lg bg-violet-100 text-violet-700 text-xs font-medium
-                   hover:bg-violet-200 flex items-center gap-1
-                   focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors duration-150 shrink-0"
-            aria-label="Illuminate a Planguage term (Opt+I)"
-            title="Illuminate any term — select text first, or click to type one  (⌥I)"
-            @click="openDefineSearch()"
-          >
-            <span class="text-sm leading-none" aria-hidden="true">💡</span>
-            <span class="hidden sm:inline">Illuminate</span>
-            <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌘I</kbd>
-          </button>
+          <!-- r41 v365 — 🧙 Guided Wizard button (auth bar) REMOVED. -->
+        <!-- r41 v144 — Find / Illuminate body button removed; duplicate of Process Tools cluster (Tom Gilb 2026-06-17 cleanup). -->
+        <!-- r41 v144 — Find / Illuminate body button removed; duplicate of Process Tools cluster (Tom Gilb 2026-06-17 cleanup). -->
           <button
             type="button"
             class="h-9 px-2.5 flex items-center justify-center
@@ -8065,6 +11463,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                    focus-visible:outline-offset-2 focus-visible:outline-blue-600
                    transition-colors duration-150 shrink-0"
             aria-label="Sign Out"
+            title="Sign out — log out of your SEM App account.  Your work is saved automatically; signing back in restores everything."
             @click="handleSignOut"
           >
             Sign out
@@ -8077,44 +11476,26 @@ function handleApertureLoadPlan(model: PlanModel): void {
         v-if="!supabaseConfigured && !isDemoRunning && stage === 1 && !currentSpec"
         class="w-full max-w-2xl mx-auto px-4 mb-4 flex items-center gap-3"
       >
+        <!-- r41 v164 — Tom Gilb 2026-06-17 verbatim "MAKE THIS A GENERIC
+             MENU TO A SET OF DEMOS, ON EACH STAGE, EACH TOOL, EACH AGENT".
+             Renamed "See a demo" → "Demos"; opens the DemosMenu catalog. -->
         <button
           type="button"
-          aria-label="See a Demo"
+          aria-label="Demos — catalog of per-stage / per-tool / per-agent recorded replays"
+          title="🎬 Demos — opens the Demos catalog: pick a Stage, a Tool, or an Agent and watch a recorded replay of it in action.  (Demo = PASSIVE replay.  For an interactive learn-by-doing experience use 🧙 Guided.  For an UI walkthrough use ? Tour.)"
           class="bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-xs font-medium
                  flex items-center gap-1.5
                  hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
                  transition-colors duration-150"
-          @click="launchDemo"
+          @click="demosMenuOpen = true"
         >
-          ▶ See a demo
+          🎬 Demos
         </button>
-        <!-- Get A Plan — unified import / history / merge panel (mock mode) -->
-        <button
-          type="button"
-          class="h-9 px-2.5 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium
-                 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                 transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
-          aria-label="Get A Plan"
-          title="Get A Plan — load a saved Planguage plan into your workspace, or import new planning data"
-          @click="specInputOpen = true"
-        >
-          <!-- DD-011/DD-012: GetGlyph [*]→* — same fix as auth mode above. 2026-06-01. -->
-          <GetGlyph class="h-3 w-auto shrink-0" aria-hidden="true" />
-          <span>Get A Plan</span>
-        </button>
-        <!-- Feature #17: Compare button in mock mode -->
-        <button
-          type="button"
-          class="h-9 px-2.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-medium
-                 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                 transition-colors duration-150 shrink-0 inline-flex items-center gap-1.5"
-          aria-label="Compare"
-          title="Compare — side-by-side view of two plan models. See which solution scores better against your Values and Constraints."
-          @click="comparisonMode = true"
-        >
-          <PlTypeIcon pl-type="value" size="sm" class="shrink-0" />
-          <span>Compare</span>
-        </button>
+        <!-- r41 v162 — body "Get A Plan" (mock mode) DELETED per Tom Gilb
+             2026-06-17 verbatim "if already there, delete".  Already in
+             Stage Tools IMPORT sub-pill at every stage. -->
+        <!-- r41 v162 — body "Compare" button (mock mode) DELETED — same
+             reasoning as auth-mode Compare above. -->
         <!-- Plan History — also in the persistent plan identity bar + in Actions menu -->
         <div class="relative shrink-0">
           <button
@@ -8122,12 +11503,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
             class="h-9 px-2.5 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium
                    hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
                    transition-colors duration-150 inline-flex items-center gap-1.5"
-            aria-label="Spec History"
-            title="History — browse all saved plan versions, model versions, contracts and Maria analyses. Load any previous version back into your workspace."
+            aria-label="Past Versions — saved Specs, Models, Contracts and agent reports"
+            title="Past Versions — browse saved Specs, Imported Plans, Models, Contracts and agent reports. Load any previous version back into your workspace."
             @click="historyOpen = true"
           >
-            <PlTypeIcon pl-type="evo-step" size="sm" title="Version History" class="shrink-0" />
-            <span>History</span>
+            <!-- r41 v218 (Tom Gilb 2026-06-19 "I have asked at least 2x to rename
+                 [History]") — sweep continuation of the r41 v??-era rename
+                 ("getting rid of the term history everywhere, in hover info
+                 and menus").  The previous rename pass missed this Stage-Tools
+                 button + the Version History drawer below.  Code identifiers
+                 (HistoryGlyph, historyOpen, SpecHistory, specHistory) are
+                 exempt per Spell-out-Type-Names rule's code-identifier carve-
+                 out — only the rendered text + aria-label + title attributes
+                 changed. -->
+            <PlTypeIcon pl-type="evo-step" size="sm" title="Past Versions" class="shrink-0" />
+            <span>Past Versions</span>
           </button>
           <span
             v-if="specHistory.length > 0"
@@ -8141,44 +11531,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
         <!-- 🧙 Guided Wizard button (mock mode) — hidden on narrow viewports -->
         <button
           type="button"
-          class="hidden md:flex h-9 px-2.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-medium
-                 items-center gap-1
-                 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors duration-150 shrink-0"
-          aria-label="Guided Wizard"
-          title="Step-by-step guided spec creation"
-          @click="wizardOpen = true"
-        >🧙 Guided</button>
-        <!-- ⌘F Find button (mock mode) — pinned; never hidden -->
-        <button
-          type="button"
-          class="h-9 px-2.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium
-                 hover:bg-gray-200 flex items-center gap-1
-                 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-150 shrink-0"
-          aria-label="Find features (Cmd+F)"
-          title="Find features (⌘F)"
-          @click="_toggleSearch()"
-        >
-          <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-          </svg>
-          <span class="hidden sm:inline">Find</span>
-          <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-white text-gray-500 font-mono text-[9px] leading-none py-0.5 ring-1 ring-gray-300">⌘F</kbd>
-        </button>
-        <!-- ⌥I Illuminate button (mock mode) — violet-tinted, paired with Find.
-             Tom 2026-05-17 discoverability pass. Renamed Define → Illuminate 2026-05-18. -->
-        <button
-          type="button"
-          class="h-9 px-2.5 rounded-lg bg-violet-100 text-violet-700 text-xs font-medium
-                 hover:bg-violet-200 flex items-center gap-1
-                 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors duration-150 shrink-0"
-          aria-label="Illuminate a Planguage term (Cmd+I or Opt+I)"
-          title="Illuminate any term — select text first, or click to type one  (⌘I or ⌥I)"
-          @click="openDefineSearch()"
-        >
-          <span class="text-sm leading-none" aria-hidden="true">💡</span>
-          <span class="hidden sm:inline">Illuminate</span>
-          <kbd class="hidden sm:inline-flex items-center px-1 rounded bg-violet-200 text-violet-600 font-mono text-[9px] leading-none py-0.5 ring-1 ring-violet-300">⌘I</kbd>
-        </button>
+          class="hidden"
+          aria-hidden="true"
+          tabindex="-1"
+          style="display:none"
+        ><!-- r41 v365 — 🧙 Guided Wizard button (mock bar duplicate) REMOVED. Empty button kept as placeholder to avoid template parser issues; CSS forces no render. --></button>
+        <!-- r41 v144 — Find / Illuminate body button removed; duplicate of Process Tools cluster (Tom Gilb 2026-06-17 cleanup). -->
+        <!-- r41 v144 — Find / Illuminate body button removed; duplicate of Process Tools cluster (Tom Gilb 2026-06-17 cleanup). -->
         <!-- Feature #77: Onboarding tour button in mock mode -->
         <button
           type="button"
@@ -8186,6 +11545,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  flex items-center justify-center
                  focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors duration-150 shrink-0"
           aria-label="Tour"
+          title="? Tour — start the SEM App onboarding tour: a 9-step walkthrough of the 11 planning stages, agents, and key affordances (about 4 minutes).  Use this once when you're new."
           @click="tourOpen = true"
         >
           ?
@@ -8249,14 +11609,425 @@ function handleApertureLoadPlan(model: PlanModel): void {
         </div>
       </Transition>
 
+      <!-- Empty-Spec Callout — visible at the top of every Stage 2-11 view
+           whenever currentSpec is null or has zero real entries.  Self-gates
+           via its own internal v-if (component does not render on Stage 1
+           or when entries exist), so it sits OUTSIDE the v-if/v-else-if
+           chain below without affecting it.  Tom Gilb 2026-06-19:
+           "I keep on seeing v0.1 and nothing in the spec library at all
+           for Indianapolis". -->
+      <EmptySpecCallout
+        :spec="currentSpec"
+        :stage="stage"
+        @go-to-spec-parsing="onEmptySpecCalloutGoToParsing"
+      />
+
       <!-- Feature #17: Comparison Mode — replaces normal workflow when active -->
       <ComparisonMode
         v-if="comparisonMode"
         @close="comparisonMode = false"
       />
 
+      <!-- r41 v257 (Tom Gilb 2026-06-21 "4.1 NO table visible") — CRITICAL ROOT CAUSE
+           FIX of v255: the v255 fix wrapped the strips in `<template v-if="...">` which
+           Vue treated as the OPENING v-if of the surrounding chain.  When this v-if was
+           true (stage !== 1), the SUBSEQUENT v-else-if branches at lines 9902 / 10854 /
+           10878 (IET!) / 11262 / 11371 / 11493 ALL SKIPPED — because in a v-if/v-else-if
+           chain only ONE branch renders.  Tom's IET vanished post-v255 because my v-if
+           was eating the chain.
+           FIX: removed the wrapping `<template v-if>` entirely.  Each strip now carries
+           its FULL gate (`v-if="view === 'app' && currentSpec && stage !== 1 && planning-
+           Stage === N"`) as an independent statement.  Each strip is a SIBLING node, not
+           a v-if-chain participant — so the surrounding v-else-if chain at line 9254+
+           continues unbroken.
+           Process lesson re-banked inline: **never wrap conditional siblings in
+           `<template v-if>` when they appear before a v-else-if chain — that v-if becomes
+           the chain's opening clause and eats every subsequent v-else-if.  Use independent
+           v-ifs on each child OR a `<div>` (not `<template>`) wrapper.** -->
+      <Stage2SubStepStrip
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 2"
+        :current="stage2SubStep"
+        :done="stage2DoneSteps"
+        @go="onStage2SubStepGo"
+        @continue="onStage2ContinueToStage3"
+      />
+      <GenericStageSubStepStrip
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 3"
+        :stage-num="3"
+        :steps="STAGE3_SUBSTEPS"
+        :current="stage3SubStep"
+        :done="stage3DoneSteps"
+        tagline="<span class='not-italic font-semibold text-white/70'>Sharpen</span> = inventory · interview · qualify · review."
+        @go="onStage3SubStepGo"
+      />
+      <Stage4SubStepStrip
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 4"
+        :current="stage4SubStep"
+        :done="stage4DoneSteps"
+        @go="onStage4SubStepGo"
+      />
+      <Stage5SubStepStrip
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 5"
+        :current="stage5SubStep"
+        :done="stage5DoneSteps"
+        @go="onStage5SubStepGo"
+      />
+      <GenericStageSubStepStrip
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 6"
+        :stage-num="6"
+        :steps="STAGE6_SUBSTEPS"
+        :current="stage6SubStep"
+        :done="stage6DoneSteps"
+        tagline="<span class='not-italic font-semibold text-white/70'>Evo Steps</span> = generate · prioritise · sharpen · confirm."
+        @go="onStage6SubStepGo"
+      />
+
+      <!-- v497 (2026-07-21) — Tom "I may have missed it. Maybe the event can be
+           more clearly marked in the screen".  Persistent visible marker for
+           the Evo Steps generation event, mounted directly under the Stage 6
+           sub-step strip so it lands in Tom's line of sight when he clicks 6.1
+           (previously the only feedback was a 5-second toast + a banner INSIDE
+           the internal stage-2 EvoPlanView block that Tom needed to scroll to
+           find).  Three states:
+             loading  → amber pulsing "⚡ Generating Evo Steps..." + spinner
+             success  → green "✓ N Evo Steps generated" + "Review below" jump pin
+             error    → red banner + retry pin
+           STAYS visible until user acts or a new generation starts. -->
+      <div
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 6 && (_evoPlanLoading || confirmedSteps.length > 0 || _evoPlanError)"
+        class="w-full max-w-3xl mx-auto my-3 rounded-2xl px-4 py-3 ring-2 shadow-md flex items-center gap-3"
+        :class="_evoPlanLoading
+          ? 'bg-amber-50 ring-amber-300 text-amber-900 animate-pulse'
+          : _evoPlanError
+            ? 'bg-rose-50 ring-rose-300 text-rose-900'
+            : 'bg-emerald-50 ring-emerald-300 text-emerald-900'"
+        role="status"
+        aria-live="polite"
+      >
+        <span v-if="_evoPlanLoading" aria-hidden="true" class="text-xl">⚡</span>
+        <span v-else-if="_evoPlanError" aria-hidden="true" class="text-xl">⚠</span>
+        <span v-else aria-hidden="true" class="text-xl">✓</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold leading-tight">
+            <template v-if="_evoPlanLoading">Generating Evo Steps…</template>
+            <template v-else-if="_evoPlanError">Evo Step generation failed</template>
+            <template v-else>{{ confirmedSteps.length }} Evo Step{{ confirmedSteps.length === 1 ? '' : 's' }} generated</template>
+          </p>
+          <p class="text-xs leading-snug mt-0.5">
+            <template v-if="_evoPlanLoading">
+              Claudian is composing the Evo Step sequence from your Solutions.  Typically 60–180 seconds.  Result will appear in the Evo Planner below — scroll to watch it stream, or wait here for completion.
+            </template>
+            <template v-else-if="_evoPlanError">
+              {{ _evoPlanError }}
+            </template>
+            <template v-else>
+              The Evo Planner below shows each step.  Prioritise them (6.2), sharpen each (6.3), then confirm the plan (6.5).
+            </template>
+          </p>
+        </div>
+        <button
+          v-if="!_evoPlanLoading"
+          type="button"
+          class="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+          :class="_evoPlanError
+            ? 'bg-rose-600 hover:bg-rose-700 text-white'
+            : 'bg-emerald-600 hover:bg-emerald-700 text-white'"
+          :title="_evoPlanError
+            ? 'Retry — re-run the Evo Step generation from your Solutions'
+            : 'Scroll to the Evo Planner to review the generated steps'"
+          @click="_evoPlanError
+            ? _triggerEvoGeneration()
+            : scrollEvoPlanIntoView()"
+        >
+          <span aria-hidden="true">{{ _evoPlanError ? '↻' : '↓' }}</span>
+          <span>{{ _evoPlanError ? 'Retry' : 'Review below' }}</span>
+        </button>
+      </div>
+      <GenericStageSubStepStrip
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 8"
+        :stage-num="8"
+        :steps="STAGE8_SUBSTEPS"
+        :current="stage8SubStep"
+        :done="stage8DoneSteps"
+        tagline="<span class='not-italic font-semibold text-white/70'>Tasks</span> = decompose · estimate · assign · proceed."
+        @go="onStage8SubStepGo"
+      />
+      <GenericStageSubStepStrip
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 9"
+        :stage-num="9"
+        :steps="STAGE9_SUBSTEPS"
+        :current="stage9SubStep"
+        :done="stage9DoneSteps"
+        tagline="<span class='not-italic font-semibold text-white/70'>Study-Act</span> = measure · compare · update · decide · cycle."
+        @go="onStage9SubStepGo"
+      />
+
+      <!-- r41 v478 — Stage 5 task-centric workspace (audit-backlog #4 Phase 2a).
+           Composes with rule_stage_5_refine_design.md SUPREME. -->
+      <StageTaskWorkspace
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 5"
+        :stage-num="5"
+        stage-name="Refine (Re-design)"
+        purpose="Re-design solutions — change · delete · add — via four lenses: reduce resources, more value / same cost, reduce risks, relax constraints."
+        subtitle="Stage-Has-A-Purpose SUPREME · Tom Gilb 2026-06-21: 'Re-design is any change to existing designs, deleting current designs, adding new design solutions.'"
+        :actions="stage5WorkspaceActions"
+        @action="onStage5WorkspaceAction"
+      />
+
+      <!-- r41 v477 — Stage 4 task-centric workspace (audit-backlog #3 Phase 2a).
+           Composes with rule_stage_4_impacts_design.md SUPREME. -->
+      <StageTaskWorkspace
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 4"
+        :stage-num="4"
+        stage-name="Impacts"
+        purpose="Reach reasonable balance — enough solutions to reach Target levels of all our Values, with Evidence + Source + Credibility per estimate."
+        subtitle="Stage-Has-A-Purpose SUPREME · only actual Evo delivery can prove balance is true."
+        :actions="stage4WorkspaceActions"
+        @action="onStage4WorkspaceAction"
+      />
+
+      <!-- r41 v476 (Tom Gilb 2026-07-01 "continue backlog" — audit-backlog
+           items #5-9: Stages 6/7/8/9/10 task-centric workspaces per
+           Stage-Has-A-Purpose SUPREME).  All five inherit the same
+           StageTaskWorkspace.vue generic component built in v417.  Each
+           renders only at its stage; each routes its actions to CANONICAL
+           existing surfaces (No-Silent-Removal SUPREME — no new pipelines).
+           Gated on the same guard as the sibling sub-step strips
+           (`view === 'app' && currentSpec && stage !== 1`) so they only
+           appear once the planner has left Stage 1 and has a spec. -->
+      <StageTaskWorkspace
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 6"
+        :stage-num="6"
+        stage-name="Evo Steps"
+        purpose="Generate + prioritise + sharpen Evo Steps — small, valuable, deliverable increments (Musk's velocity of learning)."
+        subtitle="Stage-Has-A-Purpose SUPREME · every Evo Step is one learning cycle."
+        :actions="stage6WorkspaceActions"
+        @action="onStage6WorkspaceAction"
+      />
+      <StageTaskWorkspace
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 7"
+        :stage-num="7"
+        stage-name="Evo Impact"
+        purpose="Estimate each Evo Step's impact on Values + Resources — populate the VDT so priorities become visible."
+        subtitle="Stage-Has-A-Purpose SUPREME · Value ÷ Cost drives the ranking."
+        :actions="stage7WorkspaceActions"
+        @action="onStage7WorkspaceAction"
+      />
+      <StageTaskWorkspace
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 8"
+        :stage-num="8"
+        stage-name="Tasks"
+        purpose="Decompose each Evo Step into concrete Tasks — estimate + assign so the delivery team can run."
+        subtitle="Stage-Has-A-Purpose SUPREME · Tasks are what the team actually does."
+        :actions="stage8WorkspaceActions"
+        @action="onStage8WorkspaceAction"
+      />
+      <StageTaskWorkspace
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 9"
+        :stage-num="9"
+        stage-name="Study-Act"
+        purpose="Measure real actuals · compare vs estimates · decide next cycle (continue · re-estimate · re-design)."
+        subtitle="Stage-Has-A-Purpose SUPREME · every cycle feeds the next."
+        :actions="stage9WorkspaceActions"
+        @action="onStage9WorkspaceAction"
+      />
+      <StageTaskWorkspace
+        v-if="view === 'app' && currentSpec && stage !== 1 && planningStage === 10"
+        :stage-num="10"
+        stage-name="Resources"
+        purpose="Balance critical Values via OPTIMA + MultiVision sliders — real actuals feed real re-allocation."
+        subtitle="Stage-Has-A-Purpose SUPREME · Optima book (Tom Gilb 2024) · every Resource has consequences."
+        :actions="stage10WorkspaceActions"
+        @action="onStage10WorkspaceAction"
+      />
+
       <!-- Stage 1: SEM Entry Form + generated spec -->
       <template v-else-if="stage === 1 || !currentSpec">
+
+        <!-- r41 v417 (Tom Gilb 2026-07-01 "please continue backlog" —
+             audit-backlog #2: Stage 1 task-centric workspace per
+             Stage-Has-A-Purpose SUPREME) — Stage 1 task-centric workspace.
+             Renders BEFORE the sub-step strip so it's the FIRST thing
+             planners see at Stage 1.  Five action pins: Capture Input,
+             Generate Spec, Import Contract, Sharpen Existing, View/Edit
+             Spec.  Each pin routes to the CANONICAL existing surface via
+             onStage1WorkspaceAction (No-Silent-Removal SUPREME — no
+             affordance replaced, only surfaced more prominently).  Only
+             renders while at planningStage 1 — component unmounts
+             cleanly on stage advance. -->
+        <StageTaskWorkspace
+          v-if="planningStage === 1"
+          :stage-num="1"
+          stage-name="Stakes"
+          purpose="Capture stakeholders, values, functions, and constraints — so Stage 2 can propose solutions that deliver them."
+          subtitle="Stage-Has-A-Purpose SUPREME: task-centric workspace.  Your Planguage spec is under the hood — this is where you DO the stage's job."
+          :actions="stage1WorkspaceActions"
+          @action="onStage1WorkspaceAction"
+        />
+
+        <!-- Stage 1 sub-step strip — five sub-stages (Tom Gilb 2026-06-19):
+             1.1 Capture Spec Input · 1.2 Parse to S·E·M · 1.3 Add Implied Optional
+             · 1.4 Generate Planguage Spec · 1.5 Edit & Refine.
+             Sits at the top so the planner always sees the progression.
+
+             r41 v235 (Tom Gilb 2026-06-21 verbatim "this is very confused it
+             is at Stage 4 or so abd aksi in Phase 1.2 Please sort out, there
+             is a logical sequence") — STRIP GATED on planningStage === 1.
+             Two separate stage refs existed: 5-stage `stage` (spec-flow
+             state, e.g. spec / evo plan / tasks / impact / export) and
+             11-stage `planningStage` (Stakes → Solutions → Sharpen → Impacts
+             → Refine → Evo Steps → … → Export).  This strip belongs to
+             Stage 1 of the 11-stage planning bar; the outer template at
+             line 8810 fires on the 5-stage `stage` ref, which is true on
+             the spec view regardless of planning-bar position.  The extra
+             `v-if="planningStage === 1"` ensures the Sub-Step strip is
+             hidden when the planner is on Solutions / Sharpen / Impacts /
+             … / Export.  No-Silent-Removal: strip still renders correctly
+             at Stage 1 — verified by feature-smoke test PASS_2. -->
+        <Stage1SubStepStrip
+          v-if="planningStage === 1"
+          :current="stage1SubStep"
+          :done="stage1DoneSteps"
+          @go="onStage1SubStepGo"
+        />
+
+        <!-- r41 v303 (Tom Gilb 2026-06-23 verbatim "i cannot see here what is
+             done, what to do, how to move on") — Stage 1 status + next-action
+             banner.  Mirrors the v295 Stage 9 triage banner / v298 SpecEditor
+             guidance bar pattern.  Shows progress counts (Stakeholders /
+             Values / Functions / Solutions / Constraints / Resources) + a
+             plain-English next-action sentence + a prominent Continue →
+             Stage 2 Solutions CTA.  Gated on planningStage === 1 AND a
+             currentSpec exists — pre-spec state already has its own welcome
+             card so a duplicate banner would be noise. -->
+        <div
+          v-if="planningStage === 1 && currentSpec"
+          class="w-full max-w-3xl mx-auto mt-3 mb-4 rounded-xl ring-1 ring-amber-300/70 bg-gradient-to-br from-amber-50 to-orange-50 px-4 py-3 shadow-sm"
+          role="region"
+          aria-label="Stage 1 progress and next action"
+        >
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex-1 min-w-[280px]">
+              <p class="text-[11px] font-bold text-amber-900 uppercase tracking-[0.14em] mb-1.5">
+                Stage 1 · Stakes — Progress
+              </p>
+              <p class="text-sm text-slate-800 leading-relaxed">
+                <span class="font-semibold">{{ _stage1ProgressSentence }}</span>
+              </p>
+              <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                <span class="font-bold text-amber-700">Next:</span>
+                {{ _stage1NextActionSentence }}
+              </p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <button
+                v-if="(currentSpec.values?.length ?? 0) === 0 && (currentSpec.functions?.length ?? 0) === 0"
+                type="button"
+                class="px-3 py-2 rounded-lg text-xs font-semibold text-amber-900
+                       bg-white border border-amber-300 hover:bg-amber-50
+                       hover:border-amber-400 shadow-sm transition-colors
+                       focus:outline-none focus:ring-2 focus:ring-amber-400"
+                title="Open the Spec Editor to add Values, Functions, Solutions, Constraints, or Resources by hand"
+                aria-label="Open Spec Editor to add entries"
+                @click="_openSpecEditor()"
+              >
+                ✎ Edit Spec
+              </button>
+              <button
+                type="button"
+                class="px-4 py-2 rounded-lg text-xs font-bold text-white
+                       bg-gradient-to-r from-indigo-600 to-violet-600
+                       hover:from-indigo-700 hover:to-violet-700
+                       shadow-md hover:shadow-lg transition-all
+                       focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1"
+                title="Advance to Stage 2 · Solutions — generate more or better Solutions to deliver the Values you've captured.  Stages-are-Cyclic SUPREME: you can return to Stage 1 anytime."
+                aria-label="Continue to Stage 2 Solutions"
+                @click="handleStageBarNav(2)"
+              >
+                Continue → Stage 2 Solutions
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- r41 v243 (Tom Gilb 2026-06-21 verbatim "I think we need to organize
+             Stage 2 like the others in phases. 2.1 Read in The Planguage
+             Specifications, 2.2 Generate Better or additional, or delete,
+             solutions to match the Value Targets primarily, within resources
+             and other constraints, 2.3 Give Planner opportunity to Sharpen,
+             the entire set of spects, 2.4 Give the planner the opportunity to
+             Apply Tools … and Agents …").  Stage 2 sub-step strip — mirrors
+             Stage 1 strip pattern.  Composes with Stage-Has-A-Purpose SUPREME. -->
+        <Stage2SubStepStrip
+          v-if="planningStage === 2"
+          :current="stage2SubStep"
+          :done="stage2DoneSteps"
+          @go="onStage2SubStepGo"
+          @continue="onStage2ContinueToStage3"
+        />
+
+        <!-- r41 v251 (Tom Gilb 2026-06-21 — Stage 4 Reasonable Balance + sub-phase
+             architecture).  Full design at memory/rule_stage_4_impacts_design.md.
+             Sub-steps: 4.1 Look · 4.2 Adjust · 4.3 Approve · 4.4 Tools and Agents ·
+             4.5 Move to Stage 5.  Composes with Stage-Has-A-Purpose SUPREME +
+             Stages-are-Cyclic SUPREME. -->
+        <Stage4SubStepStrip
+          v-if="planningStage === 4"
+          :current="stage4SubStep"
+          :done="stage4DoneSteps"
+          @go="onStage4SubStepGo"
+        />
+
+        <!-- r41 v253 (Tom Gilb 2026-06-21 — Stage 5 Refine Re-design architecture).
+             Full design at memory/rule_stage_5_refine_design.md.  Sub-steps:
+             5.1 Reduce Resources · 5.2 More Value Same Cost · 5.3 Reduce Risks ·
+             5.4 Relax Constraints · 5.5 Approve Solution Set (Exit Process). -->
+        <Stage5SubStepStrip
+          v-if="planningStage === 5"
+          :current="stage5SubStep"
+          :done="stage5DoneSteps"
+          @go="onStage5SubStepGo"
+        />
+
+        <!-- r41 v254 (Tom Gilb 2026-06-21 "plough through") — Stages 3, 6, 8, 9
+             sub-step strips via the new generic component.  Each renders only
+             when planningStage matches; same task-centric pattern as Stage 4/5. -->
+        <GenericStageSubStepStrip
+          v-if="planningStage === 3"
+          :stage-num="3"
+          :steps="STAGE3_SUBSTEPS"
+          :current="stage3SubStep"
+          :done="stage3DoneSteps"
+          tagline="<span class='not-italic font-semibold text-white/70'>Sharpen</span> = inventory · interview · qualify · review."
+          @go="onStage3SubStepGo"
+        />
+        <GenericStageSubStepStrip
+          v-if="planningStage === 6"
+          :stage-num="6"
+          :steps="STAGE6_SUBSTEPS"
+          :current="stage6SubStep"
+          :done="stage6DoneSteps"
+          tagline="<span class='not-italic font-semibold text-white/70'>Evo Steps</span> = generate · prioritise · sharpen · confirm."
+          @go="onStage6SubStepGo"
+        />
+        <GenericStageSubStepStrip
+          v-if="planningStage === 8"
+          :stage-num="8"
+          :steps="STAGE8_SUBSTEPS"
+          :current="stage8SubStep"
+          :done="stage8DoneSteps"
+          tagline="<span class='not-italic font-semibold text-white/70'>Tasks</span> = decompose · estimate · assign · proceed."
+          @go="onStage8SubStepGo"
+        />
+        <GenericStageSubStepStrip
+          v-if="planningStage === 9"
+          :stage-num="9"
+          :steps="STAGE9_SUBSTEPS"
+          :current="stage9SubStep"
+          :done="stage9DoneSteps"
+          tagline="<span class='not-italic font-semibold text-white/70'>Study-Act</span> = measure · compare · update · decide · cycle."
+          @go="onStage9SubStepGo"
+        />
 
         <!-- ClarifyView sub-stage (precise mode) -->
         <ClarifyView
@@ -8300,18 +12071,101 @@ function handleApertureLoadPlan(model: PlanModel): void {
                alongside a ready spec (e.g. after "Back to spec" from stage 2,
                after wizard flow, or after session restore at stage 1). -->
           <template v-if="currentSpec">
-            <div ref="specOutputEl" class="w-full max-w-xl isolate">
+            <!-- r41 v249 (Tom Gilb 2026-06-21 verbatim "OK stage 4 impacts. The Planguage
+                 set of artifacts is listed there. I said that it is not clear why and can
+                 be deleted, there and earlier stages. As I said we have plenty tools to
+                 analyze it under the hood") — per Stage-Has-A-Purpose SUPREME the raw spec
+                 card list is INFRASTRUCTURE, not the primary surface of any stage past
+                 Stage 1.  Hide the inline SpecOutput at planningStage >= 2; show a small
+                 banner pointing the planner at the canonical Spec Editor tool above.
+                 Stage 1 keeps the inline view because the planner is still reviewing what
+                 was generated (sub-step 1.5 Planguage Edit).  No-Silent-Removal honoured:
+                 the spec is hidden, not deleted — fully accessible via Spec Editor in the
+                 toolbar (also linked from the banner below). -->
+            <!-- r41 v250 (Tom Gilb 2026-06-21 follow-up: "at impacts stage the main idea
+                 was to look at an impact estimation table, and that is not there at all
+                 (it was before) so it has gone missing") — v249 banner only mentioned the
+                 Spec Editor, which BURIED Stage 4's Impact Estimation Table (the actual
+                 work of Stage 4 — gated by stage.value===3 + only reachable through
+                 goToImpactStage()).  Banner is now STAGE-AWARE: shows the stage label +
+                 the planningStageAction primary CTA prominently + a smaller Spec Editor
+                 secondary link.  Composes with Stage-Has-A-Purpose SUPREME + No-Silent-
+                 Removal (IET is now reachable in one click again) + MOVE Principle. -->
+            <div
+              v-if="planningStage >= 2"
+              class="w-full max-w-xl rounded-xl border-2 border-indigo-300 bg-indigo-50/60 px-5 py-4 mb-4 text-slate-700 text-sm leading-relaxed shadow-sm"
+              role="status"
+              aria-label="Stage primary task"
+            >
+              <p class="font-semibold text-indigo-900 text-[11px] uppercase tracking-wider mb-2">
+                Stage {{ planningStage }}: {{ (PLANNING_STAGES.find(s => s.stage === planningStage)?.label ?? '—') }} — primary task
+              </p>
+              <!-- r41 v251 (Tom Gilb 2026-06-21 "Purpose of Stage 4 Impacts: …reach reasonable
+                   balance with the plan").  Stage-4-specific purpose announcement.  Composes
+                   with rule_stage_4_impacts_design.md SUPREME + Stage-Has-A-Purpose SUPREME. -->
+              <p v-if="planningStage === 4" class="text-[12px] text-indigo-800 mb-2 leading-snug italic">
+                The purpose of this stage is to help the planner to reach
+                <span class="not-italic font-bold">reasonable balance</span> with the plan —
+                <span class="not-italic">"we seem to have enough solutions to reach Target levels of all our Values"</span>
+                (only actual Evo delivery can prove this is true or not).
+                <span class="not-italic text-[10px] text-indigo-600 block mt-0.5">— Tom Gilb, 21 June 2026</span>
+              </p>
+              <!-- r41 v253 (Tom Gilb 2026-06-21 — Stage 5 Refine Re-design purpose).
+                   Reframed 2026-06-25 (Tom verbatim: "[Stage 5] is now about refining
+                   a variety of different attributes. Best generalized as 'Refine
+                   Attributes'") — constraint-only framing was obsolete; the four
+                   sub-step lenses (resources · value · risks · constraints+qualifiers)
+                   already span the attribute set. -->
+              <p v-if="planningStage === 5" class="text-[12px] text-indigo-800 mb-2 leading-snug italic">
+                The purpose of this stage is
+                <span class="not-italic font-bold">refining attributes</span> by
+                <span class="not-italic font-bold">re-design</span> —
+                <span class="not-italic">"any change to existing designs, deleting current designs, adding new design solutions"</span>
+                — across four attribute lenses (resources · value · risks · constraints + qualifiers), exiting with a
+                <span class="not-italic font-bold">Planner-approved Solution Set</span>.
+                <span class="not-italic text-[10px] text-indigo-600 block mt-0.5">— Tom Gilb, 21 + 25 June 2026</span>
+              </p>
+              <button
+                v-if="planningStageAction"
+                type="button"
+                class="w-full flex items-center justify-between gap-3 min-h-[48px] rounded-xl bg-indigo-600 px-5 py-3 text-white font-semibold hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                :aria-label="`Stage ${planningStage} primary action: ${planningStageAction.label}`"
+                :title="`Stage ${planningStage} primary action — ${planningStageAction.label}. Each stage has ONE primary task; the spec is infrastructure (Stage-Has-A-Purpose SUPREME, Tom Gilb 2026-06-21).`"
+                @click="planningStageAction.handler()"
+              >
+                <span class="text-sm leading-snug text-left">{{ planningStageAction.label }}</span>
+                <span class="text-lg shrink-0" aria-hidden="true">→</span>
+              </button>
+              <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                The Planguage spec is under the hood at this stage. Use the
+                <button
+                  type="button"
+                  class="underline font-semibold text-indigo-700 hover:text-indigo-900"
+                  title="Open the Spec Editor — view + edit all Functions / Values / Solutions / Constraints / Resources / Stakeholders"
+                  @click="_openSpecEditor({})"
+                >Spec Editor</button>
+                in the toolbar above to view or edit any entries.
+                <span class="block mt-1 italic text-slate-400">
+                  Tom Gilb 2026-06-21: "we have plenty tools to analyze it under the hood" + "the main idea [at Stage 4 Impacts] was to look at an impact estimation table".
+                </span>
+              </p>
+            </div>
+            <div v-else ref="specOutputEl" class="w-full max-w-5xl isolate">
               <SpecOutput
                 :loading="sdkLoading"
                 :error="sdkError"
                 :spec="currentSpec"
                 :markdown="markdown"
+                :streaming-text="streamingText"
                 :raw-input="originalInput"
+                @cancel-generation="onCancelGeneration"
                 :on-ambitious-spec="onAmbitiousSpec"
                 :sharpened-entry-ids="sharpenedEntryIds"
                 :sharpen-summary="sharpenSummary"
                 :generated-at="specGeneratedAt"
                 :planning-stage="planningStage"
+                :plan-name="specModel?.name ?? 'Current Spec'"
+                :plan-version="specModel?.version ? 'v' + specModel.version : undefined"
                 @lean-spec-selected="onLeanSpecSelected"
                 @open-collaborator="collaboratorOpen = !collaboratorOpen"
                 @rewrite-copy="onRewriteCopy"
@@ -8356,8 +12210,21 @@ function handleApertureLoadPlan(model: PlanModel): void {
             />
 
             <!-- Deliberate advance gate — only shown after planner clicks "Sharp Enough".
-                 Requires an explicit, named decision to move out of Spec/Sharpen into Evo. -->
-            <div v-if="!sdkLoading && sharpeningDone" class="w-full max-w-xl mt-4 space-y-2">
+                 Requires an explicit, named decision to move out of Spec/Sharpen into Evo.
+
+                 r41 v236 (Tom Gilb 2026-06-21 verbatim "bad stage logic again, skip
+                 suggested from stg 1 to 4") — added `planningStage === 3` to the
+                 gate.  Was previously firing whenever sharpeningDone was true,
+                 which leaked the "Plan Evo Steps" (Stage 6) CTA into Stage 1
+                 (Stakes), Stage 2 (Solutions), Stage 4 (Impacts), and Stage 5
+                 (Refine).  Suggesting Stage 6 from Stage 1 is a logical-sequence
+                 violation — natural next from Stage 1 is Stage 2, not Stage 6.
+                 The Sharpening-Complete-→-Evo-Steps semantic belongs to Stage 3
+                 ONLY.  Other stages get their own contextual next-action via
+                 nextActionLabel / planningStageAction.  Banked as a feature
+                 invariant in scripts/feature-smoke-test.mjs so it cannot drift
+                 again. -->
+            <div v-if="!sdkLoading && sharpeningDone && planningStage === 3" class="w-full max-w-xl mt-4 space-y-2">
               <!-- Sharpening summary pill so the planner sees what was done -->
               <div class="flex items-center gap-2 px-1">
                 <span class="text-amber-500 text-sm" aria-hidden="true">✅</span>
@@ -8365,6 +12232,54 @@ function handleApertureLoadPlan(model: PlanModel): void {
                   {{ sharpenRounds.length }} sharpening round{{ sharpenRounds.length !== 1 ? 's' : '' }} complete
                   — plan version {{ specModel?.version ?? '—' }}
                 </span>
+              </div>
+
+              <!-- r41 v408 (Tom Gilb 2026-06-28 verbatim: "I would like the per
+                   agent breakdown.  And in all cases I want consolation that
+                   the exact source of the change is attached to the spec") —
+                   Per-agent contribution chips + Source-attribution
+                   confirmation strip.  Each chip is the planner's at-a-glance
+                   answer to "which agents did the work, and is the Source
+                   attached?".  The footnote line is the explicit consolation:
+                   *every* fix accepted via an agent panel stamps the agent's
+                   name into the affected field's `fieldSources` entry (see
+                   useFeynmanFindings _buildFeynmanSource + the symmetrical
+                   helpers in Munger / Heilmeier / Elon / Incorruptible / Role
+                   composables).  Composes with Done/You-Can/Continue SUPREME
+                   (banner IS the DONE state) + Spec Sources design + AI-Max +
+                   Conjunction-of-Technologies SUPREME source-layer audit. -->
+              <div
+                v-if="agentFixBreakdown.length > 0"
+                class="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 space-y-1"
+                :aria-label="`Per-agent breakdown: ${totalAgentFixes} fixes accepted across ${agentFixBreakdown.length} agent${agentFixBreakdown.length !== 1 ? 's' : ''}`"
+              >
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-700 mr-1">
+                    Per-agent breakdown
+                  </span>
+                  <span
+                    v-for="entry in agentFixBreakdown"
+                    :key="entry.key"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-indigo-300 text-[11px] font-semibold text-indigo-900"
+                    :title="`${entry.count} fix${entry.count !== 1 ? 'es' : ''} accepted from the ${entry.label} agent — Source: ${entry.label} attached to each mutated field`"
+                  >
+                    <span class="text-indigo-600">{{ entry.label }}</span>
+                    <span class="tabular-nums">{{ entry.count }}</span>
+                    <span class="text-indigo-400 text-[9px] uppercase tracking-wider">{{ entry.count === 1 ? 'fix' : 'fixes' }}</span>
+                  </span>
+                </div>
+                <!-- The "consolation" footnote — explicit Source-attached
+                     audit confirmation for every fix above. -->
+                <p class="text-[11px] text-indigo-700 leading-snug flex items-start gap-1">
+                  <span aria-hidden="true">✓</span>
+                  <span>
+                    <span class="font-semibold">Source attached.</span>
+                    Each of the {{ totalAgentFixes }} fix{{ totalAgentFixes !== 1 ? 'es' : '' }}
+                    above stamped its agent name into the affected field's
+                    <code class="text-[10px] font-mono bg-white/70 px-1 rounded">fieldSources</code>
+                    entry — visible in the Spec Editor and every export.
+                  </span>
+                </p>
               </div>
 
               <!-- Changes to Planguage Model — Tom 2026-06-09: "at the end of any and all
@@ -8440,13 +12355,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
                 </div>
               </div>
 
-              <!-- Advance to Evo Steps — the natural destination after sharpening.
-                   Tom 2026-06-09: "if 'enough' we should be leaving that stage."
-                   Calls handleStageBarNav(6) → 'to-evo' → goToStage2() →
-                   stage.value = 2 (EvoPlanView). This cleanly leaves Stage 3
-                   (Sharpen) and lands in Stage 6 (Evo Steps) without the
-                   intermediate 'to-impact' trap that previously caused a confusing
-                   jump to the Evo Impact matrix. -->
+              <!-- Advance to Impacts (next stage in sequence) — Tom Gilb 2026-06-21
+                   verbatim: "after stg 3 sharpening complete, it jumped to stg 6, hopping
+                   over impact etc".  Previous design jumped 3→6 directly (skipping 4
+                   Impacts + 5 Refine).  Now goes to Stage 4 — the IMMEDIATE next stage in
+                   the canonical sequence per Stage-Has-A-Purpose SUPREME + Stages-are-
+                   Cyclic SUPREME (no silent stage skipping; user can always jump further
+                   via the stage strip).  Secondary link below preserves the previous
+                   direct-to-Evo-Steps path for advanced users who explicitly want to skip
+                   the Impacts/Refine stages.  Tom 2026-06-09 quote "if 'enough' we should
+                   be leaving that stage" is honoured — we ARE leaving Stage 3; we're going
+                   to Stage 4 next, not jumping over it. -->
               <button
                 type="button"
                 class="w-full flex items-center justify-between gap-3 min-h-[52px] rounded-xl
@@ -8455,14 +12374,29 @@ function handleApertureLoadPlan(model: PlanModel): void {
                        hover:bg-indigo-700 active:bg-indigo-800
                        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
                        transition-colors"
-                aria-label="Done Sharpening — Plan Evo Steps next"
-                @click="handleStageBarNav(6)"
+                aria-label="Done Sharpening — Continue to Stage 4 Impacts"
+                @click="handleStageBarNav(4)"
               >
                 <span class="text-sm leading-snug text-left">
-                  Sharpening Complete — Plan Evo Steps<br>
-                  <span class="text-indigo-200 font-normal text-xs">Continue to Evo Steps planning</span>
+                  Sharpening Complete — Continue to Stage 4: Impacts<br>
+                  <span class="text-indigo-200 font-normal text-xs">Estimate impact of each Solution against each Value (the next stage in sequence)</span>
                 </span>
                 <span class="text-lg shrink-0" aria-hidden="true">→</span>
+              </button>
+              <!-- Secondary: explicit skip-to-Evo-Steps for advanced users.  Tom Gilb
+                   2026-06-21 — "Stages are cyclic"; we never SILENTLY skip stages, but
+                   the planner can EXPLICITLY skip if they know what they're doing. -->
+              <button
+                type="button"
+                class="w-full mt-1.5 flex items-center justify-center gap-2 min-h-[36px] rounded-lg
+                       bg-white border border-indigo-200 px-4 py-2 text-indigo-700 text-xs
+                       hover:bg-indigo-50 hover:border-indigo-400 transition-colors"
+                aria-label="Advanced: skip Impacts and Refine — jump directly to Stage 6 Evo Steps"
+                title="Advanced: skip the Impacts (Stage 4) + Refine (Stage 5) stages and go directly to Evo Steps planning. You can always return to 4 / 5 later — Stages are cyclic (Tom Gilb 2026-06-21)."
+                @click="handleStageBarNav(6)"
+              >
+                <span aria-hidden="true">⏭</span>
+                <span>Skip directly to Evo Steps (Stage 6) — advanced</span>
               </button>
 
               <!-- Audit Trail — optional review before committing to planning -->
@@ -8532,46 +12466,120 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
           <!-- ── Entry mode: no spec yet — show the form ── -->
           <template v-else>
-            <!-- r41 v142 — pre-spec "NEW PLAN" actions band (Save Draft / Recent /
-                 Owner / Templates / Settings) REMOVED per Tom Gilb 2026-06-17
-                 verbatim "clean up the buttons below that are in the 3 bars".
-                 All 5 affordances are now provided by the v140 always-visible
-                 Level 1 · Process Tools (Settings · SOS) + Level 3 · Agents
-                 (Models = Templates) + IdentityStrip (Owner via PEOPLE pill).
-                 Save Draft / Recent merged into the Process Tools Actions menu.
-                 The pill was a v111 workaround for the (now removed) gated-Plan
-                 Crest; v140 + 141 + 142 makes it obsolete. -->
+            <!-- r41 v162 — Tom Gilb 2026-06-17 verbatim "time to organize into
+                 a 'Stage [N] [Name, like Spec Draft] Menu' (in this case all
+                 stuff to capture the Spec Draft. Call it Spec Draft Menu.
+                 The other stuff, move up or if already there, delete".
+                 Stage 1's body content (mode toggle + entry form + SpecOutput
+                 loading frame) is wrapped in a labeled "Spec Draft Menu"
+                 container so the planner sees ONE clear menu at Stage 1
+                 instead of scattered controls.  Get A Plan / Compare body
+                 duplicates DELETED above. -->
+            <!-- r41 2026-06-20 (Tom Gilb verbatim "MAKE THE WINDOW MUCH
+                 BROADER") — outer wrapper widens to max-w-5xl when an
+                 imported document is loaded (matching the inner SEMEntryForm
+                 form container's conditional width).  Default max-w-2xl
+                 keeps the fresh-typing UX focused.  Without this, the
+                 outer max-w-2xl was constraining the inner max-w-5xl to
+                 672 px and Tom's earlier wider-window ask wasn't actually
+                 taking effect.  Composes with accessibility_tom.md
+                 (Tom 85 — wider reading area for long contracts) + MOVE
+                 Principle (import event auto-widens, no menu-dive). -->
+            <!-- r41 2026-06-20 (Tom Gilb verbatim "the input window should be
+                 much broader") — bumped further from max-w-5xl (1024 px) to
+                 max-w-7xl (1280 px).  Composes with accessibility_tom.md
+                 (Tom 85 — wider reading area). -->
+            <!-- r41 v342 (Tom Gilb 2026-06-25 screenshot + verbatim "retro
+                 thin unreadable columns (use whole screen! Breadth)"): the
+                 Spec Draft Menu card was capped at max-w-7xl (1280 px) which
+                 clamped the inner SEMEntryForm's own max-w-[1800px] at
+                 review stage to ~1212 px — squeezing the 4-column grid into
+                 ~283 px per column.  Now widens to max-w-[1800px] at review
+                 stage so the form can use the screen breadth Tom asked for.
+                 Input stage keeps max-w-7xl so the typing experience stays
+                 focused. formSubStage is already kept in sync via the
+                 @stage-change emit (line ~10926). -->
+            <div
+              class="w-full mx-auto mb-3 px-4"
+              :class="formSubStage === 'review' ? 'max-w-[1800px]' : 'max-w-7xl'"
+            >
+              <div class="rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 via-violet-50 to-indigo-50 shadow-sm overflow-hidden">
+                <!-- Spec Draft Menu header -->
+                <div class="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex items-center gap-2">
+                  <span class="text-[10px] font-bold uppercase tracking-widest opacity-80">Stage 1</span>
+                  <span class="text-[9px] opacity-60" aria-hidden="true">·</span>
+                  <span class="text-sm font-extrabold tracking-tight">Spec Draft Menu</span>
+                  <span class="ml-auto text-[10px] font-medium opacity-80">capture the initial Spec</span>
+                </div>
+                <div class="px-4 py-3">
 
 
-            <!-- Analysis mode toggle -->
-            <div class="w-full max-w-2xl mx-auto px-4 mb-2 flex items-center gap-3">
-              <span class="text-xs text-gray-400 font-medium shrink-0">Mode:</span>
+            <!-- r41 2026-06-20 (Tom Gilb verbatim "the just do it seemed dead
+                 when i clicked, Need a more specific text for it 'Analyze As
+                 Is'. and 'Answer Some Questions, for better Analysis'") —
+                 Mode toggle relabeled per Tom's exact phrasing.  The "dead-
+                 click" symptom: "Just do it" was the DEFAULT mode, so
+                 clicking it when already selected did nothing visible.
+                 Added a clear active-state ring + a tiny "currently active"
+                 caption so the selection is unambiguous on every click.
+                 Composes with: DD-009 Zero-Training UI (button text spells
+                 out the actual behaviour, no jargon), Spell-out-Type-Names
+                 SUPREME spirit (descriptive labels over snappy slogans),
+                 No-Silent-Action (visible click-feedback ring + active
+                 caption), accessibility_tom.md (Tom 85 — readable button
+                 text + clear active-state). -->
+            <div class="w-full max-w-2xl mx-auto px-4 mb-2 flex items-center gap-3 flex-wrap">
+              <span class="text-xs text-gray-400 font-medium shrink-0">Analysis:</span>
               <div
                 class="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5"
                 role="group"
-                aria-label="Analysis mode"
+                aria-label="Analysis approach"
               >
+                <!-- r41 2026-06-20 (Tom Gilb verbatim "analyze as is is dead")
+                     — clicked the already-selected default button still felt
+                     dead.  Added a CSS-keyframe click animation
+                     (`mode-click-pulse`) that runs on EVERY mousedown,
+                     regardless of whether state actually changes.  Brief
+                     scale + ring pulse so the planner always sees the
+                     button acknowledge the click.  Composes with: DD-009
+                     Zero-Training UI (every click confirmed), accessibility
+                     _tom.md (Tom 85 — clear button feedback). -->
                 <button
                   type="button"
                   :class="[
-                    'min-h-[32px] px-3 text-xs font-medium rounded-md transition-colors duration-150',
-                    analysisMode === 'quick' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    'min-h-[32px] px-3 text-xs font-bold rounded-md transition-all duration-150',
+                    'active:scale-[0.96] active:ring-4 active:ring-indigo-500',
+                    analysisMode === 'quick'
+                      ? 'bg-white text-indigo-900 shadow-sm ring-2 ring-indigo-400'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
                   ]"
-                  aria-label="Just do it"
+                  aria-label="Analyze As Is — generate spec without clarifying questions"
+                  title="⚡ Analyze As Is — after you parse + click Generate Spec, the AI generates without asking clarifying questions.  Fastest path.  (Default — already active.)"
                   @click="analysisMode = 'quick'"
-                >⚡ Just do it</button>
+                >⚡ Analyze As Is</button>
                 <button
                   type="button"
                   :class="[
-                    'min-h-[32px] px-3 text-xs font-medium rounded-md transition-colors duration-150',
-                    analysisMode === 'precise' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    'min-h-[32px] px-3 text-xs font-bold rounded-md transition-all duration-150',
+                    'active:scale-[0.96] active:ring-4 active:ring-indigo-500',
+                    analysisMode === 'precise'
+                      ? 'bg-white text-indigo-900 shadow-sm ring-2 ring-indigo-400'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
                   ]"
-                  aria-label="Ask for precision"
+                  aria-label="Answer Some Questions, for better Analysis — the AI asks 3 to 5 clarifying questions before generating the spec"
+                  title="🎯 Answer Some Questions, for better Analysis — the AI asks 3 to 5 clarifying questions to sharpen its understanding, then generates a more precise spec."
                   @click="analysisMode = 'precise'"
-                >🎯 Ask for precision</button>
+                >🎯 Answer Some Questions, for better Analysis</button>
               </div>
-              <span v-if="analysisMode === 'precise'" class="text-xs text-blue-500">
-                AI will ask 3–5 questions before generating
+              <!-- Live caption — explicitly names the active choice so the
+                   planner always sees confirmation of what was clicked. -->
+              <span class="text-[11px] text-indigo-700 italic">
+                <template v-if="analysisMode === 'quick'">
+                  → No clarifying questions before generation.
+                </template>
+                <template v-else>
+                  → AI will ask 3–5 questions before generating.
+                </template>
               </span>
             </div>
 
@@ -8579,25 +12587,31 @@ function handleApertureLoadPlan(model: PlanModel): void {
               ref="semEntryFormRef"
               :key="formResetKey"
               :generating="sdkLoading"
+              :show-sticky-bars="planningStage === 1"
+              :accepted-suggestion-actor="acceptedSuggestionActor"
               @submit="handleSubmit"
-              @wizard="wizardOpen = true"
               @stage-change="formSubStage = $event"
               @spec-import="onSpecFileImport"
               @go-back="handleFormGoBack"
+              @open-scope-editor="onOpenScopeEditorFromStage1"
             />
             <!-- SpecOutput shown here for loading/error feedback while API call is in flight -->
-            <div ref="specOutputEl" class="w-full max-w-xl isolate">
+            <div ref="specOutputEl" class="w-full max-w-5xl isolate">
               <SpecOutput
                 :loading="sdkLoading"
                 :error="sdkError"
                 :spec="currentSpec"
                 :markdown="markdown"
+                :streaming-text="streamingText"
                 :raw-input="originalInput"
+                @cancel-generation="onCancelGeneration"
                 :on-ambitious-spec="onAmbitiousSpec"
                 :sharpened-entry-ids="sharpenedEntryIds"
                 :sharpen-summary="sharpenSummary"
                 :generated-at="specGeneratedAt"
                 :planning-stage="planningStage"
+                :plan-name="specModel?.name ?? 'Current Spec'"
+                :plan-version="specModel?.version ? 'v' + specModel.version : undefined"
                 @lean-spec-selected="onLeanSpecSelected"
                 @open-collaborator="collaboratorOpen = !collaboratorOpen"
                 @rewrite-copy="onRewriteCopy"
@@ -8612,13 +12626,17 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
             <!-- AmuseMeButton now lives inside SpecOutput.vue (line 55) so it is not
                  duplicated here. SpecOutput renders it whenever :loading is true. -->
+                </div><!-- /Spec Draft Menu body -->
+              </div><!-- /Spec Draft Menu card -->
+            </div><!-- /Spec Draft Menu outer container -->
 
             <!-- Copyright footer — always visible at the bottom of Stage 1 -->
-            <div class="w-full max-w-xl mt-8 mb-2 flex justify-center">
+            <div class="w-full max-w-xl mt-8 mb-2 mx-auto flex justify-center">
               <button
                 type="button"
                 class="text-[11px] text-gray-400 hover:text-gray-600 transition-colors
                        focus:outline-none focus:ring-1 focus:ring-gray-300 rounded px-1"
+                title="Copyright & Attribution — open the legal notice + credits panel."
                 @click="copyrightPanelOpen = true"
               >{{ _copyrightShortNotice }} · Copyright &amp; Attribution</button>
             </div>
@@ -8629,6 +12647,41 @@ function handleApertureLoadPlan(model: PlanModel): void {
 
       <!-- Stage 2: Evo Step Planner -->
       <template v-else-if="stage === 2 && currentSpec">
+        <!-- r41 v277 (Tom Gilb 2026-06-22 "AI was slow message disappeared
+             before I could read… a second far too fast disappearing message
+             said something about what was generated… moved to stage 2 but I
+             was not properly informed of success or failure or what
+             happened now!") — PERSISTENT post-generation banner.  Mirrors
+             the toast content but stays visible UNTIL Tom dismisses it.
+             Composes with: accessibility_tom.md (Tom 85 — no one-shot info
+             loss), No-Silent-Data-Loss SUPREME, MOVE Principle (visible
+             at-a-glance on the destination stage), DD-009 Zero-Training UI
+             (✕ dismiss + colour code by kind).  Cleared on next generation
+             OR on user dismiss. -->
+        <div
+          v-if="lastGenerationReport"
+          class="w-full max-w-2xl mb-4 rounded-2xl px-4 py-3 ring-2 shadow-md flex items-start gap-3"
+          :class="lastGenerationReport.kind === 'success'
+            ? 'bg-emerald-50 ring-emerald-300 text-emerald-900'
+            : lastGenerationReport.kind === 'slow-fallback'
+              ? 'bg-amber-50 ring-amber-300 text-amber-900'
+              : 'bg-rose-50 ring-rose-300 text-rose-900'"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold mb-0.5">{{ lastGenerationReport.headline }}</p>
+            <p class="text-xs leading-snug whitespace-pre-wrap">{{ lastGenerationReport.detail }}</p>
+          </div>
+          <button
+            type="button"
+            class="shrink-0 h-7 w-7 flex items-center justify-center rounded-full bg-white/60 hover:bg-white text-slate-600 hover:text-slate-900 ring-1 ring-current/20"
+            title="Dismiss this generation report (recall via 🔔 bell in title bar)"
+            aria-label="Dismiss generation report"
+            @click="dismissGenerationReport"
+          >×</button>
+        </div>
+
         <div class="w-full max-w-2xl mb-4 flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -8696,6 +12749,11 @@ function handleApertureLoadPlan(model: PlanModel): void {
              section above. The purple Plan Identity Bar at top of page
              already provides plan name, version, sharpen rounds, the three
              🔑/💡/⌨️ people chips, save state, history and restart. -->
+        <!-- r41 v262 (Tom Gilb 2026-06-21 "it says use evo planner, but where is it? how do
+             we proceed? why can it just do it and announce it is done") — wrapper div with
+             ref + aria-label so the Stage 6.1 sub-step handler can scroll EvoPlanView into
+             view after auto-firing generation.  Mirrors the v256 IET-scrollIntoView pattern. -->
+        <div ref="evoPlanWrapperEl" aria-label="Evo Planner — Stage 6 primary surface">
         <EvoPlanView
           :spec-block="currentSpec"
           :raw-input="originalInput"
@@ -8712,7 +12770,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
           @open-kiss="kissOpen = true"
           @open-solution-sharpen="solutionSharpenOpen = true"
           @open-multi-forks="openMultiForks()"
+          @open-value-flow="valueFlowOpen = true"
+          @advance-substep="onStage6SubStepGo($event)"
         />
+        </div>
       </template>
 
       <!-- Stage 10 · Resources — dedicated view (Tom 2026-06-04 verbatim:
@@ -8819,7 +12880,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
               <button
                 type="button"
                 class="flex-none focus:outline-none focus:ring-2 focus:ring-violet-400 rounded-lg"
-                title="Planguage type glyph R. — Resource entry (time, people, money, other budgets) · Double-click for glyph history and details"
+                title="Planguage type glyph R. — Resource entry (time, people, money, other budgets) · Double-click for glyph lineage and details"
                 @dblclick.stop="openGlyphPanel('resource')"
               >
                 <PlResourceIcon class="w-8 h-8" />
@@ -8840,7 +12901,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                     type="button"
                     class="w-full focus:outline-none focus:ring-2 focus:ring-white/60 rounded-lg
                            hover:bg-white/10 transition-colors duration-100 px-1 py-2"
-                    title="Planguage keyed action glyph [*]→[**] — existing item transformed to improved version · Improve / Augment / Edit · Double-click for glyph history and details"
+                    title="Planguage keyed action glyph [*]→[**] — existing item transformed to improved version · Improve / Augment / Edit · Double-click for glyph lineage and details"
                     @dblclick.stop="openGlyphPanel('resource')"
                   >
                     <EditGlyph class="w-full text-white" style="height:48px" />
@@ -9004,7 +13065,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
                     type="button"
                     class="w-full flex justify-center focus:outline-none focus:ring-2 focus:ring-white/60
                            rounded-lg hover:bg-white/10 transition-colors duration-100 py-2"
-                    title="Planguage type glyph →O — Resource entry (time, people, money, other budgets) · Scale / Meter / Tolerable / Goal define your resource targets · Double-click for glyph history and details"
+                    title="Planguage type glyph →O — Resource entry (time, people, money, other budgets) · Scale / Meter / Tolerable / Goal define your resource targets · Double-click for glyph lineage and details"
                     @dblclick.stop="openGlyphPanel('resource')"
                   >
                     <PlResourceIcon size="2xl" color="rgba(255,255,255,0.9)" />
@@ -9839,6 +13900,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
              Tom 2026-06-06: strong border + label banner above. -->
         <div
           v-if="currentSpec"
+          ref="ietWrapperEl"
+          aria-label="Impact Estimation Table — Stage 4 primary surface"
           class="w-full mb-6 rounded-2xl border-2 border-indigo-500 shadow-md overflow-hidden"
         >
           <!-- Label banner ABOVE the table -->
@@ -9989,6 +14052,103 @@ function handleApertureLoadPlan(model: PlanModel): void {
            planningStage=9 while leaving internal stage at 4 (no internal slot exists
            for Study-Act).  Order in the v-else-if chain matters — first match wins. -->
       <template v-else-if="planningStage === 9 && currentSpec">
+        <!-- r41 v295 (Tom Gilb 2026-06-22 "we need a clear skip over this step
+             is there are no evo results yet. and if there are we need a clear
+             input capture into Values and resources").  Stage 9 Study-Act
+             triage banner — auto-detects three states and routes the planner
+             explicitly.  Mounts ABOVE the existing top stage-nav row so it is
+             the first thing the planner sees; the existing sub-step strip
+             (lower down) stays for power-users per MOVE Principle. -->
+        <div
+          class="w-full max-w-2xl mb-4 rounded-2xl border-2 shadow-sm transition-colors"
+          :class="stage9TriageState === 'no-evo'
+            ? 'border-emerald-300 bg-emerald-50/70'
+            : stage9TriageState === 'no-actuals'
+              ? 'border-violet-300 bg-violet-50/70'
+              : 'border-indigo-300 bg-indigo-50/70'"
+          aria-label="Stage 9 Study-Act triage"
+          data-stage9-triage="true"
+        >
+          <div class="px-5 py-4">
+            <p class="text-[12px] font-bold uppercase tracking-[0.14em] mb-1.5"
+               :class="stage9TriageState === 'no-evo' ? 'text-emerald-700'
+                       : stage9TriageState === 'no-actuals' ? 'text-violet-700'
+                       : 'text-indigo-700'">
+              Stage 9 · Study-Act ·
+              <template v-if="stage9TriageState === 'no-evo'">No Evo delivery yet</template>
+              <template v-else-if="stage9TriageState === 'no-actuals'">Actuals not captured</template>
+              <template v-else>Actuals ready for analysis</template>
+            </p>
+            <p class="text-[13px] text-slate-800 leading-relaxed">
+              <template v-if="stage9TriageState === 'no-evo'">
+                No Evo delivery yet — Study-Act needs actual measurements from a delivered cycle to compare against estimates. You can skip to Stage 10 Resources, or click on a completed Evo step first.
+              </template>
+              <template v-else-if="stage9TriageState === 'no-actuals'">
+                <strong>{{ confirmedSteps.length }} Evo Step{{ confirmedSteps.length === 1 ? '' : 's' }} delivered</strong> — no actuals captured yet. Capture measurements into Values + Resources to enable variance analysis.
+              </template>
+              <template v-else>
+                Actuals captured for <strong>{{ stage9ActualsCounts.v }} Value{{ stage9ActualsCounts.v === 1 ? '' : 's' }}</strong>
+                / <strong>{{ stage9ActualsCounts.r }} Resource{{ stage9ActualsCounts.r === 1 ? '' : 's' }}</strong> —
+                variance analysis ready. Continue to 9.2 Compare to Estimates.
+              </template>
+            </p>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                v-if="stage9TriageState === 'no-evo'"
+                type="button"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold text-white shadow-md
+                       bg-gradient-to-r from-emerald-500 to-teal-500
+                       hover:from-emerald-600 hover:to-teal-600
+                       focus:outline-none focus:ring-2 focus:ring-emerald-400
+                       animate-pulse"
+                title="Skip Stage 9 · Study-Act has no work to do until an Evo Step delivers actual measurements. Jump to Stage 10 · Resources."
+                aria-label="Skip to Stage 10 · no actuals yet"
+                @click="handleStageBarNav(10)"
+              >
+                <span>⏭</span><span>Skip to Stage 10 · no actuals yet</span>
+              </button>
+              <button
+                v-else-if="stage9TriageState === 'no-actuals'"
+                type="button"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold text-white shadow-md
+                       bg-gradient-to-r from-violet-500 to-indigo-500
+                       hover:from-violet-600 hover:to-indigo-600
+                       focus:outline-none focus:ring-2 focus:ring-violet-400
+                       animate-pulse"
+                title="Open the Capture Actuals panel · type measured Value + Resource numbers from the delivered Evo Step. Reversible via global Undo (⌘Z)."
+                aria-label="Capture Actuals · open focused input panel"
+                @click="stage9ActualsOpen = true"
+              >
+                <span>📥</span><span>Capture Actuals</span>
+              </button>
+              <button
+                v-else
+                type="button"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold text-white shadow-md
+                       bg-gradient-to-r from-indigo-500 to-blue-500
+                       hover:from-indigo-600 hover:to-blue-600
+                       focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                title="Continue to 9.2 · compare captured actuals against the Goal estimates committed in Stage 4"
+                aria-label="Continue to 9.2 · Compare to Estimates"
+                @click="stage9ActualsOpen = true"
+              >
+                <span>→</span><span>9.2 · Compare to Estimates</span>
+              </button>
+              <!-- Additional Capture pin always visible (re-capture flow) once actuals exist. -->
+              <button
+                v-if="stage9TriageState === 'actuals-in'"
+                type="button"
+                class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold
+                       border border-violet-300 bg-white text-violet-700 hover:bg-violet-50
+                       focus:outline-none focus:ring-2 focus:ring-violet-400"
+                title="Re-open the Capture Actuals panel to add or update measurements"
+                @click="stage9ActualsOpen = true"
+              >
+                📥 Capture more
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="w-full max-w-2xl mb-4 flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -10614,9 +14774,13 @@ function handleApertureLoadPlan(model: PlanModel): void {
            allow cluster to render when menuOpen||renamePopoverOpen even if
            specModel exists. Buttons row is v-if="!specModel" to prevent
            duplication (they're already in the Plan Crest bar when plan loaded). -->
+      <!-- r41 v146 — legacy floating wrapper kept ONLY for the Rename
+           popover; ProcessToolsStrip mount moved to the Spec Crest wrapper.
+           v-if condition restricted to ONLY renamePopoverOpen (was also
+           handling !specModel which is now obsolete). -->
       <div
-        v-if="view === 'app' && (!specModel || menuOpen || renamePopoverOpen) && !comparisonOpen && !specInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
-        :class="['fixed z-[9999] flex flex-col items-end gap-2', specModel ? 'top-10 right-4' : 'top-4 right-4']"
+        v-if="view === 'app' && renamePopoverOpen && !comparisonOpen && !specInputOpen && !modelsOpen && !wizardOpen && !historyOpen && !specEditorOpen"
+        class="fixed z-[9999] flex flex-col items-end gap-2 top-[200px] right-4"
       >
 
       <!-- ── PRE-SPEC pin cluster — r41 v114 (Tom Gilb 2026-06-17 verbatim
@@ -10638,23 +14802,10 @@ function handleApertureLoadPlan(model: PlanModel): void {
            No Undo/Redo (nothing to undo yet); Mic + Speaker accessibility-
            critical per Tom 2026-05-13.  Wrapped in non-absolute container
            since this version inherits parent positioning. -->
-      <div v-if="!specModel">
-        <ProcessToolsStrip
-          variant="pre-spec"
-          :dictation-active="dictationActive"
-          :dictation-supported="dictationSupported"
-          :speaking="speaking"
-          :speaker-supported="speakerSupported"
-          :menu-open="menuOpen"
-          @open-find="toggleMenu()"
-          @open-search-term="openGilbIllustrations()"
-          @open-settings="settingsOpen = true"
-          @open-sos="freshStartOpen = true"
-          @open-mic="toggleDictation()"
-          @open-read="speaking ? stopSpeaking() : handleSpeak(speakerText)"
-          @open-actions="toggleMenu"
-        />
-      </div>
+      <!-- r41 v146 — duplicate pre-spec ProcessToolsStrip mount REMOVED.
+           The single Process Tools mount now lives in the Spec Crest wrapper
+           (line ~6940) with `:variant="specModel ? 'post-spec' : 'pre-spec'"`
+           so it renders correctly in BOTH states from one location. -->
 
       <!-- Rename / Owner popover — opens below the control pins row -->
       <div
@@ -10785,8 +14936,22 @@ function handleApertureLoadPlan(model: PlanModel): void {
          Evo Plan, Stage 3 Impact, Stage 10 Resources, Study-Act etc.) gets
          the indicator automatically without per-stage wiring.  Naturally
          covered by any modal backdrop (z-[400+]) — no explicit suppress
-         needed since the pin sits at z-[60]. -->
-    <PageScrollPin />
+         needed since the pin sits at z-[60].
+
+         r41 v274 (Tom Gilb 2026-06-22 — SEVENTH "bottom collision" report this
+         session, after I mis-targeted fixes v272/v273): the REAL collision is
+         this pin overlapping the Parse-my-input sticky button band (SEMEntryForm
+         line 2909, fixed inset-x-0 bottom-4 z-30 bg-indigo-600).  Both widgets
+         are fixed-bottom; pin z-100 floats ON TOP of the indigo Parse band,
+         hiding the "Parse my input" text and bleeding the indigo bg around the
+         pin.  Two fixed-bottom widgets in the same Y-coord with no z-coordination.
+         Fix: pass :suppress when the Parse band is showing (view==='app' AND
+         planningStage===1 AND !currentSpec — same condition that mounts the
+         Parse band per showStickyBars).  Composes with: v272 layout-reservation
+         lesson + v273 layout-slot lesson — third application of the same
+         "fixed-bottom widgets need coordination" rule.  Feature-smoke invariant
+         `page-scroll-pin-suppressed-when-parse-band-visible` prevents regression. -->
+    <PageScrollPin :suppress="view === 'app' && planningStage === 1 && !currentSpec" />
 
 <!-- Feature #40: Value Delivery Replay overlay -->
     <ReplayOverlay
@@ -10837,11 +15002,11 @@ function handleApertureLoadPlan(model: PlanModel): void {
           class="fixed right-0 top-[112px] h-[calc(100%-112px)] w-80 bg-white shadow-xl z-[10201] flex flex-col"
           role="dialog"
           aria-modal="true"
-          aria-label="Version History"
+          aria-label="Past Versions drawer"
         >
           <!-- Header -->
           <div class="flex items-center justify-between px-4 border-b border-gray-100 min-h-[56px]">
-            <h2 class="text-sm font-semibold text-gray-900">Version History</h2>
+            <h2 class="text-sm font-semibold text-gray-900">Past Versions</h2>
             <!-- Universal Close-Button Rule: <CloseDot> on the right.
                  Tom 2026-06-03 reported "no close button on stewards" — looking
                  at the Version History panel.  CloseDot was present but the
@@ -10852,8 +15017,8 @@ function handleApertureLoadPlan(model: PlanModel): void {
                  ~6029 in App.vue). -->
             <CloseDot
               size="lg"
-              aria-label="Close Version History"
-              title="Close Version History  [->"
+              aria-label="Close Past Versions drawer"
+              title="Close Past Versions  [->"
               @click="historyOpen = false"
             />
           </div>
@@ -10881,14 +15046,56 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @clear-all="clearDashboard"
     />
 
-    <!-- Feature #53: Progressive spec wizard — Teleport ensures z-[600] is root-relative -->
+    <!-- r41 v365 (Tom Gilb 2026-06-25 "remove what is not in use") — Feature
+         #53 SpecWizard Teleport mount REMOVED.  All 5 trigger sites swept
+         (Start with your goal pill + 3× Guided buttons + Actions catalog
+         entry + @wizard event listener).  Component file SpecWizard.vue
+         retained for any tests that import it; dead code in the app shell. -->
+
+    <!-- r41 v352 — Stage 2.2 Planguage Progress Window modal.  Visible
+         while `runStage22GenerateSolutions` is in flight + for ~3s after
+         completion so the final count is registered.  Tom Gilb 2026-06-25
+         *"Name = Planguage Progress window"*. -->
     <Teleport to="body">
-      <SpecWizard
-        v-if="wizardOpen"
-        :on-submit="handleWizardSubmit"
-        :on-close="() => { wizardOpen = false }"
-      />
+      <div
+        v-if="stage22ProgressWindowOpen"
+        class="fixed inset-0 z-[700] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stage22-progress-heading"
+      >
+        <div class="w-[420px] max-w-[92vw] bg-white rounded-2xl shadow-2xl overflow-hidden border-2 border-orange-300">
+          <div class="px-5 py-3 bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 border-b border-orange-200">
+            <h2 id="stage22-progress-heading" class="text-sm font-extrabold text-orange-900">
+              Stage 2.2 — Generating Solutions
+            </h2>
+            <p class="text-[11px] text-orange-700 mt-0.5">
+              {{ _genSolutions.isGenerating.value
+                  ? `Drafting ${_genSolutions.unaddressedCount.value} Solution${_genSolutions.unaddressedCount.value === 1 ? '' : 's'} for unaddressed Value${_genSolutions.unaddressedCount.value === 1 ? '' : 's'}… (${_genSolutions.elapsed.value}s)`
+                  : `Generated ${_genSolutions.lastGeneratedCount.value} Solution${_genSolutions.lastGeneratedCount.value === 1 ? '' : 's'} — window closes shortly.` }}
+            </p>
+          </div>
+          <div class="p-3">
+            <PlanguageProgressWindow
+              :spec="currentSpec"
+              :loading="_genSolutions.isGenerating.value"
+              :loading-elapsed="_genSolutions.elapsed.value"
+              schedule="solutions-only"
+              header-text="Stage 2.2 · Solutions Being Generated"
+              caption="Solutions count ticks up when generation completes · other tile counts remain unchanged (untouched by Stage 2.2)"
+            />
+          </div>
+        </div>
+      </div>
     </Teleport>
+
+    <!-- r41 v373 — Stage 3.3 Add Qualifiers Flow modal. -->
+    <AddQualifiersFlow
+      :open="addQualifiersFlowOpen"
+      :spec="currentSpec"
+      @apply="onAddQualifiersApply"
+      @close="addQualifiersFlowOpen = false"
+    />
 
     <!-- Feature #71: Spec Presentation Mode -->
     <SpecPresentation
@@ -10920,6 +15127,35 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @close="resourcesSharpenOpen = false"
       @apply-analysis="_onResourcesAnalysisApplied"
       @select-history="handleStrategyAgentHistoryPick"
+      @open-resources-agent="resourcesAgentOpen = true"
+    />
+
+    <!-- v509 — ESTIMATION 8: Resources Agent.  Specialised full-screen hub
+         for the 5-resource subsystem: Overview + Time-Series + Extrapolation +
+         Standards + Contract/RFP References + Settings + Sharpening entry.
+         Tom Gilb 2026-07-21: "specialized Agent called 'Resources' ..." -->
+    <ResourcesAgent
+      :open="resourcesAgentOpen"
+      :plan-id-ref="_resourcesAgentPlanIdRef"
+      @close="resourcesAgentOpen = false"
+      @open-sharpening="(r) => { /* v513: Agent now opens the SharpeningDialog internally per resource; this emit stays for back-compat but is not fired by default */ }"
+    />
+
+    <!-- r41 v295 (Tom Gilb 2026-06-22 "always continue · research and innovation").
+         Stage 9 · Study-Act Capture Actuals focused modal.  Mounted via the
+         triage banner state-2 ("Capture Actuals") action pin.  Apply event
+         routes through onStage9ActualsApply which records Undo BEFORE mutation
+         (Universal Undo SUPREME), persists via saveSpecSnapshot (No-Silent-
+         Data-Loss SUPREME), and notifies via showToast (banned-word "toast"
+         replaced by "notification" in the UI text). -->
+    <Stage9ActualsPanel
+      :open="stage9ActualsOpen"
+      :spec="currentSpec"
+      :confirmed-steps="confirmedSteps"
+      :plan-id="currentSpec?.name ?? 'default'"
+      @close="stage9ActualsOpen = false"
+      @apply="onStage9ActualsApply"
+      @estimations-updated="(count) => showToast(`✅ ${count} resource estimation${count === 1 ? '' : 's'} recorded from Evo Step actuals (IBM Cleanroom auto-trigger; see Stage 10 Resources)`, 'success')"
     />
 
     <!-- Stage 10 · OPTIMA Resource Optimization — VDT sliders + threshold visualization
@@ -10930,7 +15166,23 @@ function handleApertureLoadPlan(model: PlanModel): void {
       v-if="view === 'app' && optimaOpen"
       :spec="currentSpec"
       :vc-ratios="capturedVCRatios"
+      :planning-stage="planningStage"
+      :spec-presence="{
+        spec:            !!currentSpec,
+        stakeholders:    (currentSpec?.stakeholders?.length ?? 0) > 0,
+        values:          (currentSpec?.values?.length ?? 0) > 0,
+        functions:       (currentSpec?.functions?.length ?? 0) > 0,
+        solutions:       (currentSpec?.solutions?.length ?? 0) > 0,
+        resources:       (currentSpec?.resources?.length ?? 0) > 0,
+      }"
+      :stage2-sub-step="stage2SubStep"
+      :stage2-done-steps="stage2DoneSteps"
+      :has-plan="!!_evoPlan"
       @close="optimaOpen = false"
+      @navigate-stage="(n) => { optimaOpen = false; handleStageBarNav(n) }"
+      @open-agent="(agentId) => { optimaOpen = false; _openAgentFromEditor(agentId) }"
+      @go-stage2-substep="(target) => { optimaOpen = false; onStage2SubStepGo(target) }"
+      @continue-stage2="() => { optimaOpen = false; onStage2ContinueToStage3() }"
     />
 
     <!-- Auto-DBO — Design By Objectives
@@ -10954,9 +15206,25 @@ function handleApertureLoadPlan(model: PlanModel): void {
       :spec="currentSpec ?? specModel?.spec ?? null"
       :evo-steps="confirmedSteps"
       :tasks-by-step="tasksByStep"
+      :planning-stage="planningStage"
+      :spec-presence="{
+        spec:            !!currentSpec,
+        stakeholders:    (currentSpec?.stakeholders?.length ?? 0) > 0,
+        values:          (currentSpec?.values?.length ?? 0) > 0,
+        functions:       (currentSpec?.functions?.length ?? 0) > 0,
+        solutions:       (currentSpec?.solutions?.length ?? 0) > 0,
+        resources:       (currentSpec?.resources?.length ?? 0) > 0,
+      }"
+      :stage2-sub-step="stage2SubStep"
+      :stage2-done-steps="stage2DoneSteps"
+      :has-plan="!!_evoPlan"
       @close="pentaOpen = false"
       @update-spec="onPentaUpdateSpec"
       @open-value-aspects="onOpenValueAspects"
+      @navigate-stage="(n) => { pentaOpen = false; handleStageBarNav(n) }"
+      @open-agent="(agentId) => { pentaOpen = false; _openAgentFromEditor(agentId) }"
+      @go-stage2-substep="(target) => { pentaOpen = false; onStage2SubStepGo(target) }"
+      @continue-stage2="() => { pentaOpen = false; onStage2ContinueToStage3() }"
     /><!-- r41 v39 — Tom Gilb 2026-06-15 "penta did not catch the planguage stuff"
          — PentaPanel was receiving null when currentSpec was empty but specModel
          had the real generated spec (MultiForks read from specModel directly via
@@ -11091,6 +15359,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
       v-if="planguageToolsOpen"
       @close="planguageToolsOpen = false"
       @tool-activated="onPlanguageToolActivated"
+      @export-catalog="exportPlanguageToolsCatalog"
     />
 
     <!-- Solution Sharpening Interview — Tom 2026-06-08 Stage 5 dedicated tool.
@@ -11145,6 +15414,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @accept-fix="onIncorruptibleAcceptFix"
       @undo-fix="onIncorruptibleUndoFix"
       @select-history="handleStrategyAgentHistoryPick"
+      @confirm-and-view="handleIncorruptibleConfirmAndView"
     />
 
     <!-- r93aa — Incorruptible Sharpening panel (Q&A flow).
@@ -11181,6 +15451,116 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @accept-fix="onElonAcceptFix"
       @undo-fix="onElonUndoFix"
       @select-history="handleStrategyAgentHistoryPick"
+      @confirm-and-view="handleElonConfirmAndView"
+    />
+
+    <!-- ── Munger Agent panel (r41 v225, Tom Gilb 2026-06-20) ──────────────
+         Charlie Munger's 12 analytical prompts (Inversion → Deathbed) run as
+         a deterministic rule engine over the spec.  Mirrors the Elon /
+         Incorruptible pattern: panel + accept-fix + dismiss + score. -->
+    <MungerPanel
+      v-if="mungerOpen"
+      :spec="currentSpec"
+      :plan-title="specModel?.name || 'Untitled Plan'"
+      @close="mungerOpen = false"
+      @accept-fix="onMungerAcceptFix"
+      @confirm-and-view="handleMungerConfirmAndView"
+    />
+
+    <!-- ── Feynman Agent panel (r41 v385, Tom Gilb 2026-06-26) ─────────────
+         "now I want a Feynman Agent. See folder in assets and seach internet.
+          How would Richard evaluate a plan?" — 6 lenses, deterministic detector
+         engine over the spec.  Mirrors Munger / Heilmeier pattern.  Sources:
+         Tom-dropped 10-prompts PDF (Louis Gleeson @aigleeson) + Feynman 1974
+         Cargo Cult Science + Feynman 1986 Challenger Appendix F + Feynman
+         blackboard "What I cannot create, I do not understand" (1988). -->
+    <FeynmanPanel
+      v-if="feynmanOpen"
+      :spec="currentSpec"
+      :plan-title="specModel?.name || 'Untitled Plan'"
+      @close="feynmanOpen = false"
+      @accept-fix="onFeynmanAcceptFix"
+      @confirm-and-view="handleFeynmanConfirmAndView"
+    />
+
+    <!-- ── Heilmeier Agent panel (r41 v254, Tom Gilb 2026-06-22) ────────────
+         DARPA's 9-question Catechism (Heilmeier 1965-1977) + IEEE 2025
+         "Who is left out?" extension (Butler/Kohno et al.), mapped to
+         Planguage per Tom's comparison PDF.  Mirrors the Munger pattern:
+         panel + accept-fix + dismiss + Clarity Score. -->
+    <HeilmeierPanel
+      v-if="heilmeierOpen"
+      :spec="currentSpec"
+      :plan-title="specModel?.name || 'Untitled Plan'"
+      @close="heilmeierOpen = false"
+      @accept-fix="onHeilmeierAcceptFix"
+      @confirm-and-view="handleHeilmeierConfirmAndView"
+    />
+
+    <!-- Role Agent panel (r41 v305, Tom Gilb 2026-06-23 MAJOR REDESIGN
+         "PLEASE DO A MAJOR REDESIGN TO FOCUS ON ROLES AND RESPONSIBILITY").
+         13 detectors · Role IS Stakeholder (Tom #8/9) · Musk principle (#14).
+         Mirrors the Heilmeier panel pattern: panel + accept-fix + dismiss
+         + Compliance Score. -->
+    <RoleAgentPanel
+      v-if="roleAgentOpen"
+      :spec="currentSpec"
+      :plan-title="specModel?.name || 'Untitled Plan'"
+      @close="roleAgentOpen = false"
+      @accept-fix="onRoleAcceptFix"
+      @confirm-and-view="handleRoleAgentConfirmAndView"
+    />
+
+    <!-- Role Health Dashboard (r41 v312, Tom Gilb 2026-06-23 Phase 2 of
+         Roles redesign: per-Stakeholder Health Score + RACI Matrix + PHI
+         roll-up). Opens from the Cmd-Shift-H shortcut OR from any in-canvas
+         affordance that exposes Plan Health for the Role lineage. -->
+    <RoleHealthDashboard
+      v-if="roleHealthOpen"
+      :spec="currentSpec"
+      :evo-steps="confirmedSteps"
+      :plan-title="specModel?.name || 'Untitled Plan'"
+      @close="roleHealthOpen = false"
+    />
+
+    <!-- Role Flow Diagram (r41 v313, Tom Gilb 2026-06-23 Phase 3 of Roles
+         redesign; 14-point spec #10 "We should be able to generate a Role
+         diagram with all stakeholders, and how they relate to all
+         Planguage specs"). Opens from ⌘⇧R. Click a node to open the
+         matching Spec Editor tab. -->
+    <RoleFlowDiagram
+      v-if="roleFlowOpen"
+      :spec="currentSpec"
+      :evo-steps="confirmedSteps"
+      :plan-title="specModel?.name || 'Untitled Plan'"
+      @close="roleFlowOpen = false"
+      @open-editor="onRoleFlowOpenEditor"
+    />
+
+    <!-- Role Routing & Placeholder Resolver (r41 v314, Tom Gilb 2026-06-23
+         Phase 4 FINAL of Roles redesign; 14-point #14 + Tom 10-point Roles
+         framework #5 + #8). Opens from ⌘⇧X. Applies routing rules + promotes
+         placeholders via Universal Undo SUPREME. -->
+    <RoleRoutingRulesPanel
+      v-if="roleRoutingOpen"
+      :spec="currentSpec"
+      :plan-title="specModel?.name || 'Untitled Plan'"
+      @close="roleRoutingOpen = false"
+      @apply-routing="onApplyRoleRouting"
+      @promote-placeholder="onPromoteRolePlaceholder"
+    />
+
+    <!-- ── Agent Mode Picker (r41 v231, Tom Gilb 2026-06-20) ───────────────
+         One pin per agent in the AgentsStrip; clicking opens this picker;
+         the planner picks Principles / Analysis / Improvement / Sharpening
+         Q&A / Create Optional Version, and the picker dispatches to the
+         existing panel/handler.  Replaces the pair-of-pins (e.g. Elon +
+         Elon Sharp) pattern with a single pin + mode selector. -->
+    <AgentModePicker
+      v-if="modePickerOpen && modePickerAgentId"
+      :agent-id="modePickerAgentId"
+      @close="modePickerOpen = false"
+      @select-mode="onModeSelect"
     />
 
     <!-- Elon Sharpening panel (Q&A flow) — three access paths:
@@ -11371,6 +15751,35 @@ function handleApertureLoadPlan(model: PlanModel): void {
       }"
     />
 
+    <!-- r41 v335 — Diagnostics Panel: in-app console-error capture surface.
+         Replaces "open Safari Web Inspector" for the PWA window. -->
+    <DiagnosticsPanel
+      :open="diagnosticsOpen"
+      @close="diagnosticsOpen = false"
+    />
+
+    <!-- r41 v335 — Diagnostics floating button.  Top-right of viewport per the
+         Control-Pins-at-Top SUPREME rule.  Fixed position so always available
+         even during long scrolls / panels open / etc.  Red badge with error
+         count when there are uncaught errors; subdued grey when zero. -->
+    <button
+      type="button"
+      class="fixed top-2 right-2 z-[300] flex items-center gap-1.5 px-2.5 py-1.5 rounded-full
+             text-xs font-semibold shadow-lg ring-1
+             focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-colors"
+      :class="diagnosticsErrorCount > 0
+        ? 'bg-rose-100 text-rose-900 ring-rose-300 hover:bg-rose-200 animate-pulse'
+        : 'bg-slate-100/80 text-slate-600 ring-slate-300/60 hover:bg-slate-200'"
+      :title="diagnosticsErrorCount === 0
+        ? 'Diagnostics — no errors captured this session. Click to view the panel.'
+        : `Diagnostics — ${diagnosticsErrorCount} error${diagnosticsErrorCount === 1 ? '' : 's'} captured this session. Click to view + dismiss.`"
+      :aria-label="`Open Diagnostics panel (${diagnosticsErrorCount} captured ${diagnosticsErrorCount === 1 ? 'error' : 'errors'})`"
+      @click="diagnosticsOpen = true"
+    >
+      <span aria-hidden="true">🔍</span>
+      <span class="font-mono">{{ diagnosticsErrorCount }}</span>
+    </button>
+
     <!-- r41 v49 (Tom Gilb 2026-06-16) — Top-level Mode pin popover + governance dialog. -->
     <ActiveModePopover
       :open="activeModePopoverOpen"
@@ -11439,10 +15848,27 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @close="comparisonOpen = false"
     />
 
+    <!-- Stage 1.3 — Parse Implied Sharpening panel -->
+    <ParseImpliedSharpeningPanel
+      :open="parseImpliedSharpeningOpen"
+      :spec="currentSpec"
+      @close="parseImpliedSharpeningOpen = false"
+      @reject-entry="onStage13RejectEntry"
+      @refine-with-context="onStage13RefinementHint"
+    />
+
+    <!-- Initial Input viewer — Tom Gilb 2026-06-19 INITIAL SPECS request -->
+    <InitialInputPanel
+      :open="initialInputPanelOpen"
+      :snapshot="currentInitialInput"
+      @close="initialInputPanelOpen = false"
+    />
+
     <!-- Get A Plan — unified import / history / merge panel -->
     <GetAPlanPanel
       v-if="specInputOpen"
       :has-current-plan="!!currentSpec"
+      :restore-snapshot="restoreSnapshotForGetAPlan"
       @imported="handlePlanImported"
       @imported-and-sharpen="handlePlanImportedAndSharpen"
       @imported-with-meta="handlePlanImportedWithMeta"
@@ -11451,11 +15877,19 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @load-model="handleGetAPlanLoadModel"
       @restore-version="handleGetAPlanRestoreVersion"
       @close="specInputOpen = false"
+      @open-contracts-agent="() => { specInputOpen = false; contractsOpen = true }"
     />
 
-    <!-- Evo Step 10: In-app confidence survey (2S.V.PlannerConfidence / 2S.V.PlannerPlanningTrust) -->
+    <!-- r41 v237 (Tom Gilb 2026-06-21 verbatim "the 'how credible..' is junk
+         i never asked for and got rid of long ago, why is it popping up
+         here?") — SurveyGateModal mount permanently DISABLED via v-if="false".
+         Triggers in useSurveyGate.ts are also no-ops; this is the
+         belt-and-braces second layer so even if a future caller bypasses
+         the composable, the modal cannot render.  Feature invariant
+         `no-credibility-prompt` in scripts/feature-smoke-test.mjs locks
+         the regression. -->
     <SurveyGateModal
-      v-if="view === 'app'"
+      v-if="false"
       :visible="surveyVisible"
       :question="activeSurveyQuestion"
       @rate="survey.submitRating"

@@ -62,20 +62,21 @@ describe('SpecHistory.vue', () => {
     expect(wrapper.text()).toContain('No previous versions yet')
   })
 
-  it('renders versions with correct label (latest visible, older behind disclosure)', async () => {
+  it('renders versions with correct label (both visible — older versions shown by default)', async () => {
     addVersion(makeSpec('Spec A'), 'Generated')
     addVersion(makeSpec('Spec B'), 'Make Ambitious')
     const wrapper = mount(SpecHistory)
     // Both share an empty plan name so they bucket into one "Untitled" group.
-    // Newest (Make Ambitious) is the always-visible Latest card; the older
-    // (Generated) sits behind a "Show 1 older version" disclosure.
+    // showOlder starts as ref(true) so BOTH the latest and older cards are
+    // immediately visible — the component deliberately "never hides legitimate plans".
+    // The disclosure toggle starts expanded (aria-expanded="true").
     expect(wrapper.text()).toContain('Make Ambitious')
-    expect(wrapper.text()).not.toContain('Generated')
-    // Open the disclosure and confirm the older label becomes visible.
-    const toggle = wrapper.find('button[aria-expanded="false"]')
+    expect(wrapper.text()).toContain('Generated')  // visible by default (showOlder=true)
+    // Toggle collapses the older versions.
+    const toggle = wrapper.find('button[aria-expanded="true"]')
     expect(toggle.exists()).toBe(true)
     await toggle.trigger('click')
-    expect(wrapper.text()).toContain('Generated')
+    expect(wrapper.text()).not.toContain('Generated')
   })
 
   it('renders version with timestamp', () => {

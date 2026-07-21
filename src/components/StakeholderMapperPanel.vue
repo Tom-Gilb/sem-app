@@ -21,6 +21,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
+import PlanIdentityBand from './PlanIdentityBand.vue'  // r41 v96 (Tom Gilb 2026-06-16 "do that" — Phase 3 sweep)
 import EditGlyph from './icons/EditGlyph.vue'
 import {
   useStakeholderMapper,
@@ -38,11 +39,24 @@ import {
   sectionHeaderHtml,
 } from '../composables/useExportShared'
 
+const props = defineProps<{
+  /** r41 v96 — identity band fields (Phase 3 sweep). */
+  planName?: string
+  planOwner?: string
+  planVersion?: string
+  generatedAt?: string
+}>()
+
 const emit = defineEmits<{
   close: []
   /** User clicked Agents — App.vue should close this panel and open AgentMenuPanel. */
   'open-agents': []
+  /** r41 v96 — bubble history selection. */
+  'select-history': [versionId: string]
 }>()
+
+// Quiet the `props` unused-vars lint when this file is processed alone.
+void props
 
 // ── Composable ────────────────────────────────────────────────────────────────
 
@@ -243,8 +257,62 @@ function submitAdd(): void {
   mapper.selectStakeholder(sh.id)
 }
 
+// r41 v185 — Tom Gilb 2026-06-19 "thanks, now sem and leftovers" + "pls do
+// all requests".  Reverted from the v176 Claudian-routed flow back to the
+// direct-Anthropic analyze() flow.  The Claudian-routed handlers below
+// remain as dead-but-exported code for any future opt-in surface.
 function analyze(id: string): void {
   void mapper.draftAttributes(id)
+}
+
+
+const claudianPrompt = ref<string>('')
+const showPromptFor  = ref<string | null>(null)
+const pasteBufferFor = ref<string | null>(null)
+const pasteText      = ref<string>('')
+const pasteError     = ref<string>('')
+const refreshBusy    = ref<boolean>(false)
+const refreshMessage = ref<string>('')
+
+async function requestClaudianForId(id: string): Promise<void> {
+  const prompt = await mapper.requestClaudianDraft(id)
+  if (!prompt) return
+  claudianPrompt.value = prompt
+  showPromptFor.value  = id
+  pasteBufferFor.value = id
+  pasteText.value      = ''
+  pasteError.value     = ''
+}
+
+function openPasteFor(id: string): void {
+  pasteBufferFor.value = id
+  pasteText.value      = ''
+  pasteError.value     = ''
+}
+
+function applyPasteFor(id: string): void {
+  try {
+    mapper.applyClaudianResult(id, pasteText.value)
+    pasteText.value      = ''
+    pasteError.value     = ''
+    pasteBufferFor.value = null
+    showPromptFor.value  = null
+  } catch (err) {
+    pasteError.value = err instanceof Error ? err.message : 'Could not parse the pasted result.'
+  }
+}
+
+async function refreshDraftsFromDisk(): Promise<void> {
+  refreshBusy.value    = true
+  refreshMessage.value = ''
+  try {
+    const { updated, reason } = await mapper.loadDraftsFromDisk()
+    refreshMessage.value = updated > 0
+      ? `Loaded ${updated} stakeholder ${updated === 1 ? 'result' : 'results'} from disk.`
+      : reason ?? 'No new results on disk.'
+  } finally {
+    refreshBusy.value = false
+  }
 }
 
 function removeSelected(): void {
@@ -339,8 +407,8 @@ const STAKEHOLDER_WISDOM = [
   },
   {
     emoji: '🏛️',
-    title: 'Regulatory Stakeholders Are Always C. Entries',
-    text: 'GDPR, HIPAA, ISO standards, financial regulations — these are stakeholders whose requirements translate directly into Constraint (C.) entries. They cannot be negotiated. Identifying them early prevents costly late-stage compliance rework.',
+    title: 'Regulatory Stakeholders Are Always Constraint Entries',
+    text: 'GDPR, HIPAA, ISO standards, financial regulations — these are stakeholders whose requirements translate directly into Constraint entries. They cannot be negotiated. Identifying them early prevents costly late-stage compliance rework.',
     ref: 'Tom Gilb — inanimate stakeholders principle; Template_Write_Constraint.md',
   },
   {
@@ -351,8 +419,8 @@ const STAKEHOLDER_WISDOM = [
   },
   {
     emoji: '🎯',
-    title: 'S. Entries Feed the Entire Plan',
-    text: 'Stakeholder entries (S.) are not isolated — they seed the rest of the Planguage model. Each stakeholder\'s needs become V. or C. entries. Their resources become R. entries. Their required functions become F. entries. Start with stakeholders; the plan follows.',
+    title: 'Stakeholder Entries Feed the Entire Plan',
+    text: 'Stakeholder entries are not isolated — they seed the rest of the Planguage model. Each stakeholder\'s needs become Value or Constraint entries. Their resources become Resource entries. Their required functions become Function entries. Start with stakeholders; the plan follows.',
     ref: 'Proc_v_p_o_SpecifyFunction.md — 10.Standard/Standard.Kai-Zen/',
   },
   {
@@ -366,6 +434,31 @@ const STAKEHOLDER_WISDOM = [
 const smElapsed           = ref(0)
 const smSimulatedProgress = ref(0)
 const smActiveWisdomIdx   = ref(0)
+
+// ── Running-commentary phases (Tom Gilb 2026-06-16 "all stages") ──────────────
+// Pattern matches the LoadingProgress phases prop ratified 2026-06-03 + the
+// GENERATION_PHASES rotation in SpecOutput.vue. Each phase pairs an elapsed-
+// seconds boundary with a sentence narrating what the AI is conceptually doing
+// during the Stakeholder-Mapper Planguage-Model generation. Teaches the
+// Stakeholder-Engineering methodology in the same breath as the wait.
+interface StakeholderMapperPhase { atSecond: number; message: string }
+const STAKEHOLDER_MAPPER_PHASES: StakeholderMapperPhase[] = [
+  { atSecond: 0,  message: '📥 Reading the system description + active model context.' },
+  { atSecond: 6,  message: '👥 Identifying Stakeholders — animate AND inanimate (data, regulators, systems) per Tom Gilb canon.' },
+  { atSecond: 14, message: '⚙ Drafting Functions — bare-noun capabilities each Stakeholder needs.' },
+  { atSecond: 24, message: '🎯 Drafting Values — Scale / Tolerable / Goal / Wish per Stakeholder concern.' },
+  { atSecond: 36, message: '🔒 Drafting Constraints — binary rules (Must / Must not / ≤ / ≥) + Resources.' },
+  { atSecond: 50, message: '🔗 Cross-linking + validating the Planguage Representation.' },
+  { atSecond: 75, message: '⏱ Still working — complex domains with many Stakeholders take longer.' },
+]
+const currentStakeholderMapperNarrative = computed<string>(() => {
+  let pick = STAKEHOLDER_MAPPER_PHASES[0].message
+  for (const p of STAKEHOLDER_MAPPER_PHASES) {
+    if (p.atSecond <= smElapsed.value) pick = p.message
+    else break
+  }
+  return pick
+})
 
 let _smElapsedTimer: ReturnType<typeof setInterval> | null = null
 let _smWisdomTimer:  ReturnType<typeof setInterval> | null = null
@@ -383,7 +476,7 @@ function _startStakeholderLoadingAnim(): void {
   }, 250)
   _smWisdomTimer = setInterval(() => {
     smActiveWisdomIdx.value = (smActiveWisdomIdx.value + 1) % STAKEHOLDER_WISDOM.length
-  }, 8_000)
+  }, 10_000)  // Tom 2026-06-09: 10s card advance
 }
 
 function _stopStakeholderLoadingAnim(): void {
@@ -436,9 +529,12 @@ function _stopDraftingAnim(): void {
 }
 
 watch(
+  // r41 v176 — 'drafting' replaced by 'awaiting-claudian'.  The progress
+  // animation now signals "Claudian has been asked, planner is composing /
+  // pasting the result" — still a useful in-flight indicator.
   () => selected.value?.draftStatus === 'drafting',
-  (nowDrafting) => {
-    if (nowDrafting) _startDraftingAnim()
+  (nowAwaiting) => {
+    if (nowAwaiting) _startDraftingAnim()
     else             _stopDraftingAnim()
   },
 )
@@ -513,6 +609,11 @@ async function exportStakeholders(): Promise<void> {
     plainText:    _renderStakeholdersPlainText(),
     subject:      `Stakeholder Mapper · ${new Date().toLocaleDateString('en-AU')}`,
     artefactName: 'Stakeholder Mapper',
+    // Mailto-No-Self-To SUPREME (Tom Gilb 2026-06-16 verbatim "EMAIL SHARPENING
+    // YOU PUT THE MAIN IN THE TO SECTION, SILLY BOY"): Tom is the SENDER on a
+    // SEM-App-initiated export; recipient must be empty.  Without this explicit
+    // '', useExportShared.ts defaults to Tom@Gilb.com and Tom would email himself.
+    to: '',
   })
 }
 </script>
@@ -583,6 +684,16 @@ async function exportStakeholders(): Promise<void> {
           @click="emit('close')"
         />
       </div>
+
+      <!-- Plan identity band (r41 v96 — Phase 3 sweep) — indigo-toned. -->
+      <PlanIdentityBand
+        :plan-name="props.planName"
+        :plan-owner="props.planOwner"
+        :plan-version="props.planVersion"
+        :generated-at="props.generatedAt"
+        :theme="{ bg: 'bg-indigo-800', borderTop: 'border-indigo-500', label: 'text-indigo-100', pickerBorder: 'border-indigo-300' }"
+        @select-history="(id: string) => emit('select-history', id)"
+      />
 
       <!-- BODY: sidebar + content -->
       <div class="flex flex-1 min-h-0 bg-white">
@@ -707,13 +818,13 @@ async function exportStakeholders(): Promise<void> {
                 >
                   {{ sh.role }}
                 </p>
-                <!-- Draft status indicator -->
+                <!-- Draft status indicator — r41 v176 -->
                 <div class="flex items-center gap-1 mt-1">
                   <span
                     v-if="sh.draftStatus === 'drafting'"
                     :class="['text-[9px]', mapper.selectedId.value === sh.id ? 'text-white/80' : 'text-indigo-500']"
                   >
-                    ⟳ Analyzing…
+                    ⧗ Awaiting Claudian
                   </span>
                   <span
                     v-else-if="sh.draftStatus === 'done'"
@@ -725,7 +836,7 @@ async function exportStakeholders(): Promise<void> {
                     v-else-if="sh.draftStatus === 'error'"
                     :class="['text-[9px]', mapper.selectedId.value === sh.id ? 'text-orange-200' : 'text-orange-500']"
                   >
-                    ✕ Error
+                    ✕ Paste error
                   </span>
                   <span
                     v-else
@@ -829,7 +940,7 @@ async function exportStakeholders(): Promise<void> {
                 </p>
                 <!-- 2. Progress bar -->
                 <div
-                  class="w-full bg-indigo-100 rounded-full h-2 mb-6"
+                  class="w-full bg-indigo-100 rounded-full h-2 mb-3"
                   role="progressbar"
                   :aria-valuenow="smSimulatedProgress"
                   aria-valuemin="0"
@@ -839,6 +950,16 @@ async function exportStakeholders(): Promise<void> {
                     class="bg-indigo-500 h-2 rounded-full transition-all duration-300"
                     :style="{ width: smSimulatedProgress + '%' }"
                   />
+                </div>
+                <!-- r41 v57 (Tom Gilb 2026-06-16 "running commentary … all stages") —
+                     Phase-narrative banner: sentence-length description of what the
+                     AI is conceptually doing right now, rotating with elapsed seconds. -->
+                <div
+                  class="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 mb-6 text-[12px] text-indigo-900 leading-snug text-left"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {{ currentStakeholderMapperNarrative }}
                 </div>
               </template>
               <!-- 3. Wisdom card (always visible while block is mounted) -->
@@ -927,35 +1048,42 @@ async function exportStakeholders(): Promise<void> {
                 </p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                <!-- Analyze button -->
+                <!-- r41 v176 — Claudian-routed analysis pins -->
                 <button
                   v-if="selected.draftStatus === 'idle' || selected.draftStatus === 'error'"
                   type="button"
                   class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors flex items-center gap-1.5"
-                  title="Run AI analysis — drafts all 10 attribute levels with sources"
+                  title="Mark this stakeholder as awaiting Claudian and copy a paste-ready prompt to the clipboard.  Paste the prompt into Claudian (Claude Code), then paste Claudian's result back below."
                   @click="analyze(selected.id)"
                 >
-                  🤖 Analyze Attributes
+                  ✨ Request Claudian Analysis
                 </button>
                 <button
                   v-else-if="selected.draftStatus === 'done'"
                   type="button"
                   class="px-3 py-1.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs font-semibold transition-colors"
-                  title="Re-run AI analysis — overwrites existing attribute levels"
+                  title="Re-request Claudian — copies a fresh prompt to clipboard so Claudian can re-draft this stakeholder"
                   @click="analyze(selected.id)"
                 >
-                  🔄 Re-analyze
+                  🔄 Re-request Claudian
                 </button>
                 <div
                   v-else-if="selected.draftStatus === 'drafting'"
-                  class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-400 text-xs font-medium flex items-center gap-1.5"
+                  class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-500 text-xs font-medium flex items-center gap-1.5"
+                  title="Prompt copied to clipboard.  Paste it into Claudian, then paste Claudian's result back below using the Paste Result pin."
                 >
-                  <svg class="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Analyzing…
+                  ⧗ Awaiting Claudian
                 </div>
+                <!-- Refresh-from-disk pin — always available when a stakeholder is selected -->
+                <button
+                  type="button"
+                  class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors disabled:opacity-50"
+                  :disabled="refreshBusy"
+                  title="Pull batch results that Claudian wrote to public/data/stakeholderDrafts.json.  Use this after asking Claudian to draft multiple stakeholders in one pass."
+                  @click="refreshDraftsFromDisk"
+                >
+                  📥 {{ refreshBusy ? 'Refreshing…' : 'Refresh from disk' }}
+                </button>
                 <!-- Delete button -->
                 <button
                   type="button"
@@ -1006,81 +1134,137 @@ async function exportStakeholders(): Promise<void> {
                 </p>
               </div>
 
-              <!-- Drafting state (Rule 8: spinner + elapsed + progress bar + wisdom card) -->
+              <!-- r41 v176 — Awaiting-Claudian state.  Replaces the old
+                   'drafting' spinner.  Three things land here in this order:
+                   the explanation, the prompt textarea (paste-ready for
+                   Claudian, also auto-copied to clipboard), and a Paste
+                   Result textarea (where the planner pastes Claudian's reply). -->
               <div
                 v-if="selected.draftStatus === 'drafting'"
-                class="flex flex-col items-center justify-center py-12 text-center"
+                class="space-y-5 py-2"
               >
-                <!-- 1. Spinner -->
-                <svg class="animate-spin h-8 w-8 text-indigo-500 mb-3" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                <!-- Heading + elapsed -->
-                <p class="text-sm font-medium text-indigo-600 mb-0.5">Drafting attribute levels for {{ selected.name }}…</p>
-                <p class="text-xs text-slate-400 mb-3">{{ shDraftElapsed }}s elapsed — may take 15–30 seconds</p>
-                <!-- 2. Progress bar -->
-                <div
-                  class="w-full max-w-xs bg-indigo-100 rounded-full h-1.5 mb-5"
-                  role="progressbar"
-                  :aria-valuenow="shDraftSimulatedProgress"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                >
-                  <div
-                    class="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
-                    :style="{ width: shDraftSimulatedProgress + '%' }"
-                  />
-                </div>
-                <!-- 3. Wisdom card (rotating, same pool as auto-gen state) -->
-                <div class="w-full max-w-xs rounded-xl bg-indigo-50 border border-indigo-200 p-4 text-left">
-                  <div class="flex items-start gap-2">
-                    <span class="text-lg shrink-0 mt-0.5" aria-hidden="true">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].emoji }}</span>
+                <div class="rounded-xl bg-indigo-50 border border-indigo-200 p-4">
+                  <div class="flex items-start gap-3">
+                    <span class="text-2xl shrink-0" aria-hidden="true">✨</span>
                     <div class="flex-1 min-w-0">
-                      <p class="text-xs font-bold text-indigo-800 mb-1">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].title }}</p>
-                      <p class="text-[11px] text-slate-600 leading-relaxed">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].text }}</p>
+                      <p class="text-sm font-bold text-indigo-800 mb-1">Awaiting Claudian for {{ selected.name }}</p>
+                      <p class="text-xs text-slate-600 leading-relaxed mb-2">
+                        The prompt is on your clipboard.  Open Claudian (this Claude Code session in Obsidian, or Claude Code in the sem-app repo) and paste it.  Claudian returns a Planguage Representation; paste that back below to apply it.
+                      </p>
+                      <p class="text-[11px] text-slate-500 leading-relaxed">
+                        Or ask Claudian to draft several stakeholders in one pass and write them to <code class="text-[10px] bg-white px-1 py-0.5 rounded">public/data/stakeholderDrafts.json</code> — then click <strong>📥 Refresh from disk</strong>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Prompt textarea — paste-ready -->
+                <div v-if="showPromptFor === selected.id">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-xs font-semibold text-slate-700">Prompt for Claudian</label>
+                    <button
+                      type="button"
+                      class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold"
+                      title="Copy the prompt to clipboard again — in case the auto-copy was denied"
+                      @click="claudianPrompt && navigator.clipboard?.writeText(claudianPrompt)"
+                    >📋 Copy again</button>
+                  </div>
+                  <textarea
+                    :value="claudianPrompt"
+                    readonly
+                    rows="6"
+                    class="w-full text-[11px] font-mono leading-snug text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  ></textarea>
+                </div>
+
+                <!-- Paste-back textarea -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Paste Claudian's Planguage Result here
+                  </label>
+                  <textarea
+                    v-model="pasteText"
+                    rows="6"
+                    placeholder='Paste the Planguage Representation Claudian returned (the { "attributes": { ... } } shape).'
+                    class="w-full text-[11px] font-mono leading-snug text-slate-800 bg-white border border-slate-300 rounded-lg px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  ></textarea>
+                  <p v-if="pasteError" class="text-xs text-orange-600 mt-1.5">{{ pasteError }}</p>
+                  <div class="flex items-center justify-end gap-2 mt-2">
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                      title="Clear this paste buffer"
+                      @click="pasteText = ''; pasteError = ''"
+                    >Clear</button>
+                    <button
+                      type="button"
+                      class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                      :disabled="pasteText.trim().length === 0"
+                      title="Parse the pasted Planguage Result and apply it to this stakeholder"
+                      @click="applyPasteFor(selected.id)"
+                    >✓ Apply Result</button>
+                  </div>
+                </div>
+
+                <!-- Wisdom card stays — useful context while planner copy-pastes -->
+                <div class="rounded-xl bg-indigo-50/60 border border-indigo-200/70 p-3">
+                  <div class="flex items-start gap-2">
+                    <span class="text-base shrink-0 mt-0.5" aria-hidden="true">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].emoji }}</span>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-[11px] font-bold text-indigo-800 mb-0.5">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].title }}</p>
+                      <p class="text-[10px] text-slate-600 leading-relaxed">{{ STAKEHOLDER_WISDOM[smActiveWisdomIdx].text }}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Idle state (not yet analyzed) -->
+              <!-- r41 v176 — Idle state (not yet requested) -->
               <div
                 v-else-if="selected.draftStatus === 'idle'"
                 class="flex flex-col items-center justify-center py-16 text-center"
               >
-                <div class="text-4xl mb-4" aria-hidden="true">🤖</div>
+                <div class="text-4xl mb-4" aria-hidden="true">✨</div>
                 <h4 class="text-base font-semibold text-slate-700 mb-2">Attributes Not Yet Analyzed</h4>
                 <p class="text-sm text-slate-500 max-w-sm leading-relaxed mb-5">
-                  Click "Analyze Attributes" to have AI draft all 10 attribute levels
-                  with source URLs and specific facts for <strong>{{ selected.name }}</strong>.
+                  Click <strong>Request Claudian Analysis</strong> to have Claudian (Claude Code, on your machine) draft all 10 attribute levels with source URLs and specific facts for <strong>{{ selected.name }}</strong>.  The prompt is copied to your clipboard for paste-into-Claudian.
                 </p>
                 <button
                   type="button"
                   class="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors"
-                  title="Run AI analysis — drafts all 10 attribute levels with sources"
+                  title="Mark this stakeholder as awaiting Claudian and copy a paste-ready prompt to the clipboard."
                   @click="analyze(selected.id)"
                 >
-                  🤖 Analyze Attributes
+                  ✨ Request Claudian Analysis
                 </button>
+                <p v-if="refreshMessage" class="text-[11px] text-slate-500 mt-4">{{ refreshMessage }}</p>
               </div>
 
-              <!-- Error state -->
+              <!-- r41 v176 — Paste-error state (parse failure on the result) -->
               <div
                 v-else-if="selected.draftStatus === 'error'"
                 class="flex flex-col items-center justify-center py-12 text-center"
               >
                 <div class="text-4xl mb-3" aria-hidden="true">⚠️</div>
-                <h4 class="text-sm font-semibold text-orange-600 mb-1">Analysis Failed</h4>
-                <p class="text-xs text-slate-500 max-w-sm mb-4">{{ selected.draftError ?? 'Unknown error' }}</p>
-                <button
-                  type="button"
-                  class="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition-colors"
-                  title="Retry AI attribute analysis"
-                  @click="analyze(selected.id)"
-                >
-                  Retry Analysis
-                </button>
+                <h4 class="text-sm font-semibold text-orange-600 mb-1">Could not apply pasted result</h4>
+                <p class="text-xs text-slate-500 max-w-sm mb-4">{{ selected.draftError ?? 'The paste was not a valid Planguage Representation.' }}</p>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors"
+                    title="Open the Claudian request flow again — copies the prompt to clipboard and opens the paste-back textarea"
+                    @click="analyze(selected.id)"
+                  >
+                    ✨ Request Claudian Again
+                  </button>
+                  <button
+                    type="button"
+                    class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors"
+                    title="Open just the paste-back textarea (skip the prompt copy)"
+                    @click="openPasteFor(selected.id)"
+                  >
+                    📥 Paste Result
+                  </button>
+                </div>
               </div>
 
               <!-- Attribute detail rows -->

@@ -15,12 +15,12 @@
     class="w-full max-w-sm bg-white shadow-2xl z-[400] flex flex-col"
     role="dialog"
     aria-modal="true"
-    aria-label="Spec History"
+    aria-label="Past Specs"
   >
     <!-- Header -->
     <div class="flex items-center justify-between px-4 border-b border-gray-100 min-h-[56px] gap-2">
       <div class="flex items-center gap-2 min-w-0">
-        <h2 class="text-sm font-semibold text-gray-900 truncate">📋 Spec History</h2>
+        <h2 class="text-sm font-semibold text-gray-900 truncate">📋 Past Specs</h2>
         <span
           v-if="props.entries.length > 0"
           class="inline-flex items-center justify-center rounded-full bg-slate-200 text-slate-700
@@ -32,7 +32,7 @@
       </div>
       <CloseDot
         title="Close"
-        aria-label="Close spec history"
+        aria-label="Close Past Versions"
         @click="props.onClose()"
       />
     </div>

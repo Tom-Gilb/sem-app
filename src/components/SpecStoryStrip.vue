@@ -17,7 +17,7 @@
           emoji (24 px), an uppercase eyebrow ("ORIGIN" / "HAND-TUNED" /
           "SHARPENED" / "STEWARDS" / "AGE"), a primary value, and a one-
           line explainer in muted text so the meaning is obvious without
-          hovering for a tooltip.
+          hovering for a HoverHint.
        2. Cards are spread EVENLY across the bar via `justify-around` —
           dead-centre on small viewports, naturally distributed on wide
           ones (Tom: "The story elements can be spread and centred").
@@ -230,7 +230,7 @@ const age = computed<{ value: string; subtitle: string }>(() => {
   }
 })
 
-// ── Tooltip — explains the math + breakdown in plain English ─────────────────
+// ── HoverHint — explains the math + breakdown in plain English ─────────────────
 const handTunedTooltip = computed<string>(() => {
   const originLabel = props.planModel.specSource === 'manual'
     ? 'Manual origin (+80 You baseline — you typed it from scratch)'
@@ -274,7 +274,7 @@ Sharpen rounds count strongly (+5 each) because each round is many human decisio
          This card replaces the opaque "Human Touch ~0%" label. It shows
          the ratio as a literal split bar with 🤖 on the AI side and ✋
          on the You side, percentages on both ends so the meaning is
-         instantly obvious without ever needing a tooltip.
+         instantly obvious without ever needing a HoverHint.
          Tom 2026-05-12 (sixth pass): clicking this chapter now opens the
          HandTunedBreakdownPanel with the full per-activity breakdown — a
          delightful look at exactly which acts produced the score. -->

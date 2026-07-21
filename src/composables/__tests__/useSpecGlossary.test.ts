@@ -148,12 +148,76 @@ describe('useSpecGlossary', () => {
       expect(domainTermEntries.length).toBeGreaterThan(0)
     })
 
-    it('type is one of acronym, domain-term, metric', () => {
+    it('type is one of acronym, domain-term, metric, planguage-tag', () => {
       const { glossary, extractTerms } = useSpecGlossary()
       extractTerms(specWithCapTerms)
       for (const entry of glossary.value) {
-        expect(['acronym', 'domain-term', 'metric']).toContain(entry.type)
+        expect(['acronym', 'domain-term', 'metric', 'planguage-tag']).toContain(entry.type)
       }
+    })
+  })
+
+  describe('optional Planguage Tags category (r41 v393)', () => {
+    it('does NOT emit planguage-tag entries by default', () => {
+      const { glossary, extractTerms } = useSpecGlossary()
+      extractTerms(specWithAcronyms, { includePlanguageTags: false })
+      expect(glossary.value.filter(e => e.type === 'planguage-tag')).toHaveLength(0)
+    })
+
+    it('emits one planguage-tag entry per F/V/S entry when opted in', () => {
+      const { glossary, extractTerms } = useSpecGlossary()
+      extractTerms(specWithAcronyms, { includePlanguageTags: true })
+      const tags = glossary.value.filter(e => e.type === 'planguage-tag')
+      // 1 Function + 1 Value + 1 Solution = 3
+      expect(tags).toHaveLength(3)
+    })
+
+    it('each planguage-tag row carries a planguageType matching entry family', () => {
+      const { glossary, extractTerms } = useSpecGlossary()
+      extractTerms(specWithAcronyms, { includePlanguageTags: true })
+      const tags = glossary.value.filter(e => e.type === 'planguage-tag')
+      const types = tags.map(t => t.planguageType).sort()
+      expect(types).toEqual(['Function', 'Solution', 'Value'])
+    })
+
+    it('Planguage Tag rows interleave alphabetically with other categories', () => {
+      const { glossary, extractTerms } = useSpecGlossary()
+      extractTerms(specWithAcronyms, { includePlanguageTags: true })
+      const terms = glossary.value.map(e => e.term)
+      const sorted = [...terms].sort((a, b) => a.localeCompare(b))
+      expect(terms).toEqual(sorted)
+    })
+
+    it('Planguage Tag term uses mnemonic label (no dotted V./F./S. prefix in user-visible text)', () => {
+      const { glossary, extractTerms } = useSpecGlossary()
+      extractTerms(specWithAcronyms, { includePlanguageTags: true })
+      for (const t of glossary.value.filter(e => e.type === 'planguage-tag')) {
+        expect(t.term).not.toMatch(/^[VFSCRvfscr]\./)
+      }
+    })
+
+    it('setIncludePlanguageTags(true, spec) toggles + re-extracts', () => {
+      const { glossary, setIncludePlanguageTags, includePlanguageTags } = useSpecGlossary()
+      setIncludePlanguageTags(true, specWithAcronyms)
+      expect(includePlanguageTags.value).toBe(true)
+      expect(glossary.value.some(e => e.type === 'planguage-tag')).toBe(true)
+      setIncludePlanguageTags(false, specWithAcronyms)
+      expect(includePlanguageTags.value).toBe(false)
+      expect(glossary.value.some(e => e.type === 'planguage-tag')).toBe(false)
+    })
+
+    it('toHtml renders planguage-tag rows with Planguage Tag label', () => {
+      const { extractTerms, toHtml } = useSpecGlossary()
+      extractTerms(specWithAcronyms, { includePlanguageTags: true })
+      const html = toHtml()
+      expect(html).toContain('Planguage Tag')
+    })
+
+    it('toMarkdown labels planguage-tag rows with their canonical type', () => {
+      const { extractTerms, toMarkdown } = useSpecGlossary()
+      extractTerms(specWithAcronyms, { includePlanguageTags: true })
+      const md = toMarkdown()
+      expect(md).toMatch(/Planguage Tag · (Function|Value|Solution|Constraint|Resource)/)
     })
   })
 

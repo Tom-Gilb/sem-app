@@ -21,11 +21,11 @@ import SaveGlyph from './icons/SaveGlyph.vue'
 import GetGlyph from './icons/GetGlyph.vue'
 
 withDefaults(defineProps<{
-  /** Which glyph + tooltip to show. `save` = `*→[*]`, `get` = `[*]→*`. */
+  /** Which glyph + HoverHint to show. `save` = `*→[*]`, `get` = `[*]→*`. */
   kind: 'save' | 'get'
   /** Right-half label. e.g. "Save now" / "Save Edit Version" / "Get a Plan" / "Restore". */
   label: string
-  /** Tooltip on the action half (right). */
+  /** HoverHint on the action half (right). */
   actionTitle?: string
   /** aria-label on the action half (right). */
   actionAriaLabel?: string

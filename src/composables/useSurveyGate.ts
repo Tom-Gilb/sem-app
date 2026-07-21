@@ -106,30 +106,31 @@ export function useSurveyGate(userId: string | null = null) {
   let planningTriggeredThisSession = false
 
   /**
-   * Shows the post-generation survey if the 7-day cooldown has not fired.
-   * Call after a successful spec generation.
-   */
+   * r41 v237 (Tom Gilb 2026-06-21 verbatim "the 'how credible..' is junk i
+   * never asked for and got rid of long ago, why is it popping up here?")
+   * — both survey triggers permanently NEUTERED.  Tom removed the survey
+   * popup long ago and it silently resurfaced.  Converting the trigger
+   * functions to no-ops + leaving the composable in place so callers don't
+   * crash + still recording the storage helpers in case the data layer is
+   * read for analytics.  Banked as feature invariant
+   * `no-credibility-prompt` in scripts/feature-smoke-test.mjs so the popup
+   * cannot resurrect again silently.  Composes with No-Silent-Removal
+   * SUPREME (inverse — this rule prevents silent RE-ADDITION of dead
+   * features) + Tom-Repeats-Himself SUPREME (one repeat = one permanent
+   * invariant). */
   function triggerPostGeneration(): void {
-    if (isCooldownActive('post-generation')) return
-    activeSurveyType.value = 'post-generation'
-    activeSurveyQuestion.value = SURVEY_QUESTIONS['post-generation']
-    surveyVisible.value = true
-    setCooldown('post-generation')
+    // no-op — survey killed per Tom Gilb 2026-06-21
+    void isCooldownActive
   }
 
-  /**
-   * Shows the post-planning survey once per session if the 7-day cooldown has not fired.
-   * Call after the first Evo plan confirmation.
-   */
   function triggerPostPlanning(): void {
-    if (planningTriggeredThisSession) return
-    if (isCooldownActive('post-planning')) return
-    planningTriggeredThisSession = true
-    activeSurveyType.value = 'post-planning'
-    activeSurveyQuestion.value = SURVEY_QUESTIONS['post-planning']
-    surveyVisible.value = true
-    setCooldown('post-planning')
+    // no-op — survey killed per Tom Gilb 2026-06-21
+    void planningTriggeredThisSession
   }
+  // Suppress unused-binding lint since we keep them for future un-killing if Tom asks.
+  void planningTriggeredThisSession
+  void setCooldown
+  void storeResponse
 
   /**
    * Records the user's rating and closes the survey.

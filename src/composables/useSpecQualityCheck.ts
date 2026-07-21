@@ -48,15 +48,20 @@ function _specToFull(spec: SpecBlock): string {
 
 /** Compact summary of an other plan — enough for cross-spec conflict detection. */
 function _specToSummary(spec: SpecBlock, name: string): string {
-  const F = spec.functions.map(f =>
-    `  F. ${f.id}: ${f.description.slice(0, 80)}${f.description.length > 80 ? '…' : ''}`,
-  ).join('\n')
-  const V = spec.values.map(v =>
-    `  V. ${v.id}: ${v.description.slice(0, 60)} [Goal: ${v.goal}]`,
-  ).join('\n')
-  const S = spec.solutions.map(s =>
-    `  S. ${s.id}: ${s.description.slice(0, 60)}`,
-  ).join('\n')
+  // r41 v278 — defensive: stored entries from earlier schemas may have undefined
+  // description. Trace-Before-Patch SUPREME class-sweep applied.
+  const F = spec.functions.map(f => {
+    const d = f.description ?? ''
+    return `  F. ${f.id}: ${d.slice(0, 80)}${d.length > 80 ? '…' : ''}`
+  }).join('\n')
+  const V = spec.values.map(v => {
+    const d = v.description ?? ''
+    return `  V. ${v.id}: ${d.slice(0, 60)} [Goal: ${v.goal}]`
+  }).join('\n')
+  const S = spec.solutions.map(s => {
+    const d = s.description ?? ''
+    return `  S. ${s.id}: ${d.slice(0, 60)}`
+  }).join('\n')
   const C = (spec.constraints ?? []).map(c =>
     `  C. ${c.id}: ${c.description.slice(0, 60)} [Scope: ${(c.scope ?? '').slice(0, 30)}]`,
   ).join('\n')

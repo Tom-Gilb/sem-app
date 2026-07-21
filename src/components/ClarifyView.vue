@@ -123,6 +123,39 @@ const generatingEstPct = computed(() =>
       <AmuseMeButton :is-loading="loading" class="w-full mt-3" />
     </div>
 
+    <!-- r41 2026-06-20 (Tom Gilb verbatim "no questions appeared") —
+         empty-state when questions array is empty after loading.  Was a
+         silent failure: when the LLM returned malformed output that
+         filtered to an empty array, ClarifyView rendered nothing.  Now
+         shows a clear "no questions generated" message + a Skip / Try
+         Again path.  Composes with: No-Silent-Data-Loss SUPREME, DD-009
+         Zero-Training UI (the user knows what happened + can recover). -->
+    <div
+      v-else-if="questions.length === 0"
+      class="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3"
+      role="alert"
+    >
+      <p class="text-sm font-semibold text-amber-900 flex items-center gap-2">
+        <span aria-hidden="true">⚠</span>
+        No clarifying questions were generated.
+      </p>
+      <p class="text-xs text-amber-800 leading-relaxed">
+        This can happen when the AI's output didn't match the expected format, OR when the input doesn't have a clear Stakes/Ends/Means structure (e.g. an imported contract document is being treated as raw text rather than a goal-oriented brief).
+      </p>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-700 text-white hover:bg-amber-600"
+          @click="emit('skip')"
+        >Skip questions and go straight to generation</button>
+        <button
+          type="button"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-amber-300 text-amber-800 hover:bg-amber-100"
+          @click="emit('back')"
+        >Back to edit input</button>
+      </div>
+    </div>
+
     <!-- Questions list -->
     <ol
       v-else

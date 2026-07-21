@@ -187,39 +187,46 @@ export const STAGE_INFO_DATA: StageInfo[] = [
     ],
   },
 
-  // ── Stage 5: Refine ──────────────────────────────────────────────────────────
+  // ── Stage 5: Refine Attributes ───────────────────────────────────────────────
+  // Tom Gilb 2026-06-25 verbatim: "The info text (about constraints) is obsolete,
+  // maybe reflecting my initial intent. [Stage 5] is now about refining a variety
+  // of different attributes. Best generalized as 'Refine Attributes'."
+  // Re-framed from the constraint-centric draft to the canonical 5-sub-step
+  // re-design framing banked 2026-06-21 (Reduce Resources · More Value Same Cost
+  // · Reduce Risks · Relax Constraints + Qualifiers · Approve Solution Set).
   {
     stage: 5,
-    label: 'Refine',
+    label: 'Refine Attributes',
     plType: 'constraint',
-    tagline: 'Hard boundaries — must-not-violate conditions that bound the solution space',
+    tagline: 'Re-design across four attribute lenses — resources, value, risks, constraints + qualifiers — exiting with a Planner-approved Solution Set',
     sections: [
       {
         emoji: '📜',
         title: 'History',
-        body: 'The Apollo 13 mission (April 1970) is the most celebrated engineering example of constraint-bounded problem solving. With three astronauts aboard a crippled spacecraft, the mission control team at NASA had to design a return trajectory and a CO2 scrubber adapter under hard physical and temporal constraints — limited power, available materials, and a 4-day return window. Gene Kranz\'s famous directive "Failure is not an option" was a constraint, not a value. The solution space was not optimised; it was searched within fixed limits. Constraint satisfaction, not value maximisation, was the success criterion. Linear Programming (George Dantzig, 1947) formalised this: you optimise an objective within constraints, never without them.',
+        body: 'Re-design — change, delete, add — is the central engineering activity once a first-pass design exists. The Wright Brothers (1900-1903) iterated through dozens of wing-warping, propeller, and control-surface re-designs before powered flight at Kitty Hawk; each iteration refined a different attribute (lift, drag, control, structural mass). NASA\'s Apollo programme re-designed the Lunar Module guidance computer multiple times to balance memory, weight, and reliability under fixed mission constraints. Toyota\'s kaizen philosophy (Taiichi Ohno, 1940s onward) institutionalised continuous attribute refinement: reduce resource consumption, increase delivered value, lower failure risk, and re-examine constraints once they prove negotiable. Stage 5 generalises these patterns: every re-design iteration changes one or more attributes of the existing design while preserving the rest.',
         links: [
-          { label: 'Apollo 13 mission (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Apollo_13' },
-          { label: 'Linear programming — Dantzig (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Linear_programming' },
-          { label: 'ISO 9001 quality constraints standard (Wikipedia)', url: 'https://en.wikipedia.org/wiki/ISO_9001' },
+          { label: 'Wright Brothers — iterative design (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Wright_brothers' },
+          { label: 'Kaizen — continuous improvement (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Kaizen' },
+          { label: 'Apollo Guidance Computer (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Apollo_Guidance_Computer' },
         ],
       },
       {
         emoji: '📐',
         title: 'Planguage',
-        body: 'A C. (Constraint) entry is a binary must/must-not condition or a scalar budget limit that the plan must satisfy regardless of value optimisation. Constraints are not negotiated; they are hard outer bounds. Resource budgets (time, money, people) are C. entries (Budget sub-type). Regulatory requirements (GDPR, HIPAA, WCAG) are C. entries citing inanimate stakeholders. The primary prioritisation rule in Planguage is: maximise V. wishes within all C. entries (including Budgets and remaining resources). A plan that exceeds a constraint is not a partial success — it is a failure, regardless of how many values it achieves. C. entries carry: Tag, Description, Type (binary/scalar/budget), and Stakeholder anchor.',
+        body: 'Stage 5 is the re-design stage. Tom Gilb 2026-06-21 verbatim: "Re-design is any change to existing designs, deleting current designs, adding new design solutions." Four refinement lenses, one exit gate. (5.1 Reduce Resources) — lower cost / time / staff / vendor consumption against Solution Parameters Tier-2 costAspects + longTermCosts. (5.2 More Value, Same Cost) — raise Impact against Value entries without spending more (the Value-per-Cost ratio lens). (5.3 Reduce Risks) — Solution Parameters Tier-2 risks + sideEffects. (5.4 Relax Constraints + Qualifiers) — re-examine binding C. entries and r93jjj Qualifier conditions (when / where / who), relax temporarily or permanently while still bounded (r93mmm Infinity Trap). (5.5 Approve Solution Set) — Planner-level approval (not Owner-level) emitting the Solution Set + a Changes-List of implied edits to Stakeholder / Value / Constraints / Resources specs. Stages are cyclic — return to Stage 5 anytime.',
         links: [
           { label: 'Tom Gilb: SUCCESS (ResearchGate, open)', url: 'https://www.researchgate.net/publication/368222785_SUCCESS' },
           { label: 'Tom Gilb: Planguage glossary (Gilb.com)', url: 'https://www.gilb.com/planguage' },
+          { label: 'Tom Gilb: EVO 2024 (Gilb.com)', url: 'https://www.gilb.com/evo-2024' },
         ],
       },
       {
         emoji: '🗂️',
         title: 'SEM Examples',
-        body: 'For the flight-booking system: C.DevBudget — Type: Budget. Description: "Total engineering effort for the checkout redesign must not exceed 3 sprints (6 engineer-weeks)." C.WCAG — Type: Binary. Description: "All checkout UI must conform to WCAG 2.1 Level AA accessibility guidelines." Stakeholder: §.GDPR, §.LegalTeam. C.DataRetention — Type: Binary. Description: "Passenger PII collected during checkout must not be retained beyond 90 days after the associated flight date." Stakeholder: §.GDPR. None of these constraints are optional; a plan that violates any one of them fails outright.',
+        body: 'For the flight-booking system: (5.1 Reduce Resources) Re-design S.OnePageCheckout from a custom-built form to a third-party SDK — drops 2 engineer-weeks from the R.DevBudget envelope at equivalent functionality. (5.2 More Value, Same Cost) Add an inline seat-map preview to S.OnePageCheckout — raises estimated Impact on V.BookingTime by ~12% at no additional sprint cost. (5.3 Reduce Risks) Add a feature flag to S.OnePageCheckout — the sideEffect "payment-flow regression" is now mitigated by instant rollback. (5.4 Relax Constraints + Qualifiers) Re-examine C.WCAG 2.1 Level AA as a Qualifier-bounded constraint — Level AAA only required on payment-confirmation pages, not the search form, lowering implementation cost. (5.5 Approve Solution Set) Planner signs off on the four re-designs as a coherent set, emits the Changes-List: V.BookingTime impact estimate revised, new R. entry for SDK licence cost, C.WCAG note refined with Qualifier scope.',
         links: [
-          { label: 'WCAG 2.1 AA standard (W3C)', url: 'https://www.w3.org/TR/WCAG21/' },
-          { label: 'GDPR full text (EUR-Lex)', url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679' },
+          { label: 'Tom Gilb: EVO 2024 book (Gilb.com)', url: 'https://www.gilb.com/evo-2024' },
+          { label: 'Lean Startup — build/measure/learn cycle (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Lean_startup' },
         ],
       },
     ],

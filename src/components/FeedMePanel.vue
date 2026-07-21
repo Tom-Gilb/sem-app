@@ -233,7 +233,7 @@ function fmtDateTime(ms: number): string {
               <button
                 type="button"
                 class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
-                title="Copies a structured FEED ME! prompt for this plan to the clipboard. Paste it into Claudian; paste the JSON result back here."
+                title="Copies a structured FEED ME! prompt for this plan to the clipboard. Paste it into Claudian; paste the Planguage Representation result back here."
                 @click="onGenerateViaClaudian"
               >{{ copyFlash ? '✓ Prompt copied to clipboard' : 'Generate via Claudian' }}</button>
               <button
@@ -316,7 +316,7 @@ function fmtDateTime(ms: number): string {
                 </header>
                 <div class="grid grid-cols-3 gap-3 text-[11px]">
                   <div>
-                    <p class="font-semibold text-emerald-700 mb-1">V. Status Δ</p>
+                    <p class="font-semibold text-emerald-700 mb-1">Value Status Δ</p>
                     <ul class="space-y-0.5 text-slate-700">
                       <li v-for="(d, v) in step.vStatusDelta" :key="v">
                         <span class="font-mono">{{ v }}</span>: <span :class="d >= 0 ? 'text-emerald-700' : 'text-red-700'" class="font-bold">{{ d >= 0 ? '+' : '' }}{{ d }}</span>
@@ -586,14 +586,14 @@ function fmtDateTime(ms: number): string {
 
           <!-- Paste area — visible after Generate-via-Claudian -->
           <section v-if="set && showPaste" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <h4 class="text-xs font-bold text-slate-700 mb-1">Paste FEED ME! JSON from Claudian</h4>
+            <h4 class="text-xs font-bold text-slate-700 mb-1">Paste FEED ME! Planguage Representation from Claudian</h4>
             <p class="text-[11px] text-slate-500 mb-2">The pasted set REPLACES the current one.  Audit trail on existing approved actions will be lost.</p>
             <textarea
               v-model="pasteText"
               rows="4"
               placeholder='{"feedbackBase": {...}, "evoBase": {...}, "recommendedActions": [...]}'
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-[11px] font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              aria-label="Paste JSON from Claudian"
+              aria-label="Paste Planguage Representation from Claudian"
             />
             <div class="flex items-center gap-2 mt-2">
               <button
@@ -631,7 +631,7 @@ function fmtDateTime(ms: number): string {
           <button
             type="button"
             class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors"
-            title="Copy a fresh FEED ME! prompt and paste the JSON result back to refresh the set"
+            title="Copy a fresh FEED ME! prompt and paste the Planguage Representation result back to refresh the set"
             @click="onGenerateViaClaudian"
           >{{ copyFlash ? '✓ Copied' : 'Regenerate via Claudian' }}</button>
         </footer>

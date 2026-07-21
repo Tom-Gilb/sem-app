@@ -53,7 +53,7 @@ export type StageNavAction =
  * Advisory toast kind. Non-blocking — the navigation still proceeds; the user
  * is informed about a prerequisite they have not yet completed. null = no toast.
  */
-export type StageToastKind = 'spec-missing' | 'steps-missing' | null
+export type StageToastKind = 'spec-missing' | 'values-missing' | 'steps-missing' | null
 
 /** Result returned by resolveStageNavAction. */
 export interface StageNavResult {
@@ -86,9 +86,12 @@ const STAGE_ACTION_MAP: Record<number, StageNavAction> = {
   2:  'to-spec',    // Solutions
   3:  'to-spec',    // Sharpen — functions presence-test discipline
   4:  'to-spec',    // Impacts — V. entries Scale/Meter/Tolerable/Goal in spec editor
-  5:  'to-spec',    // Refine — C. (Constraint) entries; spec editor has the Constraints tab
-                   //          Previously 'to-impact' which routed Refine clicks to the
-                   //          IET view + showed a wrong "Next → Stage 11" forward button.
+  5:  'to-impact',  // Refine Solutions — dedicated RefineSolutionsView (Tom 2026-06-08 major redesign).
+                   //                   'to-impact' sets stage=3, same as planningStage 10 (Resources).
+                   //                   The planningStage===5 template block in App.vue takes precedence
+                   //                   over the generic stage===3 block, so the new view renders.
+                   //                   Previously 'to-spec' which just opened the spec editor with no
+                   //                   dedicated stage 5 interface — no toolbox, no Efficiency metric.
   6:  'to-evo',     // Evo Steps — Develop sub-cycle entry, EvoPlanView
   7:  'to-impact',  // Evo Impact — Tom 2026-06-03: stage 7 IS the Impact Estimation
                    // table (V × S).  Was 'to-evo' which left the body empty because the
@@ -126,12 +129,23 @@ export function resolveStageNavAction(
   specEditorOpen: boolean,
   hasCurrentSpec: boolean,
   hasEvoSteps:    boolean,
+  /** r41 v82 (Tom Gilb 2026-06-16 "tried to go st 2, msg stakeholders not defined,
+   *  but we know that are, please fix bug") — explicit count of V. entries.
+   *  Stage 3 (Sharpen) checks values-missing not spec-missing.  When undefined,
+   *  treated as 0 (legacy callers).  Pass `currentSpec?.values?.length ?? 0`. */
+  valuesCount: number = 0,
 ): StageNavResult {
   // ── Advisory toast (non-blocking; checked before routing) ──────────────────
-  // Precedence: spec-missing over steps-missing (can't have steps without a spec).
+  // Precedence: spec-missing > values-missing > steps-missing (cascades).
   let toast: StageToastKind = null
   if (n >= 2 && !hasCurrentSpec) {
     toast = 'spec-missing'
+  } else if (n === 3 && hasCurrentSpec && valuesCount === 0) {
+    // r41 v82 — Stage 3 (Sharpen) used to fire 'spec-missing' which said
+    // "needs a Spec with Values defined" even when the spec existed (which
+    // confused Tom: "we know that are").  Now distinct: 'values-missing'
+    // for the spec-but-no-V case, 'spec-missing' for the no-spec case.
+    toast = 'values-missing'
   } else if (n >= 7 && !hasEvoSteps) {
     toast = 'steps-missing'
   }
@@ -162,6 +176,8 @@ export function resolveStageNavAction(
 export const STAGE_TOAST_MESSAGES: Record<NonNullable<StageToastKind>, string> = {
   'spec-missing':
     '💡 Add a spec at Stakes first to get the most from later stages — but you can always explore ahead',
+  'values-missing':
+    '💡 Your spec has no V. (Value) entries yet — Sharpen works best once Values are defined. Use Stage 1 to add them, or jump ahead anyway',
   'steps-missing':
     '💡 Define Evo Steps (stage 6) first to measure value impact — but feel free to look ahead',
 }
@@ -192,6 +208,12 @@ export function getStageAdvisory(n: number, kind: NonNullable<StageToastKind>): 
   const prereq = STAGE_PREREQ[n]
   if (kind === 'spec-missing' && prereq) {
     return `⚠️ Stage ${n} needs ${prereq.need}.\n${prereq.fix} — but you can explore any stage freely`
+  }
+  if (kind === 'values-missing') {
+    // r41 v82 — distinct message for "spec exists but no V. entries yet" so
+    // the toast does NOT claim "needs a Spec" when Tom can see his spec on
+    // screen.  Plain English, honest about what's actually missing.
+    return `💡 Stage ${n} (Sharpen) works best with V. (Value) entries to sharpen — your spec has none yet.\nAdd V. entries via the Spec Editor or generate them at Stakes — but you can explore freely`
   }
   if (kind === 'steps-missing' && prereq) {
     return `⚠️ Stage ${n} needs ${prereq.need}.\n${prereq.fix} — but you can look ahead freely`

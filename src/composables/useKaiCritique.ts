@@ -77,7 +77,7 @@ export function useKaiCritique(apiKey?: string) {
           principle: 'traceability',
           entryId: firstS.id,
           issue: 'Solution description does not explicitly reference which Function or Value it implements.',
-          suggestion: 'Gilb: "Every S. must be traceable to its parent F. or V. entries. State \'implements F.X\' or \'delivers V.Y\' explicitly — traceability is mandatory in Planguage."',
+          suggestion: 'Gilb: "Every Solution must be traceable to its parent Function or Value entry. State \'implements Function X\' or \'delivers Value Y\' explicitly — traceability is mandatory in Planguage."',
           severity: 'high',
         })
       }

@@ -32,7 +32,7 @@
     <Transition name="si">
       <div
         v-if="hasLess"
-        class="absolute top-0 left-0 right-0 h-14 pointer-events-none z-10"
+        class="absolute top-0 left-0 right-0 h-16 pointer-events-none z-10"
         aria-hidden="true"
       >
         <div
@@ -41,9 +41,9 @@
         />
         <div v-if="!noPill" class="absolute top-2 left-0 right-0 flex justify-center">
           <div
-            class="flex items-center gap-1 rounded-full bg-gray-800 text-white text-[10px] font-semibold px-2.5 py-1 shadow-lg animate-bounce"
+            class="flex items-center gap-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 shadow-xl animate-bounce ring-1 ring-white/20"
           >
-            <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd"
                 d="M14.78 11.78a.75.75 0 0 1-1.06 0L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06z"
                 clip-rule="evenodd" />
@@ -58,7 +58,7 @@
     <Transition name="si">
       <div
         v-if="hasMore"
-        class="absolute bottom-0 left-0 right-0 h-14 pointer-events-none z-10"
+        class="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
         aria-hidden="true"
       >
         <!-- Gradient fade — solid at bottom 30%, fades to transparent -->
@@ -71,16 +71,16 @@
              Shows ↕ when in the middle (hasLess AND hasMore), ↓ when at the top (only hasMore). -->
         <div v-if="!noPill" class="absolute bottom-2 left-0 right-0 flex justify-center">
           <div
-            class="flex items-center gap-1 rounded-full bg-gray-800 text-white text-[10px] font-semibold px-2.5 py-1 shadow-lg animate-bounce"
+            class="flex items-center gap-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 shadow-xl animate-bounce ring-1 ring-white/20"
           >
             <!-- Up-down arrows when in the middle (content both above and below) -->
-            <svg v-if="hasLess" class="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <svg v-if="hasLess" class="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd"
                 d="M10 3a.75.75 0 0 1 .53.22l3.5 3.5a.75.75 0 0 1-1.06 1.06L10 4.81 7.03 7.78a.75.75 0 0 1-1.06-1.06l3.5-3.5A.75.75 0 0 1 10 3zm-3.47 9.22a.75.75 0 0 1 1.06 0L10 15.19l2.97-2.97a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 0-1.06z"
                 clip-rule="evenodd" />
             </svg>
             <!-- Down arrow only when at the top (only hasMore) -->
-            <svg v-else class="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <svg v-else class="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd"
                 d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z"
                 clip-rule="evenodd" />
@@ -97,15 +97,15 @@
          Suppressed by noPill (same flag that suppresses the badges). -->
     <div
       v-if="isScrollable && !noPill"
-      class="absolute right-0 top-0 bottom-0 w-1 pointer-events-none z-10"
+      class="absolute right-0 top-0 bottom-0 w-1.5 pointer-events-none z-10"
       aria-hidden="true"
       aria-label="Scroll position indicator"
     >
       <!-- Track rail -->
-      <div class="absolute inset-0 rounded-full bg-slate-300/30" />
+      <div class="absolute inset-0 rounded-full bg-slate-400/40" />
       <!-- Thumb -->
       <div
-        class="absolute left-0 right-0 rounded-full bg-slate-600/50 transition-[top,height] duration-75"
+        class="absolute left-0 right-0 rounded-full bg-slate-700/70 transition-[top,height] duration-75"
         :style="{
           top:    (scrollRatio * (100 - Math.max(visibleRatio * 100, 8))) + '%',
           height: Math.max(visibleRatio * 100, 8) + '%',

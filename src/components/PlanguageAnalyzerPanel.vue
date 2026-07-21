@@ -36,12 +36,22 @@ import { type FeedMeSet, storageKey as feedMeKey } from '../data/feedMe'
 import type { AISource, SourceProvenance } from '../data/aiSource'
 import { AI_SOURCE_META } from '../data/aiSource'
 import type { SpecBlock } from '../types/spec'
+import { exportArtefact } from '../composables/useExportShared'
+import {
+  renderPlanguageAnalyzerHtml,
+  renderPlanguageAnalyzerPlain,
+  type AnalyzerFinding,
+} from '../composables/usePlanguageAnalyzerExport'
 
 const props = defineProps<{
   spec: SpecBlock
   planId?: string
   /** Current evo steps (for cross-referencing improvement findings to steps). */
   stepNames?: string[]
+  /** Optional plan name forwarded for the export header. */
+  planName?: string
+  /** Optional plan version label forwarded for the export header. */
+  planVersion?: string
 }>()
 
 defineEmits<{ close: [] }>()
@@ -238,6 +248,41 @@ function severityBadge(sev: UnifiedFinding['severity']): { label: string; classe
     case 'info':   return { label: 'info',   classes: 'bg-slate-100 text-slate-600 border-slate-300' }
   }
 }
+
+// ── Export · Tom Gilb 2026-06-23 autonomous backlog batch ───────────────────
+// Export-Button-on-All-Windows SUPREME sweep target. Planguage Analyzer was on
+// the pending list; this handler closes that gap. Mailto-No-Self-To SUPREME
+// (Tom Gilb 2026-06-16): Tom is the SENDER on a SEM-App-initiated export —
+// recipient is empty so Tom chooses on the Mail.app side.
+async function exportPlanguageAnalyzer(): Promise<void> {
+  const mapped: AnalyzerFinding[] = findings.value.map((f) => ({
+    id: f.id,
+    origin: f.origin,
+    originLabel: f.originLabel,
+    severity: f.severity,
+    targetRef: f.targetRef,
+    title: f.title,
+    description: f.description,
+    provenance: f.provenance,
+  }))
+  await exportArtefact({
+    htmlText: renderPlanguageAnalyzerHtml({
+      planName: props.planName ?? 'Current Spec',
+      versionLabel: props.planVersion ?? '',
+      findings: mapped,
+      countsBySource: countsBySource.value,
+    }),
+    plainText: renderPlanguageAnalyzerPlain({
+      planName: props.planName ?? 'Current Spec',
+      versionLabel: props.planVersion ?? '',
+      findings: mapped,
+      countsBySource: countsBySource.value,
+    }),
+    subject: `Planguage Analyzer · ${props.planName ?? 'Current Spec'} · ${new Date().toLocaleDateString('en-AU')}`,
+    artefactName: 'Planguage Analyzer',
+    to: '',
+  })
+}
 </script>
 
 <template>
@@ -266,6 +311,19 @@ function severityBadge(sev: UnifiedFinding['severity']): { label: string; classe
             title="Re-load findings from each tool's localStorage"
             @click="refresh"
           >Refresh</button>
+          <!-- ⬇ Export · Tom Gilb 2026-06-06 universal Export-on-all-windows rule.
+               Mailto-No-Self-To SUPREME — to:'' (Tom is the sender). -->
+          <button
+            type="button"
+            class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg
+                   bg-amber-400/30 hover:bg-amber-400/50 text-white text-xs font-semibold
+                   border border-amber-200/50 hover:border-amber-100 transition-colors"
+            title="⬇ Export Planguage Analyzer — opens preview window with 100% of the aggregated findings (per-source-layer counts, per-tool groupings, Conjunction-of-Technologies footer, Glossary footnote). Copies colourful HTML to clipboard. Opens Mail (To: empty — you choose recipient)."
+            aria-label="Export Planguage Analyzer — preview window + clipboard + Mail"
+            @click="exportPlanguageAnalyzer"
+          >
+            ⬇ Export
+          </button>
           <CloseDot variant="on-dark" aria-label="Close Planguage Analyzer" @click="$emit('close')" />
         </header>
 

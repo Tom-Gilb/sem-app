@@ -31,7 +31,7 @@ export function useValueChain(blocks: SpecBlock[]) {
   const supportActivities = computed((): VcActivity[] => {
     return blocks.flatMap(b => b.solutions).slice(0, 4).map(s => {
       const linkedV = blocks.flatMap(b => b.values).find(v =>
-        s.impact.includes(v.id),
+        (s.impact ?? '').includes(v.id),
       )
       return {
         id: s.id,

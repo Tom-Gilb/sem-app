@@ -43,30 +43,32 @@ const isMockMode = import.meta.env.VITE_MOCK_MODE === 'true'
 function mockDraftValue(entry: VEntry): DraftResult {
   const desc = (entry.description || '').toLowerCase()
 
-  // Infer scale/units from keywords in the description
+  // Infer scale/units from keywords in the description.
+  // Note: availability/uptime/reliability are checked BEFORE time/latency/speed
+  // because 'uptime' contains the substring 'time' and would otherwise false-match.
   let scale = 'count'
   let unit = ''
 
-  if (desc.includes('time') || desc.includes('latency') || desc.includes('speed')) {
+  if (desc.includes('availability') || desc.includes('uptime') || desc.includes('reliability')) {
+    scale = 'percent'
+    unit = '%'
+  } else if (desc.includes('quality') || desc.includes('satisfaction') || desc.includes('rating')) {
+    scale = 'percent'
+    unit = '%'
+  } else if (desc.includes('time') || desc.includes('latency') || desc.includes('speed')) {
     scale = 'milliseconds'
     unit = 'ms'
   } else if (desc.includes('cost') || desc.includes('price') || desc.includes('budget') || desc.includes('expense')) {
     scale = 'USD'
     unit = '$'
-  } else if (desc.includes('quality') || desc.includes('satisfaction') || desc.includes('rating')) {
-    scale = 'percent'
-    unit = '%'
-  } else if (desc.includes('availability') || desc.includes('uptime') || desc.includes('reliability')) {
-    scale = 'percent'
-    unit = '%'
   } else if (desc.includes('memory') || desc.includes('storage') || desc.includes('capacity')) {
     scale = 'megabytes'
     unit = 'MB'
   }
 
   // Heuristic tolerable/wish values based on scale
-  const baseTolerable = unit === '%' ? '80%' : unit === 'ms' ? '500ms' : unit === '$' ? '10000$' : '50'
-  const baseWish = unit === '%' ? '95%' : unit === 'ms' ? '100ms' : unit === '$' ? '5000$' : '100'
+  const baseTolerable = unit === '%' ? '80%' : unit === 'ms' ? '500ms' : unit === '$' ? '10000$' : unit === 'MB' ? '500MB' : '50'
+  const baseWish = unit === '%' ? '95%' : unit === 'ms' ? '100ms' : unit === '$' ? '5000$' : unit === 'MB' ? '1000MB' : '100'
 
   return {
     entryId: entry.id,

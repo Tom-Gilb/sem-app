@@ -37,7 +37,7 @@ const props = defineProps<{
 const resolvedSource = computed<AISource>(() => props.provenance?.source ?? props.source ?? 'template')
 const meta = computed(() => AI_SOURCE_META[resolvedSource.value])
 
-/** Build the hover-tooltip text: base description + any citation detail. */
+/** Build the HoverHint text: base description + any citation detail. */
 const tooltip = computed<string>(() => {
   const parts: string[] = [meta.value.label, '— ' + meta.value.description]
   const p = props.provenance

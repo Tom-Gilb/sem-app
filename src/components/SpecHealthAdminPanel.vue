@@ -603,7 +603,7 @@ function toggleOwnerNotify(ownerId: string, on: boolean): void {
               :title="`Wipe all ${ph.custom.value.snapshots.length} snapshots — requires reason`"
               :disabled="!ph.custom.value.snapshots.length"
               @click="startEdit('clear-snapshots', 'all-snapshots', null)"
-            >Clear history…</button>
+            >Clear past versions…</button>
           </label>
 
           <!-- Per-Owner notification subset (only when there are Owner records) -->
@@ -890,7 +890,7 @@ function toggleOwnerNotify(ownerId: string, on: boolean): void {
           @click="showSnapshots = !showSnapshots"
         >
           <span>{{ showSnapshots ? '▾' : '▸' }}</span>
-          <span>📈 Snapshot history ({{ ph.custom.value.snapshots.length }})</span>
+          <span>📈 Past snapshots ({{ ph.custom.value.snapshots.length }})</span>
           <span class="ml-auto text-[10px] font-normal text-slate-500">full graph in 📊 Status →</span>
         </button>
         <ScrollContainer

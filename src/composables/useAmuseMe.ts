@@ -187,7 +187,7 @@ export function pictureUrl(keyword: string, seed?: number): string {
 //
 // Format kept as "Label — short description" so the existing "What Happens
 // Next" copy reads naturally.  Description text drawn from PLANNING_STAGES'
-// `title` field (full hover-tooltip explanation) trimmed to the leading
+// `title` field (full HoverHint explanation) trimmed to the leading
 // dash-separated clause for brevity.
 const STAGE_NAMES: Record<number, string> = (() => {
   const m: Record<number, string> = {}
@@ -253,7 +253,7 @@ export function planProgressText(spec: SpecBlock | null | undefined): string {
   }
 
   if (vCount > 0 && sCount > 0) {
-    parts.push('Estimated wait: up to 60 seconds on slow networks. A completion sound will play when done.')
+    parts.push('Estimated wait: typically 60-180 seconds; larger inputs can take 3-5 minutes (AI model processing, not network). A completion sound will play when done.')
   }
 
   return parts.join(' ')

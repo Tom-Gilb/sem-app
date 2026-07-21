@@ -13,7 +13,8 @@
        loading   — drives the timer; pass the composable's loading ref
        label     — e.g. "Parsing as Planguage…"
        baseline  — expected seconds to completion (calibrates % estimate)
-       hint      — sentence shown after baseline/2 s, e.g. "can take up to 60s on slow networks"
+       hint      — sentence shown after baseline/2 s; describe the AI work, not network (e.g.
+                   "typically 60-180s; larger inputs take longer — AI model processing, not network")
        color     — bar + text accent: indigo | amber | slate | emerald (default: indigo)
        phases    — optional [{ atSecond, message }] — when elapsed crosses
                    each `atSecond` boundary, the matching `message` is shown

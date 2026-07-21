@@ -46,7 +46,7 @@
 -->
 <script setup lang="ts">
 // UNIT_TYPE=Panel
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import CloseDot from './CloseDot.vue'
 import ScrollContainer from './ScrollContainer.vue'
 import { useMultiVision } from '../composables/useMultiVision'
@@ -55,7 +55,15 @@ import { useMultiVision } from '../composables/useMultiVision'
 // rename (Phase D, see SEM-Design-History). The local alias `planModel` is
 // kept so the rest of this file's references continue to work unchanged.
 import { useSpecModel as usePlanModel } from '../composables/useSpecModel'
-import { GOAL_VALIDITY_CONDITIONS } from '../composables/usePlanguageTerms'
+import {
+  GOAL_VALIDITY_CONDITIONS,
+  PLANGUAGE_TERMS,
+  RESOURCE_ALLOCATION_TERMS,
+  type PlanguageTerm,
+} from '../composables/usePlanguageTerms'
+import { rBudget, rBudgetLabel } from '../types/spec'
+import PlanguageTermWidget from './PlanguageTerm.vue'
+import { keyedLevelHoverHint } from '../composables/useKeyedLevelInfo'
 
 const props = defineProps<{
   open: boolean
@@ -64,7 +72,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ close: [] }>()
 
-const { values, resources, balanceScore, parsePlanguageThreshold } = useMultiVision()
+const { values, resources, solutions, balanceScore, parsePlanguageThreshold } = useMultiVision()
 const { currentModel: planModel } = usePlanModel()
 
 // ── Diagram constants ────────────────────────────────────────────────────────
@@ -90,48 +98,64 @@ interface PlaceholderRow {
   wish?: string
   isPlaceholder: true
 }
+// Tom Gilb 2026-06-07 doctrine correction: Tolerable for Resources is the
+// MINIMUM allocation for non-failure (not a maximum consumption cap).
+// Placeholder values reflect the correct axis: Tolerable (floor) < Budget (official).
+// "CONSUMPTION ITSELF IS A DIFFERENT MATTER — NOT A PLAN TO CONSUME, JUST A HISTORIC FACT."
 const PLACEHOLDER_RESOURCES: PlaceholderRow[] = [
   {
-    id: 'R.Time',
-    description: 'Calendar time available per Evo Step',
+    id: 'R.Deadline',
+    description: 'Calendar time allocated per Evo Step',
     scale: 'Weeks of calendar time per Evo Step',
     status: '',
-    tolerable: '≤ 8 weeks',
-    goal: '≤ 4 weeks',
-    wish: '≤ 2 weeks',
+    // Tolerable = minimum time needed for non-failure (floor)
+    // Budget/Deadline = officially allocated time window
+    // Wish = what planners would love to have
+    tolerable: '≥ 4 wks',    // minimum weeks needed — below this the Evo Step fails
+    goal: '8 wks',            // Budget (Deadline): officially allocated time
+    wish: '12 wks',           // stakeholder's desired time allocation
     isPlaceholder: true,
   },
   {
     id: 'R.Capital',
-    description: 'Capital cost per Evo Step',
-    scale: '$k spent per Evo Step',
+    description: 'Capital allocated per Evo Step',
+    scale: '$k allocated per Evo Step',
     status: '',
-    tolerable: '≤ 200',
-    goal: '≤ 100',
-    wish: '≤ 50',
+    tolerable: '≥ 50 $k',    // minimum $k for non-failure
+    goal: '100 $k',           // Budget: officially allocated capital
+    wish: '200 $k',           // stakeholder's desired allocation
     isPlaceholder: true,
   },
   {
-    id: 'R.People',
-    description: 'Specialists assigned per Evo Step',
+    id: 'R.Headcount',
+    description: 'Specialists allocated per Evo Step',
     scale: 'FTE-weeks per Evo Step',
     status: '',
-    tolerable: '≤ 12',
-    goal: '≤ 6',
-    wish: '≤ 3',
+    tolerable: '≥ 3 FTE-wk',  // minimum specialists for non-failure
+    goal: '6 FTE-wk',          // Budget (Headcount): officially allocated people
+    wish: '12 FTE-wk',         // stakeholder's desired allocation
     isPlaceholder: true,
   },
 ]
 
-const effectiveResources = computed(() => {
-  if (resources.value.length > 0) return resources.value
-  return PLACEHOLDER_RESOURCES
-})
+// Tom Gilb 2026-06-06 r03: Solutions now live in the MIDDLE rectangle, not on
+// the left.  Semantic model: Resources fund Solutions → Solutions deliver Values.
+// Left side = real R. entries only (or PLACEHOLDER_RESOURCES when none exist).
+const effectiveResources = computed(() =>
+  resources.value.length > 0 ? resources.value : PLACEHOLDER_RESOURCES
+)
 
 const rowCount = computed(() =>
   Math.max(values.value.length, effectiveResources.value.length, 1)
 )
-const svgHeight = computed(() => rowCount.value * ROW_HEIGHT + 2 * ROW_PAD + 120)
+const svgHeight = computed(() =>
+  // Must be tall enough for both the resource/value arrow rows AND the Solutions
+  // rectangle (which grows with the number of Solution entries).
+  Math.max(
+    rowCount.value * ROW_HEIGHT + 2 * ROW_PAD + 120,
+    OVAL_RY.value  * 2         + 2 * ROW_PAD + 100,
+  )
+)
 const ovalCy    = computed(() => svgHeight.value / 2)
 
 // ── System-name oval geometry: auto-widen for long names ──────────────────────
@@ -163,22 +187,21 @@ function wrapLines(s: string, maxCharsPerLine: number, maxLines: number): string
   return out
 }
 
-const SYSTEM_OVAL_MAX_CHARS_PER_LINE = 22
-const SYSTEM_OVAL_MAX_LINES          = 3
+// ── Solutions rectangle geometry ─────────────────────────────────────────────
+// Tom Gilb 2026-06-06: "remove the Oval, and put a colorful rectangle there
+// (the icon for solutions!) and inside the rectangle, all the Solutions, with
+// arrows out to right (inside the rectangle)."
+// OVAL_RX / OVAL_RY names kept so all downstream template expressions
+// (arrow endpoint calc, hit-zone calc, status badge positions) work unchanged.
+const OVAL_RX       = 175   // fixed half-width of the Solutions rectangle (px)
+const RECT_HEADER_H = 84    // px: title + sys-name + ver/date + balance + separator
+const SOLUTION_ROW_H = 26   // px: height per Solution row listed inside rectangle
 
-const systemNameLines = computed(() =>
-  wrapLines(systemName.value, SYSTEM_OVAL_MAX_CHARS_PER_LINE, SYSTEM_OVAL_MAX_LINES)
+const OVAL_RY = computed(() =>
+  // Rectangle grows with the number of Solution entries; minimum 80 so an
+  // empty spec still renders a visible rectangle.
+  Math.max(80, Math.ceil((RECT_HEADER_H + solutions.value.length * SOLUTION_ROW_H + 14) / 2))
 )
-
-const OVAL_RX = computed(() => {
-  // Roughly 7.5 px per character at font-size 13, plus padding.
-  const longest = systemNameLines.value.reduce((m, s) => Math.max(m, s.length), 1)
-  return Math.max(110, Math.min(190, longest * 7.5 + 22))
-})
-const OVAL_RY = computed(() => {
-  const baseLineHeight = 17
-  return Math.max(60, 38 + systemNameLines.value.length * baseLineHeight)
-})
 const OVAL_CX = SVG_WIDTH / 2
 
 // ── Per-arrow positioning ────────────────────────────────────────────────────
@@ -295,6 +318,9 @@ function axisProjection(
   // Determine polarity from Tolerable + Goal numerics ONLY (Wish does NOT
   // determine polarity — Tom Gilb 2026-06-06: Wish can be optimistic OR
   // pessimistic, so it cannot be assumed to be in the "good" direction).
+  // For Resources: Budget (goal) < Tolerable numerically → inverted=true →
+  // LEFT = high consumption (bad), RIGHT = low consumption (good).
+  // Logical sequence left-to-right: Tolerable → Budget → Wish (worst → committed → ideal).
   const inverted = (gol != null && tol != null) ? (gol < tol) : false
 
   const targetRef: ForkAxisProjection['targetRef'] = wsh != null ? 'wish'
@@ -310,6 +336,26 @@ function axisProjection(
   if (gol != null) known.push(gol)
   if (wsh != null) known.push(wsh)
   if (cur != null) known.push(cur)
+
+  // Tom Gilb 2026-06-06: "The left side is status past benchmarks."
+  // When Status is non-numeric (e.g. 'pre-build'), only Tolerable + Goal end
+  // up in `known`.  The axis then spans [Tolerable − pad … Goal + pad] and
+  // Tolerable projects to ≈ 4 % of the bar — extreme left, which visually
+  // implies "Tolerable is the worst possible level."
+  //
+  // Fix: synthesise an implicit Past/Benchmark at  2 × Tolerable − Goal.
+  // This mirrors the Tolerable→Goal gap on the Tolerable side, so Tolerable
+  // sits at approximately the mid-point of the bar (Past … Tolerable ≈ same
+  // distance as Tolerable … Goal).  The formula is polarity-agnostic:
+  //   • Forward (Goal > Tolerable): Past = 2T − G  < Tolerable  ✓
+  //   • Inverted (Goal < Tolerable): Past = 2T − G  > Tolerable ✓ (worse)
+  // Only applied when Status is absent — when Status IS measured its real
+  // value anchors the left end naturally (Status < Tolerable is the normal
+  // early-project position and naturally pushes Tolerable toward the centre).
+  if (cur == null && tol != null && gol != null) {
+    known.push(2 * tol - gol)
+  }
+
   if (known.length === 0) {
     return {
       past: 0, tolerable: null, goal: null, wish: null, status: null,
@@ -423,8 +469,9 @@ interface ResourceArrowRow {
 
 const resourceArrows = computed<ResourceArrowRow[]>(() =>
   effectiveResources.value.map((r, i) => {
-    const isPh = (r as PlaceholderRow).isPlaceholder === true
-    const ax = axisProjection(r.status, r.tolerable, r.goal, r.wish)
+    const isPh   = (r as PlaceholderRow).isPlaceholder === true
+    const budget = isPh ? r.goal : rBudget(r)   // placeholder rows use .goal directly
+    const ax     = axisProjection(r.status, r.tolerable, budget, r.wish)
     return {
       id:             r.id,
       description:    r.description,
@@ -432,18 +479,20 @@ const resourceArrows = computed<ResourceArrowRow[]>(() =>
       status:         r.status,
       rawStatus:      r.status,
       tolerable:      r.tolerable,
-      goal:           r.goal,
+      goal:           budget,       // ForkInfo.goal = the commitment level (Budget)
       wish:           r.wish,
       y:              rowY(i, effectiveResources.value.length),
-      statusBand:     statusForEntry(r.status, r.tolerable, r.goal),
+      statusBand:     statusForEntry(r.status, r.tolerable, budget),
       progressFrac:   ax.status,
       axisTolFrac:    ax.tolerable,
       axisGoalFrac:   ax.goal,
       axisWishFrac:   ax.wish,
       scaleLines:     scaleLines(r.scale),
       tolerableShort: levelShort(r.tolerable),
-      targetLabel:    r.wish ? 'Wish/Budget' : 'Goal/Budget',
-      targetShort:    levelShort(r.wish || r.goal),
+      // Tom Gilb 2026-06-07: Resources are constrained by Budget, not Goaled.
+      // rBudgetLabel() returns "Deadline" / "Headcount" / "Budget" per resourceKind.
+      targetLabel:    isPh ? 'Budget' : rBudgetLabel(r),
+      targetShort:    levelShort(r.wish || budget),
       isPlaceholder:  isPh,
     }
   })
@@ -462,7 +511,7 @@ const evoFootnote = computed(() => {
   return n === 0 ? 'Evo steps delivered = 0 · Initial Plan' : `Evo steps delivered = ${n}`
 })
 
-// Whether the rendered Resources are placeholders (gate the placeholder note).
+// Whether the rendered left side is generic placeholders (no real R. entries in spec).
 const usingPlaceholderResources = computed(() => resources.value.length === 0)
 
 // ── Colored-zone palette (Tom Gilb 2026-06-06 r12 fix) ──────────────────────
@@ -477,13 +526,24 @@ const usingPlaceholderResources = computed(() => resources.value.length === 0)
 // separate dark marker on top — the colored zones do the geometric heavy
 // lifting whether or not Status has been measured.
 //
-// Zone semantics (forward polarity AND inverted, since axisProjection
-// normalises both into the same fraction space):
-//   • Red   (#fecaca): Past origin → Tolerable position — Intolerable Range
-//   • Amber (#fde68a): Tolerable   → Goal position       — Tolerable Range
-//   • Green (#bbf7d0): Goal        → Wish position (or end if no Wish) — Success Range
-//   • Violet edge if Wish > Goal — overshoot territory.
-// Bands are pastels so the Status indicator + tick marks remain visible.
+// Zone semantics — applies to BOTH Value and Resource forks:
+//
+//   • Red   (#fecaca): Past origin → Tolerable position
+//     Values:    Performance below minimum acceptable → project failure.
+//     Resources: Allocation below minimum floor → cannot deliver committed targets.
+//
+//   • Amber (#fde68a): Tolerable → Budget/Goal position
+//     Values:    Alive but below committed target.
+//     Resources: At minimum floor, below official Budget (tight but viable).
+//
+//   • Green (#bbf7d0): Budget/Goal → end (Wish or shaft end)
+//     Values:    At or above committed target (Success Range).
+//     Resources: At or above official Budget (adequately funded).
+//
+// Tom Gilb 2026-06-07: Resource Tolerable = MINIMUM allocation for non-failure.
+// NOT a maximum consumption cap. Consumption (Status) is a historical fact tracked
+// separately. The zones reflect the ALLOCATION axis, not a spending-limit axis.
+// Bands are pastels so the Status marker + tick marks remain visible.
 
 const ZONE_RED   = '#fecaca'   // red-200
 const ZONE_AMBER = '#fde68a'   // amber-200
@@ -505,10 +565,12 @@ interface ForkInfo {
   scale:            string
   status:           string
   tolerable:        string
-  goal:             string
+  goal:             string   // for resource entries: holds the Budget value (rBudget)
   wish?:            string
   meter?:           string
   side:             'value' | 'resource'
+  /** Resource entries: "Budget" | "Deadline" | "Headcount". Undefined for Value entries. */
+  budgetLabel?:     string
   statusBand:       Status
   axisTolFrac:      number | null
   axisGoalFrac:     number | null
@@ -559,6 +621,64 @@ const hoverCardStyle = computed(() => {
     left: `${clampedLeft}px`,
     top:  `${clampedTop}px`,
   }
+})
+
+// ── Term definition hover (Planguage concept labels in SVG) ──────────────────
+// Tom Gilb 2026-06-07: "all these new definitions as Info, either on request,
+// or on hovering over the concept. But, in direct connection with this tool."
+// When the user hovers any level label in the SVG (Tolerable / Goal / Budget /
+// Wish / Wish?) a canonical Glossary definition card appears near the cursor.
+// The handler receives the correct PlanguageTerm object for the context
+// (value side → PLANGUAGE_TERMS.*; resource side → RESOURCE_ALLOCATION_TERMS.*).
+//
+// 400ms intentional-hover delay (Tom 2026-06-07 feedback: "annoying in Fork
+// when the Concept Definitions were triggered") — quick cursor passes over a
+// label while reading the diagram do NOT trigger the card; only a deliberate
+// pause does.
+const hoveredTerm     = ref<PlanguageTerm | null>(null)
+const termHoverPos    = ref<{ x: number; y: number } | null>(null)
+let   termHoverTimer: ReturnType<typeof setTimeout> | null = null
+
+function onTermEnter(term: PlanguageTerm, ev: MouseEvent): void {
+  termHoverPos.value = { x: ev.clientX, y: ev.clientY }
+  termHoverTimer = setTimeout(() => { hoveredTerm.value = term }, 400)
+}
+function onTermMove(ev: MouseEvent): void {
+  // Keep the card tracking the cursor but only after it has shown.
+  if (hoveredTerm.value) termHoverPos.value = { x: ev.clientX, y: ev.clientY }
+}
+function onTermLeave(): void {
+  if (termHoverTimer) { clearTimeout(termHoverTimer); termHoverTimer = null }
+  hoveredTerm.value  = null
+  termHoverPos.value = null
+}
+
+// ── Stale-card cleanup (Bug 2026-06-07) ──────────────────────────────────────
+// The two hover Teleports (term card + fork card) sit at the component's
+// TEMPLATE ROOT LEVEL, outside the <div v-if="open"> wrapper.  When the panel
+// closes, Vue removes the inner panel DOM but the Teleport state refs
+// (hoveredFork, hoveredTerm) keep their values, leaving the cards rendered on
+// <body> as ghosts.  Fix: watch open + onUnmounted to flush all hover state
+// the instant the panel leaves the screen.
+function clearAllHovers(): void {
+  if (termHoverTimer) { clearTimeout(termHoverTimer); termHoverTimer = null }
+  hoveredTerm.value  = null
+  termHoverPos.value = null
+  hoveredFork.value  = null
+  hoverPos.value     = null
+}
+
+watch(() => props.open, (isOpen) => { if (!isOpen) clearAllHovers() })
+
+// Viewport-clamped position for the term card.
+// Appears ABOVE the cursor (so it doesn't hide the SVG label underneath).
+const termCardStyle = computed(() => {
+  const pos = termHoverPos.value
+  if (!pos) return { display: 'none' }
+  const W = 340, H = 210, M = 12
+  const left = Math.max(M, Math.min(pos.x + 20, window.innerWidth  - W - M))
+  const top  = Math.max(M, Math.min(pos.y - H - 14, window.innerHeight - H - M))
+  return { left: `${left}px`, top: `${top}px` }
 })
 
 // Helper: short pretty Planguage threshold display (≈ 26 chars, for cards).
@@ -647,9 +767,10 @@ function makeResourceForkInfo(r: ResourceArrowRow): ForkInfo {
     scale:         r.scale,
     status:        r.rawStatus,
     tolerable:     r.tolerable,
-    goal:          r.goal,
+    goal:          r.goal,   // holds Budget value (rBudget) from resourceArrows computed
     wish:          r.wish,
     side:          'resource',
+    budgetLabel:   r.targetLabel,   // "Budget" | "Deadline" | "Headcount"
     statusBand:    r.statusBand,
     axisTolFrac:   r.axisTolFrac,
     axisGoalFrac:  r.axisGoalFrac,
@@ -673,7 +794,7 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
       <div v-if="open" class="fixed inset-0 z-[700]">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="emit('close')" />
         <section
-          class="absolute inset-4 md:inset-10 lg:inset-12 rounded-2xl bg-white shadow-2xl
+          class="absolute inset-2 md:inset-6 lg:inset-8 rounded-2xl bg-white shadow-2xl
                  ring-1 ring-slate-200 flex flex-col overflow-hidden"
           role="dialog"
           aria-modal="true"
@@ -683,7 +804,9 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
           <header class="flex items-start justify-between gap-3 px-6 py-3 bg-gradient-to-br from-indigo-700 to-violet-700 text-white">
             <div class="min-w-0">
               <h2 class="text-lg font-extrabold tracking-tight">🔱 MultiForks</h2>
-              <p class="text-[12px] text-indigo-100">Resources → System ← Values · live diagram</p>
+              <p class="text-[12px] text-indigo-100">
+                  Resources → Solutions → Values · live diagram
+              </p>
             </div>
             <div class="flex items-center gap-4 text-[11px] text-indigo-100">
               <span><b>System:</b> {{ systemName }}</span>
@@ -695,8 +818,12 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
           </header>
 
           <!-- Body — SVG diagram -->
-          <ScrollContainer class="flex-1 px-4 py-3 bg-slate-50">
-            <svg :viewBox="`0 0 ${SVG_WIDTH} ${svgHeight}`" :width="SVG_WIDTH" :height="svgHeight"
+          <!-- width="100%" makes the SVG fill the full panel width at any screen
+               size; the viewBox + preserveAspectRatio scale the internal
+               coordinate system proportionally.  This replaces the fixed
+               SVG_WIDTH=1240 so the diagram uses ALL available space. -->
+          <ScrollContainer class="flex-1 min-h-0 px-4 py-3 bg-slate-50">
+            <svg :viewBox="`0 0 ${SVG_WIDTH} ${svgHeight}`" width="100%"
                  class="block mx-auto bg-white rounded-xl shadow-inner"
                  preserveAspectRatio="xMidYMid meet">
 
@@ -719,24 +846,30 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                   height="76"
                   fill="transparent"
                 />
-                <!-- ── Colored ZONES (Tom r12 fix: colored bar relative to numbers) ──
-                     Red Intolerable Range · Amber Tolerable Range · Green Success Range
-                     widths reflect the stakeholder-set numeric positions. -->
-                <!-- Gray shaft as a fallback when no thresholds parse -->
+                <!-- ── Colored ZONES for Resource bars ──────────────────────────────────
+                     Inverted axis: LEFT = high consumption (bad), RIGHT = low (good)
+                     Logical sequence left→right: Tolerable → Budget → Wish
+                       (worst-acceptable → committed-limit → aspirational-minimum)
+                     Zone semantics mirror Value bars (worse left, better right):
+                       Red   : 0 → Tolerable — exceeds max acceptable (failure)
+                       Amber : Tolerable → Budget — over budget, still tolerable
+                       Green : Budget → end — within committed limit (success)
+                -->
+                <!-- Gray shaft fallback when no thresholds parse -->
                 <line v-if="r.axisTolFrac == null && r.axisGoalFrac == null"
                   :x1="LEFT_X" :y1="r.y" :x2="OVAL_CX - OVAL_RX - 6" :y2="r.y"
                   :stroke="ZONE_GRAY" stroke-width="14" stroke-linecap="round" />
-                <!-- Red zone: 0 → Tolerable -->
+                <!-- Red zone: 0 → Tolerable (exceeds maximum acceptable) -->
                 <line v-if="r.axisTolFrac != null"
                   :x1="LEFT_X" :y1="r.y"
                   :x2="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisTolFrac" :y2="r.y"
                   :stroke="ZONE_RED" stroke-width="14" stroke-linecap="round" />
-                <!-- Amber zone: Tolerable → Goal -->
+                <!-- Amber zone: Tolerable → Budget (over budget, still acceptable) -->
                 <line v-if="r.axisTolFrac != null && r.axisGoalFrac != null"
                   :x1="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisTolFrac" :y1="r.y"
                   :x2="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * Math.min(r.axisGoalFrac, 1)" :y2="r.y"
                   :stroke="ZONE_AMBER" stroke-width="14" stroke-linecap="butt" />
-                <!-- Green zone: Goal → end -->
+                <!-- Green zone: Budget → end (within committed limit) -->
                 <line v-if="r.axisGoalFrac != null"
                   :x1="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisGoalFrac" :y1="r.y"
                   :x2="OVAL_CX - OVAL_RX - 6" :y2="r.y"
@@ -751,22 +884,23 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                     :points="`${LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.progressFrac - 5},${r.y - 14} ${LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.progressFrac + 5},${r.y - 14} ${LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.progressFrac},${r.y - 4}`"
                     fill="#0f172a" />
                 </g>
-                <!-- Arrowhead -->
+                <!-- Arrowhead: teal for real R. entries, slate for placeholders -->
                 <polygon
                   :points="`${OVAL_CX - OVAL_RX - 6},${r.y} ${OVAL_CX - OVAL_RX - 20},${r.y - 9} ${OVAL_CX - OVAL_RX - 20},${r.y + 9}`"
-                  fill="#0f766e"
+                  :fill="r.isPlaceholder ? '#64748b' : '#0f766e'"
                 />
                 <!-- ID label -->
-                <text :x="LEFT_X" :y="r.y - 22" font-size="12" font-weight="800" fill="#0f766e">{{ r.id }}</text>
-                <!-- Placeholder tag if applicable -->
+                <text :x="LEFT_X" :y="r.y - 22" font-size="12" font-weight="800"
+                      :fill="r.isPlaceholder ? '#64748b' : '#0f766e'">{{ r.id }}</text>
+                <!-- Badge: 'placeholder' for generic scaffolding -->
                 <g v-if="r.isPlaceholder">
-                  <rect :x="LEFT_X + 50" :y="r.y - 34" width="78" height="14" rx="3" fill="#475569" />
-                  <text :x="LEFT_X + 89" :y="r.y - 24" text-anchor="middle"
+                  <rect :x="LEFT_X + 116" :y="r.y - 34" width="78" height="14" rx="3" fill="#475569" />
+                  <text :x="LEFT_X + 155" :y="r.y - 24" text-anchor="middle"
                         font-size="8" font-weight="800" fill="#ffffff">placeholder</text>
                 </g>
-                <!-- Scale tag (2 lines) -->
+                <!-- Scale tag (2 lines) — offset from +26 → +36 to give space below threshold value text at +22 -->
                 <text v-for="(line, li) in r.scaleLines" :key="`r-scale-${r.id}-${li}`"
-                      :x="LEFT_X" :y="r.y + 26 + li * 12" font-size="10" fill="#475569">
+                      :x="LEFT_X" :y="r.y + 36 + li * 12" font-size="10" fill="#475569">
                   {{ li === 0 ? 'Scale: ' + line : '   ' + line }}
                 </text>
                 <!-- Benchmark (always at fraction 0, the Past origin) -->
@@ -787,11 +921,17 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                   />
                   <text :x="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisTolFrac"
                         :y="r.y - 14" text-anchor="middle"
-                        font-weight="700" fill="#92400e">Tolerable</text>
+                        font-weight="700" fill="#92400e" cursor="help"
+                        @mouseenter="onTermEnter(RESOURCE_ALLOCATION_TERMS.TolerableResource, $event)"
+                        @mousemove="onTermMove"
+                        @mouseleave="onTermLeave">Tolerable</text>
                   <text :x="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisTolFrac"
                         :y="r.y + 22" text-anchor="middle">{{ r.tolerableShort }}</text>
                 </g>
-                <!-- Goal marker at its NUMERIC position -->
+                <!-- Budget marker at its NUMERIC position
+                     Tom Gilb 2026-06-07: Resources are constrained, never "Goaled".
+                     Generic label = Budget. Future: Deadline (time) / Headcount (people)
+                     when REntry.resourceKind field is added to the schema. -->
                 <g v-if="r.axisGoalFrac != null" font-size="9" fill="#334155">
                   <line
                     :x1="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisGoalFrac"
@@ -803,10 +943,13 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                   />
                   <text :x="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisGoalFrac"
                         :y="r.y - 14" text-anchor="middle"
-                        font-weight="700" fill="#0f766e">{{ r.wish ? 'Goal' : r.targetLabel }}</text>
+                        font-weight="700" fill="#0f766e" cursor="help"
+                        @mouseenter="onTermEnter(RESOURCE_ALLOCATION_TERMS.Budget, $event)"
+                        @mousemove="onTermMove"
+                        @mouseleave="onTermLeave">{{ r.targetLabel }}</text>
                   <text v-if="r.wish"
                         :x="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisGoalFrac"
-                        :y="r.y + 22" text-anchor="middle">{{ levelShort(r.goal) }}</text>
+                        :y="r.y + 22" text-anchor="middle">{{ levelShort(r.goal) /* r.goal = budget value in ResourceArrowRow */ }}</text>
                   <text v-else
                         :x="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisGoalFrac"
                         :y="r.y + 22" text-anchor="middle">{{ r.targetShort }}</text>
@@ -823,7 +966,10 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                   />
                   <text :x="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisWishFrac"
                         :y="r.y - 14" text-anchor="middle"
-                        font-weight="700" fill="#5b21b6">Wish</text>
+                        font-weight="700" fill="#5b21b6" cursor="help"
+                        @mouseenter="onTermEnter(RESOURCE_ALLOCATION_TERMS.ResourceWish, $event)"
+                        @mousemove="onTermMove"
+                        @mouseleave="onTermLeave">Wish</text>
                   <text :x="LEFT_X + (OVAL_CX - OVAL_RX - 6 - LEFT_X) * r.axisWishFrac"
                         :y="r.y + 22" text-anchor="middle">{{ r.targetShort }}</text>
                 </g>
@@ -834,19 +980,61 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                       font-size="9" font-weight="800" fill="#ffffff">{{ statusLabel(r.statusBand, 'resource') }}</text>
               </g>
 
-              <!-- ── System oval (drawn AFTER resource arrows so it covers any
-                   stray text from the leftmost arrow ends) ──────────────── -->
-              <ellipse :cx="OVAL_CX" :cy="ovalCy" :rx="OVAL_RX" :ry="OVAL_RY"
-                       fill="#1e293b" stroke="#64748b" stroke-width="2" />
-              <text v-for="(line, li) in systemNameLines" :key="`sysname-${li}`"
-                    :x="OVAL_CX"
-                    :y="ovalCy - (systemNameLines.length - 1) * 9 + li * 17 - 22"
-                    text-anchor="middle"
-                    font-size="13" font-weight="800" fill="#ffffff">{{ line }}</text>
-              <text :x="OVAL_CX" :y="ovalCy + 10" text-anchor="middle"
-                    font-size="10" fill="#94a3b8">{{ versionStr }} · {{ dateTimeStr }}</text>
-              <text :x="OVAL_CX" :y="ovalCy + 28" text-anchor="middle"
-                    font-size="11" fill="#fbbf24" font-weight="800">Balance {{ balanceScore }}%</text>
+              <!-- ── Solutions rectangle (drawn AFTER resource arrows so it covers stray
+                   text from the leftmost arrow ends) ─────────────────────────────
+                   Tom Gilb 2026-06-06: "remove the Oval, and put a colorful rectangle
+                   there (the icon for solutions!) and inside the rectangle, all the
+                   Solutions, with arrows out to right (inside the rectangle)."
+                   Semantic: Resources fund Solutions → Solutions deliver Values. -->
+              <rect
+                :x="OVAL_CX - OVAL_RX"
+                :y="ovalCy - OVAL_RY"
+                :width="OVAL_RX * 2"
+                :height="OVAL_RY * 2"
+                rx="14"
+                fill="#ea580c"
+                stroke="#c2410c"
+                stroke-width="2"
+              />
+              <!-- "SOLUTIONS" header title -->
+              <text :x="OVAL_CX" :y="ovalCy - OVAL_RY + 20"
+                    text-anchor="middle" font-size="14" font-weight="900"
+                    fill="#ffffff" letter-spacing="1">SOLUTIONS</text>
+              <!-- System name -->
+              <text :x="OVAL_CX" :y="ovalCy - OVAL_RY + 36"
+                    text-anchor="middle" font-size="10" fill="#ffedd5">{{ systemName }}</text>
+              <!-- Version · Date-Time stamp -->
+              <text :x="OVAL_CX" :y="ovalCy - OVAL_RY + 50"
+                    text-anchor="middle" font-size="9" fill="#fed7aa">{{ versionStr }} · {{ dateTimeStr }}</text>
+              <!-- Balance score -->
+              <text :x="OVAL_CX" :y="ovalCy - OVAL_RY + 66"
+                    text-anchor="middle" font-size="12" font-weight="800" fill="#fef08a">Balance {{ balanceScore }}%</text>
+              <!-- Separator line -->
+              <line
+                :x1="OVAL_CX - OVAL_RX + 14" :y1="ovalCy - OVAL_RY + 76"
+                :x2="OVAL_CX + OVAL_RX - 14" :y2="ovalCy - OVAL_RY + 76"
+                stroke="#c2410c" stroke-width="1.5"
+              />
+              <!-- Per-Solution rows — Tom: "all the Solutions, with arrows out to right" -->
+              <g v-if="solutions.length > 0">
+                <g v-for="(s, si) in solutions" :key="`rect-s-${s.id}`">
+                  <text
+                    :x="OVAL_CX - OVAL_RX + 18"
+                    :y="ovalCy - OVAL_RY + 93 + si * 26"
+                    font-size="10"
+                  >
+                    <tspan fill="#ffedd5" font-weight="900">→ </tspan>
+                    <tspan font-weight="800" fill="#ffffff">{{ s.id }}</tspan>
+                    <tspan fill="#fed7aa" font-style="italic">  {{ (s.description || s.impact || '').slice(0, 26) }}</tspan>
+                  </text>
+                </g>
+              </g>
+              <g v-else>
+                <text :x="OVAL_CX" :y="ovalCy + 8"
+                      text-anchor="middle" font-size="10" fill="#ffedd5" font-style="italic">No Solution entries yet</text>
+                <text :x="OVAL_CX" :y="ovalCy + 22"
+                      text-anchor="middle" font-size="9" fill="#fed7aa">Add Solution entries to your Spec</text>
+              </g>
 
               <!-- ── Value arrows (right, emanate FROM oval) ──────────────────── -->
               <g v-for="v in valueArrows" :key="`v-${v.id}`"
@@ -897,8 +1085,12 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                   fill="#7c3aed"
                 />
                 <text :x="RIGHT_X" :y="v.y - 22" text-anchor="end" font-size="12" font-weight="800" fill="#7c3aed">{{ v.id }}</text>
+                <!-- Description below ID — Tom recognises his entries by description, not just ID -->
+                <text v-if="v.description" :x="RIGHT_X" :y="v.y - 8" text-anchor="end" font-size="9"
+                      font-style="italic" fill="#6d28d9">{{ v.description.slice(0, 36) }}</text>
+                <!-- Scale tag (2 lines) — starts at +40 to clear level-label text (y+14) + numeric (y+26) below shaft -->
                 <text v-for="(line, li) in v.scaleLines" :key="`v-scale-${v.id}-${li}`"
-                      :x="OVAL_CX + OVAL_RX + 10" :y="v.y + 26 + li * 12" font-size="10" fill="#475569">
+                      :x="OVAL_CX + OVAL_RX + 10" :y="v.y + 40 + li * 12" font-size="10" fill="#475569">
                   {{ li === 0 ? 'Scale: ' + line : '   ' + line }}
                 </text>
                 <!-- Benchmark at the Past origin -->
@@ -916,11 +1108,16 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                     stroke="#92400e"
                     stroke-width="2"
                   />
+                  <!-- Label BELOW shaft (v.y + 14) — avoids collision with V.ID
+                       (v.y - 22) and description (v.y - 8) at the right end. -->
                   <text :x="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * v.axisTolFrac"
-                        :y="v.y - 14" text-anchor="middle"
-                        font-weight="700" fill="#92400e">Tolerable</text>
+                        :y="v.y + 14" text-anchor="middle"
+                        font-weight="700" fill="#92400e" cursor="help"
+                        @mouseenter="onTermEnter(PLANGUAGE_TERMS.Tolerable, $event)"
+                        @mousemove="onTermMove"
+                        @mouseleave="onTermLeave">Tolerable</text>
                   <text :x="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * v.axisTolFrac"
-                        :y="v.y + 22" text-anchor="middle">{{ v.tolerableShort }}</text>
+                        :y="v.y + 26" text-anchor="middle">{{ v.tolerableShort }}</text>
                 </g>
                 <!-- Goal marker at its NUMERIC position -->
                 <g v-if="v.axisGoalFrac != null" font-size="9" fill="#334155">
@@ -933,12 +1130,15 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                     stroke-width="2"
                   />
                   <text :x="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * v.axisGoalFrac"
-                        :y="v.y - 14" text-anchor="middle"
-                        font-weight="700" fill="#7c3aed">Goal</text>
+                        :y="v.y + 14" text-anchor="middle"
+                        font-weight="700" fill="#7c3aed" cursor="help"
+                        @mouseenter="onTermEnter(PLANGUAGE_TERMS.Goal, $event)"
+                        @mousemove="onTermMove"
+                        @mouseleave="onTermLeave">Goal</text>
                   <text :x="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * v.axisGoalFrac"
-                        :y="v.y + 22" text-anchor="middle">{{ levelShort(v.goal) }}</text>
+                        :y="v.y + 26" text-anchor="middle">{{ levelShort(v.goal) }}</text>
                 </g>
-                <!-- Wish marker (only when present) at its NUMERIC position -->
+                <!-- Wish marker — real numeric position when Wish is in spec -->
                 <g v-if="v.axisWishFrac != null && v.wish" font-size="9" fill="#334155">
                   <line
                     :x1="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * v.axisWishFrac"
@@ -949,10 +1149,39 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                     stroke-width="2"
                   />
                   <text :x="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * v.axisWishFrac"
-                        :y="v.y - 14" text-anchor="middle"
-                        font-weight="700" fill="#5b21b6">Wish</text>
+                        :y="v.y + 14" text-anchor="middle"
+                        font-weight="700" fill="#5b21b6" cursor="help"
+                        @mouseenter="onTermEnter(PLANGUAGE_TERMS.Wish, $event)"
+                        @mousemove="onTermMove"
+                        @mouseleave="onTermLeave">Wish</text>
                   <text :x="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * v.axisWishFrac"
-                        :y="v.y + 22" text-anchor="middle">{{ v.targetShort }}</text>
+                        :y="v.y + 26" text-anchor="middle">{{ v.targetShort }}</text>
+                </g>
+                <!-- Symbolic Wish indicator — shown when NO Wish is in the spec.
+                     Tom Gilb 2026-06-07: "add Wish in symbolically to right of (more
+                     than) Goal." Position: Goal + 12% clamped to 96% of shaft.
+                     Style: dashed violet tick — communicates the CONCEPT and teaches
+                     that a Wish can exist at any level beyond (or below) the Goal.
+                     A Wish can be converted to a Goal of same or different magnitude;
+                     new Wishes can emerge even after a Goal is committed. -->
+                <g v-if="!v.wish && v.axisGoalFrac != null" font-size="8">
+                  <line
+                    :x1="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * Math.min(0.96, v.axisGoalFrac + 0.12)"
+                    :y1="v.y - 8"
+                    :x2="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * Math.min(0.96, v.axisGoalFrac + 0.12)"
+                    :y2="v.y + 8"
+                    stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="3 2" stroke-linecap="round" />
+                  <text
+                    :x="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * Math.min(0.96, v.axisGoalFrac + 0.12)"
+                    :y="v.y + 14" text-anchor="middle"
+                    font-weight="600" fill="#8b5cf6" font-style="italic" cursor="help"
+                    @mouseenter="onTermEnter(PLANGUAGE_TERMS.Wish, $event)"
+                    @mousemove="onTermMove"
+                    @mouseleave="onTermLeave">Wish?</text>
+                  <text
+                    :x="(OVAL_CX + OVAL_RX + 6) + (RIGHT_X - (OVAL_CX + OVAL_RX + 6)) * Math.min(0.96, v.axisGoalFrac + 0.12)"
+                    :y="v.y + 26" text-anchor="middle"
+                    fill="#a78bfa" font-style="italic">none stated</text>
                 </g>
                 <rect :x="OVAL_CX + OVAL_RX + 6" :y="v.y - 44" width="110" height="16" rx="4"
                       :fill="statusColor(v.status)" />
@@ -965,7 +1194,7 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                     font-size="12" font-weight="700" fill="#475569">{{ evoFootnote }}</text>
               <text v-if="usingPlaceholderResources" :x="OVAL_CX" :y="svgHeight - 12" text-anchor="middle"
                     font-size="10" font-style="italic" fill="#64748b">
-                Resource forks above are PLACEHOLDERS — add R. entries to your Spec for real data.
+                Resource forks above are PLACEHOLDERS — add Resource entries to your Spec for real data.
               </text>
             </svg>
 
@@ -978,12 +1207,15 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
           <!-- Footer -->
           <footer class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
             <div class="text-[11px] text-slate-500 italic flex-1">
-              MultiForks v2 (r02) · Status bands:
-              <span class="text-emerald-700 font-bold">Green</span> = Goal MET / Under Budget ·
-              <span class="text-amber-700 font-bold">Amber</span> = Tolerable Range ·
-              <span class="text-red-700 font-bold">Red</span> = VIOLATION / Exceeds Budget ·
-              <span class="text-slate-500 font-bold">Gray dashed</span> = Status unknown.
-              Bar length scales with Status vs Tolerable / Goal.
+              MultiForks v2 (r04) ·
+              Values: <span class="text-emerald-700 font-bold">Green</span> = Goal met ·
+              <span class="text-amber-700 font-bold">Amber</span> = Tolerable range ·
+              <span class="text-red-700 font-bold">Red</span> = below minimum ·
+              Resources: <span class="text-emerald-700 font-bold">Green</span> = at/above Budget ·
+              <span class="text-amber-700 font-bold">Amber</span> = Tolerable to Budget ·
+              <span class="text-red-700 font-bold">Red</span> = below min allocation ·
+              <span class="text-slate-500 font-bold">Gray</span> = Status unknown.
+              Hover any fork for details · click for full definition + doctrine.
             </div>
             <button
               type="button"
@@ -995,6 +1227,38 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
         </section>
       </div>
     </Transition>
+  </Teleport>
+
+  <!-- ── Term definition hover card ────────────────────────────────────────────
+       Tom Gilb 2026-06-07: "I would like to see all these new definitions as
+       Info, either on request, or on hovering over the concept. But, in direct
+       connection with this tool."
+       Appears when hovering any Planguage level label in the SVG (Tolerable /
+       Goal / Budget / Deadline / Headcount / Wish / Wish?).  Shows the
+       canonical Glossary definition from usePlanguageTerms so the planner
+       learns in-context while reading the diagram.
+       z-index 9998 = below the fork hover card (9000) … wait, above — term
+       card and fork card should not both show at once because term labels only
+       appear BETWEEN arrows, not on the bar itself. Both are pointer-events-none
+       so they cannot block clicks. -->
+  <Teleport to="body">
+    <div
+      v-if="hoveredTerm && termHoverPos"
+      class="fixed z-[9999] pointer-events-none rounded-xl border border-violet-600/50 bg-gray-900 shadow-2xl"
+      style="width:340px;padding:12px 16px;"
+      :style="termCardStyle"
+      role="tooltip"
+      aria-live="polite"
+    >
+      <div class="flex items-center gap-2 mb-1">
+        <span class="font-mono text-[15px] font-bold text-violet-300">{{ hoveredTerm.keyedIcon }}</span>
+        <span class="text-[13px] font-extrabold text-white">{{ hoveredTerm.name }}</span>
+        <span class="font-mono text-[10px] text-violet-400 ml-1">{{ hoveredTerm.conceptNumber }}</span>
+      </div>
+      <p class="text-[10px] font-bold uppercase tracking-wide text-amber-300 mb-1.5">{{ hoveredTerm.role }}</p>
+      <p class="text-[11px] leading-snug text-slate-200">{{ hoveredTerm.tooltipFull }}</p>
+      <p class="mt-2 text-[9px] italic text-slate-400">Click the arrow bar for full definition &amp; checklist</p>
+    </div>
   </Teleport>
 
   <!-- ── Hover preview card (Tom Gilb 2026-06-06 r12 NEW idea) ───────────────
@@ -1023,15 +1287,33 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
         <p class="text-[10px] text-slate-400 leading-snug"><b>Scale:</b> {{ thresholdDisplayLong(hoveredFork.scale) }}</p>
         <div class="grid grid-cols-3 gap-1 text-[10px] mt-1">
           <div class="rounded bg-amber-200/15 border border-amber-300/40 px-1.5 py-1">
-            <div class="text-amber-300 font-bold uppercase text-[8px]">Tolerable</div>
+            <div class="text-amber-300 font-bold uppercase text-[8px]">
+              <PlanguageTermWidget
+                :term="hoveredFork.side === 'resource' ? 'Tolerable (Resource)' : 'Tolerable'"
+                class="text-amber-300 font-bold uppercase text-[8px] no-underline"
+                :show-icon="false"
+              />
+            </div>
             <div class="text-white font-semibold text-[10px] leading-tight">{{ thresholdDisplayLong(hoveredFork.tolerable) }}</div>
           </div>
           <div class="rounded bg-emerald-200/15 border border-emerald-300/40 px-1.5 py-1">
-            <div class="text-emerald-300 font-bold uppercase text-[8px]">Goal</div>
+            <div class="text-emerald-300 font-bold uppercase text-[8px]">
+              <PlanguageTermWidget
+                :term="hoveredFork.side === 'resource' ? (hoveredFork.budgetLabel ?? 'Budget') : 'Goal'"
+                class="text-emerald-300 font-bold uppercase text-[8px] no-underline"
+                :show-icon="false"
+              />
+            </div>
             <div class="text-white font-semibold text-[10px] leading-tight">{{ thresholdDisplayLong(hoveredFork.goal) }}</div>
           </div>
           <div class="rounded bg-violet-200/15 border border-violet-300/40 px-1.5 py-1">
-            <div class="text-violet-300 font-bold uppercase text-[8px]">Wish</div>
+            <div class="text-violet-300 font-bold uppercase text-[8px]">
+              <PlanguageTermWidget
+                term="Wish"
+                class="text-violet-300 font-bold uppercase text-[8px] no-underline"
+                :show-icon="false"
+              />
+            </div>
             <div class="text-white font-semibold text-[10px] leading-tight">{{ thresholdDisplayLong(hoveredFork.wish || '') }}</div>
           </div>
         </div>
@@ -1080,30 +1362,64 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
               <p class="text-[12px] text-gray-800"><b>Scale:</b> {{ clickedFork.scale || '—' }}</p>
               <p v-if="clickedFork.meter" class="text-[12px] text-gray-800"><b>Meter:</b> {{ clickedFork.meter }}</p>
             </div>
+            <!-- ── Tolerable / Budget|Goal / Wish — context-sensitive cards ──────
+                 Value entries: classic STG performance axis (Tolerable = min performance).
+                 Resource entries: Allocation axis (Tolerable = min allocation for non-failure;
+                   Budget = official allocation; Wish = stakeholder-desired allocation).
+                 Tom Gilb 2026-06-07: "IT IS THE MINIMUM RESOURCE ALLOCATED OR AVAILABLE
+                 FOR CONSUMPTION, THAT WILL NOT CAUSE A STATE OR DEGREE OF FAILURE." -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <!-- Tolerable card -->
               <div class="rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-2">
                 <div class="text-[10px] font-extrabold text-amber-800 uppercase tracking-wide flex items-center gap-1">
                   Tolerable
-                  <span class="font-mono opacity-60 text-[9px]">&gt;&gt;</span>
+                  <span class="font-mono opacity-60 text-[9px]" :title="keyedLevelHoverHint('tolerable')">&gt;&gt;</span>
                 </div>
                 <div class="text-[13px] font-bold text-gray-900 mt-0.5 leading-tight">{{ clickedFork.tolerable || '—' }}</div>
-                <p class="text-[9px] text-amber-700 italic mt-1">Project-viability Constraint · below this the project fails.</p>
+                <!-- Value: performance floor · Resource: allocation floor -->
+                <p v-if="clickedFork.side === 'value'"
+                   class="text-[9px] text-amber-700 italic mt-1">
+                  Minimum non-failure performance level · below this the project fails.
+                </p>
+                <p v-else
+                   class="text-[9px] text-amber-700 italic mt-1">
+                  Minimum allocation for non-failure · below this the system cannot deliver its targets.
+                  NOT a consumption limit — consumption is a historical fact.
+                </p>
               </div>
+              <!-- Goal (Value) / Budget (Resource) card -->
               <div class="rounded-lg border-2 border-emerald-300 bg-emerald-50 px-3 py-2">
                 <div class="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wide flex items-center gap-1">
-                  Goal
-                  <span class="font-mono opacity-60 text-[9px]">&gt;</span>
+                  {{ clickedFork.side === 'resource' ? (clickedFork.budgetLabel ?? 'Budget') : 'Goal' }}
+                  <span class="font-mono opacity-60 text-[9px]" :title="keyedLevelHoverHint(clickedFork.side === 'resource' ? 'budget' : 'goal')">&gt;</span>
                 </div>
                 <div class="text-[13px] font-bold text-gray-900 mt-0.5 leading-tight">{{ clickedFork.goal || '—' }}</div>
-                <p class="text-[9px] text-emerald-700 italic mt-1">Committed promise Target.</p>
+                <p v-if="clickedFork.side === 'value'"
+                   class="text-[9px] text-emerald-700 italic mt-1">
+                  Committed promise Target · valid only when 7 Glossary conditions hold.
+                </p>
+                <p v-else
+                   class="text-[9px] text-emerald-700 italic mt-1">
+                  Official resource allocation · the committed resource envelope.
+                  Should be at or above the Tolerable floor.
+                </p>
               </div>
+              <!-- Wish card -->
               <div class="rounded-lg border-2 border-violet-300 bg-violet-50 px-3 py-2">
                 <div class="text-[10px] font-extrabold text-violet-800 uppercase tracking-wide flex items-center gap-1">
                   Wish
-                  <span class="font-mono opacity-60 text-[9px]">&gt;?</span>
+                  <span class="font-mono opacity-60 text-[9px]" :title="keyedLevelHoverHint('wish')">&gt;?</span>
                 </div>
                 <div class="text-[13px] font-bold text-gray-900 mt-0.5 leading-tight">{{ clickedFork.wish || '—' }}</div>
-                <p class="text-[9px] text-violet-700 italic mt-1">Uncommitted stakeholder dream Target.</p>
+                <p v-if="clickedFork.side === 'value'"
+                   class="text-[9px] text-violet-700 italic mt-1">
+                  Stakeholder-articulated target · uncommitted · sits anywhere on the scale.
+                </p>
+                <p v-else
+                   class="text-[9px] text-violet-700 italic mt-1">
+                  Stakeholder-desired allocation · uncommitted · can be either side of Budget.
+                  Optional — if no stakeholder expressed a Wish, there is none to record.
+                </p>
               </div>
             </div>
             <div class="rounded-lg border border-slate-300 bg-white px-3 py-2">
@@ -1115,13 +1431,45 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
                 {{ statusLabel(clickedFork.statusBand, clickedFork.side) }}
               </div>
             </div>
+            <!-- ── Resource Budget Doctrine (Tom Gilb 2026-06-07) ─────────────
+                 Shown ONLY for Resource entries. Explains the 4-level allocation
+                 model: Tolerable floor → Budget commitment → Wish aspiration → Ideal.
+                 Replaces the Goal Validity Conditions panel (which applies to Values only). -->
+            <div v-if="clickedFork.side === 'resource'"
+                 class="rounded-lg border border-orange-300 bg-orange-50/60 px-3 py-2 space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-extrabold uppercase tracking-wide text-orange-800">Resource Allocation Levels</span>
+                <span class="text-[10px] text-orange-700">· Tom Gilb 2026-06-07</span>
+              </div>
+              <p class="text-[10px] text-orange-900 italic leading-snug">
+                Resources are governed by an <b>allocation axis</b>, not a performance axis. Consumption (Status / Now) is a separate historical fact — not a plan.
+              </p>
+              <div class="space-y-1">
+                <div v-for="level in [
+                  { label: 'Tolerable >>', colour: '#d97706', bg: '#fef3c7', text: RESOURCE_ALLOCATION_TERMS.TolerableResource.shortDef },
+                  { label: (clickedFork.budgetLabel ?? 'Budget') + ' >', colour: '#15803d', bg: '#dcfce7', text: RESOURCE_ALLOCATION_TERMS.Budget.shortDef },
+                  { label: 'Wish >?', colour: '#7c3aed', bg: '#ede9fe', text: RESOURCE_ALLOCATION_TERMS.ResourceWish.shortDef },
+                  { label: 'Ideal >*', colour: '#0369a1', bg: '#e0f2fe', text: RESOURCE_ALLOCATION_TERMS.ResourceIdeal.shortDef },
+                ]" :key="level.label"
+                     class="flex items-start gap-2 rounded px-2 py-1.5 border border-orange-100"
+                     :style="`background:${level.bg}`">
+                  <span class="shrink-0 text-[9px] font-extrabold rounded px-1.5 py-0.5 mt-0.5 text-white"
+                        :style="`background:${level.colour}`">{{ level.label }}</span>
+                  <div class="text-[10px] text-gray-800 leading-snug">{{ level.text }}</div>
+                </div>
+              </div>
+              <p class="text-[9px] text-slate-500 italic">
+                Ideal = what's needed to reach ALL Value Targets given current Solutions — derived by Claudian, not entered directly. Glossary entry "Ideal (for Resources)" proposed 2026-06-07.
+              </p>
+            </div>
+
             <!-- ── Goal Validity Conditions (Tom Gilb 2026-06-06 doctrine) ──
                  A proposed level becomes an OFFICIAL Goal only when ALL 7
                  Glossary conditions hold.  SEM auto-checks what it can; the
                  rest surface as MANUAL with the canonical explanation.  This
                  panel TEACHES the discipline whether or not the conditions
-                 are met. -->
-            <div v-if="clickedFork.goal" class="rounded-lg border border-emerald-300 bg-emerald-50/60 px-3 py-2 space-y-2">
+                 are met. Shown only for Value entries (not Resource entries). -->
+            <div v-if="clickedFork.goal && clickedFork.side === 'value'" class="rounded-lg border border-emerald-300 bg-emerald-50/60 px-3 py-2 space-y-2">
               <div class="flex items-center gap-2">
                 <span class="text-[10px] font-extrabold uppercase tracking-wide text-emerald-800">Goal Validity</span>
                 <span class="font-mono text-[10px] text-emerald-700">&gt;</span>
@@ -1148,10 +1496,43 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
               </p>
             </div>
 
-            <!-- Wish position note — Tom Gilb 2026-06-06 doctrinal correction:
-                 Wish is NOT systematically > Goal. -->
-            <div v-if="clickedFork.wish" class="rounded-lg border border-violet-300 bg-violet-50/60 px-3 py-2 text-[10px] text-violet-900 italic leading-snug">
-              <b>Wish position note:</b> the Wish is whatever the stakeholder articulated — it can sit anywhere on the scale (optimistic OR pessimistic), not automatically above Goal.  If the stakeholder did not articulate a Wish, there is no Wish to record.  (Glossary Wish *244.)
+            <!-- Wish position note — context-sensitive.
+                 Value side: always shown (symbolic Wish marker appears even when no Wish in spec).
+                 Resource side: shown only when a Wish is explicitly stated. -->
+            <div v-if="clickedFork.side === 'value' || clickedFork.wish"
+                 class="rounded-lg border border-violet-300 bg-violet-50/60 px-3 py-2 text-[10px] text-violet-900 italic leading-snug">
+              <template v-if="clickedFork.side === 'value'">
+                <b>Wish &gt;? (Value):</b>
+                the Wish is whatever the stakeholder articulated — it can sit ANYWHERE on the scale
+                (optimistic OR pessimistic), not automatically above Goal.
+                If no stakeholder has articulated a Wish, there is none to record — the dashed
+                <span class="text-violet-600 font-semibold not-italic">Wish?</span> marker
+                on the arrow shows where one could naturally sit, to prompt the conversation.
+                <span class="block mt-1 not-italic font-medium text-violet-800">
+                  Conversion: a Wish can become a Goal of the SAME or a DIFFERENT magnitude —
+                  the negotiated Goal level may be higher or lower than the Wish, depending on
+                  what passes the 7 Goal-validity conditions given resources and competing
+                  stakeholders. (Tom Gilb 2026-06-07.)
+                </span>
+                <span class="block mt-1 not-italic font-medium text-violet-800">
+                  Living spec: new Wishes can emerge AFTER a Goal is committed — as conditions
+                  change, new information arrives, or post-delivery insights surface.
+                  New Wishes become candidates for future Evo Step Goals.
+                  (Tom Gilb 2026-06-07; Glossary Wish *244.)
+                </span>
+              </template>
+              <template v-else>
+                <b>Wish &gt;? (Resource):</b> a stakeholder's desired allocation — uncommitted.
+                Can be ABOVE or BELOW the official Budget. A Wish above Budget signals the
+                stakeholder perceives under-resourcing; below Budget suggests potential
+                over-allocation. Tom Gilb 2026-06-07: "If no stakeholder expresses a Wish,
+                then none need be specified." (Resource Wish *244.)
+                <span class="block mt-1 not-italic font-medium text-violet-800">
+                  Conversion: a Resource Wish can be converted to a Budget of the SAME or
+                  DIFFERENT magnitude once the 7 Goal-validity conditions are met.
+                  New Resource Wishes can emerge even after an official Budget is committed.
+                </span>
+              </template>
             </div>
 
             <div v-if="clickedFork.isPlaceholder" class="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-[11px] text-slate-600 italic">

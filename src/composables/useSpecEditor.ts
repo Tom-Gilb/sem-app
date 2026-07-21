@@ -10,6 +10,7 @@ import { ref, computed } from 'vue'
 // PlanTargetsPanel) can react without coupling through App.vue.
 const _lastCommittedTargetId = ref('')
 import type { SpecBlock, FEntry, VEntry, SEntry, CEntry } from '../types/spec'
+import { stampEntry } from '../utils/sourceStamp'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -170,10 +171,24 @@ export function useSpecEditor() {
   // Each function appends a blank entry to the working spec, marks it changed,
   // and returns the new entry's ID so the panel can auto-expand + scroll to it.
 
+  // r41 v220 (2026-06-20 producer-stamp sweep) — every manually-added entry
+  // is stamped with provenance ("Spec Editor Add · <Date>", sourceType:
+  // 'human') so the renderer's Source chip lights up the moment the entry
+  // is created.  Per-field stamping happens later via applyItemEdits()
+  // when the planner types content into a field (see spec.ts FEntry comment).
+  // r41 v415 (Source Attribution SUPREME sweep) — Class B (SEM-app human).
+  const _stampOpts = {
+    generator:   'Spec Editor',
+    sourceType:  'human' as const,
+    tool:        'Manual Add',
+    stage:       'manual-add',
+    triggerText: '+ Add (Spec Editor)',
+  }
+
   function addFEntry(): string {
     if (!_workingSpec.value) return ''
     const id = _genId('Function', _workingSpec.value.functions)
-    const entry: FEntry = { id, type: 'Function', level: 'Product', description: '', presenceTest: '', functionOfValue: '' }
+    const entry: FEntry = stampEntry({ id, type: 'Function', level: 'Product', description: '', presenceTest: '', functionOfValue: '' }, _stampOpts)
     _workingSpec.value.functions = [..._workingSpec.value.functions, entry]
     _markChanged(id)
     return id
@@ -182,7 +197,7 @@ export function useSpecEditor() {
   function addVEntry(): string {
     if (!_workingSpec.value) return ''
     const id = _genId('Value', _workingSpec.value.values)
-    const entry: VEntry = { id, type: 'Value', level: 'Product', description: '', scale: '', meter: '', status: '', tolerable: '', goal: '', valueOfFunction: '' }
+    const entry: VEntry = stampEntry({ id, type: 'Value', level: 'Product', description: '', scale: '', meter: '', status: '', tolerable: '', goal: '', valueOfFunction: '' }, _stampOpts)
     _workingSpec.value.values = [..._workingSpec.value.values, entry]
     _markChanged(id)
     return id
@@ -191,7 +206,7 @@ export function useSpecEditor() {
   function addSEntry(): string {
     if (!_workingSpec.value) return ''
     const id = _genId('Solution', _workingSpec.value.solutions)
-    const entry: SEntry = { id, type: 'Solution', level: 'Product', description: '', impact: '', function: '' }
+    const entry: SEntry = stampEntry({ id, type: 'Solution', level: 'Product', description: '', impact: '', function: '' }, _stampOpts)
     _workingSpec.value.solutions = [..._workingSpec.value.solutions, entry]
     _markChanged(id)
     return id
@@ -201,7 +216,7 @@ export function useSpecEditor() {
     if (!_workingSpec.value) return ''
     const constraints = _workingSpec.value.constraints ?? []
     const id = _genId('Constraint', constraints)
-    const entry: CEntry = { id, type: 'Constraint', level: 'Product', description: '', scope: '', rationale: '' }
+    const entry: CEntry = stampEntry({ id, type: 'Constraint', level: 'Product', description: '', scope: '', rationale: '' }, _stampOpts)
     _workingSpec.value.constraints = [...constraints, entry]
     _markChanged(id)
     return id

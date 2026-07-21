@@ -71,7 +71,7 @@ export interface ForkSpec {
   /** One-sentence purpose — used as the aria-label short description. */
   blurb: string
   /**
-   * Rich multi-sentence description shown in the custom hover tooltip panel.
+   * Rich multi-sentence description shown in the custom hover HoverHint panel.
    * Grounded in CE/Planguage language so every fork feels purposeful.
    */
   tooltip: string

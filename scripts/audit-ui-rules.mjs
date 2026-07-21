@@ -177,6 +177,12 @@ function auditCloseRule(rel, tpl) {
       /<svg/.test(body) // any inline svg + close click is a violation
     if (!looksLikeCloseGlyph) continue
 
+    // Documented opt-out: a `<!-- audit-ignore: close -->` comment in the
+    // preceding ~600 chars exempts this button. Use sparingly + always with
+    // a one-line reason (e.g. "secondary footer close", "navigation CTA").
+    const closeOptOut = tpl.slice(Math.max(0, m.index - 600), m.index)
+    if (/audit-ignore:\s*close/.test(closeOptOut)) continue
+
     const idx = m.index
     const lineNo = tpl.slice(0, idx).split('\n').length
     const sample = visible.length > 30 ? visible.slice(0, 30) + '…' : visible

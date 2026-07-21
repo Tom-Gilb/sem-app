@@ -35,7 +35,7 @@ export type SugGroup = 'stakeholders' | 'values' | 'means'
 export interface ImpliedSuggestion {
   group: SugGroup
   text: string
-  /** Brief reason shown as a tooltip / sub-label in the panel. */
+  /** Brief reason shown as a HoverHint / sub-label in the panel. */
   why: string
 }
 
