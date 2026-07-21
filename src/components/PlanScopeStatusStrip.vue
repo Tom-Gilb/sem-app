@@ -33,8 +33,9 @@
     Twin portability — pure Vue + Tailwind; consumes shared composable.
 -->
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { usePlanScopeFramework } from '../composables/usePlanScopeFramework'
+import type { SiblingFrameworkDiscovery } from '../composables/usePlanScopeFramework'
 import type { Ref, ComputedRef } from 'vue'
 
 const props = defineProps<{
@@ -57,7 +58,38 @@ const {
   projectStartEventCount,
   deadlineHumanReadable,
   budgetHumanReadable,
+  discoverPopulatedSibling,
+  adoptSibling,
 } = usePlanScopeFramework(props.planIdRef)
+
+// v517 (2026-07-21) — Explicit sibling-framework recovery banner.
+// Tom Gilb 2026-07-21: silent auto-consolidation didn't surface his Stage 10
+// framework data on the Stage 1 summary strip.  Switching to an EXPLICIT
+// affordance: when the current planId has no framework AND a sibling planId
+// has one, render a "Load from '<previous plan>'?" banner with a Load button.
+// Non-blocking, dismissible, visible root-cause info for Tom.
+const sibling = ref<SiblingFrameworkDiscovery | null>(null)
+const siblingDismissed = ref<boolean>(false)
+function _rescanSibling(): void {
+  // Only offer a sibling when the current framework is empty.  isFullyDetermined
+  // is not the right guard — a Deadline-only framework is "partial" but still
+  // legitimately populated; we should NOT offer to overwrite it.
+  const currentEmpty = !isDeadlineDetermined.value && !isStartEventsDetermined.value && !isBudgetDetermined.value
+  if (!currentEmpty) { sibling.value = null; return }
+  sibling.value = discoverPopulatedSibling()
+}
+onMounted(_rescanSibling)
+watch(() => props.planIdRef?.value, () => { siblingDismissed.value = false; _rescanSibling() })
+function onAdoptSibling(): void {
+  if (sibling.value) {
+    adoptSibling(sibling.value)
+    sibling.value = null
+  }
+}
+function onDismissSibling(): void {
+  siblingDismissed.value = true
+  sibling.value = null
+}
 
 const startEventsSummary = computed<string>(() => {
   if (state.value.deadlineMode !== 'from-start') return 'n/a (specific date)'
@@ -100,6 +132,34 @@ const sourceLabel = (kind: string): string => {
         class="ml-auto text-[9px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 rounded px-1.5 py-0.5"
         title="All framework sections have been answered (Yes / No / Undecided all count as answers)"
       >Complete</span>
+    </div>
+    <!-- v517 — Sibling-framework recovery banner (only when current empty + sibling found + not dismissed) -->
+    <div
+      v-if="sibling && !siblingDismissed"
+      class="rounded-lg border-2 border-amber-400 bg-amber-50 p-2 text-[11px] flex items-center gap-2"
+      data-test="plan-scope-sibling-banner"
+    >
+      <span class="text-base" aria-hidden="true">🔍</span>
+      <div class="flex-1 min-w-0">
+        <div class="font-bold text-amber-900">
+          Framework found under previous plan "<span class="italic">{{ sibling.planId }}</span>"
+        </div>
+        <div class="text-[10px] text-amber-800/85 truncate">
+          Deadline / Project Start / Budget were entered under a different plan namespace. Load them here?
+        </div>
+      </div>
+      <button
+        type="button"
+        class="shrink-0 px-2.5 py-1 rounded-md bg-amber-600 text-white text-[11px] font-semibold hover:bg-amber-700"
+        title="Copy the deadline + project-start events + budget from the previous plan into this plan"
+        @click="onAdoptSibling"
+      >Load</button>
+      <button
+        type="button"
+        class="shrink-0 px-2.5 py-1 rounded-md bg-white text-amber-900 text-[11px] font-semibold border border-amber-300 hover:bg-amber-100"
+        title="Keep current plan empty; previous plan's data stays where it is"
+        @click="onDismissSibling"
+      >Ignore</button>
     </div>
     <!-- Three pill rows -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px]">

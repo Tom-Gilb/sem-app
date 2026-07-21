@@ -224,6 +224,23 @@ function _findAnyPopulatedFrameworkExcept(currentKey: string): PlanScopeFramewor
   return null
 }
 
+/** v517 — Same scan as above but returns the planId + framework, not just the
+ *  framework, so UI can show WHICH previous plan the data came from. */
+function _findAnyPopulatedSiblingExcept(currentKey: string): { planId: string; framework: PlanScopeFramework } | null {
+  const prefix = 'sem-app:plan-scope-framework:v1:'
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k || !k.startsWith(prefix) || k === currentKey) continue
+      const candidate = _loadFromStorage(k)
+      if (_isFrameworkPopulated(candidate)) {
+        return { planId: k.slice(prefix.length), framework: candidate }
+      }
+    }
+  } catch { /* silent */ }
+  return null
+}
+
 function _getState(planId: string): Ref<PlanScopeFramework> {
   let cached = _cache.get(planId)
   if (cached) return cached
@@ -250,6 +267,11 @@ function _getState(planId: string): Ref<PlanScopeFramework> {
 
 // ── Public composable API ──────────────────────────────────────────────────
 
+export interface SiblingFrameworkDiscovery {
+  planId: string
+  framework: PlanScopeFramework
+}
+
 export interface UsePlanScopeFramework {
   state:                    Ref<PlanScopeFramework>
   isDeadlineDetermined:     ComputedRef<boolean>
@@ -264,6 +286,12 @@ export interface UsePlanScopeFramework {
   // v514 — envelope round-trip
   getSnapshot:              () => PlanScopeFramework
   hydrateFromSnapshot:      (snap: PlanScopeFramework) => void
+  // v517 (2026-07-21) — explicit sibling-framework discovery for cross-plan
+  // recovery.  Returns the FIRST populated framework found under any OTHER
+  // planId in localStorage, or null.  UI can render a "Load from X" affordance
+  // when current is empty AND discovery returns a hit.
+  discoverPopulatedSibling: () => SiblingFrameworkDiscovery | null
+  adoptSibling:             (sibling: SiblingFrameworkDiscovery) => void
 }
 
 export function usePlanScopeFramework(planIdRef: Ref<string> | ComputedRef<string>): UsePlanScopeFramework {
@@ -356,6 +384,17 @@ export function usePlanScopeFramework(planIdRef: Ref<string> | ComputedRef<strin
     }
   }
 
+  // v517 — sibling discovery + explicit adoption
+  function discoverPopulatedSibling(): SiblingFrameworkDiscovery | null {
+    const currentKey = `sem-app:plan-scope-framework:v1:${planIdRef.value}`
+    return _findAnyPopulatedSiblingExcept(currentKey)
+  }
+  function adoptSibling(sibling: SiblingFrameworkDiscovery): void {
+    if (!sibling || !sibling.framework) return
+    hydrateFromSnapshot(sibling.framework)
+    console.info('[plan-scope-framework] adopted sibling framework from', sibling.planId, 'into', planIdRef.value)
+  }
+
   return {
     state,
     isDeadlineDetermined,
@@ -369,5 +408,7 @@ export function usePlanScopeFramework(planIdRef: Ref<string> | ComputedRef<strin
     resetAll,
     getSnapshot,
     hydrateFromSnapshot,
+    discoverPopulatedSibling,
+    adoptSibling,
   }
 }
