@@ -175,11 +175,72 @@ function _loadFromStorage(key: string): PlanScopeFramework {
 
 const _cache = new Map<string, Ref<PlanScopeFramework>>()
 
+/**
+ * v516 (2026-07-21) — Tom Gilb: *"i have a deadline and budget, from earlier,
+ * but they do not show up in the top of stage 1"*.
+ *
+ * Root cause: Stage 1 (SEMEntryForm) and Stage 10 (ResourcesSharpenPanel)
+ * derive their planId from different sources.  When the same session moves
+ * between surfaces without a consistent plan-name/spec-name state, the two
+ * surfaces end up reading from different `sem-app:plan-scope-framework:v1:*`
+ * keys — one populated (where the user entered data) and one empty (where the
+ * user expects to see it).
+ *
+ * A framework is "empty" when:
+ *   - deadlineMode is null (no deadline expression picked)
+ *   - hasBudget is null (no budget answer given — Yes/No/Undecided all count)
+ *   - no start-event checkbox is ticked
+ *   - all budgetAmounts are missing/zero
+ *
+ * When the requested planId's framework is empty AND another planId key in
+ * localStorage carries a populated framework, adopt the sibling's data under
+ * the current planId.  Silent, one-time consolidation.  Idempotent (empty
+ * everywhere = no-op).  No-Silent-Data-Loss SUPREME satisfied — the user's
+ * data resurfaces, never gets discarded.
+ */
+function _isFrameworkPopulated(f: PlanScopeFramework): boolean {
+  if (f.deadlineMode !== null) return true
+  if (f.hasBudget !== null) return true
+  if (f.startPlanningStarted || f.startContractSigned || f.startBudgetApproved ||
+      f.startPlanApproved || f.startStaffReady || f.startFirstEvoStepsStarted ||
+      f.startCustomEventChecked) return true
+  for (const t of ['total','annual','suggested','contracted','fixed','paidOut'] as BudgetType[]) {
+    const v = f.budgetAmounts[t]
+    if (typeof v === 'number' && v > 0) return true
+  }
+  return false
+}
+
+function _findAnyPopulatedFrameworkExcept(currentKey: string): PlanScopeFramework | null {
+  const prefix = 'sem-app:plan-scope-framework:v1:'
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k || !k.startsWith(prefix) || k === currentKey) continue
+      const candidate = _loadFromStorage(k)
+      if (_isFrameworkPopulated(candidate)) return candidate
+    }
+  } catch { /* silent — localStorage unavailable */ }
+  return null
+}
+
 function _getState(planId: string): Ref<PlanScopeFramework> {
   let cached = _cache.get(planId)
   if (cached) return cached
   const key = `sem-app:plan-scope-framework:v1:${planId}`
-  const state = ref<PlanScopeFramework>(_loadFromStorage(key))
+  let initial = _loadFromStorage(key)
+  // v516: consolidation on first read.  Silent one-time adoption of any sibling
+  // planId's populated framework into the current planId — surfaces the user's
+  // data on whichever surface they land on next.
+  if (!_isFrameworkPopulated(initial)) {
+    const found = _findAnyPopulatedFrameworkExcept(key)
+    if (found) {
+      initial = found
+      try { localStorage.setItem(key, JSON.stringify(initial)) } catch { /* quota */ }
+      console.info('[plan-scope-framework] consolidated a sibling planId framework into', planId)
+    }
+  }
+  const state = ref<PlanScopeFramework>(initial)
   watch(state, (v) => {
     try { localStorage.setItem(key, JSON.stringify(v)) } catch { /* quota */ }
   }, { deep: true })
