@@ -1,0 +1,25 @@
+<!--
+  Resources agent icon — v528 (2026-07-21) — Tom Gilb verbatim: "Estimation 8:
+  specialized Agent called Resources".  Draftsman's set square (📐) rendered
+  as three-corner architect's triangle on indigo — visual reference to the
+  agent's role: measuring, extrapolating, budgeting.  Indigo accent matches
+  the ResourcesAgent panel branding.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-label="Resources — set square + measurement">
+  <!-- Background -->
+  <rect width="64" height="64" fill="#312e81" rx="8"/>
+  <!-- Outer set-square triangle (open frame) -->
+  <path d="M 12 46 L 52 46 L 12 14 Z" fill="none" stroke="#e0e7ff" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Right-angle marker -->
+  <path d="M 12 40 L 18 40 L 18 46" fill="none" stroke="#a5b4fc" stroke-width="2"/>
+  <!-- Ruler ticks along the hypotenuse -->
+  <g stroke="#c7d2fe" stroke-width="1.2">
+    <line x1="18" y1="40" x2="20" y2="38"/>
+    <line x1="24" y1="34" x2="27" y2="31"/>
+    <line x1="30" y1="28" x2="33" y2="25"/>
+    <line x1="36" y1="22" x2="39" y2="19"/>
+    <line x1="42" y1="16" x2="45" y2="13"/>
+  </g>
+  <!-- Dollar sign on the base — cost dimension -->
+  <text x="30" y="43" font-family="serif" font-weight="700" font-size="14" fill="#fbbf24" text-anchor="middle">$</text>
+</svg>

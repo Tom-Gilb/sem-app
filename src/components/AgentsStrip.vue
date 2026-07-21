@@ -84,6 +84,10 @@ const emit = defineEmits<{
   'open-feynman':               []
   'open-roles':                 []
   'open-auto-dbo':              []
+  // v528 (2026-07-21) — top-level Resources agent (Tom Gilb: "any solution or
+  // value implies estimation of resources").  Previously openable ONLY from
+  // Stage 10 ResourceEstimationCard header; now a persistent AgentsStrip pin.
+  'open-resources':             []
   /** r41 v154 — fired when planner clicks a disabled agent.  Same shape as
    *  StageToolsStrip's tool-invalid emit; App.vue surfaces the same toast. */
   'tool-invalid': [payload: { label: string; reason: string }]
@@ -100,6 +104,7 @@ type Emits =
   | 'open-strategy' | 'open-incorruptible' | 'open-incorruptible-sharpen'
   | 'open-elon' | 'open-elon-sharpen' | 'open-munger' | 'open-munger-sharpen'
   | 'open-heilmeier' | 'open-feynman' | 'open-roles' | 'open-auto-dbo'
+  | 'open-resources'  // v528 — Resources agent promoted to top-level
 
 interface AgentPin {
   /** Identity image — sourced from the shared AGENT_REGISTRY. */
@@ -133,6 +138,7 @@ const PIN_EVENT: Record<AgentRegistryId, Emits> = {
   'feynman':               'open-feynman',
   'roles':                 'open-roles',
   'autoDbo':               'open-auto-dbo',
+  'resources':             'open-resources',  // v528
 }
 
 /** Display order — top-N agents most-used first (Tom can re-order anytime). */
@@ -152,6 +158,7 @@ const PIN_ORDER: AgentRegistryId[] = [
   'feynman',
   'roles',
   'autoDbo',
+  'resources',  // v528 — top-level Resources agent (Tom Gilb 2026-07-21)
   // r41 v231 (Tom Gilb 2026-06-20 verbatim "I think we need only one agent,
   // not 2 as you have constructed, in th mene, but we can choose various
   // agent modes") — `incorruptible-sharpen` / `elon-sharpen` / `munger-sharpen`

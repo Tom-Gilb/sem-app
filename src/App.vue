@@ -10434,10 +10434,12 @@ function handleApertureLoadPlan(model: PlanModel): void {
           @open-read="speaking ? stopSpeaking() : handleSpeak(speakerText)"
           @open-books="openBookKaleidoscope()"
           @open-agents="agentMenuOpen = true"
+          @open-resources="resourcesAgentOpen = true"
           @open-actions="toggleMenu"
           @open-demos="demosMenuOpen = true"
           @open-export="emailPlan()"
           @toggle-focus="focusModeToggle"
+          :resource-implying-count="(currentSpec?.values?.length ?? 0) + (currentSpec?.solutions?.length ?? 0)"
         />
       </template>
     </IdentityStrip>
@@ -10533,6 +10535,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
       @open-feynman="feynmanOpen = true"
       @open-roles="roleAgentOpen = true"
       @open-auto-dbo="autoDboOpen = true"
+      @open-resources="resourcesAgentOpen = true"
     />
 
     <!-- r41 v321 (Tom Gilb 2026-06-24): Spec Pulse — persistent 6-tile color-block

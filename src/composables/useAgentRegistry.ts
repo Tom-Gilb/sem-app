@@ -30,6 +30,7 @@ import elonSharpUrl         from '../assets/agents/elon-sharp.svg'
 import appleIIUrl           from '../assets/agents/apple-ii.jpg'
 import charlieMungerUrl     from '../assets/agents/charlie-munger.png'
 import heilmeierUrl         from '../assets/agents/heilmeier.png'
+import resourcesGlyphUrl    from '../assets/agents/resources.svg'
 
 /** Canonical agent identity — matches the IDs used by AgentMenuPanel's `AGENTS` array. */
 export type AgentRegistryId =
@@ -51,6 +52,9 @@ export type AgentRegistryId =
   | 'feynman'
   | 'roles'
   | 'autoDbo'
+  // v528 (2026-07-21) — Tom Gilb: "resources agent should apply from stage 1
+  // and on — any solution or value implies estimation of resources".
+  | 'resources'
 
 export interface AgentIdentity {
   /** Emoji glyph — legacy decoration kept for v-else fallback when no image. */
@@ -502,6 +506,49 @@ Explore Solution alternatives as versioned spec snapshots.  Edit any version spe
 Designed by Steve Wozniak.  First mass-market personal computer.  6502 CPU at 1 MHz · 48 KB RAM · 280×192 colour graphics · floppy drive.  Tom Gilb + Lech Krzanik built the ORIGINAL Auto-DBO on Apple II Forth in 1978 — the Forth interpreter let them prototype design-by-objectives interactively.  This is the original host machine.  48 years later, the method ports to AI.`,
     requires: ['solutions'],
     category: 'edit',
+  },
+  // v528 (2026-07-21) — Resources agent promoted to top-level from Stage-10-only.
+  // Tom Gilb verbatim: "resources agent should apply from stage 1 and on — any
+  // solution or value implies estimation of resources".  The agent panel itself
+  // (ResourcesAgent.vue) was shipped in v509 as ESTIMATION 8; this entry gives
+  // it discoverability alongside every other top-level agent.
+  'resources': {
+    emoji: '📐',
+    status: 'live',
+    image: resourcesGlyphUrl,
+    accent: 'indigo',
+    shortLabel: 'Resources',
+    label: 'Resources',
+    subtitle: 'Capital · Time · Staff · OPEX · Tech Debt',
+    headerGradient: 'bg-gradient-to-r from-indigo-800 via-indigo-700 to-indigo-800',
+    launchBtnClass: 'bg-indigo-600 hover:bg-indigo-700 focus-visible:outline-indigo-600',
+    tileBlurb: 'Central resource estimation hub — 5 resources (Capital Cost / Calendar Time / Specialist Staff / Annual Overhead / Technical Debt) with full time-stamped series, linear extrapolation, standards registry (US Navy Finance / FAR / DCAA / GAAP / IFRS / ISO 31000 / PMBOK / Planguage / custom), Contract/RFP references per resource, currency + frequency + threshold settings, and per-resource Sharpening dialogues. Available from every stage because every Value and every Solution implies resource cost.',
+    richTitle: `Resources — Central Estimation Agent (📐)
+
+Every Value and every Solution added at any stage implies a resource cost.  This agent is the single home for the 5-resource estimation model shipped in ESTIMATION 1–9 (v504–v510).
+
+★ SET SQUARE — the draftsman's tool
+The set-square (📐) is a right-angle triangle used to measure and lay out.  Fits the agent's role: measure current estimates, extrapolate forward, benchmark against stipulated budgets from the Plan Scope Framework, and flag overflow.
+
+★ WHAT IT DOES
+· Capital / Calendar / Staff / Annual Overhead / Tech Debt — 5 resources at once
+· Every estimation carries Source + Timestamp + Reasoning (+ optional Evidence + Equation)
+· Second Opinions + Manual Override with responsible source + reason
+· Auto-trigger on Value / Value-Level / Condition / Constraint / Stipulation changes
+· Auto-trigger on Evo Step completion actuals (IBM Cleanroom · Tom Gilb PoSEM 1988 §17)
+· Linear extrapolation forward N periods with fitted line + trend + R²
+· Standards registry (12 curated: Navy Finance NAVSUP P-485 / SECNAVINST 7000 / FAR Part 31 / DCAA CAM / GAAP / IFRS / ISO 31000 / PMBOK 7 / IBM Cleanroom / Planguage / custom)
+· Contract/RFP references per resource
+· Per-resource Sharpening dialogue
+
+★ SETTINGS — reachable from anywhere
+Currency · frequency · active resources · extrapolation periods · standards multi-select · notes.  All persist per-plan.
+
+★ COMPOSES WITH
+Plan Scope Framework (stipulated budgets) · IET/VDT (auto-snapshot on change) · Universal Undo · Twin portability (industrial-strength resource discipline).`,
+    // No `requires` — Resources applies from Stage 1 onwards.  Even an empty
+    // spec benefits from setting stipulated budgets, currencies, standards.
+    category: 'analyze',
   },
 }
 

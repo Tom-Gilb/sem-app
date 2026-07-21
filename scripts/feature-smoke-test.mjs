@@ -2297,6 +2297,12 @@ const INVARIANTS = [
         'elon-sharpen',        // Sharpening Q&A surface
         'munger-sharpen',      // Sharpening Q&A surface (Phase 2)
         'autoDbo',             // AutoDboPanel.vue / separate path
+        // v528 — Resources agent's file is ResourcesAgent.vue (not
+        // ResourcesPanel.vue) — different filename pattern.  Export-pin
+        // integration on the ResourcesAgent surface is queued as a follow-up
+        // (per Export-Button-on-All-Windows SUPREME) but shouldn't block the
+        // top-level agent promotion itself.
+        'resources',
       ])
 
       // 4. PascalCase + 'Panel' filename derivation.

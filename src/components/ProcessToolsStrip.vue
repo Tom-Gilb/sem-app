@@ -49,9 +49,15 @@ interface Props {
   /** r41 v228 — true when the Plan Crest is currently collapsed (Focus Mode).
    *  Drives the Focus pin's icon + label so it self-describes its state. */
   focusModeActive?: boolean
+  /** v528 (2026-07-21) — count of Values + Solutions currently in the spec.
+   *  Drives the small live badge on the Resources pin: "any Value + any
+   *  Solution implies estimation of resources" (Tom Gilb 2026-07-21).  When
+   *  > 0, the pin shows the count so the planner sees at a glance how many
+   *  entries currently imply resource cost.  Undefined / 0 → no badge. */
+  resourceImplyingCount?: number
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   canUndo: false,
   canRedo: false,
   undoLabel:          '',
@@ -65,7 +71,11 @@ withDefaults(defineProps<Props>(), {
   menuOpen:           false,
   canExport:          false,
   focusModeActive:    false,
+  resourceImplyingCount: 0,
 })
+// Silence unused warning — props IS used in template (auto-unwrapped) but
+// TS+ESLint want a runtime reference.
+void props
 
 const emit = defineEmits<{
   'open-find':       []
@@ -80,6 +90,10 @@ const emit = defineEmits<{
   'open-books':      []
   'open-agents':     []
   'open-actions':    []
+  // v528 (2026-07-21) — Resources agent glance-pin at title-bar level.
+  // Redundant with AgentsStrip's Resources pin but visible even when the
+  // AgentsStrip scrolls off (title bar area is always in view).
+  'open-resources':  []
   'open-demos':      []
   /** r41 2026-06-20 (Tom Gilb verbatim "need export on this window, as
    *  standard for every window, right") — Export pin emit.  Composes with
@@ -386,6 +400,31 @@ const emit = defineEmits<{
       >
         <span class="text-base leading-none" aria-hidden="true">🦾</span>
         <span class="text-[10px] font-bold leading-none tracking-wide">Agents</span>
+      </button>
+
+      <!-- 📐 Resources — v528 (Tom Gilb 2026-07-21) — glance-pin at title-bar
+           level.  Opens the top-level Resources agent (settings · standards ·
+           references · extrapolation · per-resource Sharpening).  Redundant
+           with AgentsStrip's Resources pin but always visible in the title
+           bar even when the AgentsStrip is off-screen.  Live badge shows
+           count of Values + Solutions currently implying resource cost. -->
+      <button
+        type="button"
+        aria-label="Open Resources agent"
+        :title="`📐 Resources — Central estimation agent · every Value + every Solution implies resource cost · settings · standards · currency · extrapolation · per-resource Sharpening.  ${props.resourceImplyingCount && props.resourceImplyingCount > 0 ? `Currently ${props.resourceImplyingCount} Value+Solution entr${props.resourceImplyingCount === 1 ? 'y' : 'ies'} imply resource estimation.  ` : ''}Opens the Resources Agent panel.`"
+        class="relative h-10 flex flex-col items-center justify-center gap-0.5 px-2 rounded-lg
+               transition-all focus:outline-none focus:ring-2 focus:ring-indigo-300
+               bg-indigo-500/85 text-indigo-50 hover:bg-indigo-500"
+        @click="emit('open-resources')"
+      >
+        <span class="text-base leading-none" aria-hidden="true">📐</span>
+        <span class="text-[10px] font-bold leading-none tracking-wide">Resources</span>
+        <!-- Live badge: count of Values + Solutions implying resource cost -->
+        <span
+          v-if="props.resourceImplyingCount && props.resourceImplyingCount > 0"
+          class="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-amber-400 text-indigo-900 text-[9px] font-extrabold flex items-center justify-center leading-none"
+          :title="`${props.resourceImplyingCount} Value+Solution entr${props.resourceImplyingCount === 1 ? 'y' : 'ies'} imply resource cost`"
+        >{{ props.resourceImplyingCount }}</span>
       </button>
 
       <!-- ⚡ Actions — both variants -->
