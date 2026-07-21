@@ -318,6 +318,22 @@ export interface SiblingFrameworkDiscovery {
   framework: PlanScopeFramework
 }
 
+/** v519 (2026-07-21) — visible scan diagnostic so Tom (and Claudian) can see
+ *  from the UI exactly what the sibling-discovery scan found without opening
+ *  Safari Web Inspector.  Do-Not-Outsource-Investigation SUPREME. */
+export interface SiblingScanDiagnostic {
+  /** Number of sem-app:plan-scope-framework:v1:* keys in localStorage (any state). */
+  standaloneKeysScanned: number
+  /** Number of standalone keys that carried a populated framework. */
+  standaloneKeysPopulated: number
+  /** Number of sem-spec-history-v1 entries iterated. */
+  historyEntriesScanned: number
+  /** Number of history entries with a populated resourcesEnvelope.planScope. */
+  historyEntriesPopulated: number
+  /** ISO timestamp when the scan ran — proves the code path fired. */
+  scannedAt: string
+}
+
 export interface UsePlanScopeFramework {
   state:                    Ref<PlanScopeFramework>
   isDeadlineDetermined:     ComputedRef<boolean>
@@ -338,6 +354,8 @@ export interface UsePlanScopeFramework {
   // when current is empty AND discovery returns a hit.
   discoverPopulatedSibling: () => SiblingFrameworkDiscovery | null
   adoptSibling:             (sibling: SiblingFrameworkDiscovery) => void
+  // v519 — visible scan diagnostic (see interface above)
+  runSiblingScanWithDiagnostic: () => { sibling: SiblingFrameworkDiscovery | null; diagnostic: SiblingScanDiagnostic }
 }
 
 export function usePlanScopeFramework(planIdRef: Ref<string> | ComputedRef<string>): UsePlanScopeFramework {
@@ -435,19 +453,76 @@ export function usePlanScopeFramework(planIdRef: Ref<string> | ComputedRef<strin
   // resourcesEnvelope.planScope blobs (Tom Gilb 2026-07-21: framework data
   // saved via v514 envelope pattern lives INSIDE SpecVersion snapshots).
   function discoverPopulatedSibling(): SiblingFrameworkDiscovery | null {
-    const currentKey = `sem-app:plan-scope-framework:v1:${planIdRef.value}`
-    // Layer 1 — standalone sibling planId keys
-    const sibling = _findAnyPopulatedSiblingExcept(currentKey)
-    if (sibling) return sibling
-    // Layer 2 — embedded in spec-history SpecVersion envelopes
-    const embedded = _findPopulatedFrameworkInSpecHistory()
-    if (embedded) return embedded
-    return null
+    return runSiblingScanWithDiagnostic().sibling
   }
   function adoptSibling(sibling: SiblingFrameworkDiscovery): void {
     if (!sibling || !sibling.framework) return
     hydrateFromSnapshot(sibling.framework)
     console.info('[plan-scope-framework] adopted sibling framework from', sibling.planId, 'into', planIdRef.value)
+  }
+
+  /** v519 — the single scan function that ALSO returns a diagnostic.
+   *  Called by discoverPopulatedSibling for compat; also called directly by
+   *  the UI when it wants the diagnostic surfaced. */
+  function runSiblingScanWithDiagnostic(): { sibling: SiblingFrameworkDiscovery | null; diagnostic: SiblingScanDiagnostic } {
+    const currentKey = `sem-app:plan-scope-framework:v1:${planIdRef.value}`
+    const diagnostic: SiblingScanDiagnostic = {
+      standaloneKeysScanned: 0,
+      standaloneKeysPopulated: 0,
+      historyEntriesScanned: 0,
+      historyEntriesPopulated: 0,
+      scannedAt: new Date().toISOString(),
+    }
+    let firstHit: SiblingFrameworkDiscovery | null = null
+
+    // Layer 1 — full pass so we can count (not early-return)
+    try {
+      const prefix = 'sem-app:plan-scope-framework:v1:'
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (!k || !k.startsWith(prefix)) continue
+        if (k === currentKey) continue
+        diagnostic.standaloneKeysScanned++
+        const candidate = _loadFromStorage(k)
+        if (_isFrameworkPopulated(candidate)) {
+          diagnostic.standaloneKeysPopulated++
+          if (!firstHit) firstHit = { planId: k.slice(prefix.length), framework: candidate }
+        }
+      }
+    } catch { /* silent */ }
+
+    // Layer 2 — full pass over sem-spec-history-v1
+    try {
+      const raw = localStorage.getItem('sem-spec-history-v1')
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown
+        if (Array.isArray(parsed)) {
+          for (const entry of parsed) {
+            if (!entry || typeof entry !== 'object') continue
+            diagnostic.historyEntriesScanned++
+            const rec = entry as Record<string, unknown>
+            const env = rec.resourcesEnvelope as Record<string, unknown> | undefined
+            if (!env || typeof env !== 'object') continue
+            const scope = env.planScope as PlanScopeFramework | undefined
+            if (!scope || typeof scope !== 'object') continue
+            const normalised: PlanScopeFramework = { ...emptyPlanScopeFramework(), ...(scope as PlanScopeFramework) }
+            normalised.budgetAmounts = { ...emptyPlanScopeFramework().budgetAmounts, ...((scope as PlanScopeFramework).budgetAmounts ?? {}) }
+            if (_isFrameworkPopulated(normalised)) {
+              diagnostic.historyEntriesPopulated++
+              if (!firstHit) {
+                const label = (rec.specName as string)
+                           ?? (rec.name as string)
+                           ?? (rec.id as string)
+                           ?? '(saved spec version)'
+                firstHit = { planId: label, framework: normalised }
+              }
+            }
+          }
+        }
+      }
+    } catch { /* silent */ }
+
+    return { sibling: firstHit, diagnostic }
   }
 
   return {
@@ -465,5 +540,6 @@ export function usePlanScopeFramework(planIdRef: Ref<string> | ComputedRef<strin
     hydrateFromSnapshot,
     discoverPopulatedSibling,
     adoptSibling,
+    runSiblingScanWithDiagnostic,
   }
 }

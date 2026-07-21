@@ -35,7 +35,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, watch } from 'vue'
 import { usePlanScopeFramework } from '../composables/usePlanScopeFramework'
-import type { SiblingFrameworkDiscovery } from '../composables/usePlanScopeFramework'
+import type { SiblingFrameworkDiscovery, SiblingScanDiagnostic } from '../composables/usePlanScopeFramework'
 import type { Ref, ComputedRef } from 'vue'
 
 const props = defineProps<{
@@ -58,25 +58,24 @@ const {
   projectStartEventCount,
   deadlineHumanReadable,
   budgetHumanReadable,
-  discoverPopulatedSibling,
   adoptSibling,
+  runSiblingScanWithDiagnostic,
 } = usePlanScopeFramework(props.planIdRef)
 
 // v517 (2026-07-21) — Explicit sibling-framework recovery banner.
-// Tom Gilb 2026-07-21: silent auto-consolidation didn't surface his Stage 10
-// framework data on the Stage 1 summary strip.  Switching to an EXPLICIT
-// affordance: when the current planId has no framework AND a sibling planId
-// has one, render a "Load from '<previous plan>'?" banner with a Load button.
-// Non-blocking, dismissible, visible root-cause info for Tom.
+// v519 (2026-07-21) — After two rounds of Tom Gilb "still empty" reports on
+// v517 + v518, add a VISIBLE diagnostic footer that names exactly what the
+// scan saw.  If scan finds NOTHING anywhere, footer says so.  Confirms the
+// scan actually ran and lists counts — no DevTools needed.
 const sibling = ref<SiblingFrameworkDiscovery | null>(null)
 const siblingDismissed = ref<boolean>(false)
+const scanDiagnostic = ref<SiblingScanDiagnostic | null>(null)
 function _rescanSibling(): void {
-  // Only offer a sibling when the current framework is empty.  isFullyDetermined
-  // is not the right guard — a Deadline-only framework is "partial" but still
-  // legitimately populated; we should NOT offer to overwrite it.
   const currentEmpty = !isDeadlineDetermined.value && !isStartEventsDetermined.value && !isBudgetDetermined.value
-  if (!currentEmpty) { sibling.value = null; return }
-  sibling.value = discoverPopulatedSibling()
+  if (!currentEmpty) { sibling.value = null; scanDiagnostic.value = null; return }
+  const result = runSiblingScanWithDiagnostic()
+  sibling.value = result.sibling
+  scanDiagnostic.value = result.diagnostic
 }
 onMounted(_rescanSibling)
 watch(() => props.planIdRef?.value, () => { siblingDismissed.value = false; _rescanSibling() })
@@ -84,11 +83,15 @@ function onAdoptSibling(): void {
   if (sibling.value) {
     adoptSibling(sibling.value)
     sibling.value = null
+    scanDiagnostic.value = null
   }
 }
 function onDismissSibling(): void {
   siblingDismissed.value = true
   sibling.value = null
+}
+function onRerunScan(): void {
+  _rescanSibling()
 }
 
 const startEventsSummary = computed<string>(() => {
@@ -133,6 +136,36 @@ const sourceLabel = (kind: string): string => {
         title="All framework sections have been answered (Yes / No / Undecided all count as answers)"
       >Complete</span>
     </div>
+    <!-- v519 — Diagnostic footer: shows what the sibling scan actually saw.
+         Visible ONLY when current framework is empty AND no sibling was found
+         (i.e. the amber banner is NOT showing).  Zero DevTools required. -->
+    <div
+      v-if="scanDiagnostic && !sibling && !isDeadlineDetermined && !isStartEventsDetermined && !isBudgetDetermined"
+      class="rounded-md border border-slate-200 bg-slate-50 p-2 text-[10px] flex items-center gap-2"
+      data-test="plan-scope-scan-diagnostic"
+    >
+      <span aria-hidden="true">🔍</span>
+      <div class="flex-1 min-w-0 text-slate-700 leading-snug">
+        <span class="font-semibold">Scanned:</span>
+        {{ scanDiagnostic.standaloneKeysScanned }} framework namespace{{ scanDiagnostic.standaloneKeysScanned === 1 ? '' : 's' }}
+        ({{ scanDiagnostic.standaloneKeysPopulated }} populated) ·
+        {{ scanDiagnostic.historyEntriesScanned }} saved spec version{{ scanDiagnostic.historyEntriesScanned === 1 ? '' : 's' }}
+        ({{ scanDiagnostic.historyEntriesPopulated }} with framework data).
+        <template v-if="scanDiagnostic.standaloneKeysScanned + scanDiagnostic.historyEntriesScanned === 0">
+          <span class="italic">Nothing to recover from browser storage — enter values below.</span>
+        </template>
+        <template v-else>
+          <span class="italic">No populated framework found; the values are either in memory only or under a namespace this scan cannot reach.</span>
+        </template>
+      </div>
+      <button
+        type="button"
+        class="shrink-0 px-2 py-0.5 rounded bg-white text-slate-700 text-[10px] font-semibold border border-slate-300 hover:bg-slate-100"
+        title="Re-run the scan across localStorage now"
+        @click="onRerunScan"
+      >Rescan</button>
+    </div>
+
     <!-- v517 — Sibling-framework recovery banner (only when current empty + sibling found + not dismissed) -->
     <div
       v-if="sibling && !siblingDismissed"
