@@ -94,6 +94,38 @@ function onRerunScan(): void {
   _rescanSibling()
 }
 
+// v522 (2026-07-21) — Raw storage inspector.  After 8 ships trying to
+// surface Tom's framework data via scans/banners/diagnostics that don't
+// render in his tab, ship the simplest possible thing: always show the RAW
+// localStorage content for the current planId key.  If writes are landing,
+// we see them.  If not, we see empty.  Answers the question in one screenshot.
+const showRawInspector = ref<boolean>(false)
+const rawInspectorContent = ref<string>('')
+function _refreshRawInspector(): void {
+  try {
+    const planId = props.planIdRef?.value ?? '<no plan-id-ref>'
+    const key = `sem-app:plan-scope-framework:v1:${planId}`
+    const raw = localStorage.getItem(key) ?? '(no value)'
+    const allKeys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('sem-app:plan-scope-framework:v1:')) allKeys.push(k.slice('sem-app:plan-scope-framework:v1:'.length))
+    }
+    rawInspectorContent.value =
+      `planId="${planId}"\n` +
+      `key="${key}"\n` +
+      `stored=${raw.length > 400 ? raw.slice(0, 400) + '…' : raw}\n` +
+      `all framework planIds in localStorage: [${allKeys.join(', ')}]`
+  } catch (e) {
+    rawInspectorContent.value = `inspector error: ${(e as Error).message}`
+  }
+}
+function toggleRawInspector(): void {
+  showRawInspector.value = !showRawInspector.value
+  if (showRawInspector.value) _refreshRawInspector()
+}
+watch(sibling, () => { if (showRawInspector.value) _refreshRawInspector() })
+
 const startEventsSummary = computed<string>(() => {
   if (state.value.deadlineMode !== 'from-start') return 'n/a (specific date)'
   const n = projectStartEventCount.value
@@ -135,7 +167,21 @@ const sourceLabel = (kind: string): string => {
         class="ml-auto text-[9px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 rounded px-1.5 py-0.5"
         title="All framework sections have been answered (Yes / No / Undecided all count as answers)"
       >Complete</span>
+      <!-- v522 — always-visible Inspect toggle button next to the status badge -->
+      <button
+        type="button"
+        class="text-[9px] font-semibold uppercase tracking-wider text-slate-600 bg-slate-100 rounded px-1.5 py-0.5 border border-slate-300 hover:bg-slate-200"
+        title="Show raw localStorage contents for this plan's framework key + list every framework planId currently in storage"
+        @click="toggleRawInspector"
+      >{{ showRawInspector ? 'Hide Inspect' : 'Inspect' }}</button>
     </div>
+    <!-- v522 — Raw storage inspector.  Shows the ACTUAL localStorage content
+         when toggled.  Screenshot this to diagnose whether writes are landing. -->
+    <pre
+      v-if="showRawInspector"
+      class="rounded-md border border-slate-300 bg-slate-900 text-slate-100 p-2 text-[10px] leading-tight font-mono whitespace-pre-wrap break-words max-h-40 overflow-auto"
+      data-test="plan-scope-raw-inspector"
+    >{{ rawInspectorContent }}</pre>
     <!-- v519 — Diagnostic footer: shows what the sibling scan actually saw.
          Visible ONLY when current framework is empty AND no sibling was found
          (i.e. the amber banner is NOT showing).  Zero DevTools required. -->
