@@ -69,6 +69,7 @@ import {
 } from '../composables/useResourceEstimations'
 import { useIetResourceSnapshot } from '../composables/useIetResourceSnapshot'
 import ResourcesSharpeningDialog from './ResourcesSharpeningDialog.vue'   // v513
+import { exportAgentReport, type AgentExportCategoryGroup } from '../composables/useAgentReportExport'  // v529
 import type { Ref, ComputedRef } from 'vue'
 
 const props = defineProps<{
@@ -127,6 +128,72 @@ function formatDifferential(pct: number | null): string {
   if (pct == null) return '—'
   if (!Number.isFinite(pct)) return '∞% over'
   return `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`
+}
+
+// ── Export — v529 (Tom Gilb 2026-07-22) ─────────────────────────────────────
+// Export-Button-on-All-Windows SUPREME: every substantial window emits a
+// colourful HTML export via the shared useAgentReportExport composable.
+// Mailto-No-Self-To SUPREME: to:'' is passed inside exportAgentReport().
+// Categorises the export by resource (Capital / Calendar / Staff / OPEX /
+// Tech Debt), each carrying a "finding" per estimation snapshot with
+// principle=resource-name, explanation=formatted amount+differential+status,
+// citations=[settings.currency, standardsForResource(r)…].
+async function exportResourcesReport(): Promise<void> {
+  const findingsByResource: AgentExportCategoryGroup[] = activeResources.value.map((r) => {
+    const s = series.value[r]
+    const meta = RESOURCE_META[r]
+    const est = s.latestAmount != null ? formatAmount(r, s.latestAmount) : '—'
+    const budget = s.budgetAmount != null ? formatAmount(r, s.budgetAmount) : '—'
+    const diff = formatDifferential(s.differentialPct)
+    const status = statusLabel[s.status]
+    const stds = agent.standardsForResource(r).map(id => {
+      const std = RESOURCE_STANDARDS.find(x => x.id === id)
+      return std ? `${std.label} (${std.category})` : id
+    })
+    const refs = agent.settings.value.contractReferences
+      .filter((cr) => cr.resource === r)
+      .map((cr) => `${cr.citation}${cr.url ? ` — ${cr.url}` : ''}`)
+    return {
+      categoryLabel: `${meta.glyph} ${meta.label}`,
+      categorySubtitle: meta.hint,
+      findings: [
+        {
+          id: `resource-${r}`,
+          categoryLabel: meta.label,
+          principleViolated: `Latest estimation`,
+          explanation: `Estimated: ${est} · Stipulated (budget): ${budget} · Differential: ${diff} · Status: ${status}${s.history.length > 0 ? ` · History: ${s.history.length} estimation${s.history.length === 1 ? '' : 's'}` : ''}`,
+          severityLabel: status,
+          severityBgHex: s.status === 'overflow' ? '#dc2626' : s.status === 'warning' ? '#f59e0b' : s.status === 'ok' ? '#059669' : '#64748b',
+          sourceLayerLabel: s.history[s.history.length - 1]?.source ?? 'undetermined',
+          sourceLayerBgHex: '#e0e7ff',
+          triggeredBy: s.history[s.history.length - 1]?.causes?.join(' · ') ?? '',
+          fixPlanguage: refs.length > 0 ? `RFP/Contract references: ${refs.join(' · ')}` : '',
+          fixRationale: s.history[s.history.length - 1]?.reasoning ?? '',
+          longTermConsequence: '',
+          citations: stds,
+        },
+      ],
+    }
+  })
+  await exportAgentReport({
+    agentName: '📐 Resources Agent',
+    agentSubtitle: 'Central Resource Estimation Hub · 5 resources · standards · references',
+    agentHeaderBgHex: '#312e81',  // indigo-900
+    planTitle: '',
+    scoreValue: activeResources.value.length,
+    scoreLabel: `of 5 resources active · ${anyOverflow.value ? '🔴 overflow' : anyWarning.value ? '🟡 warning' : '🟢 on track'}`,
+    totalFindings: activeResources.value.length,
+    severityTally: [
+      { label: 'ON TRACK', count: activeResources.value.filter(r => series.value[r].status === 'ok').length,       bgHex: '#059669' },
+      { label: 'WARNING',  count: activeResources.value.filter(r => series.value[r].status === 'warning').length,  bgHex: '#f59e0b' },
+      { label: 'OVERFLOW', count: activeResources.value.filter(r => series.value[r].status === 'overflow').length, bgHex: '#dc2626' },
+      { label: 'NO EST',   count: activeResources.value.filter(r => series.value[r].status === 'no-estimate').length, bgHex: '#64748b' },
+      { label: 'NO BGT',   count: activeResources.value.filter(r => series.value[r].status === 'no-budget').length,   bgHex: '#94a3b8' },
+    ],
+    headline: `Resources snapshot at ${new Date().toLocaleString()} — currency ${agent.settings.value.currency} · frequency ${agent.settings.value.updateFrequency}`,
+    groups: findingsByResource,
+    sourcesFooterHtml: `<p style="margin:8px 0;color:#334155;font-size:11px">Standards active: ${agent.activeStandards().map(id => RESOURCE_STANDARDS.find(x => x.id === id)?.label ?? id).join(' · ') || '(none)'}</p><p style="margin:8px 0;color:#334155;font-size:11px">Source: SEM App · ESTIMATION 1–9 (v504–v510) · Twin portability compliant.</p>`,
+  })
 }
 
 // ── Sparkline ────────────────────────────────────────────────────────────────
@@ -419,7 +486,18 @@ async function loadImportSample(): Promise<void> {
                 </p>
               </div>
             </div>
-            <CloseDot size="lg" aria-label="Close Resources Agent" @click="emit('close')" />
+            <div class="flex items-center gap-2">
+              <!-- v529 (Tom Gilb 2026-07-22) — Export pin per Export-Button-on-
+                   All-Windows SUPREME rule.  Copies colourful HTML to clipboard
+                   + auto-opens Mail with to:'' (Mailto-No-Self-To SUPREME). -->
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-lg bg-white text-indigo-900 text-xs font-bold shadow ring-1 ring-indigo-200 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 shrink-0"
+                title="📤 Export · open preview + copy colourful HTML to clipboard + auto-open Mail (Copy / Mail / Preview in one action).  Snapshot of every active resource with current estimation + budget + differential + status + reasoning + standards + references."
+                @click="exportResourcesReport"
+              >📤 Export</button>
+              <CloseDot size="lg" aria-label="Close Resources Agent" @click="emit('close')" />
+            </div>
           </header>
 
           <!-- Body -->

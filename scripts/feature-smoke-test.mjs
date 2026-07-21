@@ -2297,12 +2297,10 @@ const INVARIANTS = [
         'elon-sharpen',        // Sharpening Q&A surface
         'munger-sharpen',      // Sharpening Q&A surface (Phase 2)
         'autoDbo',             // AutoDboPanel.vue / separate path
-        // v528 — Resources agent's file is ResourcesAgent.vue (not
-        // ResourcesPanel.vue) — different filename pattern.  Export-pin
-        // integration on the ResourcesAgent surface is queued as a follow-up
-        // (per Export-Button-on-All-Windows SUPREME) but shouldn't block the
-        // top-level agent promotion itself.
-        'resources',
+        // v528/v529 — Resources agent has ResourcesAgent.vue (not
+        // ResourcesPanel.vue).  v529 shipped 📤 Export pin + exportAgentReport()
+        // call in that file, so this invariant polices it via the alt-name
+        // filename derivation branch below.  NOT in the skipByDesign allowlist.
       ])
 
       // 4. PascalCase + 'Panel' filename derivation.
@@ -2312,7 +2310,11 @@ const INVARIANTS = [
 
       const failures = []
       for (const id of inScope) {
-        const base = id === 'roles' ? 'RoleAgentPanel' : `${toPascal(id)}Panel`
+        const base = id === 'roles'
+          ? 'RoleAgentPanel'
+          : id === 'resources'
+            ? 'ResourcesAgent'    // v529 — file is ResourcesAgent.vue, not ResourcesPanel.vue
+            : `${toPascal(id)}Panel`
         const url = `/src/components/${base}.vue?cache=${Date.now()}`
         const txt = await page.evaluate(async (u) =>
           fetch(u).then(x => x.ok ? x.text() : '').catch(() => ''), url)
