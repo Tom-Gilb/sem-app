@@ -36,13 +36,28 @@
 import { computed, ref, onMounted, watch } from 'vue'
 import { usePlanScopeFramework } from '../composables/usePlanScopeFramework'
 import type { SiblingFrameworkDiscovery, SiblingScanDiagnostic } from '../composables/usePlanScopeFramework'
-import type { Ref, ComputedRef } from 'vue'
 
 const props = defineProps<{
-  planIdRef: Ref<string> | ComputedRef<string>
+  /**
+   * v523 (2026-07-21): declared as string at runtime because Vue templates
+   * AUTO-UNWRAP refs when passed as props via template binding
+   * `<PlanScopeStatusStrip :plan-id-ref="planScopePlanId" />`.  The parent's
+   * `computed(() => 'default')` arrives here as the STRING 'default', not
+   * as a Ref/ComputedRef.  Proven by planScopeFramework.persistence.test.ts
+   * test (h): `[test-h] typeofProp=string, propValueDot=undefined,
+   * isString=true, raw=default`.  Prior `Ref<string> | ComputedRef<string>`
+   * declaration was a runtime lie — composable's `planIdRef.value` returned
+   * undefined and writes went to `sem-app:plan-scope-framework:v1:undefined`.
+   */
+  planIdRef: string
   /** Compact mode = single row of pills; full = multi-row card with labels. */
   compact?: boolean
 }>()
+
+// v523 — wrap the string prop into a REAL computed so
+// `usePlanScopeFramework` (which does `planIdRef.value` internally) gets the
+// expected ref shape.  Reactive to prop changes.
+const _planIdRefWrapped = computed(() => props.planIdRef)
 
 const emit = defineEmits<{
   /** Fired when the user clicks any Edit affordance.  Parent opens the full editor. */
@@ -60,7 +75,7 @@ const {
   budgetHumanReadable,
   adoptSibling,
   runSiblingScanWithDiagnostic,
-} = usePlanScopeFramework(props.planIdRef)
+} = usePlanScopeFramework(_planIdRefWrapped)
 
 // v517 (2026-07-21) — Explicit sibling-framework recovery banner.
 // v519 (2026-07-21) — After two rounds of Tom Gilb "still empty" reports on
@@ -78,7 +93,7 @@ function _rescanSibling(): void {
   scanDiagnostic.value = result.diagnostic
 }
 onMounted(_rescanSibling)
-watch(() => props.planIdRef?.value, () => { siblingDismissed.value = false; _rescanSibling() })
+watch(() => props.planIdRef, () => { siblingDismissed.value = false; _rescanSibling() })
 function onAdoptSibling(): void {
   if (sibling.value) {
     adoptSibling(sibling.value)
@@ -103,7 +118,7 @@ const showRawInspector = ref<boolean>(false)
 const rawInspectorContent = ref<string>('')
 function _refreshRawInspector(): void {
   try {
-    const planId = props.planIdRef?.value ?? '<no plan-id-ref>'
+    const planId = props.planIdRef ?? '<no plan-id-ref>'
     const key = `sem-app:plan-scope-framework:v1:${planId}`
     const raw = localStorage.getItem(key) ?? '(no value)'
     const allKeys: string[] = []
