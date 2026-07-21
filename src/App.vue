@@ -6238,7 +6238,43 @@ function _restorePreSpecDraft(): void {
 
 // ── Start fresh ───────────────────────────────────────────────────────────────
 
-function startFresh(): void {
+function startFresh(opts?: { force?: boolean }): void {
+  // v520 (2026-07-21) — Tom Gilb "I clicked edit and saw all previous data
+  // gone. I started filling out deadline, and it suddenly on its own jumped
+  // back to stage 1".  Another silent Stage 10 → Stage 1 reset while Tom was
+  // ACTIVELY TYPING.  v514's guard covered ONLY the Escape-key path; other
+  // callers of startFresh() (2-tap-confirm at line 6187, search-palette
+  // command at 9155, Blank Canvas option at 9471, goToStage1() at 6441) can
+  // still nuke Stage 6-11 work with no user consent.  HARD GUARD: when
+  // planningStage >= 6 AND currentSpec exists AND caller did NOT pass
+  // {force: true}, refuse + toast + log the caller stack for retro-diagnosis
+  // (persisted via v514 breadcrumb pattern).  Legitimate resets (user pressed
+  // 🆘 SOS explicitly, Blank Canvas, etc.) pass {force: true}.
+  const stageAtEntry = planningStage.value
+  if (!opts?.force && stageAtEntry >= 6 && currentSpec.value) {
+    try {
+      const err = new Error('startFresh suppressed at Stage ' + stageAtEntry)
+      const stack = (err.stack ?? '').split('\n').slice(0, 12).join('\n')
+      const entry = {
+        ts: new Date().toISOString(),
+        event: 'startFresh-suppressed',
+        planningStage: stageAtEntry,
+        specPresent: !!currentSpec.value,
+        stack,
+      }
+      const w = window as unknown as { _semStateLog?: Array<typeof entry> }
+      if (!w._semStateLog) w._semStateLog = []
+      w._semStateLog.push(entry)
+      if (w._semStateLog.length > 20) w._semStateLog.shift()
+      try { localStorage.setItem('sem-state-log-v1', JSON.stringify(w._semStateLog)) } catch { /* quota */ }
+      console.warn('[startFresh guard] suppressed at Stage', stageAtEntry, entry)
+    } catch { /* diag noop */ }
+    showToast(
+      `⚠ Reset suppressed at Stage ${stageAtEntry} — press 🆘 SOS in the title bar to reset explicitly, or refresh Safari to keep working.`,
+      8000,
+    )
+    return
+  }
   _dismissOops()                // clear any pending Oops offer — fresh start is intentional
   _closeAllOverlays()           // clear any stale backdrop/menu (e.g. Actions z-[375] backdrop)
   formResetKey.value++          // force SEMEntryForm to remount (resets internal sub-stage)
@@ -6284,10 +6320,11 @@ let _startOverConfirmTimer: ReturnType<typeof setTimeout> | null = null
 
 function requestStartOver(): void {
   if (startOverConfirmPending.value) {
-    // Second confirmation — execute
+    // Second confirmation — execute.  User has explicitly confirmed via 2-tap
+    // sequence so v520 stage-guard is bypassed (force: true).
     if (_startOverConfirmTimer !== null) { clearTimeout(_startOverConfirmTimer); _startOverConfirmTimer = null }
     startOverConfirmPending.value = false
-    startFresh()
+    startFresh({ force: true })
   } else {
     // First tap — arm the confirmation window
     startOverConfirmPending.value = true
@@ -6415,7 +6452,41 @@ function _closeAllOverlays(): void {
  *
  * Wired to the 🆘 Reset pill in the bottom-left corner.
  */
-function panicReset(): void {
+function panicReset(opts?: { force?: boolean }): void {
+  // v520 (2026-07-21) — hard guard on all panicReset callers, not just Escape.
+  // Tom Gilb 2026-07-21 verbatim (after v514 Escape-guard was already live):
+  // "I clicked edit and saw all previous data gone. I started filling out
+  // deadline, and it suddenly on its own jumped back to stage 1".  Another
+  // silent Stage 10 → Stage 1 reset WHILE TYPING.  v514 guarded ONLY the
+  // Escape-key path.  Any other caller (search palette, FreshStart Opt 4,
+  // 🆘 button, whatever fires panicReset next) can still nuke Stage 6-11
+  // work with no consent.  Same guard shape as startFresh(): stageAtEntry
+  // >= 6 && currentSpec && !force → refuse + toast + log the caller stack.
+  const stageAtEntry = planningStage.value
+  if (!opts?.force && stageAtEntry >= 6 && currentSpec.value) {
+    try {
+      const err = new Error('panicReset suppressed at Stage ' + stageAtEntry)
+      const stack = (err.stack ?? '').split('\n').slice(0, 12).join('\n')
+      const entry = {
+        ts: new Date().toISOString(),
+        event: 'panicReset-suppressed',
+        planningStage: stageAtEntry,
+        specPresent: !!currentSpec.value,
+        stack,
+      }
+      const w = window as unknown as { _semStateLog?: Array<typeof entry> }
+      if (!w._semStateLog) w._semStateLog = []
+      w._semStateLog.push(entry)
+      if (w._semStateLog.length > 20) w._semStateLog.shift()
+      try { localStorage.setItem('sem-state-log-v1', JSON.stringify(w._semStateLog)) } catch { /* quota */ }
+      console.warn('[panicReset guard] suppressed at Stage', stageAtEntry, entry)
+    } catch { /* diag noop */ }
+    showToast(
+      `⚠ Reset suppressed at Stage ${stageAtEntry} — press 🆘 SOS in the title bar to reset explicitly, or refresh Safari to keep working.`,
+      8000,
+    )
+    return
+  }
   _dismissOops()  // clear any blocking Oops offer immediately
   // Pre-reset save — flush any pending autosave debounce before wiping UI state,
   // so no work is lost regardless of where in the 500ms debounce window we are.
@@ -8896,7 +8967,7 @@ function _onGlobalKeydown(e: KeyboardEvent) {
         )
         return
       }
-      panicReset()
+      panicReset({ force: true })  // v520 — Escape already passed the v514 stage-guard above
     }
   }
 }
@@ -9280,7 +9351,7 @@ const searchEntries = computed((): SearchEntry[] => {
       id: 'start-fresh', icon: '↺', name: 'Start Fresh',
       description: 'Clear the session and return to the sign-in screen',
       keywords: ['fresh', 'start fresh', 'sign out session', 'clear all'],
-      context: 'Session', action: () => { startFresh() },
+      context: 'Session', action: () => { startFresh({ force: true }) },  // user explicitly invoked from search palette
     },
 
     // ── Onboarding ────────────────────────────────────────────────────────
@@ -9596,7 +9667,7 @@ function _backupCurrentSpec(reason: string): void {
 function _onFreshCanvas(): void {
   _backupCurrentSpec('Pre-Blank-Canvas')
   freshStartOpen.value = false
-  startFresh()   // startFresh() calls aperture.backToPlan() when enabled
+  startFresh({ force: true })   // user explicitly picked Blank Canvas — v520 stage-guard bypassed
 }
 
 /** Option 2 — Save This and Stop. Snapshot current, close menu, idle.
@@ -9630,10 +9701,11 @@ function _onRollback(targetTs: number): void {
 }
 
 /** Option 4 — Just close stuck UI. The pre-existing panicReset behaviour.
- *  No data touched. */
+ *  No data touched.  v520: user picked from the 🆘 SOS FreshStart menu →
+ *  explicit reset → force through the stage-guard. */
 function _onCloseStuckUi(): void {
   freshStartOpen.value = false
-  panicReset()
+  panicReset({ force: true })
 }
 
 // ── Ultra Light Phase 3 — Aperture wiring ────────────────────────────────────
