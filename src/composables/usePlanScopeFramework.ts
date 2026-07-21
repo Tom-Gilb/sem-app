@@ -241,6 +241,52 @@ function _findAnyPopulatedSiblingExcept(currentKey: string): { planId: string; f
   return null
 }
 
+/**
+ * v518 (2026-07-21) — Deep scan: the v514 ResourcesEnvelope pattern embeds
+ * the Plan Scope Framework INSIDE saved SpecVersion snapshots in
+ * `sem-spec-history-v1`.  Tom Gilb's Stage 10 data very likely lives there
+ * rather than in a standalone `plan-scope-framework:v1:*` key.
+ *
+ * This helper scans the spec-history array and returns the FIRST populated
+ * `planScope` blob found on any SpecVersion's `resourcesEnvelope`.  The
+ * planId label surfaces the SpecVersion's plan name or id so the banner can
+ * name the source concretely.
+ *
+ * Silent-fail on parse errors, missing key, or malformed shape.  Never
+ * throws.  Returns null when no populated framework is found anywhere.
+ */
+function _findPopulatedFrameworkInSpecHistory(): { planId: string; framework: PlanScopeFramework } | null {
+  try {
+    const raw = localStorage.getItem('sem-spec-history-v1')
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return null
+    // Iterate newest first — spec history is typically prepended most-recent-first,
+    // but be tolerant of either order.  Fine either way; we want ANY populated one.
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== 'object') continue
+      const rec = entry as Record<string, unknown>
+      const env = rec.resourcesEnvelope as Record<string, unknown> | undefined
+      if (!env || typeof env !== 'object') continue
+      const scope = env.planScope as PlanScopeFramework | undefined
+      if (!scope || typeof scope !== 'object') continue
+      // Coerce through the same load-shape validator to normalise fields.
+      const normalised: PlanScopeFramework = { ...emptyPlanScopeFramework(), ...(scope as PlanScopeFramework) }
+      // Deep-merge budgetAmounts so the empty-object default doesn't wipe values.
+      normalised.budgetAmounts = { ...emptyPlanScopeFramework().budgetAmounts, ...((scope as PlanScopeFramework).budgetAmounts ?? {}) }
+      if (_isFrameworkPopulated(normalised)) {
+        // Derive a human-readable source label — prefer specName, fall back to id.
+        const label = (rec.specName as string)
+                   ?? (rec.name as string)
+                   ?? (rec.id as string)
+                   ?? '(saved spec version)'
+        return { planId: label, framework: normalised }
+      }
+    }
+  } catch { /* silent */ }
+  return null
+}
+
 function _getState(planId: string): Ref<PlanScopeFramework> {
   let cached = _cache.get(planId)
   if (cached) return cached
@@ -385,9 +431,18 @@ export function usePlanScopeFramework(planIdRef: Ref<string> | ComputedRef<strin
   }
 
   // v517 — sibling discovery + explicit adoption
+  // v518 — extended to also deep-scan sem-spec-history-v1 for embedded
+  // resourcesEnvelope.planScope blobs (Tom Gilb 2026-07-21: framework data
+  // saved via v514 envelope pattern lives INSIDE SpecVersion snapshots).
   function discoverPopulatedSibling(): SiblingFrameworkDiscovery | null {
     const currentKey = `sem-app:plan-scope-framework:v1:${planIdRef.value}`
-    return _findAnyPopulatedSiblingExcept(currentKey)
+    // Layer 1 — standalone sibling planId keys
+    const sibling = _findAnyPopulatedSiblingExcept(currentKey)
+    if (sibling) return sibling
+    // Layer 2 — embedded in spec-history SpecVersion envelopes
+    const embedded = _findPopulatedFrameworkInSpecHistory()
+    if (embedded) return embedded
+    return null
   }
   function adoptSibling(sibling: SiblingFrameworkDiscovery): void {
     if (!sibling || !sibling.framework) return
