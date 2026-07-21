@@ -1835,35 +1835,50 @@ async function exportResourcesSharpen(): Promise<void> {
 
           </ScrollContainer>
 
-          <!-- Footer — three-button export + Done Sharpening -->
+          <!-- Footer — three-button export + Done Sharpening.
+               v527 (2026-07-21) — Tom Gilb: "done sharpening button is dead
+               but close works".  When the Change Review overlay is open,
+               the outer Copy/Email/Download HTML + Done Sharpening buttons
+               were still visible but non-functional (Change Review's own
+               inner footer has its own Back to Interview + Save Version +
+               Integrate → Plan + Export Review pins).  Clicking outer Done
+               Sharpening while Change Review was already open just re-set
+               showChangeReview=true (no-op = felt DEAD).  Fix: hide the
+               interview-context export + Done Sharpening buttons while the
+               Change Review overlay is open.  Close stays visible so the
+               user always has a way out of the whole panel. -->
           <footer class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center gap-2 flex-wrap">
-            <!-- Three-button export group -->
-            <button
-              type="button"
-              class="px-3 py-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-300 font-mono font-semibold text-xs hover:bg-indigo-100 transition
-                     focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              title="[*]=[*] Copy colourful HTML to clipboard — ⌘V to paste into Mail or Keynote"
-              @click="onExportCopy"
-            >[*]=[*] Copy HTML</button>
-            <button
-              type="button"
-              class="px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-300 font-mono font-semibold text-xs hover:bg-amber-100 transition
-                     focus:outline-none focus:ring-2 focus:ring-amber-400"
-              title="[*]---→[*] Email · copies colourful HTML to clipboard + auto-opens Mail to Tom@Gilb.com"
-              @click="onExportEmail"
-            >[*]---→[*] Email</button>
-            <button
-              type="button"
-              class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-300 font-mono font-semibold text-xs hover:bg-slate-200 transition
-                     focus:outline-none focus:ring-2 focus:ring-slate-400"
-              title="*→[*] Download colourful HTML as a standalone .html file"
-              @click="onExportDownload"
-            >*→[*] Download HTML</button>
+            <!-- Three-button export group — hidden during Change Review -->
+            <template v-if="!showChangeReview">
+              <button
+                type="button"
+                class="px-3 py-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-300 font-mono font-semibold text-xs hover:bg-indigo-100 transition
+                       focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                title="[*]=[*] Copy colourful HTML to clipboard — ⌘V to paste into Mail or Keynote"
+                @click="onExportCopy"
+              >[*]=[*] Copy HTML</button>
+              <button
+                type="button"
+                class="px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-300 font-mono font-semibold text-xs hover:bg-amber-100 transition
+                       focus:outline-none focus:ring-2 focus:ring-amber-400"
+                title="[*]---→[*] Email · copies colourful HTML to clipboard + auto-opens Mail to Tom@Gilb.com"
+                @click="onExportEmail"
+              >[*]---→[*] Email</button>
+              <button
+                type="button"
+                class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-300 font-mono font-semibold text-xs hover:bg-slate-200 transition
+                       focus:outline-none focus:ring-2 focus:ring-slate-400"
+                title="*→[*] Download colourful HTML as a standalone .html file"
+                @click="onExportDownload"
+              >*→[*] Download HTML</button>
+            </template>
 
             <div class="flex-1" />
 
-            <!-- Primary CTA: Done Sharpening → Change Review -->
+            <!-- Primary CTA: Done Sharpening → Change Review — hidden while
+                 Change Review is already open (would be a no-op). -->
             <button
+              v-if="!showChangeReview"
               type="button"
               class="px-4 py-2 rounded-lg bg-emerald-600 text-white font-extrabold text-sm shadow hover:bg-emerald-700 transition
                      focus:outline-none focus:ring-2 focus:ring-emerald-400"
