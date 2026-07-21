@@ -183,9 +183,27 @@ const ownerNameInput = ref('')
 
 // v503 (2026-07-21) — Plan Scope Framework overview strip mounted at Stage 1
 // per Tom Gilb "capture these project resources idea at the beginning of the
-// project".  planIdRef derives from planNameInput (empty → 'default' — still
-// persists per-plan, just under a shared key until a name is entered).
-const planScopePlanId = computed(() => (planNameInput.value || '').trim() || 'default')
+// project".
+//
+// v521 (2026-07-21) — ALIGN with ResourcesSharpenPanel's planId fallback.
+// Tom Gilb 2026-07-21 verbatim: "no it was not there. I clicked edit and saw
+// all previous data gone. I started filling out deadline, and it suddenly on
+// its own jumped back to stage 1" + follow-up "no and I input edited deadline
+// and budget, no appearance, but no jump away".  Root cause: SEMEntryForm's
+// planIdRef used `planNameInput || 'default'` while ResourcesSharpenPanel used
+// `props.planId ?? props.spec?.name ?? 'default'` — SpecBlock has NO `.name`
+// field so Stage 10 ALWAYS resolves to 'default'.  When Tom typed / accepted
+// an AI-suggested Plan Name in Stage 1 (e.g. "Biosignature ML Detection
+// Suite"), the two surfaces split: Stage 10 wrote to :default, Stage 1
+// read from :Biosignature ML Detection Suite → empty summary strip even
+// though Stage 10 held populated data.  Fix: SEMEntryForm's Plan Scope
+// planIdRef now ALWAYS uses 'default' too — deterministic alignment.
+// planNameInput remains the Plan Name that will become the spec's name once
+// generated (separate concern from framework scoping).  Once a spec is
+// generated + persisted, both surfaces can migrate to the spec's identifier
+// as a coordinated schema change.  For now: identical resolution + shared
+// module-level cache in usePlanScopeFramework = truly shared state.
+const planScopePlanId = computed(() => 'default')
 function onScopeEditorOpen(section: 'deadline' | 'startEvents' | 'budget'): void {
   // v511b (2026-07-21) — Tom Gilb: "The 3 top edit do not work at all".
   // Fix: bubble the request up to App.vue which navigates to Stage 10 +
