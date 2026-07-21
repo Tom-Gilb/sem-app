@@ -228,6 +228,13 @@ interface ResourcesProposedChange {
   questionText: string
   effectiveText: string
   approved: boolean
+  // v526 — universal Source + Timestamp + Basis attribution (Tom Gilb
+  // 2026-07-21: "all resource stipulations and all estimates the source and
+  // timestamp, and basis were to be noted and kept").
+  source?: string        // 'planner' | 'ai' | 'contract' | 'imported' | 'external' | undefined
+  savedAt?: string       // ISO
+  basisBecause?: string  // planner's "Because" note (why they wrote this)
+  basisSources?: string  // planner's "Sources" note (what they referenced)
 }
 
 /** A saved snapshot version of the sharpening session. */
@@ -273,6 +280,8 @@ const displayedChanges = computed<ResourcesProposedChange[]>(() => {
     for (let qi = 0; qi < dim.questions.length; qi++) {
       const effectiveText = getEffectiveAnswer(dim.id, String(qi), dim.suggestedAnswers?.[qi] ?? [])
       if (effectiveText.trim().length === 0) continue
+      // v526 — pull attribution + basis from the raw QuestionAnswer.
+      const raw = getAnswer(dim.id, String(qi))
       changes.push({
         key: `${dim.id}:${qi}`,
         dimId: dim.id,
@@ -281,6 +290,10 @@ const displayedChanges = computed<ResourcesProposedChange[]>(() => {
         questionText: dim.questions[qi],
         effectiveText,
         approved: false,
+        source:       raw.source,
+        savedAt:      raw.savedAt,
+        basisBecause: raw.because,
+        basisSources: raw.sources,
       })
     }
   }
@@ -1649,6 +1662,33 @@ async function exportResourcesSharpen(): Promise<void> {
                     <div class="px-3 py-2">
                       <p class="text-[11px] font-semibold text-slate-700 mb-1">{{ change.questionText }}</p>
                       <p class="text-xs text-slate-800 whitespace-pre-wrap leading-snug">{{ change.effectiveText }}</p>
+                      <!-- v526 — Source · Timestamp · Basis attribution (Tom Gilb
+                           2026-07-21: "all resource stipulations and all
+                           estimates the source and timestamp, and basis were
+                           to be noted and kept"). -->
+                      <div class="mt-2 pt-2 border-t border-teal-200/60 text-[10px] leading-snug flex flex-wrap gap-x-3 gap-y-1 text-slate-600">
+                        <span>
+                          <span class="uppercase tracking-wider font-semibold text-slate-500">Source:</span>
+                          <span class="ml-1" v-if="change.source === 'planner'">👤 Planner</span>
+                          <span class="ml-1" v-else-if="change.source === 'ai'">🤖 AI</span>
+                          <span class="ml-1" v-else-if="change.source === 'contract'">📝 Contract</span>
+                          <span class="ml-1" v-else-if="change.source === 'imported'">📥 Imported</span>
+                          <span class="ml-1" v-else-if="change.source === 'external'">🌐 External</span>
+                          <span class="ml-1 italic text-slate-400" v-else>❔ undetermined</span>
+                        </span>
+                        <span v-if="change.savedAt">
+                          <span class="uppercase tracking-wider font-semibold text-slate-500">Timestamp:</span>
+                          <span class="ml-1 text-slate-500">{{ new Date(change.savedAt).toLocaleString() }}</span>
+                        </span>
+                        <span v-if="change.basisBecause?.trim()">
+                          <span class="uppercase tracking-wider font-semibold text-slate-500">Basis (Because):</span>
+                          <span class="ml-1 italic text-slate-700">{{ change.basisBecause }}</span>
+                        </span>
+                        <span v-if="change.basisSources?.trim()">
+                          <span class="uppercase tracking-wider font-semibold text-slate-500">Basis (Sources):</span>
+                          <span class="ml-1 italic text-slate-700">{{ change.basisSources }}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

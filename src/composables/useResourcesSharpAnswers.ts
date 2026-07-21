@@ -34,6 +34,21 @@ export type SelectionMode = 'mixed' | 'all' | 'typed-only' | 'ticked-only'
 
 export const DEFAULT_SELECTION_MODE: SelectionMode = 'mixed'
 
+/**
+ * v526 (2026-07-21) — Universal Resources Source + Timestamp + Basis
+ * attribution (Tom Gilb: "on all resource stipulations and all estimates the
+ * source and timestamp, and basis were to be noted and kept").
+ *
+ * Prior to v526, the Estimation interface (v504-v513) had `source`,
+ * `timestamp`, and `reasoning`+`evidenceLinks`+`equation`.  The
+ * QuestionAnswer interface had `because` (basis) and `sources` (free-text
+ * references) but NO `source: SharpAnswerSourceKind` and NO `at: ISO`
+ * timestamp.  The Change Review UI showed neither.  v526 closes the gap
+ * so every Sharpen Answer carries the same triple (source · at · basis)
+ * that every Estimation carries.
+ */
+export type SharpAnswerSourceKind = 'planner' | 'ai' | 'contract' | 'imported' | 'external'
+
 /** Per-question answer record.  All fields have safe defaults. */
 export interface QuestionAnswer {
   /** The Planner's typed answer. */
@@ -50,6 +65,15 @@ export interface QuestionAnswer {
   suggBecause?: Record<number, string>
   /** Per-suggestion planner justification (sparse, keyed by suggestion index). Sources. */
   suggSources?: Record<number, string>
+  // v526 — universal Source + Timestamp attribution (matches Estimation shape).
+  /** Who / what set this answer.  Auto-stamped 'planner' on any mutation
+   *  originating from planner input; 'ai' when only AI suggestions are ticked
+   *  and typed is empty; 'imported' / 'external' / 'contract' reserved for
+   *  future upstream sources. */
+  source?: SharpAnswerSourceKind
+  /** ISO timestamp of the last mutation of this answer (typed, ticked, mode,
+   *  because, sources, or any suggestion-level Because/Sources). */
+  savedAt?: string
 }
 
 /** A storage value can be either a v1 plain string (legacy) or v2 QuestionAnswer. */
@@ -84,7 +108,27 @@ function normaliseStored(v: StoredQuestionValue | undefined): QuestionAnswer {
     sources: typeof v.sources === 'string' ? v.sources : undefined,
     suggBecause: (typeof v.suggBecause === 'object' && v.suggBecause !== null) ? v.suggBecause as Record<number, string> : undefined,
     suggSources: (typeof v.suggSources === 'object' && v.suggSources !== null) ? v.suggSources as Record<number, string> : undefined,
+    // v526 — preserve source + savedAt if the stored blob has them; else undefined
+    source: ['planner', 'ai', 'contract', 'imported', 'external'].includes(v.source as string)
+      ? (v.source as SharpAnswerSourceKind)
+      : undefined,
+    savedAt: typeof v.savedAt === 'string' ? v.savedAt : undefined,
   }
+}
+
+/** v526 — stamp source + savedAt on every mutation.  Called by _mutate below. */
+function _stampAttribution(a: QuestionAnswer): void {
+  a.savedAt = new Date().toISOString()
+  // Determine source: if the planner typed anything OR wrote a Because/Sources
+  // note, the source is 'planner'.  If only AI suggestions are ticked and no
+  // planner content, it's 'ai'.  Absent both = 'planner' (empty is still
+  // planner-initiated).
+  const hasTyped   = a.typed.trim().length > 0
+  const hasWhy     = (a.because ?? '').trim().length > 0 || (a.sources ?? '').trim().length > 0
+  const hasTicked  = a.ticked.length > 0
+  if (hasTyped || hasWhy)         a.source = 'planner'
+  else if (hasTicked)             a.source = 'ai'
+  else                             a.source = 'planner'  // empty edit = planner-initiated
 }
 
 function storageKey(planId: string): string {
@@ -177,11 +221,15 @@ export function useResourcesSharpAnswers(planId: Ref<string>) {
     return normaliseStored(answers.value[categoryId]?.[questionId])
   }
 
-  /** Ensures the (category, question) slot exists, then mutates via callback. */
+  /** Ensures the (category, question) slot exists, then mutates via callback.
+   *  v526 — every mutation ALSO stamps source + savedAt attribution (Tom Gilb
+   *  2026-07-21: "all resource stipulations and all estimates the source and
+   *  timestamp, and basis were to be noted and kept"). */
   function _mutate(categoryId: string, questionId: string, fn: (a: QuestionAnswer) => void): void {
     if (!answers.value[categoryId]) answers.value[categoryId] = {}
     const current = normaliseStored(answers.value[categoryId][questionId])
     fn(current)
+    _stampAttribution(current)
     answers.value[categoryId][questionId] = current
   }
 
