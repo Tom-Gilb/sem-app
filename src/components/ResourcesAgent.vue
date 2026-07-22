@@ -496,6 +496,13 @@ async function loadImportSample(): Promise<void> {
                 title="📤 Export · open preview + copy colourful HTML to clipboard + auto-open Mail (Copy / Mail / Preview in one action).  Snapshot of every active resource with current estimation + budget + differential + status + reasoning + standards + references."
                 @click="exportResourcesReport"
               >📤 Export</button>
+              <!-- v530 (Tom Gilb 2026-07-22) — Unrelated-Actions-Get-Visual-Space
+                   SUPREME.  Export and CloseDot are semantically unrelated:
+                   Export publishes the report; CloseDot dismisses the panel.
+                   Prior placement had them ~gap-2 apart which could read as
+                   "related close-out actions".  Vertical divider + wider gap
+                   makes the semantic separation visible. -->
+              <div class="w-px h-6 bg-slate-300 mx-2" aria-hidden="true" />
               <CloseDot size="lg" aria-label="Close Resources Agent" @click="emit('close')" />
             </div>
           </header>

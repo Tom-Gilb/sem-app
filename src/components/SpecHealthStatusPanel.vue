@@ -320,6 +320,9 @@ function shortLinkLabel(url: string): string {
         aria-label="Export Plan Health — colourful HTML to clipboard, preview window, and Mail"
         @click="onExportPin"
       >📤 Export</button>
+      <!-- v530 — Unrelated-Actions-Get-Visual-Space SUPREME (Tom Gilb 2026-07-22).
+           on-dark variant so slate divider is barely visible; use a lighter one. -->
+      <div class="w-px h-6 bg-white/40 mx-2" aria-hidden="true" />
       <CloseDot variant="on-dark" aria-label="Close Plan Health Status" @click="emit('close')" />
     </div>
 

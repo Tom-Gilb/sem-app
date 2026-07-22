@@ -357,6 +357,8 @@ const sortedRules = computed(() => rules.value.slice().sort((a, b) => a.priority
             title="📤 Export · open preview + copy colourful HTML to clipboard + auto-open Mail (Copy / Mail / Preview in one action)"
             @click="exportRoleRouting"
           >📤 Export</button>
+          <!-- v530 — Unrelated-Actions-Get-Visual-Space SUPREME (Tom Gilb 2026-07-22) -->
+          <div class="w-px h-6 bg-slate-300 mx-2" aria-hidden="true" />
           <CloseDot size="lg" @click="emit('close')" />
         </div>
 
