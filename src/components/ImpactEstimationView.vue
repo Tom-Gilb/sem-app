@@ -35,6 +35,14 @@ import { useExpectedValue } from '../composables/useExpectedValue'
 // v507 — ESTIMATION 6: IET/VDT bound to the 3 central resource estimations +
 // stipulated levels.  A snapshot records with every IET/VDT change.
 import { useIetResourceSnapshot } from '../composables/useIetResourceSnapshot'
+// v532 (Tom Gilb 2026-07-22) — Auto-fire estimation from IET column sums.
+// Tom: "there are estimat in the table but they re not reflected just below
+// in estimates".  IET's Σ $k and Σ Weeks totals ARE the numeric estimates
+// planners entered — but the Estimated row read from useResourceEstimations
+// which nothing had ever populated for capitalCost / calendarTime.  v532
+// closes the loop: on any Σ$k or ΣWeeks change, fire addEstimation() so
+// the Estimated row reflects the IET data live.
+import { useResourceEstimations } from '../composables/useResourceEstimations'
 import { getImpactColour, getVCColour, interpretImpact } from '../utils/impactColour'
 import { extractAllStakeholders, impactLevel } from '../utils/stakeholderExtract'
 import {
@@ -117,6 +125,49 @@ function _scheduleIetSnapshot(reason: string): void {
 watch(impactMatrix, () => _scheduleIetSnapshot('IET impact cell changed'), { deep: true })
 watch(calendarCosts, () => _scheduleIetSnapshot('IET Calendar Time cost changed'), { deep: true })
 watch(capitalCosts, () => _scheduleIetSnapshot('IET Capital cost changed'), { deep: true })
+
+// v532 (Tom Gilb 2026-07-22) — Auto-fire estimation from IET column sums.
+// Watches the SAME totalCapitalCost + totalCalendarCost computeds the hero
+// summary uses; on any change (debounced ~500ms so rapid cell edits coalesce
+// into one event) calls addEstimation() so useResourceEstimations.series's
+// latestAmount reflects the current IET data.  The Estimated row (which
+// reads that latestAmount via useIetResourceSnapshot) then renders the
+// value automatically — same reactive Ref, same live update.
+const { addEstimation } = useResourceEstimations(ietPlanIdRef)
+let _autoEstimateTimer: ReturnType<typeof setTimeout> | null = null
+function _scheduleIetAutoEstimate(): void {
+  if (_autoEstimateTimer) clearTimeout(_autoEstimateTimer)
+  _autoEstimateTimer = setTimeout(() => {
+    _autoEstimateTimer = null
+    // Sum guards: only fire when > 0 (all-zero IET has no data to report).
+    // Sums are computed after this fn is declared; use the same aggregators
+    // inline to avoid forward-reference issues with `computed()`.
+    const capital = props.solutions.reduce((s, sol) => s + (capitalCosts[sol.id] ?? 0), 0)
+    const calendarWeeks = props.solutions.reduce((s, sol) => s + (calendarCosts[sol.id] ?? 0), 0)
+    if (capital > 0) {
+      addEstimation({
+        resource:  'capitalCost',
+        amount:    capital * 1000,  // IET stores $k; series stores raw $
+        currency:  'USD',
+        source:    'planner',
+        causes:    ['manual'],
+        reasoning: `Auto-derived from IET Σ $k column at ${new Date().toLocaleString()} — ${props.solutions.length} solution${props.solutions.length === 1 ? '' : 's'} × per-cell capital cost`,
+      })
+    }
+    if (calendarWeeks > 0) {
+      addEstimation({
+        resource:  'calendarTime',
+        amount:    calendarWeeks * 7,  // IET Weeks column → series days
+        timeUnit:  'days',
+        source:    'planner',
+        causes:    ['manual'],
+        reasoning: `Auto-derived from IET Σ Weeks column at ${new Date().toLocaleString()} — ${props.solutions.length} solution${props.solutions.length === 1 ? '' : 's'} × per-cell weeks`,
+      })
+    }
+  }, 500)
+}
+watch(calendarCosts, _scheduleIetAutoEstimate, { deep: true })
+watch(capitalCosts, _scheduleIetAutoEstimate, { deep: true })
 
 // ── Efficiency calculation ────────────────────────────────────────────────────
 
