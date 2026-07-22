@@ -92,6 +92,11 @@ import { useResourcesEnvelope, type ResourcesEnvelope } from './composables/useR
 // watcher that lives inline further down in the setup body.  Aliased to keep
 // the intent visible at both sites.
 import { useResourcesAgent as _useResourcesAgentForV531Log } from './composables/useResourcesAgent'
+// v533 (Tom Gilb 2026-07-22) — top-level import for the PSF-empty-transition
+// watcher (installed inside onMounted further down).  Diagnostic-only ship
+// per Speculation-Cap-at-Ship-Two SUPREME: read ground truth BEFORE guessing
+// at a fix on the "Stipulated resources disappeared after generation" bug.
+import { usePlanScopeFramework as _usePlanScopeFrameworkForV533Diag } from './composables/usePlanScopeFramework'
 import { loadPlan as _loadEvoPlan, clearLoadedPlan as _clearEvoPlan, resetPlanForLoad as _resetPlanForLoad, useEvoPlan } from './composables/useEvoPlan'
 import { useReplay } from './composables/useReplay'
 import { useProjectDashboard } from './composables/useProjectDashboard'
@@ -3255,6 +3260,32 @@ watch(currentSpec, (spec, prevSpec) => {
       try {
         const err = new Error('currentSpec → null transition (breadcrumb only)')
         const stack = err.stack ?? '(no stack)'
+        // v533 (Tom Gilb 2026-07-22) — Post-generation reset diagnostic.  Extend
+        // the v272/v514 breadcrumb with PSF (Plan Scope Framework) context AND
+        // an enumeration of every `sem-app:plan-scope-framework:v1:*` key
+        // currently in localStorage.  Tom's clue: "same plan + owner CS" across
+        // ~10 tests — if data landed under a legacy planId, this catches it.
+        const psfKeys: Array<{ planId: string; populated: boolean; length: number }> = []
+        try {
+          const prefix = 'sem-app:plan-scope-framework:v1:'
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i)
+            if (!k || !k.startsWith(prefix)) continue
+            const raw = localStorage.getItem(k) ?? ''
+            let populated = false
+            try {
+              const parsed = JSON.parse(raw)
+              populated = !!(parsed && (
+                parsed.deadlineMode !== null ||
+                parsed.hasBudget !== null ||
+                parsed.startPlanningStarted || parsed.startContractSigned ||
+                parsed.startBudgetApproved || parsed.startPlanApproved ||
+                parsed.startStaffReady || parsed.startFirstEvoStepsStarted
+              ))
+            } catch { /* parse-fail = treat as unpopulated */ }
+            psfKeys.push({ planId: k.slice(prefix.length), populated, length: raw.length })
+          }
+        } catch { /* localStorage-off = empty array */ }
         const entry = {
           ts: new Date().toISOString(),
           event: 'currentSpec→null',
@@ -3263,10 +3294,13 @@ watch(currentSpec, (spec, prevSpec) => {
           stackTop16: stack.split('\n').slice(0, 16).join('\n'),
           isLoading: isLoading.value,
           sdkError: sdkError.value,
+          // v533 additions:
+          psfKeysAtTransition: psfKeys,
+          psfPopulatedCount: psfKeys.filter(k => k.populated).length,
         }
-        const w = window as unknown as { _semStateLog?: Array<typeof entry> }
+        const w = window as unknown as { _semStateLog?: Array<Record<string, unknown>> }
         if (!w._semStateLog) w._semStateLog = []
-        w._semStateLog.push(entry)
+        w._semStateLog.push(entry as unknown as Record<string, unknown>)
         if (w._semStateLog.length > 20) w._semStateLog.shift()
         // v514 (2026-07-21) — Tom Gilb: "reverted to the beginning without any input, BUG".
         // Persist the last 20 breadcrumbs to localStorage so we can retro-diagnose
@@ -3289,6 +3323,76 @@ watch(currentSpec, (spec, prevSpec) => {
     // Sharpened spec — update the existing entry in place
     updateDashboardEntry(currentDashboardEntryId.value, spec)
   }
+})
+
+// v533 (Tom Gilb 2026-07-22) — PSF-empty-transition diagnostic.  Watches the
+// Plan Scope Framework's live state; on any populated→empty transition,
+// appends a breadcrumb to the same `sem-state-log-v1` persisted store so
+// Claudian can retro-diagnose after the fact without asking Tom to open
+// DevTools (Do-Not-Outsource-Investigation SUPREME).  Diagnostic-only — no
+// state mutations, no side-effects on the PSF composable itself.
+//
+// Registered inside onMounted() because it references `currentSpec` (declared
+// later in this setup body — same TDZ issue that broke v531 watcher).  A
+// deep watch on the PSF's `state` fires when any nested field mutates; we
+// compare populated-before vs populated-after and only log on the transition.
+const _psfDiagFrameworkRef = _usePlanScopeFrameworkForV533Diag(_resourcesAgentPlanIdRef)
+let _psfDiagLastPopulated = false
+function _isPsfPopulatedForDiag(f: unknown): boolean {
+  const p = f as null | {
+    deadlineMode?: unknown; hasBudget?: unknown;
+    startPlanningStarted?: unknown; startContractSigned?: unknown;
+    startBudgetApproved?: unknown; startPlanApproved?: unknown;
+    startStaffReady?: unknown; startFirstEvoStepsStarted?: unknown;
+    budgetAmounts?: Record<string, number>;
+  }
+  if (!p) return false
+  if (p.deadlineMode !== null && p.deadlineMode !== undefined) return true
+  if (p.hasBudget !== null && p.hasBudget !== undefined) return true
+  if (p.startPlanningStarted || p.startContractSigned || p.startBudgetApproved
+   || p.startPlanApproved || p.startStaffReady || p.startFirstEvoStepsStarted) return true
+  if (p.budgetAmounts) {
+    for (const t of ['total','annual','suggested','contracted','fixed','paidOut']) {
+      const v = (p.budgetAmounts as Record<string, unknown>)[t]
+      if (typeof v === 'number' && v > 0) return true
+    }
+  }
+  return false
+}
+onMounted(() => {
+  // Seed the initial "populated" flag so we don't log a phantom transition
+  // at mount time.
+  _psfDiagLastPopulated = _isPsfPopulatedForDiag(_psfDiagFrameworkRef.state.value)
+  watch(
+    () => _psfDiagFrameworkRef.state.value,
+    (next) => {
+      const nowPopulated = _isPsfPopulatedForDiag(next)
+      // Populated → empty transition = the exact "disappeared" signal.
+      if (_psfDiagLastPopulated && !nowPopulated) {
+        try {
+          const err = new Error('PSF populated → empty transition (breadcrumb only)')
+          const stack = err.stack ?? '(no stack)'
+          const entry = {
+            ts: new Date().toISOString(),
+            event: 'PSF→empty',
+            planIdAtTransition: _resourcesAgentPlanIdRef.value,
+            currentSpecPresent: !!currentSpec.value,
+            currentSpecName: currentSpec.value?.plan?.name ?? '(none)',
+            planningStageAtTransition: planningStage.value,
+            stackTop16: stack.split('\n').slice(0, 16).join('\n'),
+          }
+          const w = window as unknown as { _semStateLog?: Array<Record<string, unknown>> }
+          if (!w._semStateLog) w._semStateLog = []
+          w._semStateLog.push(entry as unknown as Record<string, unknown>)
+          if (w._semStateLog.length > 20) w._semStateLog.shift()
+          try { localStorage.setItem('sem-state-log-v1', JSON.stringify(w._semStateLog)) } catch { /* quota */ }
+          console.warn('[sem:state] PSF populated → empty', entry)
+        } catch { /* noop */ }
+      }
+      _psfDiagLastPopulated = nowPopulated
+    },
+    { deep: true },
+  )
 })
 
 // --- Feature #51: Spec Collaboration Conflict Detector ---

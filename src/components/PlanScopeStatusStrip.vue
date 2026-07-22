@@ -121,16 +121,58 @@ function _refreshRawInspector(): void {
     const planId = props.planIdRef ?? '<no plan-id-ref>'
     const key = `sem-app:plan-scope-framework:v1:${planId}`
     const raw = localStorage.getItem(key) ?? '(no value)'
-    const allKeys: string[] = []
+    // v533 (2026-07-22) — enrich per-planId view with populated flag + size.
+    const allKeyDetails: Array<{ planId: string; populated: boolean; length: number }> = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
-      if (k && k.startsWith('sem-app:plan-scope-framework:v1:')) allKeys.push(k.slice('sem-app:plan-scope-framework:v1:'.length))
+      if (!k || !k.startsWith('sem-app:plan-scope-framework:v1:')) continue
+      const kRaw = localStorage.getItem(k) ?? ''
+      let populated = false
+      try {
+        const parsed = JSON.parse(kRaw)
+        populated = !!(parsed && (
+          parsed.deadlineMode !== null ||
+          parsed.hasBudget !== null ||
+          parsed.startPlanningStarted || parsed.startContractSigned ||
+          parsed.startBudgetApproved || parsed.startPlanApproved ||
+          parsed.startStaffReady || parsed.startFirstEvoStepsStarted
+        ))
+      } catch { /* corrupt */ }
+      allKeyDetails.push({ planId: k.slice('sem-app:plan-scope-framework:v1:'.length), populated, length: kRaw.length })
     }
+    const keyList = allKeyDetails.length === 0
+      ? '(none)'
+      : '\n' + allKeyDetails.map(d => `  · "${d.planId}" (${d.populated ? '● populated' : '○ empty'}, ${d.length}B)`).join('\n')
+
+    // v533 — surface the last few state-log breadcrumbs so Tom can
+    // screenshot the actual reset stack trace in ONE shot.
+    let stateLogSummary = '(no state-log entries)'
+    try {
+      const logRaw = localStorage.getItem('sem-state-log-v1')
+      if (logRaw) {
+        const parsed = JSON.parse(logRaw) as Array<Record<string, unknown>>
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const last5 = parsed.slice(-5).reverse()  // newest-first
+          stateLogSummary = '\n' + last5.map((e, i) => {
+            const ts = String(e.ts ?? '?').slice(11, 19)  // HH:MM:SS
+            const event = String(e.event ?? '?')
+            const stage = e.planningStageAtTransition ?? '?'
+            const psfCount = e.psfPopulatedCount ?? '?'
+            const stackTop = String(e.stackTop16 ?? '').split('\n').slice(1, 3).join(' · ').slice(0, 200)
+            return `  ${i + 1}. [${ts}] ${event} · stage=${stage} · psfPopulated=${psfCount}\n     ${stackTop || '(no stack)'}`
+          }).join('\n')
+        }
+      }
+    } catch (e) {
+      stateLogSummary = `(state-log read error: ${(e as Error).message})`
+    }
+
     rawInspectorContent.value =
       `planId="${planId}"\n` +
       `key="${key}"\n` +
       `stored=${raw.length > 400 ? raw.slice(0, 400) + '…' : raw}\n` +
-      `all framework planIds in localStorage: [${allKeys.join(', ')}]`
+      `all framework planIds in localStorage:${keyList}\n\n` +
+      `── recent state-log entries (last 5, newest first) ──${stateLogSummary}`
   } catch (e) {
     rawInspectorContent.value = `inspector error: ${(e as Error).message}`
   }
