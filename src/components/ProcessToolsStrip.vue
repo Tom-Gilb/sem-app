@@ -411,7 +411,7 @@ const emit = defineEmits<{
       <button
         type="button"
         aria-label="Open Resources agent"
-        :title="`📐 Resources — Central estimation agent · every Value + every Solution implies resource cost · settings · standards · currency · extrapolation · per-resource Sharpening.  ${props.resourceImplyingCount && props.resourceImplyingCount > 0 ? `Currently ${props.resourceImplyingCount} Value+Solution entr${props.resourceImplyingCount === 1 ? 'y' : 'ies'} imply resource estimation.  ` : ''}Opens the Resources Agent panel.`"
+        :title="`📐 Resources — Central estimation agent · every Value + every Solution implies resource cost · settings · standards · currency · extrapolation · per-resource Sharpening.  ${props.resourceImplyingCount && props.resourceImplyingCount > 0 ? `${props.resourceImplyingCount} entr${props.resourceImplyingCount === 1 ? 'y' : 'ies'} in the current spec imply resource cost — no numeric estimation events yet.  Click to enter estimates.  ` : ''}Opens the Resources Agent panel.`"
         class="relative h-10 flex flex-col items-center justify-center gap-0.5 px-2 rounded-lg
                transition-all focus:outline-none focus:ring-2 focus:ring-indigo-300
                bg-indigo-500/85 text-indigo-50 hover:bg-indigo-500"

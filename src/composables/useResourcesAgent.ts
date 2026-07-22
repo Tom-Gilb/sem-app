@@ -132,6 +132,22 @@ export interface ResourcesAgentSettings {
   debiasing: DebiasingConfig
   /** Free-text notes / methodology narrative. */
   notes: string
+  /** v531 (Tom Gilb 2026-07-22) — implying-activity log.  Each entry records
+   *  WHEN a Value / Solution / Constraint was added to the spec (source of
+   *  future numeric estimation obligation).  Persisted per plan.  Renders as
+   *  a small timeline in the Agent's new "Entries implying resource cost"
+   *  section (v531 A + D).  Capped at 200 entries; older entries dropped. */
+  implyingActivity: ImplyingActivityEntry[]
+}
+
+/** v531 — one entry in the implying-activity log. */
+export interface ImplyingActivityEntry {
+  /** ISO timestamp of when the entry was appended. */
+  ts: string
+  /** The kind of Planguage entry that was added. */
+  kind: 'value' | 'solution' | 'constraint'
+  /** The Tag or short label of the entry (for display in the timeline). */
+  name: string
 }
 
 function defaultSettings(): ResourcesAgentSettings {
@@ -153,6 +169,7 @@ function defaultSettings(): ResourcesAgentSettings {
     extrapolationMethod: 'linear-regression',
     debiasing:           defaultDebiasingConfig(),
     notes:               '',
+    implyingActivity:    [],  // v531
   }
 }
 
@@ -486,6 +503,32 @@ export function useResourcesAgent(
         ? s.activeStandardIds.filter(x => x !== id)
         : [...s.activeStandardIds, id],
     }
+  }
+
+  /** v531 — Append an implying-activity log entry (Tom Gilb 2026-07-22:
+   *  "at least enumerate the values and costs and say they have begun to
+   *  consume resources").  Silent idempotency: identical (kind, name) added
+   *  within the last 3 seconds is dropped to avoid double-log during rapid
+   *  reactive fires.  Capped at 200 entries; older entries drop off the
+   *  front. */
+  function logImplyingActivity(kind: ImplyingActivityEntry['kind'], name: string): void {
+    const now = Date.now()
+    const s = settings.value
+    const list = s.implyingActivity ?? []
+    // Idempotency guard — same kind+name within 3s = skip
+    const last = list[list.length - 1]
+    if (last && last.kind === kind && last.name === name && (now - new Date(last.ts).getTime()) < 3000) return
+    const next = [
+      ...list,
+      { ts: new Date(now).toISOString(), kind, name },
+    ]
+    // Cap at 200
+    settings.value = { ...s, implyingActivity: next.length > 200 ? next.slice(next.length - 200) : next }
+  }
+
+  /** v531 — Reactive read-only view of the log, newest-last. */
+  function getImplyingActivity(): ImplyingActivityEntry[] {
+    return settings.value.implyingActivity ?? []
   }
 
   function toggleResourceActive(r: EstimatableResource): void {
@@ -889,6 +932,9 @@ export function useResourcesAgent(
     // v513 — AI Sharpening + Import
     buildSharpenPrompt,
     parseImportText,
+    // v531 — Implying-activity log (Tom Gilb 2026-07-22)
+    logImplyingActivity,
+    getImplyingActivity,
     // v514 — envelope round-trip
     getSnapshot: (): ResourcesAgentSettings => JSON.parse(JSON.stringify(settings.value)),
     hydrateFromSnapshot: (snap: ResourcesAgentSettings): void => {

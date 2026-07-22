@@ -75,6 +75,11 @@ import type { Ref, ComputedRef } from 'vue'
 const props = defineProps<{
   open: boolean
   planIdRef: Ref<string> | ComputedRef<string>
+  // v531 (Tom Gilb 2026-07-22) — currentSpec passed so the Agent can
+  // enumerate Values / Solutions / Constraints that IMPLY resource cost
+  // without waiting for numeric estimates.  Optional — panel renders
+  // graceful empty state when spec is null.
+  spec?: unknown  // SpecBlock | null — kept `unknown` to avoid type imports for the read-only enumeration path
 }>()
 
 const emit = defineEmits<{
@@ -128,6 +133,77 @@ function formatDifferential(pct: number | null): string {
   if (pct == null) return '—'
   if (!Number.isFinite(pct)) return '∞% over'
   return `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`
+}
+
+// ── v531 (Tom Gilb 2026-07-22) — Entries implying resource cost ─────────────
+// Tom: "at least enumerate the values and costs and say they have begun to
+// consume resources".  Live-derived from the currentSpec prop (A).  Timeline
+// (D) comes from useResourcesAgent's implyingActivity log — App.vue watches
+// the spec's V/S/C lengths and pushes an entry on every increase.
+
+interface ImplyingChip {
+  kind: 'value' | 'solution' | 'constraint'
+  name: string
+  chipClass: string
+}
+
+const implyingCounts = computed(() => {
+  const s = (props.spec ?? null) as null | {
+    values?: Array<unknown>
+    solutions?: Array<unknown>
+    constraints?: Array<unknown>
+  }
+  return {
+    values:      s?.values?.length      ?? 0,
+    solutions:   s?.solutions?.length   ?? 0,
+    constraints: s?.constraints?.length ?? 0,
+    total:       (s?.values?.length ?? 0) + (s?.solutions?.length ?? 0) + (s?.constraints?.length ?? 0),
+  }
+})
+
+const implyingChips = computed<ImplyingChip[]>(() => {
+  const s = (props.spec ?? null) as null | {
+    values?:      Array<{ tag?: string; description?: string }>
+    solutions?:   Array<{ tag?: string; description?: string }>
+    constraints?: Array<{ tag?: string; description?: string }>
+  }
+  const out: ImplyingChip[] = []
+  for (const v of s?.values ?? []) {
+    out.push({ kind: 'value', name: v.tag ?? v.description?.slice(0, 40) ?? '(unnamed Value)', chipClass: 'bg-violet-100 text-violet-800 border-violet-300' })
+  }
+  for (const so of s?.solutions ?? []) {
+    out.push({ kind: 'solution', name: so.tag ?? so.description?.slice(0, 40) ?? '(unnamed Solution)', chipClass: 'bg-orange-100 text-orange-800 border-orange-300' })
+  }
+  for (const c of s?.constraints ?? []) {
+    out.push({ kind: 'constraint', name: c.tag ?? c.description?.slice(0, 40) ?? '(unnamed Constraint)', chipClass: 'bg-rose-100 text-rose-800 border-rose-300' })
+  }
+  return out
+})
+
+/** v531 — Reactive timeline of the implying-activity log (newest-last).
+ *  Read from useResourcesAgent's settings.implyingActivity; the App.vue
+ *  watcher appends entries on any V/S/C count-increase. */
+const implyingTimeline = computed(() => {
+  return (agent.settings.value.implyingActivity ?? []).slice().reverse()  // newest-first
+})
+
+function copyImplyingList(): void {
+  const lines = implyingChips.value.map(c => `${c.kind.toUpperCase()}: ${c.name}`)
+  const header = `Entries implying resource cost (${implyingCounts.value.total}) — snapshot ${new Date().toLocaleString()}`
+  const text = [header, '', ...lines].join('\n')
+  try {
+    navigator.clipboard.writeText(text)
+  } catch { /* older browsers: no fallback needed for this small utility */ }
+}
+
+function implyingTimeAgo(iso: string): string {
+  try {
+    const diffS = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+    if (diffS < 60) return `${diffS}s ago`
+    if (diffS < 3600) return `${Math.floor(diffS / 60)}m ago`
+    if (diffS < 86400) return `${Math.floor(diffS / 3600)}h ago`
+    return `${Math.floor(diffS / 86400)}d ago`
+  } catch { return '' }
 }
 
 // ── Export — v529 (Tom Gilb 2026-07-22) ─────────────────────────────────────
@@ -520,6 +596,91 @@ async function loadImportSample(): Promise<void> {
                 this hub — you drive it from here.
               </p>
             </div>
+
+            <!-- v531 — Entries implying resource cost (Tom Gilb 2026-07-22).
+                 Enumerates Values / Solutions / Constraints currently in the
+                 spec + a timeline of when they were added.  These entries
+                 imply resource cost — no numeric estimation events yet;
+                 planner uses "Sharpen with AI" on any resource card below
+                 OR adds an estimation directly to work through the numbers. -->
+            <section
+              aria-labelledby="implying-h"
+              class="rounded-xl border-2 border-indigo-300 bg-indigo-50/40 p-4 space-y-3"
+            >
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 id="implying-h" class="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-800">
+                  Entries implying resource cost
+                </h3>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-white bg-indigo-700 rounded-full px-2 py-0.5">
+                  {{ implyingCounts.total }} total
+                </span>
+                <span class="text-[10px] text-indigo-700/80">
+                  · {{ implyingCounts.values }} Value{{ implyingCounts.values === 1 ? '' : 's' }}
+                  · {{ implyingCounts.solutions }} Solution{{ implyingCounts.solutions === 1 ? '' : 's' }}
+                  · {{ implyingCounts.constraints }} Constraint{{ implyingCounts.constraints === 1 ? '' : 's' }}
+                </span>
+                <div class="flex-1" />
+                <!-- v530 Unrelated-Actions-Get-Visual-Space: Copy is a
+                     content-action, no dismiss adjacent → no divider needed;
+                     Copy button stands alone in this cluster. -->
+                <button
+                  v-if="implyingChips.length > 0"
+                  type="button"
+                  class="px-2.5 py-1 rounded-md bg-white text-indigo-800 text-[11px] font-semibold border border-indigo-300 hover:bg-indigo-100 shrink-0"
+                  title="📎 Copy the enumerated list to clipboard (plain text: KIND: name — one per line)"
+                  @click="copyImplyingList"
+                >📎 Copy list</button>
+              </div>
+
+              <p
+                v-if="implyingCounts.total === 0"
+                class="text-[12px] text-indigo-700/80 italic"
+              >
+                No Values, Solutions, or Constraints in the current spec yet — add some at Stage 1–5 and they'll appear here.
+              </p>
+              <p
+                v-else
+                class="text-[12px] text-indigo-800/90"
+              >
+                These <b>{{ implyingCounts.total }}</b> entr{{ implyingCounts.total === 1 ? 'y' : 'ies' }} imply resource cost — no numeric estimation events yet.  Click <b>🔍 Sharpen with AI</b> on any resource card below to work through the numbers, or add an estimation directly on the resource's Time-series section.
+              </p>
+
+              <!-- Chip list (A) -->
+              <div v-if="implyingChips.length > 0" class="flex flex-wrap gap-1.5">
+                <span
+                  v-for="(chip, i) in implyingChips"
+                  :key="`${chip.kind}-${i}-${chip.name}`"
+                  :class="chip.chipClass"
+                  class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold"
+                  :title="`${chip.kind}: ${chip.name} — implies resource cost`"
+                >
+                  <span class="text-[9px] uppercase tracking-wider opacity-70">{{ chip.kind }}</span>
+                  <span>{{ chip.name }}</span>
+                </span>
+              </div>
+
+              <!-- Timeline (D) — activity log from useResourcesAgent -->
+              <details v-if="implyingTimeline.length > 0" class="text-[11px] text-indigo-800/90">
+                <summary class="cursor-pointer font-semibold hover:text-indigo-900">
+                  Activity timeline · {{ implyingTimeline.length }} event{{ implyingTimeline.length === 1 ? '' : 's' }} logged
+                </summary>
+                <ul class="mt-2 ml-4 space-y-1 list-disc list-inside">
+                  <li
+                    v-for="(e, i) in implyingTimeline.slice(0, 20)"
+                    :key="`${e.ts}-${i}`"
+                    class="leading-snug"
+                  >
+                    <span class="uppercase text-[9px] font-bold tracking-wider text-indigo-600">{{ e.kind }}</span>
+                    <span class="ml-1">"{{ e.name }}"</span>
+                    <span class="ml-2 text-indigo-500/80">— {{ implyingTimeAgo(e.ts) }}</span>
+                  </li>
+                  <li
+                    v-if="implyingTimeline.length > 20"
+                    class="italic text-indigo-500/80 list-none"
+                  >(+{{ implyingTimeline.length - 20 }} older events not shown)</li>
+                </ul>
+              </details>
+            </section>
 
             <!-- 2. Overview grid -->
             <section aria-labelledby="overview-h">

@@ -88,6 +88,10 @@ import { useSpecHistory, type SpecVersion } from './composables/useSpecHistory'
 // all running estimation data is saved and restored with any version of the
 // spec?" — the answer is YES from v514 forward.
 import { useResourcesEnvelope, type ResourcesEnvelope } from './composables/useResourcesEnvelope'
+// v531 (Tom Gilb 2026-07-22) — top-level import for the implying-activity log
+// watcher that lives inline further down in the setup body.  Aliased to keep
+// the intent visible at both sites.
+import { useResourcesAgent as _useResourcesAgentForV531Log } from './composables/useResourcesAgent'
 import { loadPlan as _loadEvoPlan, clearLoadedPlan as _clearEvoPlan, resetPlanForLoad as _resetPlanForLoad, useEvoPlan } from './composables/useEvoPlan'
 import { useReplay } from './composables/useReplay'
 import { useProjectDashboard } from './composables/useProjectDashboard'
@@ -576,6 +580,68 @@ const _resourcesAgentPlanIdRef = computed(() => (currentSpec.value as { name?: s
 // state on every SpecVersion save; hydrateEnvelope() restores on SpecVersion
 // load.  Also drives spec-export appendix + spec-import extraction.
 const _resourcesEnvelope = useResourcesEnvelope(_resourcesAgentPlanIdRef)
+
+// v531 (Tom Gilb 2026-07-22) — Implying-activity log: on any V/S/C added,
+// push an entry so the Resources Agent's timeline shows WHEN estimation-
+// implying entries appeared.  (Composable imported at top of App.vue; this
+// block wires the watcher.)
+const _resourcesAgentForLog = _useResourcesAgentForV531Log(_resourcesAgentPlanIdRef)
+let _prevImplyingCounts = { values: 0, solutions: 0, constraints: 0 }
+// v531 — the watcher body references `currentSpec` which is declared much
+// later in this setup (line ~3138 customRef).  Watchers with a source
+// function are EAGER (Vue invokes them once immediately to establish
+// dependencies) — direct reference here would TDZ.  Registering the watcher
+// from onMounted() defers dependency resolution until every ref is settled.
+onMounted(() => {
+  watch(
+    () => ({
+      values:      (currentSpec.value?.values      ?? []).length,
+      solutions:   (currentSpec.value?.solutions   ?? []).length,
+      constraints: (currentSpec.value?.constraints ?? []).length,
+    }),
+    (curr) => {
+      const spec = currentSpec.value
+      if (!spec) return
+      // Values
+      if (curr.values > _prevImplyingCounts.values) {
+        const newlyAdded = (spec.values ?? []).slice(_prevImplyingCounts.values)
+        for (const v of newlyAdded) {
+          const name = (v as { tag?: string; description?: string }).tag
+                    ?? (v as { description?: string }).description?.slice(0, 40)
+                    ?? '(unnamed Value)'
+          _resourcesAgentForLog.logImplyingActivity('value', name)
+        }
+      }
+      if (curr.solutions > _prevImplyingCounts.solutions) {
+        const newlyAdded = (spec.solutions ?? []).slice(_prevImplyingCounts.solutions)
+        for (const s of newlyAdded) {
+          const name = (s as { tag?: string; description?: string }).tag
+                    ?? (s as { description?: string }).description?.slice(0, 40)
+                    ?? '(unnamed Solution)'
+          _resourcesAgentForLog.logImplyingActivity('solution', name)
+        }
+      }
+      if (curr.constraints > _prevImplyingCounts.constraints) {
+        const newlyAdded = (spec.constraints ?? []).slice(_prevImplyingCounts.constraints)
+        for (const c of newlyAdded) {
+          const name = (c as { tag?: string; description?: string }).tag
+                    ?? (c as { description?: string }).description?.slice(0, 40)
+                    ?? '(unnamed Constraint)'
+          _resourcesAgentForLog.logImplyingActivity('constraint', name)
+        }
+      }
+      _prevImplyingCounts = curr
+    },
+    { deep: false, immediate: false },
+  )
+  // Seed the counter with current lengths so the first legitimate additions
+  // trigger cleanly (not phantom "N added" events on mount).
+  _prevImplyingCounts = {
+    values:      (currentSpec.value?.values      ?? []).length,
+    solutions:   (currentSpec.value?.solutions   ?? []).length,
+    constraints: (currentSpec.value?.constraints ?? []).length,
+  }
+})
 
 // v511b (2026-07-21) — Tom Gilb: "The 3 top edit do not work at all".  The
 // Plan Scope Framework strip's Edit buttons now navigate to Stage 10 +
@@ -15347,6 +15413,7 @@ function handleApertureLoadPlan(model: PlanModel): void {
     <ResourcesAgent
       :open="resourcesAgentOpen"
       :plan-id-ref="_resourcesAgentPlanIdRef"
+      :spec="currentSpec"
       @close="resourcesAgentOpen = false"
       @open-sharpening="(r) => { /* v513: Agent now opens the SharpeningDialog internally per resource; this emit stays for back-compat but is not fired by default */ }"
     />
